@@ -6,9 +6,10 @@ data class AppConfig(
     val supabaseUrl: String,
     val supabaseAnonKey: String,
     val apiBaseUrl: String,
+    val googleWebClientId: String,
 ) {
     val isComplete: Boolean =
-        supabaseUrl.isNotBlank() && supabaseAnonKey.isNotBlank() && apiBaseUrl.isNotBlank()
+        supabaseUrl.isNotBlank() && supabaseAnonKey.isNotBlank() && apiBaseUrl.isNotBlank() && googleWebClientId.isNotBlank()
 }
 
 fun loadAppConfig(): AppConfig =
@@ -16,4 +17,5 @@ fun loadAppConfig(): AppConfig =
         supabaseUrl = BuildConfig.SUPABASE_URL,
         supabaseAnonKey = BuildConfig.SUPABASE_ANON_KEY,
         apiBaseUrl = BuildConfig.API_BASE_URL,
+        googleWebClientId = BuildConfig.GOOGLE_WEB_CLIENT_ID,
     )

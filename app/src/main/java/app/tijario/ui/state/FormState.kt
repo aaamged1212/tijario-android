@@ -50,27 +50,28 @@ data class CustomerFormState(
 }
 
 data class DocumentFormState(
+    val customerId: String? = null,
     val customerName: String = "",
     val customerWhatsapp: String = "",
+    val productId: String? = null,
     val itemName: String = "",
     val quantity: String = "1",
-    val unitPrice: String = "",
+    val unitPrice: String = "0",
     val discount: String = "0",
     val extraFees: String = "0",
     val notes: String = "",
     val terms: String = "",
 ) {
     val customerNameError: String? get() = Validation.required(customerName, "اسم العميل")
-    val customerWhatsappError: String? get() = Validation.whatsapp(customerWhatsapp)
     val itemNameError: String? get() = Validation.required(itemName, "اسم البند")
     val quantityError: String? get() = Validation.positiveInt(quantity, "الكمية")
     val unitPriceError: String? get() = Validation.nonNegativeMoney(unitPrice, "سعر الوحدة")
     val discountError: String? get() = Validation.nonNegativeMoney(discount, "الخصم")
     val extraFeesError: String? get() = Validation.nonNegativeMoney(extraFees, "الرسوم الإضافية")
     val canSubmit: Boolean get() =
-        customerNameError == null &&
-            customerWhatsappError == null &&
-            itemNameError == null &&
+        customerId != null &&
+            customerName.isNotEmpty() &&
+            itemName.isNotEmpty() &&
             quantityError == null &&
             unitPriceError == null &&
             discountError == null &&
@@ -98,4 +99,16 @@ data class AiCaptionFormState(
 ) {
     val productOrServiceError: String? get() = Validation.required(productOrService, "المنتج أو الخدمة")
     val canSubmit: Boolean get() = productOrServiceError == null
+}
+
+data class ProductFormState(
+    val name: String = "",
+    val description: String = "",
+    val price: String = "",
+    val kind: app.tijario.data.model.ProductKind = app.tijario.data.model.ProductKind.Product,
+    val currency: String = "SAR",
+) {
+    val nameError: String? get() = Validation.required(name, "الاسم")
+    val priceError: String? get() = Validation.nonNegativeMoney(price, "السعر")
+    val canSubmit: Boolean get() = nameError == null && priceError == null
 }

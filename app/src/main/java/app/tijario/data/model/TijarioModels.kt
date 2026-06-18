@@ -5,12 +5,14 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class BusinessSettings(
-    val id: String,
+    val id: String? = null,
+    @SerialName("user_id") val userId: String? = null,
     @SerialName("business_name") val businessName: String,
     @SerialName("whatsapp_number") val whatsappNumber: String,
     val country: String,
     val city: String? = null,
     val currency: String = "SAR",
+    @SerialName("logo_url") val logoUrl: String? = null,
     @SerialName("instagram_url") val instagramUrl: String? = null,
     @SerialName("invoice_note") val invoiceNote: String? = null,
     @SerialName("terms_text") val termsText: String? = null,
@@ -18,7 +20,8 @@ data class BusinessSettings(
 
 @Serializable
 data class Customer(
-    val id: String,
+    val id: String? = null,
+    @SerialName("user_id") val userId: String? = null,
     val name: String,
     @SerialName("whatsapp_number") val whatsappNumber: String,
     val city: String? = null,
@@ -27,7 +30,8 @@ data class Customer(
 
 @Serializable
 data class Product(
-    val id: String,
+    val id: String? = null,
+    @SerialName("user_id") val userId: String? = null,
     val kind: ProductKind,
     val name: String,
     val description: String? = null,
@@ -44,12 +48,13 @@ enum class ProductKind {
 @Serializable
 data class DocumentSummary(
     val id: String,
+    @SerialName("customer_id") val customerId: String,
     val type: DocumentType,
     @SerialName("document_number") val documentNumber: String,
     val status: String,
     @SerialName("payment_status") val paymentStatus: String? = null,
     @SerialName("issue_date") val issueDate: String,
-    val total: String,
+    val total: Double,
     val currency: String,
 )
 
