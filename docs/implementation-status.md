@@ -41,3 +41,11 @@ The project is being converted from documentation-only initialization into an An
 - Added `BackendApiClient` for authenticated HTTPS calls to mobile backend endpoints.
 - Added document and AI repositories that keep privileged operations server-side.
 - Preserved the rule that Android only sends a Supabase access token and never stores backend provider secrets.
+
+## Milestone 3 Output
+
+- Added reusable Arabic-first Compose components for page layout, cards, and fields.
+- Added validation helpers for required fields, email, password, WhatsApp numbers, quantities, and money values.
+- Added native screen flows for login, registration, forgot password, onboarding, business settings, customer form, quote form, and invoice form.
+- Connected the new screens into Navigation Compose and hid bottom navigation from auth/onboarding flows.
+- Kept save/submit actions disabled where backend integration is not yet wired, avoiding false completion claims.

@@ -49,6 +49,7 @@ Medium. The Android client can be built independently, but true end-to-end compl
 - Milestone 1 started on `feature/native-mvp-foundation`.
 - Android foundation files added: Gradle Kotlin DSL, app module, Compose theme, RTL shell, root navigation, MVP screen surfaces, data models, API contracts, and live documentation.
 - Milestone 2 started: secure backend API client and repositories added for document, PDF, AI Reply, and AI Caption calls.
+- Milestone 3 started: auth/onboarding/customer/business/document form surfaces and validation added, with Navigation Compose routes connected.
 
 ## Incomplete Milestones
 
@@ -63,4 +64,4 @@ Medium. The Android client can be built independently, but true end-to-end compl
 
 ## Next Autonomous Action
 
-Generate or install a trusted Gradle wrapper and Android SDK when available, then run the first compile pass and repair build errors.
+Continue independent UI/data work while toolchain setup remains blocked, then run the first compile pass and repair build errors as soon as Gradle wrapper and Android SDK are available.

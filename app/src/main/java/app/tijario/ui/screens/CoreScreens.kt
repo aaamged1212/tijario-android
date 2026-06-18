@@ -34,32 +34,44 @@ fun ConfigurationRequiredScreen() {
 }
 
 @Composable
-fun DashboardScreen() {
+fun DashboardScreen(
+    onNewQuote: () -> Unit,
+    onNewInvoice: () -> Unit,
+    onCustomers: () -> Unit,
+    onAiTools: () -> Unit,
+    onBusinessSettings: () -> Unit,
+) {
     ScreenSurface {
         SectionTitle(
             title = "تجاري",
             subtitle = "لوحة تحكم Native لإدارة العملاء، العروض، الفواتير، وأدوات الذكاء الاصطناعي.",
         )
-        val actions = listOf("إنشاء عرض سعر", "إنشاء فاتورة", "إضافة عميل", "أدوات AI")
+        val actions = listOf(
+            "إنشاء عرض سعر" to onNewQuote,
+            "إنشاء فاتورة" to onNewInvoice,
+            "العملاء" to onCustomers,
+            "أدوات AI" to onAiTools,
+            "إعدادات المتجر" to onBusinessSettings,
+        )
         LazyColumn(
             verticalArrangement = Arrangement.spacedBy(12.dp),
             contentPadding = PaddingValues(vertical = 8.dp),
         ) {
-            items(actions) { action ->
-                InfoCard(title = action, body = "سيتم ربط هذا الإجراء بتدفقه الكامل ضمن مراحل التنفيذ التالية.")
+            items(actions) { (title, action) ->
+                ActionCard(title = title, body = "افتح تدفق $title.", onClick = action)
             }
         }
     }
 }
 
 @Composable
-fun CustomersScreen() {
+fun CustomersScreen(onCreateCustomer: () -> Unit) {
     ScreenSurface {
         SectionTitle(
             title = "العملاء",
             subtitle = "إدارة العملاء ستستخدم RLS الحالي في جدول customers.",
         )
-        Button(onClick = {}) {
+        Button(onClick = onCreateCustomer) {
             Text("إضافة عميل")
         }
         InfoCard("حالة التنفيذ", "قائمة العملاء ونماذج الإضافة والتعديل والحذف في المرحلة القادمة.")
@@ -67,16 +79,19 @@ fun CustomersScreen() {
 }
 
 @Composable
-fun DocumentsScreen() {
+fun DocumentsScreen(
+    onNewQuote: () -> Unit,
+    onNewInvoice: () -> Unit,
+) {
     ScreenSurface {
         SectionTitle(
             title = "المستندات",
             subtitle = "العروض والفواتير ستقرأ من Supabase، والإنشاء وPDF عبر API آمن.",
         )
-        OutlinedButton(onClick = {}) {
+        OutlinedButton(onClick = onNewQuote) {
             Text("إنشاء عرض سعر")
         }
-        OutlinedButton(onClick = {}) {
+        OutlinedButton(onClick = onNewInvoice) {
             Text("إنشاء فاتورة")
         }
         InfoCard("حد أمني", "الترقيم، الإجماليات، وحدود الاستخدام لا يتم حسابها داخل Android.")
@@ -140,6 +155,23 @@ private fun InfoCard(title: String, body: String) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun ActionCard(title: String, body: String, onClick: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        onClick = onClick,
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
