@@ -9,28 +9,26 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.unit.dp
-import app.tijario.domain.Validation
 import app.tijario.ui.components.TijarioCard
 import app.tijario.ui.components.TijarioPage
 import app.tijario.ui.components.TijarioTextField
+import app.tijario.ui.state.BusinessSettingsFormState
+import app.tijario.ui.state.CustomerFormState
+import app.tijario.ui.state.DocumentFormState
 
 @Composable
 fun CustomerFormScreen(onBack: () -> Unit) {
-    var name by remember { mutableStateOf("") }
-    var whatsapp by remember { mutableStateOf("") }
-    var city by remember { mutableStateOf("") }
-    var notes by remember { mutableStateOf("") }
+    var form by remember { mutableStateOf(CustomerFormState()) }
 
     TijarioPage(
         title = "إضافة عميل",
         subtitle = "يحفظ العميل في جدول customers تحت RLS المستخدم الحالي.",
     ) {
-        TijarioTextField("اسم العميل", name, { name = it }, error = Validation.required(name, "اسم العميل"))
-        TijarioTextField("رقم واتساب", whatsapp, { whatsapp = it }, error = Validation.whatsapp(whatsapp))
-        TijarioTextField("المدينة", city, { city = it }, error = null)
-        TijarioTextField("ملاحظات", notes, { notes = it }, error = null, singleLine = false)
-        Button(onClick = {}, enabled = false) {
+        TijarioTextField("اسم العميل", form.name, { form = form.copy(name = it) }, error = form.nameError)
+        TijarioTextField("رقم واتساب", form.whatsapp, { form = form.copy(whatsapp = it) }, error = form.whatsappError)
+        TijarioTextField("المدينة", form.city, { form = form.copy(city = it) }, error = null)
+        TijarioTextField("ملاحظات", form.notes, { form = form.copy(notes = it) }, error = null, singleLine = false)
+        Button(onClick = {}, enabled = false && form.canSubmit) {
             Text("حفظ العميل")
         }
         OutlinedButton(onClick = onBack) {
@@ -41,20 +39,17 @@ fun CustomerFormScreen(onBack: () -> Unit) {
 
 @Composable
 fun BusinessSettingsScreen(onBack: () -> Unit) {
-    var businessName by remember { mutableStateOf("") }
-    var whatsapp by remember { mutableStateOf("") }
-    var city by remember { mutableStateOf("") }
-    var terms by remember { mutableStateOf("") }
+    var form by remember { mutableStateOf(BusinessSettingsFormState()) }
 
     TijarioPage(
         title = "إعدادات المتجر",
         subtitle = "تحديث بيانات النشاط التجاري المستخدمة في المستندات.",
     ) {
-        TijarioTextField("اسم المتجر", businessName, { businessName = it }, error = Validation.required(businessName, "اسم المتجر"))
-        TijarioTextField("رقم واتساب", whatsapp, { whatsapp = it }, error = Validation.whatsapp(whatsapp))
-        TijarioTextField("المدينة", city, { city = it }, error = null)
-        TijarioTextField("الشروط", terms, { terms = it }, error = null, singleLine = false)
-        Button(onClick = {}, enabled = false) {
+        TijarioTextField("اسم المتجر", form.businessName, { form = form.copy(businessName = it) }, error = form.businessNameError)
+        TijarioTextField("رقم واتساب", form.whatsapp, { form = form.copy(whatsapp = it) }, error = form.whatsappError)
+        TijarioTextField("المدينة", form.city, { form = form.copy(city = it) }, error = null)
+        TijarioTextField("الشروط", form.terms, { form = form.copy(terms = it) }, error = null, singleLine = false)
+        Button(onClick = {}, enabled = false && form.canSubmit) {
             Text("حفظ الإعدادات")
         }
         OutlinedButton(onClick = onBack) {
@@ -65,28 +60,24 @@ fun BusinessSettingsScreen(onBack: () -> Unit) {
 
 @Composable
 fun DocumentFormScreen(typeLabel: String, onBack: () -> Unit) {
-    var customerName by remember { mutableStateOf("") }
-    var customerWhatsapp by remember { mutableStateOf("") }
-    var itemName by remember { mutableStateOf("") }
-    var quantity by remember { mutableStateOf("1") }
-    var unitPrice by remember { mutableStateOf("") }
-    var discount by remember { mutableStateOf("0") }
+    var form by remember { mutableStateOf(DocumentFormState()) }
 
     TijarioPage(
         title = "إنشاء $typeLabel",
         subtitle = "الإرسال النهائي يتم عبر API آمن يحسب الرقم والإجماليات وحدود الاستخدام على الخادم.",
     ) {
-        TijarioTextField("اسم العميل", customerName, { customerName = it }, error = Validation.required(customerName, "اسم العميل"))
-        TijarioTextField("رقم واتساب", customerWhatsapp, { customerWhatsapp = it }, error = Validation.whatsapp(customerWhatsapp))
-        TijarioTextField("اسم البند", itemName, { itemName = it }, error = Validation.required(itemName, "اسم البند"))
-        TijarioTextField("الكمية", quantity, { quantity = it }, error = Validation.positiveInt(quantity, "الكمية"))
-        TijarioTextField("سعر الوحدة", unitPrice, { unitPrice = it }, error = Validation.nonNegativeMoney(unitPrice, "سعر الوحدة"))
-        TijarioTextField("الخصم", discount, { discount = it }, error = Validation.nonNegativeMoney(discount, "الخصم"))
+        TijarioTextField("اسم العميل", form.customerName, { form = form.copy(customerName = it) }, error = form.customerNameError)
+        TijarioTextField("رقم واتساب", form.customerWhatsapp, { form = form.copy(customerWhatsapp = it) }, error = form.customerWhatsappError)
+        TijarioTextField("اسم البند", form.itemName, { form = form.copy(itemName = it) }, error = form.itemNameError)
+        TijarioTextField("الكمية", form.quantity, { form = form.copy(quantity = it) }, error = form.quantityError)
+        TijarioTextField("سعر الوحدة", form.unitPrice, { form = form.copy(unitPrice = it) }, error = form.unitPriceError)
+        TijarioTextField("الخصم", form.discount, { form = form.copy(discount = it) }, error = form.discountError)
+        TijarioTextField("رسوم إضافية", form.extraFees, { form = form.copy(extraFees = it) }, error = form.extraFeesError)
         TijarioCard(
             title = "حماية منطق الأعمال",
             body = "هذا النموذج يجمع البيانات فقط. الحساب النهائي والترقيم والاستهلاك الشهري لا يحدث داخل Android.",
         )
-        Button(onClick = {}, enabled = false) {
+        Button(onClick = {}, enabled = false && form.canSubmit) {
             Text("حفظ $typeLabel")
         }
         OutlinedButton(onClick = onBack) {

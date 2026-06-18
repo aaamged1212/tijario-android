@@ -11,11 +11,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.unit.dp
-import app.tijario.domain.Validation
 import app.tijario.ui.components.TijarioCard
 import app.tijario.ui.components.TijarioPage
 import app.tijario.ui.components.TijarioTextField
+import app.tijario.ui.state.BusinessSettingsFormState
+import app.tijario.ui.state.LoginFormState
+import app.tijario.ui.state.RegisterFormState
 
 @Composable
 fun LoginScreen(
@@ -23,25 +24,26 @@ fun LoginScreen(
     onRegister: () -> Unit,
     onForgotPassword: () -> Unit,
 ) {
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    val emailError = Validation.email(email)
-    val passwordError = Validation.password(password)
-    val canSubmit = emailError == null && passwordError == null
+    var form by remember { mutableStateOf(LoginFormState()) }
 
     TijarioPage(
         title = "تسجيل الدخول",
         subtitle = "ادخل إلى حساب تجاري لمتابعة إدارة متجرك ومستنداتك.",
     ) {
-        TijarioTextField("البريد الإلكتروني", email, { email = it }, error = emailError)
+        TijarioTextField(
+            label = "البريد الإلكتروني",
+            value = form.email,
+            onValueChange = { form = form.copy(email = it) },
+            error = form.emailError,
+        )
         TijarioTextField(
             label = "كلمة المرور",
-            value = password,
-            onValueChange = { password = it },
-            error = passwordError,
+            value = form.password,
+            onValueChange = { form = form.copy(password = it) },
+            error = form.passwordError,
             visualTransformation = PasswordVisualTransformation(),
         )
-        Button(onClick = onLoginReady, enabled = canSubmit) {
+        Button(onClick = onLoginReady, enabled = form.canSubmit) {
             Text("تسجيل الدخول")
         }
         OutlinedButton(onClick = onRegister) {
@@ -59,24 +61,22 @@ fun LoginScreen(
 
 @Composable
 fun RegisterScreen(onBackToLogin: () -> Unit) {
-    var fullName by remember { mutableStateOf("") }
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
+    var form by remember { mutableStateOf(RegisterFormState()) }
 
     TijarioPage(
         title = "إنشاء حساب",
         subtitle = "حساب واحد لنفس مشروع Tijario وسجلات Supabase الحالية.",
     ) {
-        TijarioTextField("الاسم الكامل", fullName, { fullName = it }, error = Validation.required(fullName, "الاسم"))
-        TijarioTextField("البريد الإلكتروني", email, { email = it }, error = Validation.email(email))
+        TijarioTextField("الاسم الكامل", form.fullName, { form = form.copy(fullName = it) }, error = form.fullNameError)
+        TijarioTextField("البريد الإلكتروني", form.email, { form = form.copy(email = it) }, error = form.emailError)
         TijarioTextField(
             label = "كلمة المرور",
-            value = password,
-            onValueChange = { password = it },
-            error = Validation.password(password),
+            value = form.password,
+            onValueChange = { form = form.copy(password = it) },
+            error = form.passwordError,
             visualTransformation = PasswordVisualTransformation(),
         )
-        Button(onClick = {}, enabled = false) {
+        Button(onClick = {}, enabled = false && form.canSubmit) {
             Text("إنشاء الحساب")
         }
         OutlinedButton(onClick = onBackToLogin) {
@@ -93,7 +93,8 @@ fun ForgotPasswordScreen(onBackToLogin: () -> Unit) {
         title = "استعادة كلمة المرور",
         subtitle = "إرسال رابط استعادة عبر Supabase Auth وربط deep link بالتطبيق.",
     ) {
-        TijarioTextField("البريد الإلكتروني", email, { email = it }, error = Validation.email(email))
+        val form = LoginFormState(email = email, password = "placeholder")
+        TijarioTextField("البريد الإلكتروني", email, { email = it }, error = form.emailError)
         Button(onClick = {}, enabled = false) {
             Text("إرسال الرابط")
         }
@@ -105,20 +106,17 @@ fun ForgotPasswordScreen(onBackToLogin: () -> Unit) {
 
 @Composable
 fun OnboardingScreen(onDone: () -> Unit) {
-    var businessName by remember { mutableStateOf("") }
-    var whatsapp by remember { mutableStateOf("") }
-    var country by remember { mutableStateOf("السعودية") }
-    var currency by remember { mutableStateOf("SAR") }
+    var form by remember { mutableStateOf(BusinessSettingsFormState()) }
 
     TijarioPage(
         title = "تهيئة المتجر",
         subtitle = "هذه البيانات تظهر في عروض الأسعار والفواتير.",
     ) {
-        TijarioTextField("اسم المتجر", businessName, { businessName = it }, error = Validation.required(businessName, "اسم المتجر"))
-        TijarioTextField("رقم واتساب", whatsapp, { whatsapp = it }, error = Validation.whatsapp(whatsapp))
-        TijarioTextField("الدولة", country, { country = it }, error = Validation.required(country, "الدولة"))
-        TijarioTextField("العملة", currency, { currency = it }, error = Validation.required(currency, "العملة"))
-        Button(onClick = onDone) {
+        TijarioTextField("اسم المتجر", form.businessName, { form = form.copy(businessName = it) }, error = form.businessNameError)
+        TijarioTextField("رقم واتساب", form.whatsapp, { form = form.copy(whatsapp = it) }, error = form.whatsappError)
+        TijarioTextField("الدولة", form.country, { form = form.copy(country = it) }, error = form.countryError)
+        TijarioTextField("العملة", form.currency, { form = form.copy(currency = it) }, error = form.currencyError)
+        Button(onClick = onDone, enabled = form.canSubmit) {
             Text("حفظ والمتابعة")
         }
     }
