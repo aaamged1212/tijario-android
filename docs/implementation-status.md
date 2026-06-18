@@ -34,3 +34,9 @@ The project is being converted from documentation-only initialization into an An
 - Added root navigation shell and first MVP surface placeholders for dashboard, customers, documents, AI, and account.
 - Added Kotlin data models and API request/response contracts based on inspected web schema and RLS.
 - Added safe local configuration example without real keys.
+
+## Milestone 2 Output
+
+- Added `BackendApiClient` for authenticated HTTPS calls to mobile backend endpoints.
+- Added document and AI repositories that keep privileged operations server-side.
+- Preserved the rule that Android only sends a Supabase access token and never stores backend provider secrets.

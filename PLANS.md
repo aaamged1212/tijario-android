@@ -48,6 +48,7 @@ Medium. The Android client can be built independently, but true end-to-end compl
 - Initial independent repository created on `main`.
 - Milestone 1 started on `feature/native-mvp-foundation`.
 - Android foundation files added: Gradle Kotlin DSL, app module, Compose theme, RTL shell, root navigation, MVP screen surfaces, data models, API contracts, and live documentation.
+- Milestone 2 started: secure backend API client and repositories added for document, PDF, AI Reply, and AI Caption calls.
 
 ## Incomplete Milestones
 
