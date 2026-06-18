@@ -12,6 +12,7 @@
 - `java` is not on PATH.
 - `gradle` is not on PATH.
 - Android SDK was not found in common local paths.
+- An attempt to download/run the official Gradle 9.4.1 distribution exceeded the local command timeout. No wrapper files were created.
 
 ## Local Validation Commands
 

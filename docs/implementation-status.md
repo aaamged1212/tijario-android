@@ -24,6 +24,7 @@ The project is being converted from documentation-only initialization into an An
 - Gradle wrapper: unavailable.
 - Secret scan: no secret values found; only forbidden secret names appear in documentation as explicit warnings.
 - Web repository status after Android foundation work: clean and unmodified.
+- Gradle wrapper setup attempt: downloading/running official Gradle 9.4.1 exceeded the 240 second command timeout; no wrapper files were created in the repository.
 
 ## Milestone 1 Output
 

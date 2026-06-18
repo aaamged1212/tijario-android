@@ -21,3 +21,4 @@ Not release-ready.
 - Java on PATH: unavailable.
 - Gradle on PATH: unavailable.
 - Android SDK: not found in common local paths.
+- Gradle wrapper setup: attempted with official Gradle 9.4.1, but the command timed out before wrapper files were created.
