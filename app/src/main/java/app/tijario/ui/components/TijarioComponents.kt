@@ -109,6 +109,8 @@ fun TijarioTextField(
     singleLine: Boolean = true,
     isPassword: Boolean = false,
     leadingIcon: @Composable (() -> Unit)? = null,
+    trailingIcon: @Composable (() -> Unit)? = null,
+    readOnly: Boolean = false,
 ) {
     var passwordVisible by remember { mutableStateOf(false) }
 
@@ -121,6 +123,7 @@ fun TijarioTextField(
         supportingText = error?.let { { Text(it) } },
         singleLine = singleLine,
         leadingIcon = leadingIcon,
+        readOnly = readOnly,
         trailingIcon = if (isPassword) {
             {
                 IconButton(onClick = { passwordVisible = !passwordVisible }) {
@@ -130,7 +133,7 @@ fun TijarioTextField(
                     )
                 }
             }
-        } else null,
+        } else trailingIcon,
         visualTransformation = if (isPassword && !passwordVisible) {
             PasswordVisualTransformation()
         } else {
@@ -141,7 +144,7 @@ fun TijarioTextField(
             focusedBorderColor = MaterialTheme.colorScheme.primary,
             unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
             errorBorderColor = MaterialTheme.colorScheme.error,
-            focusedContainerColor = Color.White,
+            focusedContainerColor = MaterialTheme.colorScheme.surface,
             unfocusedContainerColor = MaterialTheme.colorScheme.surface
         )
     )

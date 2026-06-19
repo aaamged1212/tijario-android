@@ -9,7 +9,7 @@ val LocalLanguage = compositionLocalOf { AppLanguage.AR }
 
 object Localization {
     private val translations = mapOf(
-        "app_name" to mapOf(AppLanguage.AR to "تيجاريو", AppLanguage.EN to "Tijario"),
+        "app_name" to mapOf(AppLanguage.AR to "تجاريو", AppLanguage.EN to "Tijario"),
         "app_slogan" to mapOf(AppLanguage.AR to "أدر تجارتك وفواتيرك بذكاء وسرعة", AppLanguage.EN to "Manage your business and invoices smartly"),
 
         // Navigation / Tabs
@@ -17,7 +17,7 @@ object Localization {
         "tab_customers" to mapOf(AppLanguage.AR to "العملاء", AppLanguage.EN to "Customers"),
         "tab_products" to mapOf(AppLanguage.AR to "المنتجات", AppLanguage.EN to "Products"),
         "tab_documents" to mapOf(AppLanguage.AR to "المستندات", AppLanguage.EN to "Documents"),
-        "tab_ai" to mapOf(AppLanguage.AR to "الذكاء الاصطناعي", AppLanguage.EN to "AI Tools"),
+        "tab_ai" to mapOf(AppLanguage.AR to "تجاريو AI", AppLanguage.EN to "Tijario AI"),
         "tab_account" to mapOf(AppLanguage.AR to "الحساب", AppLanguage.EN to "Account"),
 
         // Login Screen
@@ -35,7 +35,7 @@ object Localization {
 
         // Register Screen
         "register_title" to mapOf(AppLanguage.AR to "إنشاء حساب جديد", AppLanguage.EN to "Register"),
-        "register_subtitle" to mapOf(AppLanguage.AR to "انضم إلى تيجاريو وابدأ في تنظيم أعمالك اليوم", AppLanguage.EN to "Join Tijario and organize your business today"),
+        "register_subtitle" to mapOf(AppLanguage.AR to "انضم إلى تجاريو وابدأ في تنظيم أعمالك اليوم", AppLanguage.EN to "Join Tijario and organize your business today"),
         "fullname" to mapOf(AppLanguage.AR to "الاسم الكامل", AppLanguage.EN to "Full Name"),
         "already_have_account" to mapOf(AppLanguage.AR to "لديك حساب بالفعل؟ ", AppLanguage.EN to "Already have an account? "),
 
@@ -56,7 +56,7 @@ object Localization {
         "btn_save_continue" to mapOf(AppLanguage.AR to "حفظ وإكمال الإعداد", AppLanguage.EN to "Save & Continue"),
 
         // Dashboard
-        "welcome" to mapOf(AppLanguage.AR to "أهلاً بك في تيجاريو 👋", AppLanguage.EN to "Welcome to Tijario 👋"),
+        "welcome" to mapOf(AppLanguage.AR to "أهلاً بك في تجاريو 👋", AppLanguage.EN to "Welcome to Tijario 👋"),
         "dash_subtitle" to mapOf(AppLanguage.AR to "متابعة سريعة لأداء عملك التجاري اليوم", AppLanguage.EN to "Quick overview of your business performance"),
         "financial_summary" to mapOf(AppLanguage.AR to "الملخص المالي العام", AppLanguage.EN to "Financial Summary"),
         "this_month" to mapOf(AppLanguage.AR to "هذا الشهر", AppLanguage.EN to "This Month"),
@@ -84,7 +84,7 @@ object Localization {
         "btn_create_quote" to mapOf(AppLanguage.AR to "إنشاء عرض سعر جديد", AppLanguage.EN to "Create New Quote"),
 
         // AI Tools Screen
-        "ai_title" to mapOf(AppLanguage.AR to "مساعد تيجاريو الذكي (AI)", AppLanguage.EN to "Tijario AI Assistant"),
+        "ai_title" to mapOf(AppLanguage.AR to "مساعد تجاريو الذكي (AI)", AppLanguage.EN to "Tijario AI Assistant"),
         "ai_subtitle" to mapOf(AppLanguage.AR to "صياغة ردود العملاء وكتابة الأوصاف لمنتجاتك بلمح البصر", AppLanguage.EN to "Draft replies and write product captions in a flash"),
         "ai_card_title" to mapOf(AppLanguage.AR to "صياغة رد ذكي للعملاء", AppLanguage.EN to "Draft Smart Reply"),
         "ai_input_placeholder" to mapOf(AppLanguage.AR to "الصق رسالة العميل هنا...", AppLanguage.EN to "Paste client message here..."),
@@ -107,7 +107,7 @@ object Localization {
         "monthly_limits" to mapOf(AppLanguage.AR to "الاستهلاك والحدود الشهرية", AppLanguage.EN to "Monthly Limits & Usage"),
         "limit_docs" to mapOf(AppLanguage.AR to "عروض الأسعار والفواتير المتبقية", AppLanguage.EN to "Remaining Quotes & Invoices"),
         "limit_ai" to mapOf(AppLanguage.AR to "عمليات الذكاء الاصطناعي (AI)", AppLanguage.EN to "AI Operations"),
-        "store_premium" to mapOf(AppLanguage.AR to "متجر تيجاريو الفاخر", AppLanguage.EN to "Tijario Premium Store"),
+        "store_premium" to mapOf(AppLanguage.AR to "متجر تجاريو الفاخر", AppLanguage.EN to "Tijario Premium Store"),
 
         // Form Screens
         "form_client_info" to mapOf(AppLanguage.AR to "بيانات العميل المستهدف", AppLanguage.EN to "Target Customer Details"),

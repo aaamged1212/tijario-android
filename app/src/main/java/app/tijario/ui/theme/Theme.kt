@@ -16,20 +16,24 @@ private val TijarioLightColors: ColorScheme = lightColorScheme(
     surface = TijarioSurface,
     onSurface = TijarioText,
     surfaceVariant = TijarioSoftSurface,
-    onSurfaceVariant = TijarioMutedText,
+    onSurfaceVariant = Color.Black,
+    outline = Color.Black,
+    outlineVariant = Color.Black,
     error = TijarioError,
 )
 
 private val TijarioDarkColors: ColorScheme = darkColorScheme(
-    primary = Color(0xFF5EEAD4),
-    onPrimary = Color(0xFF042F2E),
-    secondary = Color(0xFF2DD4BF),
+    primary = TijarioPrimary,
+    onPrimary = Color.White,
+    secondary = TijarioDeepTeal,
     background = Color(0xFF0F172A),
-    onBackground = Color(0xFFE2E8F0),
+    onBackground = Color.White,
     surface = Color(0xFF111827),
-    onSurface = Color(0xFFE2E8F0),
+    onSurface = Color.White,
     surfaceVariant = Color(0xFF1F2937),
-    onSurfaceVariant = Color(0xFFCBD5E1),
+    onSurfaceVariant = Color.White,
+    outline = Color.White,
+    outlineVariant = Color.White,
     error = TijarioError,
 )
 

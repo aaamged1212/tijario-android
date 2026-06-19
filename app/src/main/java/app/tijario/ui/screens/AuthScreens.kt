@@ -19,6 +19,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -41,6 +42,8 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
 
 @Composable
 fun LoginScreen(
@@ -84,11 +87,12 @@ fun LoginScreen(
                 color = Color.White.copy(alpha = 0.15f)
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    Text(
-                        text = "T",
-                        color = Color.White,
-                        fontSize = 38.sp,
-                        fontWeight = FontWeight.Black
+                    Image(
+                        painter = painterResource(id = app.tijario.R.drawable.logo_app),
+                        contentDescription = "شعار التطبيق",
+                        modifier = Modifier
+                            .size(60.dp)
+                            .clip(RoundedCornerShape(14.dp))
                     )
                 }
             }
@@ -671,8 +675,11 @@ fun OnboardingScreen(onDone: () -> Unit) {
                                 leadingIcon = {
                                     Icon(Icons.Filled.Public, contentDescription = null, tint = Color(0xFF64748B))
                                 },
-                                modifier = Modifier.menuAnchor(),
-                                // Read-only simulated by onValueChange = {}
+                                trailingIcon = {
+                                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = countryMenuExpanded)
+                                },
+                                modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable),
+                                readOnly = true
                             )
                             ExposedDropdownMenu(
                                 expanded = countryMenuExpanded,
@@ -714,7 +721,11 @@ fun OnboardingScreen(onDone: () -> Unit) {
                                 leadingIcon = {
                                     Icon(Icons.Filled.MonetizationOn, contentDescription = null, tint = Color(0xFF64748B))
                                 },
-                                modifier = Modifier.menuAnchor()
+                                trailingIcon = {
+                                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = currencyMenuExpanded)
+                                },
+                                modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable),
+                                readOnly = true
                             )
                             ExposedDropdownMenu(
                                 expanded = currencyMenuExpanded,
@@ -771,3 +782,170 @@ fun OnboardingScreen(onDone: () -> Unit) {
         }
     }
 }
+
+data class IntroSlide(
+    val title: String,
+    val description: String,
+    val icon: androidx.compose.ui.graphics.vector.ImageVector,
+    val iconColor: Color
+)
+
+@Composable
+fun IntroWalkthroughScreen(onFinished: () -> Unit) {
+    val slides = listOf(
+        IntroSlide(
+            title = "أدر تجارتك بسهولة",
+            description = "تتبع فواتيرك، عملائك، ومنتجاتك في تطبيق واحد متكامل ومصمم بذكاء.",
+            icon = Icons.Filled.Business,
+            iconColor = Color(0xFF0F766E)
+        ),
+        IntroSlide(
+            title = "فواتير وعروض أسعار سريعة",
+            description = "أصدر مستنداتك وشاركها مباشرة مع عملائك عبر الواتساب في ثوانٍ معدودة.",
+            icon = Icons.Filled.Phone,
+            iconColor = Color(0xFF2563EB)
+        ),
+        IntroSlide(
+            title = "تجاريو AI ومساعدك الذكي",
+            description = "صياغة ردود ذكية لعملائك وكتابة كابشن لمنتجاتك بلمح البصر لمبيعات أكثر.",
+            icon = Icons.Filled.Person,
+            iconColor = Color(0xFF7C3AED)
+        )
+    )
+
+    var currentSlide by remember { mutableStateOf(0) }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                brush = Brush.verticalGradient(
+                    colors = listOf(
+                        Color(0xFF0F766E),
+                        Color(0xFF0F766E),
+                        Color(0xFF064E3B)
+                    )
+                )
+            )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            // Top Bar: App Name & Skip Button
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "تجاريو",
+                    color = Color.White,
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                TextButton(onClick = onFinished) {
+                    Text(text = "تجاوز", color = Color.White.copy(alpha = 0.8f), fontSize = 14.sp)
+                }
+            }
+
+            // Slide Content Card
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .padding(vertical = 32.dp),
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+            ) {
+                val slide = slides[currentSlide]
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Surface(
+                        modifier = Modifier.size(100.dp),
+                        shape = RoundedCornerShape(28.dp),
+                        color = slide.iconColor.copy(alpha = 0.12f)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = slide.icon,
+                                contentDescription = null,
+                                tint = slide.iconColor,
+                                modifier = Modifier.size(48.dp)
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(28.dp))
+                    Text(
+                        text = slide.title,
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = slide.description,
+                        fontSize = 15.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                        lineHeight = 22.sp
+                    )
+                }
+            }
+
+            // Bottom controls: Indicators and Next button
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Indicators (dots)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    slides.forEachIndexed { index, _ ->
+                        val active = index == currentSlide
+                        Box(
+                            modifier = Modifier
+                                .size(width = if (active) 18.dp else 8.dp, height = 8.dp)
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(if (active) Color.White else Color.White.copy(alpha = 0.4f))
+                        )
+                    }
+                }
+
+                // Next / Finish Button
+                Button(
+                    onClick = {
+                        if (currentSlide < slides.size - 1) {
+                            currentSlide++
+                        } else {
+                            onFinished()
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color(0xFF0F766E)),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text(
+                        text = if (currentSlide == slides.size - 1) "ابدأ الآن" else "التالي",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp
+                    )
+                }
+            }
+        }
+    }
+}
+

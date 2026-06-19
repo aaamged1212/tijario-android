@@ -27,6 +27,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.style.TextAlign
 import app.tijario.config.t
+import app.tijario.domain.Validation
+import app.tijario.ui.components.ModernDocumentPreview
 import app.tijario.ui.components.TijarioButton
 import app.tijario.ui.components.TijarioCard
 import app.tijario.ui.components.TijarioTextField
@@ -271,7 +273,7 @@ fun ProductFormScreen(onBack: () -> Unit) {
                                             kind = form.kind,
                                             name = form.name,
                                             description = form.description.ifBlank { null },
-                                            price = form.price,
+                                            price = Validation.parseNonNegativeMoney(form.price) ?: 0.0,
                                             currency = form.currency
                                         )
                                         app.tijario.config.Supabase.client.from("products")
@@ -298,6 +300,7 @@ fun ProductFormScreen(onBack: () -> Unit) {
 @Composable
 fun BusinessSettingsScreen(onBack: () -> Unit) {
     var form by remember { mutableStateOf(BusinessSettingsFormState()) }
+    var existingSettings by remember { mutableStateOf<app.tijario.data.model.BusinessSettings?>(null) }
     var isLoading by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
@@ -316,6 +319,7 @@ fun BusinessSettingsScreen(onBack: () -> Unit) {
                         .decodeList<app.tijario.data.model.BusinessSettings>()
                     val settings = list.firstOrNull()
                     if (settings != null) {
+                        existingSettings = settings
                         form = BusinessSettingsFormState(
                             businessName = settings.businessName,
                             whatsapp = settings.whatsappNumber,
@@ -432,14 +436,21 @@ fun BusinessSettingsScreen(onBack: () -> Unit) {
                                     isLoading = true
                                     val currentUser = app.tijario.config.Supabase.client.auth.currentUserOrNull()
                                     if (currentUser != null) {
-                                        val settings = app.tijario.data.model.BusinessSettings(
+                                        val settings = existingSettings?.copy(
+                                            businessName = form.businessName,
+                                            whatsappNumber = form.whatsapp,
+                                            country = form.country,
+                                            city = form.city.ifBlank { null },
+                                            currency = form.currency,
+                                            termsText = form.terms.ifBlank { null },
+                                        ) ?: app.tijario.data.model.BusinessSettings(
                                             userId = currentUser.id,
                                             businessName = form.businessName,
                                             whatsappNumber = form.whatsapp,
                                             country = form.country,
                                             city = form.city.ifBlank { null },
                                             currency = form.currency,
-                                            termsText = form.terms.ifBlank { null }
+                                            termsText = form.terms.ifBlank { null },
                                         )
                                         app.tijario.config.Supabase.client.from("business_settings")
                                             .upsert(settings)
@@ -494,7 +505,7 @@ fun DocumentFormScreen(
             form = form.copy(
                 productId = it.id,
                 itemName = it.name,
-                unitPrice = it.price
+                unitPrice = Validation.normalizedMoneyString(it.price.toString())
             )
         }
     }
@@ -740,12 +751,12 @@ fun DocumentFormScreen(
                                             items = listOf(
                                                 app.tijario.data.remote.DocumentItemInput(
                                                     name = form.itemName,
-                                                    quantity = form.quantity.toIntOrNull() ?: 1,
-                                                    unitPrice = form.unitPrice.toDoubleOrNull() ?: 0.0
+                                                    quantity = Validation.parsePositiveInt(form.quantity) ?: 1,
+                                                    unitPrice = Validation.parseNonNegativeMoney(form.unitPrice) ?: 0.0
                                                 )
                                             ),
-                                            discount = form.discount.toDoubleOrNull() ?: 0.0,
-                                            extraFees = form.extraFees.toDoubleOrNull() ?: 0.0,
+                                            discount = Validation.parseNonNegativeMoney(form.discount) ?: 0.0,
+                                            extraFees = Validation.parseNonNegativeMoney(form.extraFees) ?: 0.0,
                                             notes = form.notes.ifBlank { null },
                                             termsText = form.terms.ifBlank { null }
                                         )
@@ -765,177 +776,45 @@ fun DocumentFormScreen(
                 }
             }
         } else {
-            // Preview Mode (Beautiful Web Template Style Layout in Compose)
-            val currency = businessSettings?.currency ?: "SAR"
-            val qty = form.quantity.toDoubleOrNull() ?: 1.0
-            val price = form.unitPrice.toDoubleOrNull() ?: 0.0
-            val subtotal = qty * price
-            val disc = form.discount.toDoubleOrNull() ?: 0.0
-            val fees = form.extraFees.toDoubleOrNull() ?: 0.0
-            val grandTotal = subtotal - disc + fees
-
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color(0xFFF8FAFC)) // Slick slate light background
+                    .background(Color(0xFFF1F5F9))
                     .padding(paddingValues)
                     .verticalScroll(rememberScrollState())
                     .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Card(
+                Text(
+                    text = "معاينة PDF",
+                    color = Color(0xFF0F172A),
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+                    textAlign = TextAlign.Start,
+                )
+                Text(
+                    text = "هذه المعاينة تتبع قالب Tijario الحديث المستخدم في الويب.",
+                    color = Color(0xFF64748B),
+                    fontSize = 12.sp,
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Start,
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color(0xFFE2E8F0), RoundedCornerShape(18.dp))
+                        .padding(12.dp),
+                    contentAlignment = Alignment.Center,
                 ) {
-                    Column(
-                        modifier = Modifier.padding(20.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        // Header: Shop details
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column {
-                                Text(
-                                    text = businessSettings?.businessName ?: "تيجاريو الفاخر",
-                                    fontSize = 18.sp,
-                                    fontWeight = FontWeight.Black,
-                                    color = Color(0xFF0F766E)
-                                )
-                                Text(
-                                    text = "رقم واتساب: ${businessSettings?.whatsappNumber ?: ""}",
-                                    fontSize = 12.sp,
-                                    color = Color(0xFF64748B)
-                                )
-                                businessSettings?.city?.let {
-                                    Text(text = "$it، ${businessSettings?.country ?: ""}", fontSize = 11.sp, color = Color(0xFF64748B))
-                                }
-                            }
-                            // Document Badge
-                            Surface(
-                                color = Color(0xFFECFDF5),
-                                shape = RoundedCornerShape(8.dp)
-                            ) {
-                                Text(
-                                    text = if (type == app.tijario.data.model.DocumentType.Invoice) "فاتورة ضريبية مبسطة" else "عرض سعر معتمد",
-                                    color = Color(0xFF065F46),
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                                )
-                            }
-                        }
-
-                        HorizontalDivider(color = Color(0xFFE2E8F0))
-
-                        // Target Customer Info
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text("العميل المستهدف:", fontSize = 11.sp, color = Color(0xFF64748B), fontWeight = FontWeight.Bold)
-                            Text(
-                                text = if (form.customerName.isNotEmpty()) form.customerName else "— لم يتم تحديد عميل بعد —",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF1E293B)
-                            )
-                            if (form.customerWhatsapp.isNotEmpty()) {
-                                Text(text = "واتساب: ${form.customerWhatsapp}", fontSize = 12.sp, color = Color(0xFF475569))
-                            }
-                        }
-
-                        HorizontalDivider(color = Color(0xFFE2E8F0))
-
-                        // Items Table List
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            // Header Row
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .background(Color(0xFFF1F5F9))
-                                    .padding(8.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text("البند / الخدمة", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF475569), modifier = Modifier.weight(2f))
-                                Text("الكمية", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF475569), modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
-                                Text("السعر", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF475569), modifier = Modifier.weight(1.2f), textAlign = TextAlign.End)
-                            }
-
-                            // Item Row
-                            if (form.itemName.isNotEmpty()) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 8.dp, vertical = 4.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Text(form.itemName, fontSize = 13.sp, color = Color(0xFF1E293B), modifier = Modifier.weight(2f))
-                                    Text(form.quantity, fontSize = 13.sp, color = Color(0xFF1E293B), modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
-                                    Text(
-                                        String.format("%.2f %s", price, currency),
-                                        fontSize = 13.sp,
-                                        color = Color(0xFF1E293B),
-                                        modifier = Modifier.weight(1.2f),
-                                        textAlign = TextAlign.End
-                                    )
-                                }
-                            } else {
-                                Text(
-                                    "لم يتم اختيار بند للفاتورة بعد.",
-                                    fontSize = 12.sp,
-                                    color = Color(0xFF94A3B8),
-                                    modifier = Modifier.padding(8.dp)
-                                )
-                            }
-                        }
-
-                        HorizontalDivider(color = Color(0xFFE2E8F0))
-
-                        // Totals section
-                        Column(
-                            verticalArrangement = Arrangement.spacedBy(6.dp),
-                            modifier = Modifier.align(Alignment.End)
-                        ) {
-                            Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                                Text("المجموع الفرعي:", fontSize = 13.sp, color = Color(0xFF64748B))
-                                Text(String.format("%.2f %s", subtotal, currency), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1E293B))
-                            }
-                            if (disc > 0) {
-                                Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                                    Text("الخصم:", fontSize = 13.sp, color = Color(0xFFEF4444))
-                                    Text(String.format("-%.2f %s", disc, currency), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color(0xFFEF4444))
-                                }
-                            }
-                            if (fees > 0) {
-                                Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                                    Text("الرسوم الإضافية:", fontSize = 13.sp, color = Color(0xFF64748B))
-                                    Text(String.format("+%.2f %s", fees, currency), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1E293B))
-                                }
-                            }
-                            Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                                Text("المجموع الإجمالي:", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0F766E))
-                                Text(String.format("%.2f %s", grandTotal, currency), fontSize = 16.sp, fontWeight = FontWeight.Black, color = Color(0xFF0F766E))
-                            }
-                        }
-
-                        if (form.notes.isNotEmpty()) {
-                            HorizontalDivider(color = Color(0xFFE2E8F0))
-                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Text("ملاحظات:", fontSize = 11.sp, color = Color(0xFF64748B), fontWeight = FontWeight.Bold)
-                                Text(form.notes, fontSize = 12.sp, color = Color(0xFF475569))
-                            }
-                        }
-
-                        if (businessSettings?.termsText?.isNotEmpty() == true) {
-                            HorizontalDivider(color = Color(0xFFE2E8F0))
-                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Text("الشروط والأحكام:", fontSize = 11.sp, color = Color(0xFF64748B), fontWeight = FontWeight.Bold)
-                                Text(businessSettings?.termsText ?: "", fontSize = 12.sp, color = Color(0xFF475569))
-                            }
-                        }
-                    }
+                    ModernDocumentPreview(
+                        documentType = type,
+                        form = form,
+                        businessSettings = businessSettings,
+                        customerCity = selectedCustomer?.city,
+                        productDescription = selectedProduct?.description,
+                    )
                 }
             }
         }

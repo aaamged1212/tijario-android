@@ -35,7 +35,7 @@ data class Product(
     val kind: ProductKind,
     val name: String,
     val description: String? = null,
-    val price: String,
+    val price: Double,
     val currency: String = "SAR",
 )
 

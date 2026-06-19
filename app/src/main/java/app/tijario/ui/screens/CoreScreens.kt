@@ -1,5 +1,8 @@
 package app.tijario.ui.screens
 
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -30,6 +33,7 @@ import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
@@ -129,9 +133,11 @@ fun ConfigurationRequiredScreen() {
 fun DashboardScreen(
     onNewQuote: () -> Unit,
     onNewInvoice: () -> Unit,
+    onAddProduct: () -> Unit,
     onCustomers: () -> Unit,
     onAiTools: () -> Unit,
     onBusinessSettings: () -> Unit,
+    hideHeader: Boolean = false,
 ) {
     var totalAmount by remember { mutableDoubleStateOf(0.0) }
     var paidInvoicesCount by remember { mutableIntStateOf(0) }
@@ -198,35 +204,37 @@ fun DashboardScreen(
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
         // Welcome Header
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column {
-                Text(
-                    text = t("welcome"),
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-                Text(
-                    text = t("dash_subtitle"),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            IconButton(
-                onClick = onBusinessSettings,
-                colors = IconButtonDefaults.iconButtonColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                ),
-                modifier = Modifier
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surface)
-                    .size(48.dp)
+        if (!hideHeader) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Filled.Settings, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                Column {
+                    Text(
+                        text = t("welcome"),
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                    Text(
+                        text = t("dash_subtitle"),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                IconButton(
+                    onClick = onBusinessSettings,
+                    colors = IconButtonDefaults.iconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                    ),
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surface)
+                        .size(48.dp)
+                ) {
+                    Icon(Icons.Filled.Settings, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                }
             }
         }
 
@@ -395,7 +403,8 @@ private fun QuickActionButton(
 @Composable
 fun CustomersScreen(
     onCreateCustomer: () -> Unit,
-    onCustomerSelected: ((app.tijario.data.model.Customer) -> Unit)? = null
+    onCustomerSelected: ((app.tijario.data.model.Customer) -> Unit)? = null,
+    hideHeader: Boolean = false
 ) {
     var searchQuery by remember { mutableStateOf("") }
     var customers by remember { mutableStateOf<List<app.tijario.data.model.Customer>>(emptyList()) }
@@ -441,29 +450,31 @@ fun CustomersScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // Header with Icon next to Title
-            Column {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.People,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(28.dp)
-                    )
+            if (!hideHeader) {
+                Column {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.People,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(28.dp)
+                        )
+                        Text(
+                            text = t("customers_title"),
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+                    }
                     Text(
-                        text = t("customers_title"),
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onBackground
+                        text = if (onCustomerSelected != null) "اختر عميلاً لتحديده للفاتورة" else t("customers_subtitle"),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                Text(
-                    text = if (onCustomerSelected != null) "اختر عميلاً لتحديده للفاتورة" else t("customers_subtitle"),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
             }
 
             // Search Bar
@@ -529,14 +540,41 @@ fun CustomersScreen(
                                             fontSize = 15.sp
                                         )
                                         Text(
-                                            customer.city ?: customer.whatsappNumber,
+                                            customer.whatsappNumber,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             fontSize = 12.sp
                                         )
                                     }
                                 }
-                                IconButton(onClick = {}) {
-                                    Icon(Icons.Filled.Phone, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                val context = LocalContext.current
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    IconButton(
+                                        onClick = {
+                                            try {
+                                                val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${customer.whatsappNumber}"))
+                                                context.startActivity(intent)
+                                            } catch (e: Exception) {
+                                                e.printStackTrace()
+                                            }
+                                        }
+                                    ) {
+                                        Icon(Icons.Filled.Phone, contentDescription = "اتصال", tint = MaterialTheme.colorScheme.primary)
+                                    }
+                                    IconButton(
+                                        onClick = {
+                                            try {
+                                                val formatted = customer.whatsappNumber.replace("[^0-9]".toRegex(), "")
+                                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/$formatted"))
+                                                context.startActivity(intent)
+                                            } catch (e: Exception) {
+                                                e.printStackTrace()
+                                            }
+                                        }
+                                    ) {
+                                        Icon(Icons.Filled.Chat, contentDescription = "واتساب", tint = Color(0xFF25D366))
+                                    }
                                 }
                             }
                         }
@@ -563,10 +601,12 @@ fun CustomersScreen(
 @Composable
 fun ProductsScreen(
     onCreateProduct: () -> Unit,
-    onProductSelected: ((app.tijario.data.model.Product) -> Unit)? = null
+    onProductSelected: ((app.tijario.data.model.Product) -> Unit)? = null,
+    hideHeader: Boolean = false
 ) {
     var searchQuery by remember { mutableStateOf("") }
     var products by remember { mutableStateOf<List<app.tijario.data.model.Product>>(emptyList()) }
+    var businessCurrency by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
@@ -576,6 +616,18 @@ fun ProductsScreen(
                 isLoading = true
                 val currentUser = app.tijario.config.Supabase.client.auth.currentUserOrNull()
                 if (currentUser != null) {
+                    val settingsList = app.tijario.config.Supabase.client.from("business_settings")
+                        .select {
+                            filter {
+                                eq("user_id", currentUser.id)
+                            }
+                        }
+                        .decodeList<app.tijario.data.model.BusinessSettings>()
+                    val settings = settingsList.firstOrNull()
+                    if (settings != null) {
+                        businessCurrency = settings.currency
+                    }
+
                     val list = app.tijario.config.Supabase.client.from("products")
                         .select {
                             filter {
@@ -608,29 +660,31 @@ fun ProductsScreen(
                 .padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Column {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.BusinessCenter,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(28.dp)
-                    )
+            if (!hideHeader) {
+                Column {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.BusinessCenter,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(28.dp)
+                        )
+                        Text(
+                            text = t("products_title"),
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+                    }
                     Text(
-                        text = t("products_title"),
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onBackground
+                        text = if (onProductSelected != null) "اختر منتجاً أو خدمة لتحديد قيمتها للفاتورة" else t("products_subtitle"),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                Text(
-                    text = if (onProductSelected != null) "اختر منتجاً أو خدمة لتحديد قيمتها للفاتورة" else t("products_subtitle"),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
             }
 
             TijarioTextField(
@@ -701,7 +755,7 @@ fun ProductsScreen(
                                     }
                                 }
                                 Text(
-                                    "${item.price} ${item.currency}",
+                                    "${item.price} ${businessCurrency.ifBlank { item.currency }}",
                                     color = MaterialTheme.colorScheme.primary,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 15.sp
@@ -731,6 +785,7 @@ fun ProductsScreen(
 fun DocumentsScreen(
     onNewQuote: () -> Unit,
     onNewInvoice: () -> Unit,
+    hideHeader: Boolean = false
 ) {
     var selectedSection by remember { mutableStateOf(0) } // 0 = Invoices, 1 = Quotes
     var menuExpanded by remember { mutableStateOf(false) }
@@ -788,29 +843,31 @@ fun DocumentsScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // Header with Icon next to Title
-            Column {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Description,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(28.dp)
-                    )
+            if (!hideHeader) {
+                Column {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Description,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(28.dp)
+                        )
+                        Text(
+                            text = t("documents_title"),
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+                    }
                     Text(
-                        text = t("documents_title"),
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onBackground
+                        text = t("documents_subtitle"),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                Text(
-                    text = t("documents_subtitle"),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
             }
 
             // TabRow for sections
@@ -943,7 +1000,7 @@ fun DocumentsScreen(
 }
 
 @Composable
-fun AiToolsScreen() {
+fun AiToolsScreen(hideHeader: Boolean = false) {
     var selectedTab by remember { mutableStateOf(0) }
 
     var chatMessage by remember { mutableStateOf("") }
@@ -964,22 +1021,23 @@ fun AiToolsScreen() {
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Header
-        Column {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Icon(Icons.Filled.AutoAwesome, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+        if (!hideHeader) {
+            Column {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(Icons.Filled.AutoAwesome, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Text(
+                        text = t("ai_title"),
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                }
                 Text(
-                    text = t("ai_title"),
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground
+                    text = t("ai_subtitle"),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            Text(
-                text = t("ai_subtitle"),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
         }
 
         // TabRow for AI sections
@@ -1131,7 +1189,7 @@ fun AiToolsScreen() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AccountScreen(onLogout: () -> Unit) {
+fun AccountScreen(onLogout: () -> Unit, onBack: () -> Unit) {
     var selectedTab by remember { mutableStateOf(0) } // 0 = Store, 1 = Personal
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -1173,6 +1231,14 @@ fun AccountScreen(onLogout: () -> Unit) {
             Column(modifier = Modifier.background(MaterialTheme.colorScheme.surface)) {
                 CenterAlignedTopAppBar(
                     title = { Text(t("tab_account"), fontWeight = FontWeight.Bold) },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "رجوع"
+                            )
+                        }
+                    },
                     colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                         containerColor = MaterialTheme.colorScheme.surface
                     )
