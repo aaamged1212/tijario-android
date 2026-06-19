@@ -307,7 +307,7 @@ fun DashboardScreen(
             color = MaterialTheme.colorScheme.onBackground
         )
 
-        val isDark = MaterialTheme.colorScheme.background.value == 0xFF0F172AL
+        val isDark = MaterialTheme.colorScheme.background.value == 0xFF0F172AUL
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -1118,6 +1118,7 @@ fun DocumentsScreen(
                     }
                 }
         }
+    }
 
         // Floating Action Button with DropdownMenu - BottomStart mirrors to bottom-right in AR and bottom-left in EN
         Box(
