@@ -56,6 +56,9 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
+import android.net.Uri
 import app.tijario.config.loadAppConfig
 import app.tijario.config.t
 import app.tijario.ui.screens.AccountScreen
@@ -71,6 +74,7 @@ import app.tijario.ui.screens.ForgotPasswordScreen
 import app.tijario.ui.screens.LoginScreen
 import app.tijario.ui.screens.OnboardingScreen
 import app.tijario.ui.screens.RegisterScreen
+import app.tijario.ui.screens.VerifyEmailScreen
 import app.tijario.ui.screens.ProductsScreen
 import app.tijario.ui.screens.ProductFormScreen
 import app.tijario.ui.screens.IntroWalkthroughScreen
@@ -122,15 +126,18 @@ fun TijarioApp() {
     // Auto login & session check
     var startRoute by remember { mutableStateOf<String?>(null) }
     var isCheckingSession by remember { mutableStateOf(true) }
+    var isAuthenticated by remember { mutableStateOf(false) }
 
-    val showSettingsShortcut = currentRoute != null &&
-        currentRoute !in listOf("login", "register", "forgot-password", "onboarding", "account", "main", "intro")
+    val showSettingsShortcut = isAuthenticated &&
+        currentRoute != null &&
+        currentRoute !in listOf("login", "register", "verify-email", "forgot-password", "onboarding", "intro")
 
     LaunchedEffect(Unit) {
         scope.launch {
             try {
                 app.tijario.config.Supabase.client.auth.awaitInitialization()
                 val session = app.tijario.config.Supabase.client.auth.currentSessionOrNull()
+                isAuthenticated = session != null
                 if (session != null) {
                     dataViewModel.startForCurrentUser()
                     if (dataViewModel.hasCachedBusinessSettingsForCurrentUser()) {
@@ -146,12 +153,13 @@ fun TijarioApp() {
                 } else {
                     startRoute = "intro"
                 }
-            } catch (e: Exception) {
-                startRoute = "intro"
-            } finally {
-                isCheckingSession = false
+                } catch (e: Exception) {
+                isAuthenticated = false
+                    startRoute = "intro"
+                } finally {
+                    isCheckingSession = false
+                }
             }
-        }
     }
 
     if (isCheckingSession) {
@@ -182,6 +190,7 @@ fun TijarioApp() {
                                 try {
                                     val session = app.tijario.config.Supabase.client.auth.currentSessionOrNull()
                                     if (session != null) {
+                                        isAuthenticated = true
                                         dataViewModel.startForCurrentUser(forceRefresh = true)
                                         dataViewModel.refreshBusinessSettings()
                                         if (dataViewModel.hasCachedBusinessSettingsForCurrentUser()) {
@@ -205,7 +214,40 @@ fun TijarioApp() {
                         onForgotPassword = { navController.navigate("forgot-password") },
                     )
                 }
-                composable("register") { RegisterScreen(onBackToLogin = { navController.popBackStack() }) }
+                composable("register") {
+                    RegisterScreen(
+                        onBackToLogin = { navController.popBackStack() },
+                        onVerifyEmail = { email ->
+                            navController.navigate("verify-email?email=${Uri.encode(email)}") {
+                                popUpTo("register") { inclusive = true }
+                            }
+                        }
+                    )
+                }
+                composable(
+                    route = "verify-email?email={email}",
+                    arguments = listOf(
+                        navArgument("email") {
+                            type = NavType.StringType
+                            defaultValue = ""
+                        }
+                    )
+                ) { backStackEntry ->
+                    val email = backStackEntry.arguments?.getString("email").orEmpty()
+                    VerifyEmailScreen(
+                        email = email,
+                        onBackToLogin = {
+                            navController.navigate("login") {
+                                popUpTo("login") { inclusive = true }
+                            }
+                        },
+                        onVerified = {
+                            navController.navigate("onboarding") {
+                                popUpTo("login") { inclusive = true }
+                            }
+                        }
+                    )
+                }
                 composable("forgot-password") { ForgotPasswordScreen(onBackToLogin = { navController.popBackStack() }) }
                 composable("onboarding") {
                     OnboardingScreen(
@@ -461,6 +503,7 @@ fun TijarioApp() {
                         dataViewModel = dataViewModel,
                         onLogout = {
                             dataViewModel.clearSessionCache()
+                            isAuthenticated = false
                             navController.navigate("login") {
                                 popUpTo(navController.graph.startDestinationId) {
                                     inclusive = true

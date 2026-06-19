@@ -1,13 +1,15 @@
-package app.tijario.ui.screens
+﻿package app.tijario.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Business
 import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MonetizationOn
 import androidx.compose.material.icons.filled.Person
@@ -26,6 +28,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
+import app.tijario.MainActivity
+import app.tijario.config.AppLanguage
+import app.tijario.config.LocalLanguage
 import app.tijario.config.t
 import app.tijario.ui.components.GoogleSignInButton
 import app.tijario.ui.components.TijarioButton
@@ -35,6 +41,7 @@ import app.tijario.ui.state.TijarioDataViewModel
 import app.tijario.ui.state.LoginFormState
 import app.tijario.ui.state.RegisterFormState
 import io.github.jan.supabase.auth.auth
+import io.github.jan.supabase.auth.OtpType
 import io.github.jan.supabase.compose.auth.composeAuth
 import io.github.jan.supabase.compose.auth.composable.rememberSignInWithGoogle
 import io.github.jan.supabase.compose.auth.composable.NativeSignInResult
@@ -45,11 +52,33 @@ import androidx.compose.foundation.Image
 import androidx.compose.ui.res.painterResource
 
 @Composable
+private fun AuthLanguageToggle(modifier: Modifier = Modifier) {
+    val language = LocalLanguage.current
+    IconButton(
+        onClick = {
+            MainActivity.currentLanguage =
+                if (language == AppLanguage.AR) AppLanguage.EN else AppLanguage.AR
+        },
+        modifier = modifier
+            .size(38.dp)
+            .clip(CircleShape)
+            .background(Color.White.copy(alpha = 0.16f))
+    ) {
+        Icon(
+            imageVector = Icons.Filled.Language,
+            contentDescription = if (language == AppLanguage.AR) "تبديل اللغة" else "Switch language",
+            tint = Color.White
+        )
+    }
+}
+
+@Composable
 fun LoginScreen(
     onLoginReady: () -> Unit,
     onRegister: () -> Unit,
     onForgotPassword: () -> Unit,
 ) {
+    val language = LocalLanguage.current
     var form by remember { mutableStateOf(LoginFormState()) }
     var isLoading by remember { mutableStateOf(false) }
     var isGoogleLoading by remember { mutableStateOf(false) }
@@ -70,6 +99,13 @@ fun LoginScreen(
                 )
             )
     ) {
+        AuthLanguageToggle(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(12.dp)
+                .statusBarsPadding()
+                .zIndex(1f)
+        )
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -89,7 +125,7 @@ fun LoginScreen(
                 Box(contentAlignment = Alignment.Center) {
                     Image(
                         painter = painterResource(id = app.tijario.R.drawable.logo_app),
-                        contentDescription = "شعار التطبيق",
+                        contentDescription = if (language == AppLanguage.AR) "شعار التطبيق" else "App logo",
                         modifier = Modifier
                             .size(60.dp)
                             .clip(RoundedCornerShape(14.dp))
@@ -188,7 +224,7 @@ fun LoginScreen(
                                     }
                                     onLoginReady()
                                 } catch (e: Exception) {
-                                    errorMessage = "فشل تسجيل الدخول: البريد الإلكتروني أو كلمة المرور غير صحيحة"
+                                    errorMessage = if (language == AppLanguage.AR) "فشل تسجيل الدخول: البريد الإلكتروني أو كلمة المرور غير صحيحة" else "Login failed: email or password is incorrect"
                                 } finally {
                                     isLoading = false
                                 }
@@ -274,7 +310,11 @@ fun LoginScreen(
 }
 
 @Composable
-fun RegisterScreen(onBackToLogin: () -> Unit) {
+fun RegisterScreen(
+    onBackToLogin: () -> Unit,
+    onVerifyEmail: (String) -> Unit,
+) {
+    val language = LocalLanguage.current
     var form by remember { mutableStateOf(RegisterFormState()) }
     var isLoading by remember { mutableStateOf(false) }
     var isGoogleLoading by remember { mutableStateOf(false) }
@@ -295,6 +335,13 @@ fun RegisterScreen(onBackToLogin: () -> Unit) {
                 )
             )
     ) {
+        AuthLanguageToggle(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(12.dp)
+                .statusBarsPadding()
+                .zIndex(1f)
+        )
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -381,9 +428,9 @@ fun RegisterScreen(onBackToLogin: () -> Unit) {
                                             put("full_name", form.fullName)
                                         }
                                     }
-                                    onBackToLogin()
+                                    onVerifyEmail(form.email)
                                 } catch (e: Exception) {
-                                    errorMessage = e.localizedMessage ?: "فشل إنشاء الحساب"
+                                    errorMessage = e.localizedMessage ?: if (language == AppLanguage.AR) "فشل إنشاء الحساب" else "Failed to create account"
                                 } finally {
                                     isLoading = false
                                 }
@@ -468,7 +515,138 @@ fun RegisterScreen(onBackToLogin: () -> Unit) {
 }
 
 @Composable
+fun VerifyEmailScreen(
+    email: String,
+    onBackToLogin: () -> Unit,
+    onVerified: () -> Unit,
+) {
+    val language = LocalLanguage.current
+    var token by remember { mutableStateOf("") }
+    var isLoading by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                brush = Brush.verticalGradient(
+                    colors = listOf(
+                        Color(0xFF0F766E),
+                        Color(0xFF0F766E),
+                        Color(0xFF064E3B)
+                    )
+                )
+            )
+    ) {
+        AuthLanguageToggle(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(12.dp)
+                .statusBarsPadding()
+                .zIndex(1f)
+        )
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Spacer(modifier = Modifier.height(32.dp))
+
+            Text(
+                text = if (language == AppLanguage.AR) "تحقق من البريد" else "Verify your email",
+                color = Color.White,
+                fontSize = 26.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = if (language == AppLanguage.AR) {
+                    "أدخل رمز التأكيد الذي أرسل للبريد: $email"
+                } else {
+                    "Enter the verification code sent to: $email"
+                },
+                color = Color.White.copy(alpha = 0.8f),
+                fontSize = 14.sp,
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    TijarioTextField(
+                        label = if (language == AppLanguage.AR) "رمز التأكيد" else "Verification code",
+                        value = token,
+                        onValueChange = { token = it.filter(Char::isDigit).take(8) },
+                    )
+
+                    errorMessage?.let {
+                        Text(it, color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
+                    }
+
+                    TijarioButton(
+                        text = if (language == AppLanguage.AR) "تحقق" else "Verify",
+                        onClick = {
+                            scope.launch {
+                                try {
+                                    isLoading = true
+                                    errorMessage = null
+                                    app.tijario.config.Supabase.client.auth.verifyEmailOtp(
+                                        type = OtpType.Email.SIGNUP,
+                                        email = email,
+                                        token = token,
+                                    )
+                                    onVerified()
+                                } catch (e: Exception) {
+                                    errorMessage = e.localizedMessage ?: if (language == AppLanguage.AR) {
+                                        "فشل التحقق من البريد"
+                                    } else {
+                                        "Failed to verify email"
+                                    }
+                                } finally {
+                                    isLoading = false
+                                }
+                            }
+                        },
+                        enabled = token.length >= 8,
+                        isLoading = isLoading
+                    )
+
+                    OutlinedButton(
+                        onClick = onBackToLogin,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(52.dp),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text(
+                            if (language == AppLanguage.AR) "العودة إلى تسجيل الدخول" else "Back to login",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
+        }
+    }
+}
+
+@Composable
 fun ForgotPasswordScreen(onBackToLogin: () -> Unit) {
+    val language = LocalLanguage.current
     var email by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
     var isSubmitted by remember { mutableStateOf(false) }
@@ -489,6 +667,13 @@ fun ForgotPasswordScreen(onBackToLogin: () -> Unit) {
                 )
             )
     ) {
+        AuthLanguageToggle(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(12.dp)
+                .statusBarsPadding()
+                .zIndex(1f)
+        )
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -551,7 +736,7 @@ fun ForgotPasswordScreen(onBackToLogin: () -> Unit) {
                                             errorMessage = result.displayMessage
                                         }
                                     } catch (e: Exception) {
-                                        errorMessage = "تعذر إرسال رابط إعادة التعيين. حاول مرة أخرى."
+                                        errorMessage = if (language == AppLanguage.AR) "تعذر إرسال رابط إعادة التعيين. حاول مرة أخرى." else "Unable to send reset link. Try again."
                                     } finally {
                                         isLoading = false
                                     }
@@ -597,7 +782,8 @@ fun OnboardingScreen(
     dataViewModel: TijarioDataViewModel,
     onDone: () -> Unit,
 ) {
-    val countries = listOf("السعودية", "اليمن", "مصر", "الإمارات", "الكويت", "قطر", "عمان", "البحرين", "الأردن", "لبنان", "المغرب", "تونس", "الجزائر", "ليبيا", "السودان", "العراق", "سوريا", "فلسطين")
+    val language = LocalLanguage.current
+    val countries = if (language == AppLanguage.AR) listOf("السعودية", "اليمن", "مصر", "الإمارات", "الكويت", "قطر", "عمان", "البحرين", "الأردن", "لبنان", "المغرب", "تونس", "الجزائر", "ليبيا", "السودان", "العراق", "سوريا", "فلسطين") else listOf("Saudi Arabia", "Yemen", "Egypt", "United Arab Emirates", "Kuwait", "Qatar", "Oman", "Bahrain", "Jordan", "Lebanon", "Morocco", "Tunisia", "Algeria", "Libya", "Sudan", "Iraq", "Syria", "Palestine")
     val currencies = listOf("SAR", "YER", "EGP", "AED", "KWD", "QAR", "OMR", "BHD", "JOD", "LBP", "MAD", "TND", "DZD", "LYD", "SDG", "IQD", "SYP", "USD", "EUR")
 
     var form by remember {
@@ -605,8 +791,8 @@ fun OnboardingScreen(
             BusinessSettingsFormState(
                 country = try {
                     val currentCountry = java.util.Locale.getDefault().displayCountry
-                    if (countries.any { it in currentCountry }) countries.first { it in currentCountry } else "السعودية"
-                } catch (e: Exception) { "السعودية" }
+                    if (countries.any { it in currentCountry }) countries.first { it in currentCountry } else if (language == AppLanguage.AR) "السعودية" else "Saudi Arabia"
+                } catch (e: Exception) { if (language == AppLanguage.AR) "السعودية" else "Saudi Arabia" }
             )
         )
     }
@@ -629,6 +815,13 @@ fun OnboardingScreen(
                 )
             )
     ) {
+        AuthLanguageToggle(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(12.dp)
+                .statusBarsPadding()
+                .zIndex(1f)
+        )
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -722,7 +915,7 @@ fun OnboardingScreen(
                     }
 
                     TijarioTextField(
-                        label = "المدينة", // City
+                        label = if (language == AppLanguage.AR) "المدينة" else "City",
                         value = form.city,
                         onValueChange = { form = form.copy(city = it) },
                         leadingIcon = {
@@ -815,22 +1008,23 @@ data class IntroSlide(
 
 @Composable
 fun IntroWalkthroughScreen(onFinished: () -> Unit) {
+    val language = LocalLanguage.current
     val slides = listOf(
         IntroSlide(
-            title = "أدر تجارتك بسهولة",
-            description = "تتبع فواتيرك، عملائك، ومنتجاتك في تطبيق واحد متكامل ومصمم بذكاء.",
+            title = if (language == AppLanguage.AR) "أدر تجارتك بسهولة" else "Run your business easily",
+            description = if (language == AppLanguage.AR) "تتبع فواتيرك، عملائك، ومنتجاتك في تطبيق واحد متكامل ومصمم بذكاء." else "Track your invoices, customers, and products in one integrated app built for speed.",
             icon = Icons.Filled.Business,
             iconColor = Color(0xFF0F766E)
         ),
         IntroSlide(
-            title = "فواتير وعروض أسعار سريعة",
-            description = "أصدر مستنداتك وشاركها مباشرة مع عملائك عبر الواتساب في ثوانٍ معدودة.",
+            title = if (language == AppLanguage.AR) "فواتير وعروض أسعار سريعة" else "Fast quotes and invoices",
+            description = if (language == AppLanguage.AR) "أصدر مستنداتك وشاركها مباشرة مع عملائك عبر واتساب في ثوانٍ معدودة." else "Create documents and share them with customers over WhatsApp in seconds.",
             icon = Icons.Filled.Phone,
             iconColor = Color(0xFF2563EB)
         ),
         IntroSlide(
-            title = "تجاريو AI ومساعدك الذكي",
-            description = "صياغة ردود ذكية لعملائك وكتابة كابشن لمنتجاتك بلمح البصر لمبيعات أكثر.",
+            title = if (language == AppLanguage.AR) "تجاريو AI ومساعدك الذكي" else "Tijario AI and your smart assistant",
+            description = if (language == AppLanguage.AR) "صياغة ردود ذكية لعملائك وكتابة كابشن لمنتجاتك بلمح البصر لمبيعات أكثر." else "Generate smart replies and product captions instantly to drive more sales.",
             icon = Icons.Filled.Person,
             iconColor = Color(0xFF7C3AED)
         )
@@ -851,6 +1045,13 @@ fun IntroWalkthroughScreen(onFinished: () -> Unit) {
                 )
             )
     ) {
+        AuthLanguageToggle(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(12.dp)
+                .statusBarsPadding()
+                .zIndex(1f)
+        )
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -867,13 +1068,13 @@ fun IntroWalkthroughScreen(onFinished: () -> Unit) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "تجاريو",
+                    text = if (language == AppLanguage.AR) "تجاريو" else "Tijario",
                     color = Color.White,
                     fontSize = 22.sp,
                     fontWeight = FontWeight.Bold
                 )
                 TextButton(onClick = onFinished) {
-                    Text(text = "تجاوز", color = Color.White.copy(alpha = 0.8f), fontSize = 14.sp)
+                        Text(text = if (language == AppLanguage.AR) "تجاوز" else "Skip", color = Color.White.copy(alpha = 0.8f), fontSize = 14.sp)
                 }
             }
 
@@ -962,7 +1163,7 @@ fun IntroWalkthroughScreen(onFinished: () -> Unit) {
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Text(
-                        text = if (currentSlide == slides.size - 1) "ابدأ الآن" else "التالي",
+                        text = if (currentSlide == slides.size - 1) { if (language == AppLanguage.AR) "ابدأ الآن" else "Get Started" } else { if (language == AppLanguage.AR) "التالي" else "Next" },
                         fontWeight = FontWeight.Bold,
                         fontSize = 14.sp
                     )
