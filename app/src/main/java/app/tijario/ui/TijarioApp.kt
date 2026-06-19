@@ -20,12 +20,12 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.ShoppingBag
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
@@ -36,6 +36,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -45,13 +46,12 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -80,10 +80,10 @@ import app.tijario.ui.screens.ProductFormScreen
 import app.tijario.ui.screens.IntroWalkthroughScreen
 import app.tijario.ui.state.TijarioDataViewModel
 import app.tijario.ui.state.TijarioDataViewModelFactory
-import io.github.jan.supabase.auth.auth
+import app.tijario.ui.state.AuthViewModel
+import app.tijario.ui.state.AuthViewModelFactory
+import app.tijario.ui.state.CentralAuthState
 import kotlinx.coroutines.launch
-
-import androidx.compose.material.icons.filled.ShoppingBag
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 
@@ -109,71 +109,39 @@ fun TijarioApp() {
         return
     }
 
-    val navController = rememberNavController()
     val context = LocalContext.current
-    val dataViewModel: TijarioDataViewModel = viewModel(
-        factory = TijarioDataViewModelFactory(context.applicationContext),
+    val authViewModel: AuthViewModel = viewModel(
+        factory = AuthViewModelFactory(context.applicationContext)
     )
-    val backStackEntry by navController.currentBackStackEntryAsState()
-    val currentDestination = backStackEntry?.destination
-    val currentRoute = currentDestination?.route
+    val dataViewModel: TijarioDataViewModel = viewModel(
+        factory = TijarioDataViewModelFactory(context.applicationContext)
+    )
+
+    val authState by authViewModel.authState.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
 
     // Shared states for selection
     var activeSelectedCustomer by remember { mutableStateOf<app.tijario.data.model.Customer?>(null) }
     var activeSelectedProduct by remember { mutableStateOf<app.tijario.data.model.Product?>(null) }
 
-    // Auto login & session check
-    var startRoute by remember { mutableStateOf<String?>(null) }
-    var isCheckingSession by remember { mutableStateOf(true) }
-    var isAuthenticated by remember { mutableStateOf(false) }
-
-    val showSettingsShortcut = isAuthenticated &&
-        currentRoute != null &&
-        currentRoute !in listOf("login", "register", "verify-email", "forgot-password", "onboarding", "intro")
-
-    LaunchedEffect(Unit) {
-        scope.launch {
-            try {
-                app.tijario.config.Supabase.client.auth.awaitInitialization()
-                val session = app.tijario.config.Supabase.client.auth.currentSessionOrNull()
-                isAuthenticated = session != null
-                if (session != null) {
-                    dataViewModel.startForCurrentUser()
-                    if (dataViewModel.hasCachedBusinessSettingsForCurrentUser()) {
-                        startRoute = "main"
-                    } else {
-                        dataViewModel.refreshBusinessSettings()
-                        startRoute = if (dataViewModel.hasCachedBusinessSettingsForCurrentUser()) {
-                            "main"
-                        } else {
-                            "onboarding"
-                        }
-                    }
-                } else {
-                    startRoute = "intro"
-                }
-                } catch (e: Exception) {
-                isAuthenticated = false
-                    startRoute = "intro"
-                } finally {
-                    isCheckingSession = false
-                }
-            }
+    // Start data sync when authenticated
+    LaunchedEffect(authState) {
+        if (authState is CentralAuthState.AuthenticatedReady || authState is CentralAuthState.AuthenticatedNeedsOnboarding) {
+            dataViewModel.startForCurrentUser()
+        }
     }
 
-    if (isCheckingSession) {
-        SplashScreen()
-        return
-    }
-
-    Scaffold { paddingValues ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues),
-        ) {
-            NavHost(navController = navController, startDestination = startRoute ?: "intro") {
+    when (val state = authState) {
+        is CentralAuthState.Initializing -> {
+            SplashScreen()
+        }
+        is CentralAuthState.Unauthenticated, is CentralAuthState.AwaitingEmailVerification -> {
+            // Unauthenticated Graph
+            val navController = rememberNavController()
+            NavHost(
+                navController = navController,
+                startDestination = if (state is CentralAuthState.AwaitingEmailVerification) "verify-email" else "intro"
+            ) {
                 composable("intro") {
                     IntroWalkthroughScreen(
                         onFinished = {
@@ -186,41 +154,18 @@ fun TijarioApp() {
                 composable("login") {
                     LoginScreen(
                         onLoginReady = {
-                            scope.launch {
-                                try {
-                                    val session = app.tijario.config.Supabase.client.auth.currentSessionOrNull()
-                                    if (session != null) {
-                                        isAuthenticated = true
-                                        dataViewModel.startForCurrentUser(forceRefresh = true)
-                                        dataViewModel.refreshBusinessSettings()
-                                        if (dataViewModel.hasCachedBusinessSettingsForCurrentUser()) {
-                                            navController.navigate("main") {
-                                                popUpTo("login") { inclusive = true }
-                                            }
-                                        } else {
-                                            navController.navigate("onboarding") {
-                                                popUpTo("login") { inclusive = true }
-                                            }
-                                        }
-                                    } else {
-                                        navController.navigate("onboarding")
-                                    }
-                                } catch (e: Exception) {
-                                    navController.navigate("onboarding")
-                                }
-                            }
+                            authViewModel.handleLoginSuccess()
                         },
                         onRegister = { navController.navigate("register") },
-                        onForgotPassword = { navController.navigate("forgot-password") },
+                        onForgotPassword = { navController.navigate("forgot-password") }
                     )
                 }
                 composable("register") {
                     RegisterScreen(
                         onBackToLogin = { navController.popBackStack() },
                         onVerifyEmail = { email ->
-                            navController.navigate("verify-email?email=${Uri.encode(email)}") {
-                                popUpTo("register") { inclusive = true }
-                            }
+                            authViewModel.setAwaitingVerification()
+                            navController.navigate("verify-email?email=${Uri.encode(email)}")
                         }
                     )
                 }
@@ -237,34 +182,49 @@ fun TijarioApp() {
                     VerifyEmailScreen(
                         email = email,
                         onBackToLogin = {
-                            navController.navigate("login") {
-                                popUpTo("login") { inclusive = true }
-                            }
+                            authViewModel.logout()
                         },
                         onVerified = {
-                            navController.navigate("onboarding") {
-                                popUpTo("login") { inclusive = true }
-                            }
+                            authViewModel.handleVerificationSuccess()
                         }
                     )
                 }
-                composable("forgot-password") { ForgotPasswordScreen(onBackToLogin = { navController.popBackStack() }) }
-                composable("onboarding") {
-                    OnboardingScreen(
-                        dataViewModel = dataViewModel,
-                        onDone = {
-                            dataViewModel.startForCurrentUser(forceRefresh = true)
-                            navController.navigate("main") {
-                                popUpTo("onboarding") { inclusive = true }
-                                popUpTo("login") { inclusive = true }
-                            }
+                composable("verify-email") {
+                    VerifyEmailScreen(
+                        email = "",
+                        onBackToLogin = {
+                            authViewModel.logout()
                         },
+                        onVerified = {
+                            authViewModel.handleVerificationSuccess()
+                        }
                     )
                 }
-                composable("main") {
-                    val pagerState = rememberPagerState(pageCount = { 5 })
-                    val pagerScope = rememberCoroutineScope()
+                composable("forgot-password") {
+                    ForgotPasswordScreen(onBackToLogin = { navController.popBackStack() })
+                }
+            }
+        }
+        is CentralAuthState.AuthenticatedNeedsOnboarding -> {
+            OnboardingScreen(
+                dataViewModel = dataViewModel,
+                onDone = {
+                    scope.launch {
+                        dataViewModel.startForCurrentUser(forceRefresh = true)
+                        dataViewModel.refreshBusinessSettings()
+                        authViewModel.checkCurrentSession()
+                    }
+                }
+            )
+        }
+        is CentralAuthState.AuthenticatedReady -> {
+            // Authenticated Graph
+            val navController = rememberNavController()
+            val pagerState = rememberPagerState(pageCount = { 5 })
+            val pagerScope = rememberCoroutineScope()
 
+            NavHost(navController = navController, startDestination = "main") {
+                composable("main") {
                     Scaffold(
                         topBar = {
                             val currentPage = pagerState.currentPage
@@ -362,77 +322,87 @@ fun TijarioApp() {
                                                 pagerState.animateScrollToPage(index)
                                             }
                                         },
-                                        icon = { Icon(tab.icon, contentDescription = t(tab.label), modifier = Modifier.size(26.dp)) },
+                                        icon = {
+                                            Icon(
+                                                imageVector = tab.icon,
+                                                contentDescription = t(tab.label),
+                                                modifier = Modifier.size(24.dp)
+                                            )
+                                        },
                                         label = {
                                             Text(
                                                 text = t(tab.label),
-                                                style = MaterialTheme.typography.labelMedium,
-                                                fontWeight = FontWeight.Bold,
-                                                fontSize = 14.sp
+                                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                                                fontSize = 11.sp
                                             )
                                         },
                                         colors = NavigationBarItemDefaults.colors(
-                                            selectedIconColor = Color.White,
+                                            selectedIconColor = MaterialTheme.colorScheme.primary,
                                             selectedTextColor = MaterialTheme.colorScheme.primary,
-                                            indicatorColor = MaterialTheme.colorScheme.primary,
-                                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                            unselectedIconColor = Color(0xFF64748B),
+                                            unselectedTextColor = Color(0xFF64748B),
+                                            indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
                                         )
                                     )
                                 }
                             }
                         }
-                    ) { pagerPadding ->
-                        HorizontalPager(
-                            state = pagerState,
+                    ) { paddingValues ->
+                        Box(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .padding(pagerPadding)
-                        ) { page ->
-                            when (page) {
-                                0 -> DashboardScreen(
-                                    dataViewModel = dataViewModel,
-                                    onNewQuote = { navController.navigate("new-quote") },
-                                    onNewInvoice = { navController.navigate("new-invoice") },
-                                    onAddProduct = { navController.navigate("product-form") },
-                                    onCustomers = {
-                                        pagerScope.launch {
-                                            pagerState.animateScrollToPage(4)
-                                        }
-                                    },
-                                    onAiTools = {
-                                        pagerScope.launch {
-                                            pagerState.animateScrollToPage(2)
-                                        }
-                                    },
-                                    onBusinessSettings = { navController.navigate("account") },
-                                    hideHeader = true
-                                )
-                                1 -> DocumentsScreen(
-                                    dataViewModel = dataViewModel,
-                                    onNewQuote = {
-                                        activeSelectedCustomer = null
-                                        activeSelectedProduct = null
-                                        navController.navigate("new-quote")
-                                    },
-                                    onNewInvoice = {
-                                        activeSelectedCustomer = null
-                                        activeSelectedProduct = null
-                                        navController.navigate("new-invoice")
-                                    },
-                                    hideHeader = true
-                                )
-                                2 -> AiToolsScreen(hideHeader = true)
-                                3 -> ProductsScreen(
-                                    dataViewModel = dataViewModel,
-                                    onCreateProduct = { navController.navigate("product-form") },
-                                    hideHeader = true
-                                )
-                                4 -> CustomersScreen(
-                                    dataViewModel = dataViewModel,
-                                    onCreateCustomer = { navController.navigate("customer-form") },
-                                    hideHeader = true
-                                )
+                                .padding(paddingValues)
+                        ) {
+                            HorizontalPager(
+                                state = pagerState,
+                                modifier = Modifier.fillMaxSize(),
+                                userScrollEnabled = true
+                            ) { page ->
+                                when (page) {
+                                    0 -> DashboardScreen(
+                                        dataViewModel = dataViewModel,
+                                        onNewQuote = {
+                                            activeSelectedCustomer = null
+                                            activeSelectedProduct = null
+                                            navController.navigate("new-quote")
+                                        },
+                                        onNewInvoice = {
+                                            activeSelectedCustomer = null
+                                            activeSelectedProduct = null
+                                            navController.navigate("new-invoice")
+                                        },
+                                        onAddProduct = { pagerScope.launch { pagerState.animateScrollToPage(3) } },
+                                        onCustomers = { pagerScope.launch { pagerState.animateScrollToPage(4) } },
+                                        onAiTools = { pagerScope.launch { pagerState.animateScrollToPage(2) } },
+                                        onBusinessSettings = { navController.navigate("business-settings") },
+                                        hideHeader = true
+                                    )
+                                    1 -> DocumentsScreen(
+                                        dataViewModel = dataViewModel,
+                                        onNewQuote = {
+                                            activeSelectedCustomer = null
+                                            activeSelectedProduct = null
+                                            navController.navigate("new-quote")
+                                        },
+                                        onNewInvoice = {
+                                            activeSelectedCustomer = null
+                                            activeSelectedProduct = null
+                                            navController.navigate("new-invoice")
+                                        },
+                                        hideHeader = true
+                                    )
+                                    2 -> AiToolsScreen(hideHeader = true)
+                                    3 -> ProductsScreen(
+                                        dataViewModel = dataViewModel,
+                                        onCreateProduct = { navController.navigate("product-form") },
+                                        hideHeader = true
+                                    )
+                                    4 -> CustomersScreen(
+                                        dataViewModel = dataViewModel,
+                                        onCreateCustomer = { navController.navigate("customer-form") },
+                                        hideHeader = true
+                                    )
+                                }
                             }
                         }
                     }
@@ -473,7 +443,7 @@ fun TijarioApp() {
                 composable("business-settings") {
                     BusinessSettingsScreen(
                         dataViewModel = dataViewModel,
-                        onBack = { navController.popBackStack() },
+                        onBack = { navController.popBackStack() }
                     )
                 }
                 composable("new-quote") {
@@ -502,13 +472,7 @@ fun TijarioApp() {
                     AccountScreen(
                         dataViewModel = dataViewModel,
                         onLogout = {
-                            dataViewModel.clearSessionCache()
-                            isAuthenticated = false
-                            navController.navigate("login") {
-                                popUpTo(navController.graph.startDestinationId) {
-                                    inclusive = true
-                                }
-                            }
+                            authViewModel.logout()
                         },
                         onBack = {
                             navController.popBackStack()
@@ -516,26 +480,17 @@ fun TijarioApp() {
                     )
                 }
             }
-
-            if (showSettingsShortcut) {
-                IconButton(
-                    onClick = {
-                        navController.navigate("account") {
-                            launchSingleTop = true
-                        }
-                    },
-                    colors = IconButtonDefaults.iconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
-                        contentColor = MaterialTheme.colorScheme.primary,
-                    ),
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(12.dp)
-                        .size(44.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.96f)),
+        }
+        is CentralAuthState.Error -> {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    Icon(Icons.Filled.Settings, contentDescription = "الإعدادات")
+                    Text(text = state.message, color = MaterialTheme.colorScheme.error)
+                    Button(onClick = { authViewModel.checkCurrentSession() }) {
+                        Text("إعادة المحاولة")
+                    }
                 }
             }
         }

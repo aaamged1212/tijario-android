@@ -1,4 +1,4 @@
-﻿package app.tijario.ui.screens
+package app.tijario.ui.screens
 
 import android.content.Context
 import android.content.Intent
@@ -156,13 +156,10 @@ fun DashboardScreen(
     }
 
     val businessCurrency = uiState.businessSettings?.currency ?: "SAR"
-    val invoiceDocuments = uiState.documents.filter { it.type == app.tijario.data.model.DocumentType.Invoice }
-    val quoteDocuments = uiState.documents.filter { it.type == app.tijario.data.model.DocumentType.Quote }
-    val totalAmount = invoiceDocuments
-        .filter { it.status.equals("paid", ignoreCase = true) }
-        .sumOf { it.total }
-    val paidInvoicesCount = invoiceDocuments.count { it.status.equals("paid", ignoreCase = true) }
-    val pendingQuotesCount = quoteDocuments.count { it.status.equals("draft", ignoreCase = true) }
+    val referenceDate = remember { java.time.LocalDate.now() }
+    val totalAmount = app.tijario.domain.DashboardStatsCalculator.calculateCurrentMonthEarnings(uiState.documents, referenceDate)
+    val paidInvoicesCount = app.tijario.domain.DashboardStatsCalculator.countPaidInvoices(uiState.documents, referenceDate)
+    val pendingQuotesCount = app.tijario.domain.DashboardStatsCalculator.countPendingQuotes(uiState.documents)
 
     Column(
         modifier = Modifier
@@ -519,6 +516,7 @@ fun CustomersScreen(
                                                 val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${customer.whatsappNumber}"))
                                                 context.startActivity(intent)
                                             } catch (e: Exception) {
+                                                android.widget.Toast.makeText(context, "تعذر تشغيل تطبيق الاتصال", android.widget.Toast.LENGTH_SHORT).show()
                                             }
                                         }
                                     ) {
@@ -531,6 +529,7 @@ fun CustomersScreen(
                                                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/$formatted"))
                                                 context.startActivity(intent)
                                             } catch (e: Exception) {
+                                                android.widget.Toast.makeText(context, "تعذر فتح تطبيق واتساب", android.widget.Toast.LENGTH_SHORT).show()
                                             }
                                         }
                                     ) {
@@ -805,11 +804,6 @@ fun DocumentsScreen(
                 ) {
                     items(filteredDocs) { doc ->
                         val customerName = customers.find { it.id == doc.customerId }?.name ?: "عميل غير معروف"
-                        val statusText = when(doc.status.lowercase()) {
-                            "paid" -> t("doc_status_paid")
-                            "draft" -> t("doc_status_draft")
-                            else -> t("doc_status_expired")
-                        }
                         Card(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(16.dp),
@@ -828,25 +822,40 @@ fun DocumentsScreen(
                                         color = MaterialTheme.colorScheme.onSurface,
                                         fontSize = 15.sp
                                     )
-                                    Surface(
-                                        color = when(doc.status.lowercase()) {
-                                            "paid" -> Color(0xFFDCFCE7)
-                                            "draft" -> Color(0xFFFEF3C7)
-                                            else -> Color(0xFFF1F5F9)
-                                        },
-                                        shape = RoundedCornerShape(8.dp)
-                                    ) {
-                                        Text(
-                                            statusText,
-                                            color = when(doc.status.lowercase()) {
-                                                "paid" -> Color(0xFF15803D)
-                                                "draft" -> Color(0xFFB45309)
-                                                else -> Color(0xFF475569)
-                                            },
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                        )
+                                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        // Document Status Chip
+                                        val docStatusText = app.tijario.domain.DocumentStatusMapper.getStatusText(doc.status)
+                                        val docColors = app.tijario.domain.DocumentStatusMapper.getStatusColors(doc.status)
+                                        Surface(
+                                            color = Color(docColors.first),
+                                            shape = RoundedCornerShape(8.dp)
+                                        ) {
+                                            Text(
+                                                docStatusText,
+                                                color = Color(docColors.second),
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                            )
+                                        }
+
+                                        // Payment Status Chip (Invoices only)
+                                        if (doc.type == app.tijario.data.model.DocumentType.Invoice) {
+                                            val payStatusText = app.tijario.domain.PaymentStatusMapper.getStatusText(doc.paymentStatus)
+                                            val payColors = app.tijario.domain.PaymentStatusMapper.getStatusColors(doc.paymentStatus)
+                                            Surface(
+                                                color = Color(payColors.first),
+                                                shape = RoundedCornerShape(8.dp)
+                                            ) {
+                                                Text(
+                                                    payStatusText,
+                                                    color = Color(payColors.second),
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                                )
+                                            }
+                                        }
                                     }
                                 }
                                 Row(

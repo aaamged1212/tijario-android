@@ -1,4 +1,4 @@
-﻿package app.tijario.ui.screens
+package app.tijario.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -224,7 +224,7 @@ fun LoginScreen(
                                     }
                                     onLoginReady()
                                 } catch (e: Exception) {
-                                    errorMessage = if (language == AppLanguage.AR) "فشل تسجيل الدخول: البريد الإلكتروني أو كلمة المرور غير صحيحة" else "Login failed: email or password is incorrect"
+                                    errorMessage = app.tijario.domain.ErrorMapper.map(e)
                                 } finally {
                                     isLoading = false
                                 }
@@ -430,7 +430,7 @@ fun RegisterScreen(
                                     }
                                     onVerifyEmail(form.email)
                                 } catch (e: Exception) {
-                                    errorMessage = e.localizedMessage ?: if (language == AppLanguage.AR) "فشل إنشاء الحساب" else "Failed to create account"
+                                    errorMessage = app.tijario.domain.ErrorMapper.map(e)
                                 } finally {
                                     isLoading = false
                                 }
@@ -588,7 +588,7 @@ fun VerifyEmailScreen(
                     TijarioTextField(
                         label = if (language == AppLanguage.AR) "رمز التأكيد" else "Verification code",
                         value = token,
-                        onValueChange = { token = it.filter(Char::isDigit).take(8) },
+                        onValueChange = { token = app.tijario.domain.OtpValidator.sanitize(it) },
                     )
 
                     errorMessage?.let {
@@ -609,17 +609,13 @@ fun VerifyEmailScreen(
                                     )
                                     onVerified()
                                 } catch (e: Exception) {
-                                    errorMessage = e.localizedMessage ?: if (language == AppLanguage.AR) {
-                                        "فشل التحقق من البريد"
-                                    } else {
-                                        "Failed to verify email"
-                                    }
+                                    errorMessage = app.tijario.domain.ErrorMapper.map(e)
                                 } finally {
                                     isLoading = false
                                 }
                             }
                         },
-                        enabled = token.length >= 8,
+                        enabled = app.tijario.domain.OtpValidator.isValid(token),
                         isLoading = isLoading
                     )
 
