@@ -1,4 +1,4 @@
-﻿package app.tijario.ui.screens
+package app.tijario.ui.screens
 
 import android.content.Context
 import android.content.Intent
@@ -307,6 +307,7 @@ fun DashboardScreen(
             color = MaterialTheme.colorScheme.onBackground
         )
 
+        val isDark = MaterialTheme.colorScheme.background.value == 0xFF0F172AL
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -314,16 +315,16 @@ fun DashboardScreen(
             QuickActionButton(
                 title = t("btn_new_invoice"),
                 icon = Icons.Filled.Receipt,
-                backgroundColor = Color(0xFFF0FDF4),
-                iconColor = Color(0xFF16A34A),
+                backgroundColor = if (isDark) Color(0xFF14532D).copy(alpha = 0.4f) else Color(0xFFF0FDF4),
+                iconColor = if (isDark) Color(0xFF4ADE80) else Color(0xFF16A34A),
                 onClick = onNewInvoice,
                 modifier = Modifier.weight(1f)
             )
             QuickActionButton(
                 title = t("btn_new_quote"),
                 icon = Icons.Filled.Description,
-                backgroundColor = Color(0xFFEFF6FF),
-                iconColor = Color(0xFF2563EB),
+                backgroundColor = if (isDark) Color(0xFF1E3A8A).copy(alpha = 0.4f) else Color(0xFFEFF6FF),
+                iconColor = if (isDark) Color(0xFF60A5FA) else Color(0xFF2563EB),
                 onClick = onNewQuote,
                 modifier = Modifier.weight(1f)
             )
@@ -336,16 +337,16 @@ fun DashboardScreen(
             QuickActionButton(
                 title = t("btn_add_product"),
                 icon = Icons.Filled.BusinessCenter,
-                backgroundColor = Color(0xFFECFDF5),
-                iconColor = Color(0xFF059669),
+                backgroundColor = if (isDark) Color(0xFF064E3B).copy(alpha = 0.4f) else Color(0xFFECFDF5),
+                iconColor = if (isDark) Color(0xFF34D399) else Color(0xFF059669),
                 onClick = onAddProduct,
                 modifier = Modifier.weight(1f)
             )
             QuickActionButton(
                 title = t("btn_add_customer"),
                 icon = Icons.Filled.People,
-                backgroundColor = Color(0xFFFDF2F8),
-                iconColor = Color(0xFFDB2777),
+                backgroundColor = if (isDark) Color(0xFF831843).copy(alpha = 0.4f) else Color(0xFFFDF2F8),
+                iconColor = if (isDark) Color(0xFFF472B6) else Color(0xFFDB2777),
                 onClick = onCustomers,
                 modifier = Modifier.weight(1f)
             )
@@ -353,8 +354,8 @@ fun DashboardScreen(
         QuickActionButton(
             title = t("tab_ai"),
             icon = Icons.Filled.AutoAwesome,
-            backgroundColor = Color(0xFFF5F3FF),
-            iconColor = Color(0xFF7C3AED),
+            backgroundColor = if (isDark) Color(0xFF581C87).copy(alpha = 0.4f) else Color(0xFFF5F3FF),
+            iconColor = if (isDark) Color(0xFFC084FC) else Color(0xFF7C3AED),
             onClick = onAiTools,
             modifier = Modifier.fillMaxWidth()
         )
@@ -389,30 +390,30 @@ private fun QuickActionButton(
 ) {
     Card(
         modifier = modifier.clickable { onClick() },
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.5.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = 104.dp)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.Center,
+                .heightIn(min = 90.dp)
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Surface(
                 color = backgroundColor,
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.size(44.dp)
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier.size(38.dp)
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    Icon(icon, contentDescription = null, tint = iconColor, modifier = Modifier.size(22.dp))
+                    Icon(icon, contentDescription = null, tint = iconColor, modifier = Modifier.size(20.dp))
                 }
             }
             Text(
                 text = title,
-                fontSize = 14.sp,
+                fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface,
                 textAlign = TextAlign.Center
@@ -511,87 +512,134 @@ fun CustomersScreen(
                     CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                 }
             } else {
-                // Customers List
-                LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.weight(1f)
-                ) {
-                    items(filteredCustomers) { customer ->
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    onCustomerSelected?.invoke(customer)
-                                },
-                            shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                if (filteredCustomers.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(16.dp),
+                            modifier = Modifier.padding(24.dp)
                         ) {
-                            Row(
+                            Surface(
+                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                                shape = CircleShape,
+                                modifier = Modifier.size(64.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = Icons.Filled.People,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(32.dp)
+                                    )
+                                }
+                            }
+                            Text(
+                                text = "لا يوجد عملاء مضافين حالياً",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onBackground
+                            )
+                            Text(
+                                text = "اضغط على زر الإضافة بالأسفل أو الزر التالي للبدء في إضافة العملاء.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center
+                            )
+                            TijarioButton(
+                                text = "إضافة عميل جديد",
+                                onClick = onCreateCustomer,
+                                modifier = Modifier.widthIn(max = 200.dp)
+                            )
+                        }
+                    }
+                } else {
+                    // Customers List
+                    LazyColumn(
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        items(filteredCustomers) { customer ->
+                            Card(
                                 modifier = Modifier
-                                    .padding(16.dp)
-                                    .fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        onCustomerSelected?.invoke(customer)
+                                    },
+                                shape = RoundedCornerShape(16.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                             ) {
                                 Row(
+                                    modifier = Modifier
+                                        .padding(16.dp)
+                                        .fillMaxWidth(),
                                     verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
-                                    Surface(
-                                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
-                                        shape = CircleShape,
-                                        modifier = Modifier.size(44.dp)
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                                     ) {
-                                        Box(contentAlignment = Alignment.Center) {
-                                            Icon(
-                                                Icons.Filled.Person,
-                                                contentDescription = null,
-                                                tint = MaterialTheme.colorScheme.primary,
-                                                modifier = Modifier.size(20.dp)
+                                        Surface(
+                                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                                            shape = CircleShape,
+                                            modifier = Modifier.size(44.dp)
+                                        ) {
+                                            Box(contentAlignment = Alignment.Center) {
+                                                Icon(
+                                                    Icons.Filled.Person,
+                                                    contentDescription = null,
+                                                    tint = MaterialTheme.colorScheme.primary,
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                            }
+                                        }
+                                        Column {
+                                            Text(
+                                                customer.name,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.onSurface,
+                                                fontSize = 15.sp
+                                            )
+                                            Text(
+                                                customer.whatsappNumber,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                fontSize = 12.sp
                                             )
                                         }
                                     }
-                                    Column {
-                                        Text(
-                                            customer.name,
-                                            fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.onSurface,
-                                            fontSize = 15.sp
-                                        )
-                                        Text(
-                                            customer.whatsappNumber,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            fontSize = 12.sp
-                                        )
-                                    }
-                                }
-                                val context = LocalContext.current
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    IconButton(
-                                        onClick = {
-                                            try {
-                                                val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${customer.whatsappNumber}"))
-                                                context.startActivity(intent)
-                                            } catch (e: Exception) {
-                                            }
-                                        }
+                                    val context = LocalContext.current
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
-                                        Icon(Icons.Filled.Phone, contentDescription = "اتصال", tint = MaterialTheme.colorScheme.primary)
-                                    }
-                                    IconButton(
-                                        onClick = {
-                                            try {
-                                                val formatted = customer.whatsappNumber.replace("[^0-9]".toRegex(), "")
-                                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/$formatted"))
-                                                context.startActivity(intent)
-                                            } catch (e: Exception) {
+                                        IconButton(
+                                            onClick = {
+                                                try {
+                                                    val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${customer.whatsappNumber}"))
+                                                    context.startActivity(intent)
+                                                } catch (e: Exception) {
+                                                }
                                             }
+                                        ) {
+                                            Icon(Icons.Filled.Phone, contentDescription = "اتصال", tint = MaterialTheme.colorScheme.primary)
                                         }
-                                    ) {
-                                        Icon(Icons.Filled.Chat, contentDescription = "واتساب", tint = Color(0xFF25D366))
+                                        IconButton(
+                                            onClick = {
+                                                try {
+                                                    val formatted = customer.whatsappNumber.replace("[^0-9]".toRegex(), "")
+                                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/$formatted"))
+                                                    context.startActivity(intent)
+                                                } catch (e: Exception) {
+                                                }
+                                            }
+                                        ) {
+                                            Icon(Icons.Filled.Chat, contentDescription = "واتساب", tint = Color(0xFF25D366))
+                                        }
                                     }
                                 }
                             }
@@ -716,67 +764,114 @@ fun ProductsScreen(
                     CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                 }
             } else {
-                LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.weight(1f)
-                ) {
-                    items(filteredProducts) { item ->
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    onProductSelected?.invoke(item)
-                                },
-                            shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                if (filteredProducts.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(16.dp),
+                            modifier = Modifier.padding(24.dp)
                         ) {
-                            Row(
+                            Surface(
+                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                                shape = CircleShape,
+                                modifier = Modifier.size(64.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = Icons.Filled.BusinessCenter,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(32.dp)
+                                    )
+                                }
+                            }
+                            Text(
+                                text = "لا يوجد منتجات أو خدمات مضافة",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onBackground
+                            )
+                            Text(
+                                text = "اضغط على زر الإضافة بالأسفل أو الزر التالي للبدء في إضافة منتجاتك وخدماتك للعمليات والفواتير.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center
+                            )
+                            TijarioButton(
+                                text = "إضافة منتج جديد",
+                                onClick = onCreateProduct,
+                                modifier = Modifier.widthIn(max = 200.dp)
+                            )
+                        }
+                    }
+                } else {
+                    LazyColumn(
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        items(filteredProducts) { item ->
+                            Card(
                                 modifier = Modifier
-                                    .padding(16.dp)
-                                    .fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        onProductSelected?.invoke(item)
+                                    },
+                                shape = RoundedCornerShape(16.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                             ) {
                                 Row(
+                                    modifier = Modifier
+                                        .padding(16.dp)
+                                        .fillMaxWidth(),
                                     verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                    modifier = Modifier.weight(1f)
+                                    horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
-                                    Surface(
-                                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
-                                        shape = CircleShape,
-                                        modifier = Modifier.size(44.dp)
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                        modifier = Modifier.weight(1f)
                                     ) {
-                                        Box(contentAlignment = Alignment.Center) {
-                                            Icon(
-                                                imageVector = if (item.kind == app.tijario.data.model.ProductKind.Service) Icons.Filled.Star else Icons.Filled.BusinessCenter,
-                                                contentDescription = null,
-                                                tint = MaterialTheme.colorScheme.primary,
-                                                modifier = Modifier.size(20.dp)
+                                        Surface(
+                                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                                            shape = CircleShape,
+                                            modifier = Modifier.size(44.dp)
+                                        ) {
+                                            Box(contentAlignment = Alignment.Center) {
+                                                Icon(
+                                                    imageVector = if (item.kind == app.tijario.data.model.ProductKind.Service) Icons.Filled.Star else Icons.Filled.BusinessCenter,
+                                                    contentDescription = null,
+                                                    tint = MaterialTheme.colorScheme.primary,
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                            }
+                                        }
+                                        Column {
+                                            Text(
+                                                item.name,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.onSurface,
+                                                fontSize = 15.sp
+                                            )
+                                            Text(
+                                                item.description ?: (if (item.kind == app.tijario.data.model.ProductKind.Service) t("kind_service") else t("kind_product")),
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                fontSize = 12.sp
                                             )
                                         }
                                     }
-                                    Column {
-                                        Text(
-                                            item.name,
-                                            fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.onSurface,
-                                            fontSize = 15.sp
-                                        )
-                                        Text(
-                                            item.description ?: (if (item.kind == app.tijario.data.model.ProductKind.Service) t("kind_service") else t("kind_product")),
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            fontSize = 12.sp
-                                        )
-                                    }
+                                    Text(
+                                        "${item.price} ${businessCurrency.ifBlank { item.currency }}",
+                                        color = MaterialTheme.colorScheme.primary,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 15.sp
+                                    )
                                 }
-                                Text(
-                                    "${item.price} ${businessCurrency.ifBlank { item.currency }}",
-                                    color = MaterialTheme.colorScheme.primary,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 15.sp
-                                )
                             }
                         }
                     }
@@ -910,71 +1005,118 @@ fun DocumentsScreen(
                 Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                 }
-            } else {
-                // Document list
-                LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.weight(1f)
-                ) {
-                    items(filteredDocs) { doc ->
-                        val customerName = customers.find { it.id == doc.customerId }?.name ?: "عميل غير معروف"
-                        val statusText = when(doc.status.lowercase()) {
-                            "paid" -> t("doc_status_paid")
-                            "draft" -> t("doc_status_draft")
-                            else -> t("doc_status_expired")
-                        }
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                if (filteredDocs.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(16.dp),
+                            modifier = Modifier.padding(24.dp)
                         ) {
-                            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        doc.documentNumber,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                        fontSize = 15.sp
+                            Surface(
+                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                                shape = CircleShape,
+                                modifier = Modifier.size(64.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Description,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(32.dp)
                                     )
-                                    Surface(
-                                        color = when(doc.status.lowercase()) {
-                                            "paid" -> Color(0xFFDCFCE7)
-                                            "draft" -> Color(0xFFFEF3C7)
-                                            else -> Color(0xFFF1F5F9)
-                                        },
-                                        shape = RoundedCornerShape(8.dp)
+                                }
+                            }
+                            Text(
+                                text = if (selectedSection == 0) "لا يوجد فواتير مضافة" else "لا يوجد عروض أسعار مضافة",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onBackground
+                            )
+                            Text(
+                                text = if (selectedSection == 0) "يمكنك البدء في إنشاء أول فاتورة لعملائك ومتابعة المبالغ المحصلة." else "يمكنك البدء في إنشاء أول عرض سعر لعملائك لتقديم تقديرات التكلفة.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center
+                            )
+                            TijarioButton(
+                                text = if (selectedSection == 0) "إنشاء فاتورة جديدة" else "إنشاء عرض سعر جديد",
+                                onClick = {
+                                    if (selectedSection == 0) onNewInvoice() else onNewQuote()
+                                },
+                                modifier = Modifier.widthIn(max = 220.dp)
+                            )
+                        }
+                    }
+                } else {
+                    // Document list
+                    LazyColumn(
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        items(filteredDocs) { doc ->
+                            val customerName = customers.find { it.id == doc.customerId }?.name ?: "عميل غير معروف"
+                            val statusText = when(doc.status.lowercase()) {
+                                "paid" -> t("doc_status_paid")
+                                "draft" -> t("doc_status_draft")
+                                else -> t("doc_status_expired")
+                            }
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(16.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                            ) {
+                                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Text(
-                                            statusText,
-                                            color = when(doc.status.lowercase()) {
-                                                "paid" -> Color(0xFF15803D)
-                                                "draft" -> Color(0xFFB45309)
-                                                else -> Color(0xFF475569)
-                                            },
-                                            fontSize = 11.sp,
+                                            doc.documentNumber,
                                             fontWeight = FontWeight.Bold,
-                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            fontSize = 15.sp
                                         )
+                                        Surface(
+                                            color = when(doc.status.lowercase()) {
+                                                "paid" -> Color(0xFFDCFCE7)
+                                                "draft" -> Color(0xFFFEF3C7)
+                                                else -> Color(0xFFF1F5F9)
+                                            },
+                                            shape = RoundedCornerShape(8.dp)
+                                        ) {
+                                            Text(
+                                                statusText,
+                                                color = when(doc.status.lowercase()) {
+                                                    "paid" -> Color(0xFF15803D)
+                                                    "draft" -> Color(0xFFB45309)
+                                                    else -> Color(0xFF475569)
+                                                },
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                            )
+                                        }
                                     }
-                                }
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(customerName, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
-                                    Text("${doc.total} ${doc.currency}", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Black, fontSize = 15.sp)
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(customerName, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+                                        Text("${doc.total} ${doc.currency}", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Black, fontSize = 15.sp)
+                                    }
                                 }
                             }
                         }
                     }
                 }
-            }
         }
 
         // Floating Action Button with DropdownMenu - BottomStart mirrors to bottom-right in AR and bottom-left in EN

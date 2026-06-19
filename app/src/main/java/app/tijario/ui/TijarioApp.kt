@@ -271,7 +271,7 @@ fun TijarioApp() {
                                             tint = MaterialTheme.colorScheme.primary,
                                             modifier = Modifier.size(32.dp)
                                         )
-                                        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                             Text(
                                                 text = titleText,
                                                 style = MaterialTheme.typography.titleLarge,
