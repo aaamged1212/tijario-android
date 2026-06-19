@@ -51,4 +51,6 @@ This repository contains the independent native Android application for Tijario.
 - Keep the existing Tijario web/backend repository read-only unless a task explicitly authorizes backend changes.
 - Use authenticated HTTPS APIs for privileged operations such as document creation, PDF generation, and AI provider calls.
 - Use direct Supabase access only where existing RLS safely permits the operation.
+- Keep UI screens cache-first. New data features must flow through Room entities/DAO, `TijarioRepository`, and shared ViewModels instead of calling Supabase directly from Composables.
+- Use the local Room cache as the first-render source for list, settings, and document summary data; refresh from Supabase in the background.
 - Document blockers and validation results in `PLANS.md` and `docs/implementation-status.md`.

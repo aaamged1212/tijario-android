@@ -10,6 +10,8 @@ coroutines = "1.9.0"
 serialization = "1.7.3"
 ktor = "3.0.1"
 supabase = "3.0.2"
+room = "2.8.4"
+ksp = "2.2.10-2.0.2"
 junit = "4.13.2"
 androidxJunit = "1.2.1"
 espresso = "3.6.1"
@@ -37,6 +39,9 @@ supabase-bom = { module = "io.github.jan-tennert.supabase:bom", version.ref = "s
 supabase-auth = { module = "io.github.jan-tennert.supabase:auth-kt" }
 supabase-postgrest = { module = "io.github.jan-tennert.supabase:postgrest-kt" }
 supabase-compose-auth = { module = "io.github.jan-tennert.supabase:compose-auth" }
+androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
+androidx-room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
+androidx-room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
 androidx-credentials = { group = "androidx.credentials", name = "credentials", version = "1.5.0-rc01" }
 androidx-credentials-play-services-auth = { group = "androidx.credentials", name = "credentials-play-services-auth", version = "1.5.0-rc01" }
 googleid = { group = "com.google.android.libraries.identity.googleid", name = "googleid", version = "1.1.1" }
@@ -49,3 +54,4 @@ android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }

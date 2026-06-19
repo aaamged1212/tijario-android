@@ -59,15 +59,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.tijario.MainActivity
 import app.tijario.config.AppLanguage
 import app.tijario.config.t
 import app.tijario.ui.components.TijarioButton
+import app.tijario.ui.state.TijarioDataViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import app.tijario.ui.components.TijarioTextField
-import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.auth.auth
 import java.net.URL
 
@@ -140,6 +141,7 @@ fun ConfigurationRequiredScreen() {
 
 @Composable
 fun DashboardScreen(
+    dataViewModel: TijarioDataViewModel,
     onNewQuote: () -> Unit,
     onNewInvoice: () -> Unit,
     onAddProduct: () -> Unit,
@@ -148,60 +150,19 @@ fun DashboardScreen(
     onBusinessSettings: () -> Unit,
     hideHeader: Boolean = false,
 ) {
-    var totalAmount by remember { mutableDoubleStateOf(0.0) }
-    var paidInvoicesCount by remember { mutableIntStateOf(0) }
-    var pendingQuotesCount by remember { mutableIntStateOf(0) }
-    var businessCurrency by remember { mutableStateOf("ر.س") }
-    val scope = rememberCoroutineScope()
-
+    val uiState by dataViewModel.uiState.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) {
-        scope.launch {
-            try {
-                val currentUser = app.tijario.config.Supabase.client.auth.currentUserOrNull()
-                if (currentUser != null) {
-                    val settingsList = app.tijario.config.Supabase.client.from("business_settings")
-                        .select {
-                            filter {
-                                eq("user_id", currentUser.id)
-                            }
-                        }
-                        .decodeList<app.tijario.data.model.BusinessSettings>()
-                    val settings = settingsList.firstOrNull()
-                    if (settings != null) {
-                        businessCurrency = settings.currency
-                    }
-
-                    val docs = app.tijario.config.Supabase.client.from("documents")
-                        .select {
-                            filter {
-                                eq("user_id", currentUser.id)
-                            }
-                        }
-                        .decodeList<app.tijario.data.model.DocumentSummary>()
-
-                    var sum = 0.0
-                    var paid = 0
-                    var pending = 0
-                    for (doc in docs) {
-                        if (doc.type == app.tijario.data.model.DocumentType.Invoice) {
-                            if (doc.status.lowercase() == "paid") {
-                                sum += doc.total
-                                paid++
-                            }
-                        } else if (doc.type == app.tijario.data.model.DocumentType.Quote) {
-                            if (doc.status.lowercase() == "draft") {
-                                pending++
-                            }
-                        }
-                    }
-                    totalAmount = sum
-                    paidInvoicesCount = paid
-                    pendingQuotesCount = pending
-                }
-            } catch (e: Exception) {
-            }
-        }
+        dataViewModel.refreshAll()
     }
+
+    val businessCurrency = uiState.businessSettings?.currency ?: "SAR"
+    val invoiceDocuments = uiState.documents.filter { it.type == app.tijario.data.model.DocumentType.Invoice }
+    val quoteDocuments = uiState.documents.filter { it.type == app.tijario.data.model.DocumentType.Quote }
+    val totalAmount = invoiceDocuments
+        .filter { it.status.equals("paid", ignoreCase = true) }
+        .sumOf { it.total }
+    val paidInvoicesCount = invoiceDocuments.count { it.status.equals("paid", ignoreCase = true) }
+    val pendingQuotesCount = quoteDocuments.count { it.status.equals("draft", ignoreCase = true) }
 
     Column(
         modifier = Modifier
@@ -423,37 +384,19 @@ private fun QuickActionButton(
 
 @Composable
 fun CustomersScreen(
+    dataViewModel: TijarioDataViewModel,
     onCreateCustomer: () -> Unit,
     onCustomerSelected: ((app.tijario.data.model.Customer) -> Unit)? = null,
     hideHeader: Boolean = false
 ) {
     var searchQuery by remember { mutableStateOf("") }
-    var customers by remember { mutableStateOf<List<app.tijario.data.model.Customer>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
-
+    val uiState by dataViewModel.uiState.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) {
-        scope.launch {
-            try {
-                isLoading = true
-                val currentUser = app.tijario.config.Supabase.client.auth.currentUserOrNull()
-                if (currentUser != null) {
-                    val list = app.tijario.config.Supabase.client.from("customers")
-                        .select {
-                            filter {
-                                eq("user_id", currentUser.id)
-                            }
-                        }
-                        .decodeList<app.tijario.data.model.Customer>()
-                    customers = list
-                }
-            } catch (e: Exception) {
-            } finally {
-                isLoading = false
-            }
-        }
+        dataViewModel.refreshAll()
     }
 
+    val customers = uiState.customers
+    val isLoading = uiState.isInitialLoading && customers.isEmpty()
     val filteredCustomers = customers.filter {
         it.name.contains(searchQuery, ignoreCase = true) || it.whatsappNumber.contains(searchQuery)
     }
@@ -618,50 +561,20 @@ fun CustomersScreen(
 
 @Composable
 fun ProductsScreen(
+    dataViewModel: TijarioDataViewModel,
     onCreateProduct: () -> Unit,
     onProductSelected: ((app.tijario.data.model.Product) -> Unit)? = null,
     hideHeader: Boolean = false
 ) {
     var searchQuery by remember { mutableStateOf("") }
-    var products by remember { mutableStateOf<List<app.tijario.data.model.Product>>(emptyList()) }
-    var businessCurrency by remember { mutableStateOf("") }
-    var isLoading by remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
-
+    val uiState by dataViewModel.uiState.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) {
-        scope.launch {
-            try {
-                isLoading = true
-                val currentUser = app.tijario.config.Supabase.client.auth.currentUserOrNull()
-                if (currentUser != null) {
-                    val settingsList = app.tijario.config.Supabase.client.from("business_settings")
-                        .select {
-                            filter {
-                                eq("user_id", currentUser.id)
-                            }
-                        }
-                        .decodeList<app.tijario.data.model.BusinessSettings>()
-                    val settings = settingsList.firstOrNull()
-                    if (settings != null) {
-                        businessCurrency = settings.currency
-                    }
-
-                    val list = app.tijario.config.Supabase.client.from("products")
-                        .select {
-                            filter {
-                                eq("user_id", currentUser.id)
-                            }
-                        }
-                        .decodeList<app.tijario.data.model.Product>()
-                    products = list
-                }
-            } catch (e: Exception) {
-            } finally {
-                isLoading = false
-            }
-        }
+        dataViewModel.refreshAll()
     }
 
+    val products = uiState.products
+    val businessCurrency = uiState.businessSettings?.currency ?: "SAR"
+    val isLoading = uiState.isInitialLoading && products.isEmpty()
     val filteredProducts = products.filter {
         it.name.contains(searchQuery, ignoreCase = true) || (it.description ?: "").contains(searchQuery, ignoreCase = true)
     }
@@ -800,6 +713,7 @@ fun ProductsScreen(
 
 @Composable
 fun DocumentsScreen(
+    dataViewModel: TijarioDataViewModel,
     onNewQuote: () -> Unit,
     onNewInvoice: () -> Unit,
     hideHeader: Boolean = false
@@ -807,41 +721,14 @@ fun DocumentsScreen(
     var selectedSection by remember { mutableStateOf(0) } // 0 = Invoices, 1 = Quotes
     var menuExpanded by remember { mutableStateOf(false) }
 
-    var documents by remember { mutableStateOf<List<app.tijario.data.model.DocumentSummary>>(emptyList()) }
-    var customers by remember { mutableStateOf<List<app.tijario.data.model.Customer>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
-
+    val uiState by dataViewModel.uiState.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) {
-        scope.launch {
-            try {
-                isLoading = true
-                val currentUser = app.tijario.config.Supabase.client.auth.currentUserOrNull()
-                if (currentUser != null) {
-                    val docs = app.tijario.config.Supabase.client.from("documents")
-                        .select {
-                            filter {
-                                eq("user_id", currentUser.id)
-                            }
-                        }
-                        .decodeList<app.tijario.data.model.DocumentSummary>()
-                    val custs = app.tijario.config.Supabase.client.from("customers")
-                        .select {
-                            filter {
-                                eq("user_id", currentUser.id)
-                            }
-                        }
-                        .decodeList<app.tijario.data.model.Customer>()
-                    documents = docs
-                    customers = custs
-                }
-            } catch (e: Exception) {
-            } finally {
-                isLoading = false
-            }
-        }
+        dataViewModel.refreshAll()
     }
 
+    val documents = uiState.documents
+    val customers = uiState.customers
+    val isLoading = uiState.isInitialLoading && documents.isEmpty()
     // Filter documents depending on selection
     val filteredDocs = documents.filter { doc ->
         if (selectedSection == 0) doc.type == app.tijario.data.model.DocumentType.Invoice else doc.type == app.tijario.data.model.DocumentType.Quote
@@ -1268,39 +1155,32 @@ fun AiToolsScreen(hideHeader: Boolean = false) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AccountScreen(onLogout: () -> Unit, onBack: () -> Unit) {
+fun AccountScreen(
+    dataViewModel: TijarioDataViewModel,
+    onLogout: () -> Unit,
+    onBack: () -> Unit,
+) {
     var selectedTab by remember { mutableStateOf(0) } // 0 = Store, 1 = Personal
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
+    val uiState by dataViewModel.uiState.collectAsStateWithLifecycle()
 
-    var businessSettings by remember { mutableStateOf<app.tijario.data.model.BusinessSettings?>(null) }
     var currentUserEmail by remember { mutableStateOf("") }
     var currentUserName by remember { mutableStateOf("") }
-    var isLoading by remember { mutableStateOf(false) }
     var isLogoUploading by remember { mutableStateOf(false) }
+    val businessSettings = uiState.businessSettings
 
     LaunchedEffect(Unit) {
         scope.launch {
             try {
-                isLoading = true
+                dataViewModel.refreshAll()
                 val user = app.tijario.config.Supabase.client.auth.currentUserOrNull()
                 if (user != null) {
                     currentUserEmail = user.email ?: ""
                     currentUserName = user.userMetadata?.get("full_name")?.toString() ?: ""
-
-                    val settingsList = app.tijario.config.Supabase.client.from("business_settings")
-                        .select {
-                            filter {
-                                eq("user_id", user.id)
-                            }
-                        }
-                        .decodeList<app.tijario.data.model.BusinessSettings>()
-                    businessSettings = settingsList.firstOrNull()
                 }
             } catch (e: Exception) {
-            } finally {
-                isLoading = false
             }
         }
     }
@@ -1375,7 +1255,7 @@ fun AccountScreen(onLogout: () -> Unit, onBack: () -> Unit) {
                                 val result = app.tijario.config.Supabase.apiClient.uploadBusinessLogo(uploadRequest)
                                 val logoUrl = result.data?.logoUrl
                                 if (result.ok && !logoUrl.isNullOrBlank()) {
-                                    businessSettings = settings.copy(logoUrl = logoUrl)
+                                    dataViewModel.cacheBusinessSettings(settings.copy(logoUrl = logoUrl))
                                     snackbarHostState.showSnackbar("تم حفظ شعار المتجر بنجاح")
                                 } else {
                                     snackbarHostState.showSnackbar(result.displayMessage)
@@ -1390,9 +1270,12 @@ fun AccountScreen(onLogout: () -> Unit, onBack: () -> Unit) {
                     onUpdate = { updated ->
                         scope.launch {
                             try {
-                                app.tijario.config.Supabase.client.from("business_settings").upsert(updated)
-                                businessSettings = updated
-                                snackbarHostState.showSnackbar("تم حفظ تغييرات المتجر بنجاح")
+                                val result = dataViewModel.saveBusinessSettings(updated)
+                                if (result.isSuccess) {
+                                    snackbarHostState.showSnackbar("تم حفظ تغييرات المتجر بنجاح")
+                                } else {
+                                    snackbarHostState.showSnackbar("خطأ في الحفظ")
+                                }
                             } catch (e: Exception) {
                                 snackbarHostState.showSnackbar("خطأ في الحفظ")
                             }

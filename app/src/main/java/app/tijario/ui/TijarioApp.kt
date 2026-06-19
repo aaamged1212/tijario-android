@@ -48,7 +48,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -72,8 +74,9 @@ import app.tijario.ui.screens.RegisterScreen
 import app.tijario.ui.screens.ProductsScreen
 import app.tijario.ui.screens.ProductFormScreen
 import app.tijario.ui.screens.IntroWalkthroughScreen
+import app.tijario.ui.state.TijarioDataViewModel
+import app.tijario.ui.state.TijarioDataViewModelFactory
 import io.github.jan.supabase.auth.auth
-import io.github.jan.supabase.postgrest.from
 import kotlinx.coroutines.launch
 
 import androidx.compose.material.icons.filled.ShoppingBag
@@ -103,6 +106,10 @@ fun TijarioApp() {
     }
 
     val navController = rememberNavController()
+    val context = LocalContext.current
+    val dataViewModel: TijarioDataViewModel = viewModel(
+        factory = TijarioDataViewModelFactory(context.applicationContext),
+    )
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = backStackEntry?.destination
     val currentRoute = currentDestination?.route
@@ -125,18 +132,16 @@ fun TijarioApp() {
                 app.tijario.config.Supabase.client.auth.awaitInitialization()
                 val session = app.tijario.config.Supabase.client.auth.currentSessionOrNull()
                 if (session != null) {
-                    // Check if business settings onboarding is completed
-                    val settingsList = app.tijario.config.Supabase.client.from("business_settings")
-                        .select {
-                            filter {
-                                eq("user_id", session.user?.id ?: "")
-                            }
-                        }
-                        .decodeList<app.tijario.data.model.BusinessSettings>()
-                    if (settingsList.isNotEmpty()) {
+                    dataViewModel.startForCurrentUser()
+                    if (dataViewModel.hasCachedBusinessSettingsForCurrentUser()) {
                         startRoute = "main"
                     } else {
-                        startRoute = "onboarding"
+                        dataViewModel.refreshBusinessSettings()
+                        startRoute = if (dataViewModel.hasCachedBusinessSettingsForCurrentUser()) {
+                            "main"
+                        } else {
+                            "onboarding"
+                        }
                     }
                 } else {
                     startRoute = "intro"
@@ -177,14 +182,9 @@ fun TijarioApp() {
                                 try {
                                     val session = app.tijario.config.Supabase.client.auth.currentSessionOrNull()
                                     if (session != null) {
-                                        val settingsList = app.tijario.config.Supabase.client.from("business_settings")
-                                            .select {
-                                                filter {
-                                                    eq("user_id", session.user?.id ?: "")
-                                                }
-                                            }
-                                            .decodeList<app.tijario.data.model.BusinessSettings>()
-                                        if (settingsList.isNotEmpty()) {
+                                        dataViewModel.startForCurrentUser(forceRefresh = true)
+                                        dataViewModel.refreshBusinessSettings()
+                                        if (dataViewModel.hasCachedBusinessSettingsForCurrentUser()) {
                                             navController.navigate("main") {
                                                 popUpTo("login") { inclusive = true }
                                             }
@@ -209,7 +209,9 @@ fun TijarioApp() {
                 composable("forgot-password") { ForgotPasswordScreen(onBackToLogin = { navController.popBackStack() }) }
                 composable("onboarding") {
                     OnboardingScreen(
+                        dataViewModel = dataViewModel,
                         onDone = {
+                            dataViewModel.startForCurrentUser(forceRefresh = true)
                             navController.navigate("main") {
                                 popUpTo("onboarding") { inclusive = true }
                                 popUpTo("login") { inclusive = true }
@@ -347,6 +349,7 @@ fun TijarioApp() {
                         ) { page ->
                             when (page) {
                                 0 -> DashboardScreen(
+                                    dataViewModel = dataViewModel,
                                     onNewQuote = { navController.navigate("new-quote") },
                                     onNewInvoice = { navController.navigate("new-invoice") },
                                     onAddProduct = { navController.navigate("product-form") },
@@ -364,6 +367,7 @@ fun TijarioApp() {
                                     hideHeader = true
                                 )
                                 1 -> DocumentsScreen(
+                                    dataViewModel = dataViewModel,
                                     onNewQuote = {
                                         activeSelectedCustomer = null
                                         activeSelectedProduct = null
@@ -378,10 +382,12 @@ fun TijarioApp() {
                                 )
                                 2 -> AiToolsScreen(hideHeader = true)
                                 3 -> ProductsScreen(
+                                    dataViewModel = dataViewModel,
                                     onCreateProduct = { navController.navigate("product-form") },
                                     hideHeader = true
                                 )
                                 4 -> CustomersScreen(
+                                    dataViewModel = dataViewModel,
                                     onCreateCustomer = { navController.navigate("customer-form") },
                                     hideHeader = true
                                 )
@@ -392,6 +398,7 @@ fun TijarioApp() {
 
                 composable("customers") {
                     CustomersScreen(
+                        dataViewModel = dataViewModel,
                         onCreateCustomer = { navController.navigate("customer-form") },
                         onCustomerSelected = { customer ->
                             activeSelectedCustomer = customer
@@ -401,11 +408,13 @@ fun TijarioApp() {
                 }
                 composable("customer-form") {
                     CustomerFormScreen(
+                        dataViewModel = dataViewModel,
                         onBack = { navController.popBackStack() }
                     )
                 }
                 composable("products") {
                     ProductsScreen(
+                        dataViewModel = dataViewModel,
                         onCreateProduct = { navController.navigate("product-form") },
                         onProductSelected = { product ->
                             activeSelectedProduct = product
@@ -415,12 +424,19 @@ fun TijarioApp() {
                 }
                 composable("product-form") {
                     ProductFormScreen(
+                        dataViewModel = dataViewModel,
                         onBack = { navController.popBackStack() }
                     )
                 }
-                composable("business-settings") { BusinessSettingsScreen(onBack = { navController.popBackStack() }) }
+                composable("business-settings") {
+                    BusinessSettingsScreen(
+                        dataViewModel = dataViewModel,
+                        onBack = { navController.popBackStack() },
+                    )
+                }
                 composable("new-quote") {
                     DocumentFormScreen(
+                        dataViewModel = dataViewModel,
                         type = app.tijario.data.model.DocumentType.Quote,
                         onBack = { navController.popBackStack() },
                         onNavigateToSelectCustomer = { navController.navigate("customers") },
@@ -431,6 +447,7 @@ fun TijarioApp() {
                 }
                 composable("new-invoice") {
                     DocumentFormScreen(
+                        dataViewModel = dataViewModel,
                         type = app.tijario.data.model.DocumentType.Invoice,
                         onBack = { navController.popBackStack() },
                         onNavigateToSelectCustomer = { navController.navigate("customers") },
@@ -441,7 +458,9 @@ fun TijarioApp() {
                 }
                 composable("account") {
                     AccountScreen(
+                        dataViewModel = dataViewModel,
                         onLogout = {
+                            dataViewModel.clearSessionCache()
                             navController.navigate("login") {
                                 popUpTo(navController.graph.startDestinationId) {
                                     inclusive = true

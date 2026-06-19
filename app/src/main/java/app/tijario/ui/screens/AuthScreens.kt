@@ -31,9 +31,9 @@ import app.tijario.ui.components.GoogleSignInButton
 import app.tijario.ui.components.TijarioButton
 import app.tijario.ui.components.TijarioTextField
 import app.tijario.ui.state.BusinessSettingsFormState
+import app.tijario.ui.state.TijarioDataViewModel
 import app.tijario.ui.state.LoginFormState
 import app.tijario.ui.state.RegisterFormState
-import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.compose.auth.composeAuth
 import io.github.jan.supabase.compose.auth.composable.rememberSignInWithGoogle
@@ -593,7 +593,10 @@ fun ForgotPasswordScreen(onBackToLogin: () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun OnboardingScreen(onDone: () -> Unit) {
+fun OnboardingScreen(
+    dataViewModel: TijarioDataViewModel,
+    onDone: () -> Unit,
+) {
     val countries = listOf("السعودية", "اليمن", "مصر", "الإمارات", "الكويت", "قطر", "عمان", "البحرين", "الأردن", "لبنان", "المغرب", "تونس", "الجزائر", "ليبيا", "السودان", "العراق", "سوريا", "فلسطين")
     val currencies = listOf("SAR", "YER", "EGP", "AED", "KWD", "QAR", "OMR", "BHD", "JOD", "LBP", "MAD", "TND", "DZD", "LYD", "SDG", "IQD", "SYP", "USD", "EUR")
 
@@ -781,9 +784,10 @@ fun OnboardingScreen(onDone: () -> Unit) {
                                             currency = form.currency,
                                             termsText = form.terms.ifBlank { null }
                                         )
-                                        app.tijario.config.Supabase.client.from("business_settings")
-                                            .upsert(settings)
-                                        onDone()
+                                        val result = dataViewModel.saveBusinessSettings(settings)
+                                        if (result.isSuccess) {
+                                            onDone()
+                                        }
                                     }
                                 } catch (e: Exception) {
                                 } finally {

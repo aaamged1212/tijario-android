@@ -26,6 +26,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.style.TextAlign
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.tijario.config.t
 import app.tijario.domain.Validation
 import app.tijario.ui.components.ModernDocumentPreview
@@ -34,13 +35,15 @@ import app.tijario.ui.components.TijarioTextField
 import app.tijario.ui.state.BusinessSettingsFormState
 import app.tijario.ui.state.CustomerFormState
 import app.tijario.ui.state.DocumentFormState
-import io.github.jan.supabase.postgrest.from
-import io.github.jan.supabase.auth.auth
+import app.tijario.ui.state.TijarioDataViewModel
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CustomerFormScreen(onBack: () -> Unit) {
+fun CustomerFormScreen(
+    dataViewModel: TijarioDataViewModel,
+    onBack: () -> Unit,
+) {
     var form by remember { mutableStateOf(CustomerFormState()) }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
@@ -121,20 +124,18 @@ fun CustomerFormScreen(onBack: () -> Unit) {
                                 try {
                                     isLoading = true
                                     errorMessage = null
-                                    val currentUser = app.tijario.config.Supabase.client.auth.currentUserOrNull()
-                                    if (currentUser != null) {
-                                        val customer = app.tijario.data.model.Customer(
-                                            userId = currentUser.id,
-                                            name = form.name,
-                                            whatsappNumber = form.whatsapp,
-                                            city = form.city.ifBlank { null },
-                                            notes = form.notes.ifBlank { null }
-                                        )
-                                        app.tijario.config.Supabase.client.from("customers")
-                                            .insert(customer)
+                                    val customer = app.tijario.data.model.Customer(
+                                        name = form.name,
+                                        whatsappNumber = form.whatsapp,
+                                        city = form.city.ifBlank { null },
+                                        notes = form.notes.ifBlank { null }
+                                    )
+                                    val result = dataViewModel.createCustomer(customer)
+                                    if (result.isSuccess) {
                                         onBack()
                                     } else {
-                                        errorMessage = "يجب تسجيل الدخول قبل حفظ العميل."
+                                        errorMessage = result.exceptionOrNull()?.message
+                                            ?: "تعذر حفظ العميل. تحقق من البيانات وحاول مرة أخرى."
                                     }
                                 } catch (e: Exception) {
                                     errorMessage = "تعذر حفظ العميل. تحقق من البيانات وحاول مرة أخرى."
@@ -158,7 +159,10 @@ fun CustomerFormScreen(onBack: () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ProductFormScreen(onBack: () -> Unit) {
+fun ProductFormScreen(
+    dataViewModel: TijarioDataViewModel,
+    onBack: () -> Unit,
+) {
     var form by remember { mutableStateOf(app.tijario.ui.state.ProductFormState()) }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
@@ -274,21 +278,19 @@ fun ProductFormScreen(onBack: () -> Unit) {
                                 try {
                                     isLoading = true
                                     errorMessage = null
-                                    val currentUser = app.tijario.config.Supabase.client.auth.currentUserOrNull()
-                                    if (currentUser != null) {
-                                        val product = app.tijario.data.model.Product(
-                                            userId = currentUser.id,
-                                            kind = form.kind,
-                                            name = form.name,
-                                            description = form.description.ifBlank { null },
-                                            price = Validation.parseNonNegativeMoney(form.price) ?: 0.0,
-                                            currency = form.currency
-                                        )
-                                        app.tijario.config.Supabase.client.from("products")
-                                            .insert(product)
+                                    val product = app.tijario.data.model.Product(
+                                        kind = form.kind,
+                                        name = form.name,
+                                        description = form.description.ifBlank { null },
+                                        price = Validation.parseNonNegativeMoney(form.price) ?: 0.0,
+                                        currency = form.currency
+                                    )
+                                    val result = dataViewModel.createProduct(product)
+                                    if (result.isSuccess) {
                                         onBack()
                                     } else {
-                                        errorMessage = "يجب تسجيل الدخول قبل حفظ المنتج."
+                                        errorMessage = result.exceptionOrNull()?.message
+                                            ?: "تعذر حفظ المنتج أو الخدمة. تحقق من البيانات وحاول مرة أخرى."
                                     }
                                 } catch (e: Exception) {
                                     errorMessage = "تعذر حفظ المنتج أو الخدمة. تحقق من البيانات وحاول مرة أخرى."
@@ -312,43 +314,33 @@ fun ProductFormScreen(onBack: () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BusinessSettingsScreen(onBack: () -> Unit) {
+fun BusinessSettingsScreen(
+    dataViewModel: TijarioDataViewModel,
+    onBack: () -> Unit,
+) {
     var form by remember { mutableStateOf(BusinessSettingsFormState()) }
     var existingSettings by remember { mutableStateOf<app.tijario.data.model.BusinessSettings?>(null) }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+    val uiState by dataViewModel.uiState.collectAsStateWithLifecycle()
 
     LaunchedEffect(Unit) {
-        scope.launch {
-            try {
-                isLoading = true
-                val currentUser = app.tijario.config.Supabase.client.auth.currentUserOrNull()
-                if (currentUser != null) {
-                    val list = app.tijario.config.Supabase.client.from("business_settings")
-                        .select {
-                            filter {
-                                eq("user_id", currentUser.id)
-                            }
-                        }
-                        .decodeList<app.tijario.data.model.BusinessSettings>()
-                    val settings = list.firstOrNull()
-                    if (settings != null) {
-                        existingSettings = settings
-                        form = BusinessSettingsFormState(
-                            businessName = settings.businessName,
-                            whatsapp = settings.whatsappNumber,
-                            country = settings.country,
-                            city = settings.city ?: "",
-                            currency = settings.currency,
-                            terms = settings.termsText ?: ""
-                        )
-                    }
-                }
-            } catch (e: Exception) {
-            } finally {
-                isLoading = false
-            }
+        dataViewModel.refreshAll()
+    }
+
+    LaunchedEffect(uiState.businessSettings) {
+        val settings = uiState.businessSettings
+        if (settings != null && settings != existingSettings) {
+            existingSettings = settings
+            form = BusinessSettingsFormState(
+                businessName = settings.businessName,
+                whatsapp = settings.whatsappNumber,
+                country = settings.country,
+                city = settings.city ?: "",
+                currency = settings.currency,
+                terms = settings.termsText ?: ""
+            )
         }
     }
 
@@ -449,29 +441,28 @@ fun BusinessSettingsScreen(onBack: () -> Unit) {
                                 try {
                                     isLoading = true
                                     errorMessage = null
-                                    val currentUser = app.tijario.config.Supabase.client.auth.currentUserOrNull()
-                                    if (currentUser != null) {
-                                        val settings = existingSettings?.copy(
-                                            businessName = form.businessName,
-                                            whatsappNumber = form.whatsapp,
-                                            country = form.country,
-                                            city = form.city.ifBlank { null },
-                                            currency = form.currency,
-                                            termsText = form.terms.ifBlank { null },
-                                        ) ?: app.tijario.data.model.BusinessSettings(
-                                            userId = currentUser.id,
-                                            businessName = form.businessName,
-                                            whatsappNumber = form.whatsapp,
-                                            country = form.country,
-                                            city = form.city.ifBlank { null },
-                                            currency = form.currency,
-                                            termsText = form.terms.ifBlank { null },
-                                        )
-                                        app.tijario.config.Supabase.client.from("business_settings")
-                                            .upsert(settings)
+                                    val settings = existingSettings?.copy(
+                                        businessName = form.businessName,
+                                        whatsappNumber = form.whatsapp,
+                                        country = form.country,
+                                        city = form.city.ifBlank { null },
+                                        currency = form.currency,
+                                        termsText = form.terms.ifBlank { null },
+                                    ) ?: app.tijario.data.model.BusinessSettings(
+                                        userId = uiState.userId,
+                                        businessName = form.businessName,
+                                        whatsappNumber = form.whatsapp,
+                                        country = form.country,
+                                        city = form.city.ifBlank { null },
+                                        currency = form.currency,
+                                        termsText = form.terms.ifBlank { null },
+                                    )
+                                    val result = dataViewModel.saveBusinessSettings(settings)
+                                    if (result.isSuccess) {
                                         onBack()
                                     } else {
-                                        errorMessage = "يجب تسجيل الدخول قبل حفظ الإعدادات."
+                                        errorMessage = result.exceptionOrNull()?.message
+                                            ?: "تعذر حفظ إعدادات المتجر. حاول مرة أخرى."
                                     }
                                 } catch (e: Exception) {
                                     errorMessage = "تعذر حفظ إعدادات المتجر. حاول مرة أخرى."
@@ -496,6 +487,7 @@ fun BusinessSettingsScreen(onBack: () -> Unit) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DocumentFormScreen(
+    dataViewModel: TijarioDataViewModel,
     type: app.tijario.data.model.DocumentType,
     onBack: () -> Unit,
     onNavigateToSelectCustomer: () -> Unit = {},
@@ -507,7 +499,8 @@ fun DocumentFormScreen(
     var selectedTab by remember { mutableStateOf(0) } // 0 = التعديل (Edit), 1 = المعاينة (Preview)
     var isLoading by remember { mutableStateOf(false) }
     var submitError by remember { mutableStateOf<String?>(null) }
-    var businessSettings by remember { mutableStateOf<app.tijario.data.model.BusinessSettings?>(null) }
+    val uiState by dataViewModel.uiState.collectAsStateWithLifecycle()
+    val businessSettings = uiState.businessSettings
     val scope = rememberCoroutineScope()
 
     // Sync selected customer
@@ -532,24 +525,8 @@ fun DocumentFormScreen(
         }
     }
 
-    // Load business settings for preview
     LaunchedEffect(Unit) {
-        scope.launch {
-            try {
-                val currentUser = app.tijario.config.Supabase.client.auth.currentUserOrNull()
-                if (currentUser != null) {
-                    val list = app.tijario.config.Supabase.client.from("business_settings")
-                        .select {
-                            filter {
-                                eq("user_id", currentUser.id)
-                            }
-                        }
-                        .decodeList<app.tijario.data.model.BusinessSettings>()
-                    businessSettings = list.firstOrNull()
-                }
-            } catch (e: Exception) {
-            }
-        }
+        dataViewModel.refreshAll()
     }
 
     Scaffold(
@@ -785,7 +762,7 @@ fun DocumentFormScreen(
                                             notes = form.notes.ifBlank { null },
                                             termsText = form.terms.ifBlank { null }
                                         )
-                                        val result = app.tijario.config.Supabase.apiClient.createDocument(req)
+                                        val result = dataViewModel.createDocument(req)
                                         if (result.ok) {
                                             onBack()
                                         } else {
