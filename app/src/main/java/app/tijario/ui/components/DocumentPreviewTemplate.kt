@@ -1,6 +1,8 @@
 package app.tijario.ui.components
 
+import android.graphics.BitmapFactory
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -24,12 +26,15 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -42,7 +47,10 @@ import java.text.NumberFormat
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import java.net.URL
 import kotlin.math.max
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 private val PreviewLocale = Locale("ar", "SA")
 
@@ -122,14 +130,7 @@ fun ModernDocumentPreview(
                             .background(Color(0xFF00796B)),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Text(
-                            text = "شعارك",
-                            color = Color.White,
-                            fontSize = 7.sp,
-                            fontWeight = FontWeight.Bold,
-                            textAlign = TextAlign.Center,
-                            lineHeight = 9.sp,
-                        )
+                        PreviewLogoImage(logoUrl = businessSettings?.logoUrl)
                     }
                 }
             }
@@ -594,6 +595,40 @@ private fun ColumnScope.TotalValue(text: String, bold: Boolean = false) {
             color = Color(0xFF161B1D),
             fontSize = if (bold) 8.sp else 7.sp,
             fontWeight = if (bold) FontWeight.Bold else FontWeight.SemiBold,
+            textAlign = TextAlign.Center,
+            lineHeight = 9.sp,
+        )
+    }
+}
+
+@Composable
+private fun PreviewLogoImage(logoUrl: String?) {
+    val logoBitmap = produceState<android.graphics.Bitmap?>(initialValue = null, logoUrl) {
+        value = null
+        if (!logoUrl.isNullOrBlank()) {
+            value = withContext(Dispatchers.IO) {
+                runCatching {
+                    URL(logoUrl).openStream().use { stream ->
+                        BitmapFactory.decodeStream(stream)
+                    }
+                }.getOrNull()
+            }
+        }
+    }
+
+    if (logoBitmap.value != null) {
+        Image(
+            bitmap = logoBitmap.value!!.asImageBitmap(),
+            contentDescription = "شعار المتجر",
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop,
+        )
+    } else {
+        Text(
+            text = "شعارك",
+            color = Color.White,
+            fontSize = 7.sp,
+            fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center,
             lineHeight = 9.sp,
         )

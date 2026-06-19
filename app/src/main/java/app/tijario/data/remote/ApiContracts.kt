@@ -10,7 +10,10 @@ data class ApiResult<T>(
     val code: String? = null,
     val message: String? = null,
     val data: T? = null,
-)
+) {
+    val displayMessage: String
+        get() = message ?: "حدث خطأ غير متوقع. حاول مرة أخرى."
+}
 
 @Serializable
 data class DocumentItemInput(
@@ -65,4 +68,43 @@ data class AiCaptionRequest(
     @SerialName("product_or_service") val productOrService: String,
     val offer: String? = null,
     @SerialName("extra_note") val extraNote: String? = null,
+)
+
+@Serializable
+data class AiReplyResponse(
+    val replies: Map<String, String> = emptyMap(),
+)
+
+@Serializable
+data class AiCaptionVariant(
+    val caption: String,
+    val cta: String,
+    val hashtags: List<String> = emptyList(),
+)
+
+@Serializable
+data class AiCaptionResponse(
+    val captions: Map<String, AiCaptionVariant> = emptyMap(),
+)
+
+@Serializable
+data class UploadLogoRequest(
+    @SerialName("file_name") val fileName: String,
+    @SerialName("mime_type") val mimeType: String,
+    val base64: String,
+)
+
+@Serializable
+data class UploadLogoResponse(
+    @SerialName("logo_url") val logoUrl: String?,
+)
+
+@Serializable
+data class ResetPasswordRequest(
+    val email: String,
+)
+
+@Serializable
+data class ResetPasswordResponse(
+    val sent: Boolean = false,
 )

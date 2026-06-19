@@ -30,14 +30,12 @@ import app.tijario.config.t
 import app.tijario.domain.Validation
 import app.tijario.ui.components.ModernDocumentPreview
 import app.tijario.ui.components.TijarioButton
-import app.tijario.ui.components.TijarioCard
 import app.tijario.ui.components.TijarioTextField
 import app.tijario.ui.state.BusinessSettingsFormState
 import app.tijario.ui.state.CustomerFormState
 import app.tijario.ui.state.DocumentFormState
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.auth.auth
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -45,6 +43,7 @@ import kotlinx.coroutines.launch
 fun CustomerFormScreen(onBack: () -> Unit) {
     var form by remember { mutableStateOf(CustomerFormState()) }
     var isLoading by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
 
     Scaffold(
@@ -121,6 +120,7 @@ fun CustomerFormScreen(onBack: () -> Unit) {
                             scope.launch {
                                 try {
                                     isLoading = true
+                                    errorMessage = null
                                     val currentUser = app.tijario.config.Supabase.client.auth.currentUserOrNull()
                                     if (currentUser != null) {
                                         val customer = app.tijario.data.model.Customer(
@@ -133,9 +133,11 @@ fun CustomerFormScreen(onBack: () -> Unit) {
                                         app.tijario.config.Supabase.client.from("customers")
                                             .insert(customer)
                                         onBack()
+                                    } else {
+                                        errorMessage = "يجب تسجيل الدخول قبل حفظ العميل."
                                     }
                                 } catch (e: Exception) {
-                                    e.printStackTrace()
+                                    errorMessage = "تعذر حفظ العميل. تحقق من البيانات وحاول مرة أخرى."
                                 } finally {
                                     isLoading = false
                                 }
@@ -144,6 +146,10 @@ fun CustomerFormScreen(onBack: () -> Unit) {
                         enabled = form.canSubmit,
                         isLoading = isLoading
                     )
+
+                    errorMessage?.let {
+                        Text(it, color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
+                    }
                 }
             }
         }
@@ -155,6 +161,7 @@ fun CustomerFormScreen(onBack: () -> Unit) {
 fun ProductFormScreen(onBack: () -> Unit) {
     var form by remember { mutableStateOf(app.tijario.ui.state.ProductFormState()) }
     var isLoading by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
 
     Scaffold(
@@ -266,6 +273,7 @@ fun ProductFormScreen(onBack: () -> Unit) {
                             scope.launch {
                                 try {
                                     isLoading = true
+                                    errorMessage = null
                                     val currentUser = app.tijario.config.Supabase.client.auth.currentUserOrNull()
                                     if (currentUser != null) {
                                         val product = app.tijario.data.model.Product(
@@ -279,9 +287,11 @@ fun ProductFormScreen(onBack: () -> Unit) {
                                         app.tijario.config.Supabase.client.from("products")
                                             .insert(product)
                                         onBack()
+                                    } else {
+                                        errorMessage = "يجب تسجيل الدخول قبل حفظ المنتج."
                                     }
                                 } catch (e: Exception) {
-                                    e.printStackTrace()
+                                    errorMessage = "تعذر حفظ المنتج أو الخدمة. تحقق من البيانات وحاول مرة أخرى."
                                 } finally {
                                     isLoading = false
                                 }
@@ -290,6 +300,10 @@ fun ProductFormScreen(onBack: () -> Unit) {
                         enabled = form.canSubmit,
                         isLoading = isLoading
                     )
+
+                    errorMessage?.let {
+                        Text(it, color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
+                    }
                 }
             }
         }
@@ -302,6 +316,7 @@ fun BusinessSettingsScreen(onBack: () -> Unit) {
     var form by remember { mutableStateOf(BusinessSettingsFormState()) }
     var existingSettings by remember { mutableStateOf<app.tijario.data.model.BusinessSettings?>(null) }
     var isLoading by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
@@ -331,7 +346,6 @@ fun BusinessSettingsScreen(onBack: () -> Unit) {
                     }
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
             } finally {
                 isLoading = false
             }
@@ -434,6 +448,7 @@ fun BusinessSettingsScreen(onBack: () -> Unit) {
                             scope.launch {
                                 try {
                                     isLoading = true
+                                    errorMessage = null
                                     val currentUser = app.tijario.config.Supabase.client.auth.currentUserOrNull()
                                     if (currentUser != null) {
                                         val settings = existingSettings?.copy(
@@ -455,9 +470,11 @@ fun BusinessSettingsScreen(onBack: () -> Unit) {
                                         app.tijario.config.Supabase.client.from("business_settings")
                                             .upsert(settings)
                                         onBack()
+                                    } else {
+                                        errorMessage = "يجب تسجيل الدخول قبل حفظ الإعدادات."
                                     }
                                 } catch (e: Exception) {
-                                    e.printStackTrace()
+                                    errorMessage = "تعذر حفظ إعدادات المتجر. حاول مرة أخرى."
                                 } finally {
                                     isLoading = false
                                 }
@@ -466,6 +483,10 @@ fun BusinessSettingsScreen(onBack: () -> Unit) {
                         enabled = form.canSubmit,
                         isLoading = isLoading
                     )
+
+                    errorMessage?.let {
+                        Text(it, color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
+                    }
                 }
             }
         }
@@ -485,6 +506,7 @@ fun DocumentFormScreen(
     var form by remember { mutableStateOf(DocumentFormState()) }
     var selectedTab by remember { mutableStateOf(0) } // 0 = التعديل (Edit), 1 = المعاينة (Preview)
     var isLoading by remember { mutableStateOf(false) }
+    var submitError by remember { mutableStateOf<String?>(null) }
     var businessSettings by remember { mutableStateOf<app.tijario.data.model.BusinessSettings?>(null) }
     val scope = rememberCoroutineScope()
 
@@ -526,7 +548,6 @@ fun DocumentFormScreen(
                     businessSettings = list.firstOrNull()
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
             }
         }
     }
@@ -742,15 +763,19 @@ fun DocumentFormScreen(
                                 scope.launch {
                                     try {
                                         isLoading = true
+                                        submitError = null
                                         val req = app.tijario.data.remote.CreateDocumentRequest(
                                             type = type,
                                             customer = app.tijario.data.remote.DocumentCustomerInput(
                                                 name = form.customerName,
-                                                whatsappNumber = form.customerWhatsapp
+                                                whatsappNumber = form.customerWhatsapp,
+                                                city = selectedCustomer?.city,
                                             ),
                                             items = listOf(
                                                 app.tijario.data.remote.DocumentItemInput(
                                                     name = form.itemName,
+                                                    productId = form.productId,
+                                                    description = selectedProduct?.description,
                                                     quantity = Validation.parsePositiveInt(form.quantity) ?: 1,
                                                     unitPrice = Validation.parseNonNegativeMoney(form.unitPrice) ?: 0.0
                                                 )
@@ -760,10 +785,14 @@ fun DocumentFormScreen(
                                             notes = form.notes.ifBlank { null },
                                             termsText = form.terms.ifBlank { null }
                                         )
-                                        app.tijario.config.Supabase.apiClient.createDocument(req)
-                                        onBack()
+                                        val result = app.tijario.config.Supabase.apiClient.createDocument(req)
+                                        if (result.ok) {
+                                            onBack()
+                                        } else {
+                                            submitError = result.displayMessage
+                                        }
                                     } catch (e: Exception) {
-                                        e.printStackTrace()
+                                        submitError = "تعذر حفظ المستند الآن. تحقق من الاتصال وحاول مرة أخرى."
                                     } finally {
                                         isLoading = false
                                     }
@@ -772,6 +801,10 @@ fun DocumentFormScreen(
                             enabled = form.canSubmit,
                             isLoading = isLoading
                         )
+
+                        submitError?.let {
+                            Text(it, color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
+                        }
                     }
                 }
             }

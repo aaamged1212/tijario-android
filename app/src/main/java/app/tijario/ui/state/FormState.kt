@@ -72,6 +72,8 @@ data class DocumentFormState(
         customerId != null &&
             customerName.isNotEmpty() &&
             itemName.isNotEmpty() &&
+            quantity.isNotBlank() &&
+            unitPrice.isNotBlank() &&
             quantityError == null &&
             unitPriceError == null &&
             discountError == null &&
@@ -110,5 +112,5 @@ data class ProductFormState(
 ) {
     val nameError: String? get() = Validation.required(name, "الاسم")
     val priceError: String? get() = Validation.nonNegativeMoney(price, "السعر")
-    val canSubmit: Boolean get() = nameError == null && priceError == null
+    val canSubmit: Boolean get() = nameError == null && price.isNotBlank() && priceError == null
 }
