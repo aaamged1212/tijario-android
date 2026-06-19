@@ -9,7 +9,10 @@ data class AppConfig(
     val googleWebClientId: String,
 ) {
     val isComplete: Boolean =
-        supabaseUrl.isNotBlank() && supabaseAnonKey.isNotBlank() && apiBaseUrl.isNotBlank() && googleWebClientId.isNotBlank()
+        supabaseUrl.isNotBlank() && supabaseAnonKey.isNotBlank() && apiBaseUrl.isNotBlank()
+
+    val isGoogleSignInEnabled: Boolean =
+        googleWebClientId.isNotBlank()
 }
 
 fun loadAppConfig(): AppConfig =

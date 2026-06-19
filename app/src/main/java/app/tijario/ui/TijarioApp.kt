@@ -142,7 +142,6 @@ fun TijarioApp() {
                     startRoute = "intro"
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
                 startRoute = "intro"
             } finally {
                 isCheckingSession = false

@@ -1,7 +1,13 @@
-package app.tijario.ui.screens
+﻿package app.tijario.ui.screens
 
+import android.content.Context
 import android.content.Intent
+import android.graphics.BitmapFactory
 import android.net.Uri
+import android.util.Base64
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -46,7 +52,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -55,12 +63,13 @@ import app.tijario.MainActivity
 import app.tijario.config.AppLanguage
 import app.tijario.config.t
 import app.tijario.ui.components.TijarioButton
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import app.tijario.ui.components.TijarioCard
+import kotlinx.coroutines.withContext
 import app.tijario.ui.components.TijarioTextField
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.auth.auth
+import java.net.URL
 
 @Composable
 fun ConfigurationRequiredScreen() {
@@ -190,7 +199,6 @@ fun DashboardScreen(
                     pendingQuotesCount = pending
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
             }
         }
     }
@@ -326,6 +334,14 @@ fun DashboardScreen(
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             QuickActionButton(
+                title = t("btn_add_product"),
+                icon = Icons.Filled.BusinessCenter,
+                backgroundColor = Color(0xFFECFDF5),
+                iconColor = Color(0xFF059669),
+                onClick = onAddProduct,
+                modifier = Modifier.weight(1f)
+            )
+            QuickActionButton(
                 title = t("btn_add_customer"),
                 icon = Icons.Filled.People,
                 backgroundColor = Color(0xFFFDF2F8),
@@ -333,15 +349,15 @@ fun DashboardScreen(
                 onClick = onCustomers,
                 modifier = Modifier.weight(1f)
             )
-            QuickActionButton(
-                title = t("tab_ai"),
-                icon = Icons.Filled.AutoAwesome,
-                backgroundColor = Color(0xFFF5F3FF),
-                iconColor = Color(0xFF7C3AED),
-                onClick = onAiTools,
-                modifier = Modifier.weight(1f)
-            )
         }
+        QuickActionButton(
+            title = t("tab_ai"),
+            icon = Icons.Filled.AutoAwesome,
+            backgroundColor = Color(0xFFF5F3FF),
+            iconColor = Color(0xFF7C3AED),
+            onClick = onAiTools,
+            modifier = Modifier.fillMaxWidth()
+        )
 
         Spacer(modifier = Modifier.height(20.dp))
     }
@@ -378,8 +394,12 @@ private fun QuickActionButton(
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 104.dp)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Surface(
                 color = backgroundColor,
@@ -394,7 +414,8 @@ private fun QuickActionButton(
                 text = title,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
+                color = MaterialTheme.colorScheme.onSurface,
+                textAlign = TextAlign.Center
             )
         }
     }
@@ -427,7 +448,6 @@ fun CustomersScreen(
                     customers = list
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
             } finally {
                 isLoading = false
             }
@@ -556,7 +576,6 @@ fun CustomersScreen(
                                                 val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${customer.whatsappNumber}"))
                                                 context.startActivity(intent)
                                             } catch (e: Exception) {
-                                                e.printStackTrace()
                                             }
                                         }
                                     ) {
@@ -569,7 +588,6 @@ fun CustomersScreen(
                                                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/$formatted"))
                                                 context.startActivity(intent)
                                             } catch (e: Exception) {
-                                                e.printStackTrace()
                                             }
                                         }
                                     ) {
@@ -638,7 +656,6 @@ fun ProductsScreen(
                     products = list
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
             } finally {
                 isLoading = false
             }
@@ -819,7 +836,6 @@ fun DocumentsScreen(
                     customers = custs
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
             } finally {
                 isLoading = false
             }
@@ -1005,10 +1021,12 @@ fun AiToolsScreen(hideHeader: Boolean = false) {
 
     var chatMessage by remember { mutableStateOf("") }
     var aiReplyResult by remember { mutableStateOf("") }
+    var aiReplyError by remember { mutableStateOf<String?>(null) }
     var isReplyLoading by remember { mutableStateOf(false) }
 
     var captionMessage by remember { mutableStateOf("") }
     var aiCaptionResult by remember { mutableStateOf("") }
+    var aiCaptionError by remember { mutableStateOf<String?>(null) }
     var isCaptionLoading by remember { mutableStateOf(false) }
 
     val scope = rememberCoroutineScope()
@@ -1089,14 +1107,37 @@ fun AiToolsScreen(hideHeader: Boolean = false) {
                         text = t("btn_generate_reply"),
                         onClick = {
                             scope.launch {
-                                isReplyLoading = true
-                                kotlinx.coroutines.delay(1800)
-                                aiReplyResult = if (MainActivity.currentLanguage == AppLanguage.AR) {
-                                    "أهلاً بك عميلنا العزيز، تم تلقي طلبك وجاري مراجعته حالياً، سنوافيك بالتفاصيل قريباً جداً. شكراً لتواصلك معنا!"
-                                } else {
-                                    "Hello dear customer, we have received your request and it is currently being reviewed. We will update you with details very soon. Thank you for contacting us!"
+                                try {
+                                    isReplyLoading = true
+                                    aiReplyError = null
+                                    aiReplyResult = ""
+                                    val result = app.tijario.config.Supabase.apiClient.generateAiReply(
+                                        app.tijario.data.remote.AiReplyRequest(
+                                            caseType = "customer_inquiry",
+                                            customerName = null,
+                                            dialect = "gulf",
+                                            tone = "friendly",
+                                            length = "short",
+                                            extraNote = chatMessage,
+                                        )
+                                    )
+                                    if (result.ok) {
+                                        val replies = result.data?.replies.orEmpty()
+                                        aiReplyResult = listOfNotNull(
+                                            replies["short"],
+                                            replies["sales"],
+                                            replies["formal"],
+                                        ).joinToString("\n\n").ifBlank {
+                                            "تم إنشاء الرد لكن لم تصل صيغة صالحة من الخادم."
+                                        }
+                                    } else {
+                                        aiReplyError = result.displayMessage
+                                    }
+                                } catch (e: Exception) {
+                                    aiReplyError = "تعذر إنشاء الرد الآن. تحقق من الاتصال وحاول مرة أخرى."
+                                } finally {
+                                    isReplyLoading = false
                                 }
-                                isReplyLoading = false
                             }
                         },
                         enabled = chatMessage.isNotBlank(),
@@ -1118,6 +1159,10 @@ fun AiToolsScreen(hideHeader: Boolean = false) {
                                 Text(aiReplyResult, color = Color(0xFF1E293B), fontSize = 14.sp)
                             }
                         }
+                    }
+
+                    aiReplyError?.let {
+                        Text(it, color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
                     }
                 }
             }
@@ -1151,14 +1196,44 @@ fun AiToolsScreen(hideHeader: Boolean = false) {
                         text = t("btn_generate_caption"),
                         onClick = {
                             scope.launch {
-                                isCaptionLoading = true
-                                kotlinx.coroutines.delay(1800)
-                                aiCaptionResult = if (MainActivity.currentLanguage == AppLanguage.AR) {
-                                    "✨ عروضنا المتميزة وصلت! تيجاريو يوفر لكم أفضل تجربة ذكية لإدارة أعمالكم ومتاجركم بكل سهولة وأمان وسرعة. تواصل معنا الآن لمعرفة المزيد! 🚀"
-                                } else {
-                                    "✨ Our special offers have arrived! Tijario provides you with the best smart experience to manage your business and stores with ease, safety, and speed. Contact us now to learn more! 🚀"
+                                try {
+                                    isCaptionLoading = true
+                                    aiCaptionError = null
+                                    aiCaptionResult = ""
+                                    val result = app.tijario.config.Supabase.apiClient.generateAiCaption(
+                                        app.tijario.data.remote.AiCaptionRequest(
+                                            captionType = "product_post",
+                                            platform = "instagram",
+                                            dialect = "gulf",
+                                            tone = "sales",
+                                            length = "short",
+                                            productOrService = captionMessage,
+                                        )
+                                    )
+                                    if (result.ok) {
+                                        val captions = result.data?.captions.orEmpty()
+                                        aiCaptionResult = listOf("short", "sales", "premium")
+                                            .mapNotNull { key -> captions[key] }
+                                            .joinToString("\n\n") { variant ->
+                                                buildString {
+                                                    append(variant.caption)
+                                                    append("\n")
+                                                    append(variant.cta)
+                                                    if (variant.hashtags.isNotEmpty()) {
+                                                        append("\n")
+                                                        append(variant.hashtags.joinToString(" "))
+                                                    }
+                                                }
+                                            }
+                                            .ifBlank { "تم إنشاء الكابشن لكن لم تصل صيغة صالحة من الخادم." }
+                                    } else {
+                                        aiCaptionError = result.displayMessage
+                                    }
+                                } catch (e: Exception) {
+                                    aiCaptionError = "تعذر إنشاء الكابشن الآن. تحقق من الاتصال وحاول مرة أخرى."
+                                } finally {
+                                    isCaptionLoading = false
                                 }
-                                isCaptionLoading = false
                             }
                         },
                         enabled = captionMessage.isNotBlank(),
@@ -1181,6 +1256,10 @@ fun AiToolsScreen(hideHeader: Boolean = false) {
                             }
                         }
                     }
+
+                    aiCaptionError?.let {
+                        Text(it, color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
+                    }
                 }
             }
         }
@@ -1192,12 +1271,14 @@ fun AiToolsScreen(hideHeader: Boolean = false) {
 fun AccountScreen(onLogout: () -> Unit, onBack: () -> Unit) {
     var selectedTab by remember { mutableStateOf(0) } // 0 = Store, 1 = Personal
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
 
     var businessSettings by remember { mutableStateOf<app.tijario.data.model.BusinessSettings?>(null) }
     var currentUserEmail by remember { mutableStateOf("") }
     var currentUserName by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
+    var isLogoUploading by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         scope.launch {
@@ -1218,7 +1299,6 @@ fun AccountScreen(onLogout: () -> Unit, onBack: () -> Unit) {
                     businessSettings = settingsList.firstOrNull()
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
             } finally {
                 isLoading = false
             }
@@ -1280,6 +1360,33 @@ fun AccountScreen(onLogout: () -> Unit, onBack: () -> Unit) {
                 // Store Account Tab
                 StoreAccountContent(
                     settings = businessSettings,
+                    isLogoUploading = isLogoUploading,
+                    onLogoSelected = { logoUri ->
+                        scope.launch {
+                            val settings = businessSettings
+                            if (settings == null) {
+                                snackbarHostState.showSnackbar("أكمل إعدادات المتجر أولاً قبل رفع الشعار")
+                                return@launch
+                            }
+
+                            try {
+                                isLogoUploading = true
+                                val uploadRequest = buildLogoUploadRequest(context, logoUri)
+                                val result = app.tijario.config.Supabase.apiClient.uploadBusinessLogo(uploadRequest)
+                                val logoUrl = result.data?.logoUrl
+                                if (result.ok && !logoUrl.isNullOrBlank()) {
+                                    businessSettings = settings.copy(logoUrl = logoUrl)
+                                    snackbarHostState.showSnackbar("تم حفظ شعار المتجر بنجاح")
+                                } else {
+                                    snackbarHostState.showSnackbar(result.displayMessage)
+                                }
+                            } catch (e: Exception) {
+                                snackbarHostState.showSnackbar(e.message ?: "تعذر رفع الشعار. حاول مرة أخرى.")
+                            } finally {
+                                isLogoUploading = false
+                            }
+                        }
+                    },
                     onUpdate = { updated ->
                         scope.launch {
                             try {
@@ -1297,7 +1404,28 @@ fun AccountScreen(onLogout: () -> Unit, onBack: () -> Unit) {
                 PersonalAccountContent(
                     email = currentUserEmail,
                     name = currentUserName,
-                    onLogout = onLogout
+                    onLogout = onLogout,
+                    onChangePassword = {
+                        scope.launch {
+                            if (currentUserEmail.isBlank()) {
+                                snackbarHostState.showSnackbar("لا يوجد بريد إلكتروني مرتبط بالحساب")
+                                return@launch
+                            }
+
+                            try {
+                                val result = app.tijario.config.Supabase.apiClient.requestPasswordReset(
+                                    app.tijario.data.remote.ResetPasswordRequest(email = currentUserEmail)
+                                )
+                                if (result.ok) {
+                                    snackbarHostState.showSnackbar("تم إرسال رابط تغيير كلمة المرور إلى بريدك")
+                                } else {
+                                    snackbarHostState.showSnackbar(result.displayMessage)
+                                }
+                            } catch (e: Exception) {
+                                snackbarHostState.showSnackbar("تعذر إرسال رابط تغيير كلمة المرور")
+                            }
+                        }
+                    },
                 )
             }
 
@@ -1348,6 +1476,8 @@ fun AccountScreen(onLogout: () -> Unit, onBack: () -> Unit) {
 @Composable
 fun StoreAccountContent(
     settings: app.tijario.data.model.BusinessSettings?,
+    isLogoUploading: Boolean,
+    onLogoSelected: (Uri) -> Unit,
     onUpdate: (app.tijario.data.model.BusinessSettings) -> Unit
 ) {
     var businessName by remember(settings) { mutableStateOf(settings?.businessName ?: "") }
@@ -1355,23 +1485,19 @@ fun StoreAccountContent(
     var country by remember(settings) { mutableStateOf(settings?.country ?: "السعودية") }
     var city by remember(settings) { mutableStateOf(settings?.city ?: "") }
     var currency by remember(settings) { mutableStateOf(settings?.currency ?: "SAR") }
+    val logoPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) {
+            onLogoSelected(uri)
+        }
+    }
 
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        // Logo Upload Placeholder
         Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-            Box(
-                modifier = Modifier
-                    .size(100.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
-                    .clickable { /* TODO: Image Picker */ },
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Filled.PhotoCamera, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                    Text("شعار المتجر", fontSize = 10.sp, color = MaterialTheme.colorScheme.primary)
-                }
-            }
+            StoreLogoPicker(
+                logoUrl = settings?.logoUrl,
+                isUploading = isLogoUploading,
+                onClick = { logoPicker.launch("image/*") },
+            )
         }
 
         TijarioTextField(
@@ -1421,12 +1547,85 @@ fun StoreAccountContent(
         )
     }
 }
+@Composable
+private fun StoreLogoPicker(
+    logoUrl: String?,
+    isUploading: Boolean,
+    onClick: () -> Unit,
+) {
+    val logoBitmap by produceState<android.graphics.Bitmap?>(initialValue = null, logoUrl) {
+        value = null
+        if (!logoUrl.isNullOrBlank()) {
+            value = withContext(Dispatchers.IO) {
+                runCatching {
+                    URL(logoUrl).openStream().use { stream ->
+                        BitmapFactory.decodeStream(stream)
+                    }
+                }.getOrNull()
+            }
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .size(110.dp)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
+            .clickable(enabled = !isUploading) { onClick() },
+        contentAlignment = Alignment.Center
+    ) {
+        when {
+            isUploading -> CircularProgressIndicator(modifier = Modifier.size(28.dp))
+            logoBitmap != null -> Image(
+                bitmap = logoBitmap!!.asImageBitmap(),
+                contentDescription = "شعار المتجر",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
+            )
+            else -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(Icons.Filled.PhotoCamera, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                Text("شعار المتجر", fontSize = 10.sp, color = MaterialTheme.colorScheme.primary)
+            }
+        }
+    }
+}
+
+private suspend fun buildLogoUploadRequest(
+    context: Context,
+    uri: Uri,
+): app.tijario.data.remote.UploadLogoRequest =
+    withContext(Dispatchers.IO) {
+        val mimeType = context.contentResolver.getType(uri) ?: "image/jpeg"
+        val allowedMimeTypes = setOf("image/jpeg", "image/png", "image/webp")
+
+        require(mimeType in allowedMimeTypes) {
+            "ارفع صورة بصيغة PNG أو JPG أو WebP."
+        }
+
+        val bytes = context.contentResolver.openInputStream(uri)?.use { input ->
+            input.readBytes()
+        } ?: error("تعذر قراءة صورة الشعار.")
+
+        require(bytes.isNotEmpty()) {
+            "ملف الشعار فارغ."
+        }
+        require(bytes.size <= 2 * 1024 * 1024) {
+            "حجم الشعار يجب ألا يتجاوز 2MB."
+        }
+
+        app.tijario.data.remote.UploadLogoRequest(
+            fileName = "logo",
+            mimeType = mimeType,
+            base64 = Base64.encodeToString(bytes, Base64.NO_WRAP),
+        )
+    }
 
 @Composable
 fun PersonalAccountContent(
     email: String,
     name: String,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    onChangePassword: () -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Card(
@@ -1451,7 +1650,7 @@ fun PersonalAccountContent(
         }
 
         Button(
-            onClick = { /* TODO: Change Password */ },
+            onClick = onChangePassword,
             modifier = Modifier.fillMaxWidth().height(52.dp),
             shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.buttonColors(
@@ -1501,5 +1700,3 @@ private fun UsageIndicator(title: String, used: Int, total: Int, color: Color) {
         )
     }
 }
-
-private data class Quadruple<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)

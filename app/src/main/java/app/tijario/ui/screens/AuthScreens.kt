@@ -40,7 +40,6 @@ import io.github.jan.supabase.compose.auth.composable.rememberSignInWithGoogle
 import io.github.jan.supabase.compose.auth.composable.NativeSignInResult
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.Image
 import androidx.compose.ui.res.painterResource
@@ -56,6 +55,7 @@ fun LoginScreen(
     var isGoogleLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+    val googleSignInEnabled = remember { app.tijario.config.loadAppConfig().isGoogleSignInEnabled }
 
     Box(
         modifier = Modifier
@@ -188,7 +188,6 @@ fun LoginScreen(
                                     }
                                     onLoginReady()
                                 } catch (e: Exception) {
-                                    e.printStackTrace()
                                     errorMessage = "فشل تسجيل الدخول: البريد الإلكتروني أو كلمة المرور غير صحيحة"
                                 } finally {
                                     isLoading = false
@@ -199,51 +198,53 @@ fun LoginScreen(
                         isLoading = isLoading
                     )
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        HorizontalDivider(modifier = Modifier.weight(1f), color = Color(0xFFE2E8F0))
-                        Text(
-                            text = t("or"),
-                            modifier = Modifier.padding(horizontal = 16.dp),
-                            color = Color(0xFF94A3B8),
-                            fontSize = 14.sp
-                        )
-                        HorizontalDivider(modifier = Modifier.weight(1f), color = Color(0xFFE2E8F0))
-                    }
-
-                    val loginGoogleAction = app.tijario.config.Supabase.client.composeAuth.rememberSignInWithGoogle(
-                        onResult = { result ->
-                            when (result) {
-                                is NativeSignInResult.Success -> {
-                                    onLoginReady()
-                                }
-                                is NativeSignInResult.Error -> {
-                                    errorMessage = result.message
-                                }
-                                else -> {}
-                            }
-                        }
-                    )
-
-                    GoogleSignInButton(
-                        onClick = {
-                            loginGoogleAction.startFlow()
-                        },
-                        enabled = !isLoading && !isGoogleLoading,
-                        text = t("google_login")
-                    )
-
-                    if (isGoogleLoading) {
-                        Box(
+                    if (googleSignInEnabled) {
+                        Row(
                             modifier = Modifier.fillMaxWidth(),
-                            contentAlignment = Alignment.Center
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(24.dp),
-                                color = MaterialTheme.colorScheme.primary
+                            HorizontalDivider(modifier = Modifier.weight(1f), color = Color(0xFFE2E8F0))
+                            Text(
+                                text = t("or"),
+                                modifier = Modifier.padding(horizontal = 16.dp),
+                                color = Color(0xFF94A3B8),
+                                fontSize = 14.sp
                             )
+                            HorizontalDivider(modifier = Modifier.weight(1f), color = Color(0xFFE2E8F0))
+                        }
+
+                        val loginGoogleAction = app.tijario.config.Supabase.client.composeAuth.rememberSignInWithGoogle(
+                            onResult = { result ->
+                                when (result) {
+                                    is NativeSignInResult.Success -> {
+                                        onLoginReady()
+                                    }
+                                    is NativeSignInResult.Error -> {
+                                        errorMessage = result.message
+                                    }
+                                    else -> {}
+                                }
+                            }
+                        )
+
+                        GoogleSignInButton(
+                            onClick = {
+                                loginGoogleAction.startFlow()
+                            },
+                            enabled = !isLoading && !isGoogleLoading,
+                            text = t("google_login")
+                        )
+
+                        if (isGoogleLoading) {
+                            Box(
+                                modifier = Modifier.fillMaxWidth(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(24.dp),
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
                         }
                     }
                 }
@@ -279,6 +280,7 @@ fun RegisterScreen(onBackToLogin: () -> Unit) {
     var isGoogleLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+    val googleSignInEnabled = remember { app.tijario.config.loadAppConfig().isGoogleSignInEnabled }
 
     Box(
         modifier = Modifier
@@ -381,7 +383,6 @@ fun RegisterScreen(onBackToLogin: () -> Unit) {
                                     }
                                     onBackToLogin()
                                 } catch (e: Exception) {
-                                    e.printStackTrace()
                                     errorMessage = e.localizedMessage ?: "فشل إنشاء الحساب"
                                 } finally {
                                     isLoading = false
@@ -392,51 +393,53 @@ fun RegisterScreen(onBackToLogin: () -> Unit) {
                         isLoading = isLoading
                     )
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        HorizontalDivider(modifier = Modifier.weight(1f), color = Color(0xFFE2E8F0))
-                        Text(
-                            text = t("or"),
-                            modifier = Modifier.padding(horizontal = 16.dp),
-                            color = Color(0xFF94A3B8),
-                            fontSize = 14.sp
-                        )
-                        HorizontalDivider(modifier = Modifier.weight(1f), color = Color(0xFFE2E8F0))
-                    }
-
-                    val registerGoogleAction = app.tijario.config.Supabase.client.composeAuth.rememberSignInWithGoogle(
-                        onResult = { result ->
-                            when (result) {
-                                is NativeSignInResult.Success -> {
-                                    onBackToLogin()
-                                }
-                                is NativeSignInResult.Error -> {
-                                    errorMessage = result.message
-                                }
-                                else -> {}
-                            }
-                        }
-                    )
-
-                    GoogleSignInButton(
-                        onClick = {
-                            registerGoogleAction.startFlow()
-                        },
-                        enabled = !isLoading && !isGoogleLoading,
-                        text = t("google_register")
-                    )
-
-                    if (isGoogleLoading) {
-                        Box(
+                    if (googleSignInEnabled) {
+                        Row(
                             modifier = Modifier.fillMaxWidth(),
-                            contentAlignment = Alignment.Center
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(24.dp),
-                                color = MaterialTheme.colorScheme.primary
+                            HorizontalDivider(modifier = Modifier.weight(1f), color = Color(0xFFE2E8F0))
+                            Text(
+                                text = t("or"),
+                                modifier = Modifier.padding(horizontal = 16.dp),
+                                color = Color(0xFF94A3B8),
+                                fontSize = 14.sp
                             )
+                            HorizontalDivider(modifier = Modifier.weight(1f), color = Color(0xFFE2E8F0))
+                        }
+
+                        val registerGoogleAction = app.tijario.config.Supabase.client.composeAuth.rememberSignInWithGoogle(
+                            onResult = { result ->
+                                when (result) {
+                                    is NativeSignInResult.Success -> {
+                                        onBackToLogin()
+                                    }
+                                    is NativeSignInResult.Error -> {
+                                        errorMessage = result.message
+                                    }
+                                    else -> {}
+                                }
+                            }
+                        )
+
+                        GoogleSignInButton(
+                            onClick = {
+                                registerGoogleAction.startFlow()
+                            },
+                            enabled = !isLoading && !isGoogleLoading,
+                            text = t("google_register")
+                        )
+
+                        if (isGoogleLoading) {
+                            Box(
+                                modifier = Modifier.fillMaxWidth(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(24.dp),
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
                         }
                     }
                 }
@@ -469,6 +472,7 @@ fun ForgotPasswordScreen(onBackToLogin: () -> Unit) {
     var email by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
     var isSubmitted by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     val form = LoginFormState(email = email, password = "placeholder")
 
@@ -535,15 +539,31 @@ fun ForgotPasswordScreen(onBackToLogin: () -> Unit) {
                             text = t("btn_send_reset"),
                             onClick = {
                                 scope.launch {
-                                    isLoading = true
-                                    delay(1200)
-                                    isLoading = false
-                                    isSubmitted = true
+                                    try {
+                                        isLoading = true
+                                        errorMessage = null
+                                        val result = app.tijario.config.Supabase.apiClient.requestPasswordReset(
+                                            app.tijario.data.remote.ResetPasswordRequest(email = email)
+                                        )
+                                        if (result.ok) {
+                                            isSubmitted = true
+                                        } else {
+                                            errorMessage = result.displayMessage
+                                        }
+                                    } catch (e: Exception) {
+                                        errorMessage = "تعذر إرسال رابط إعادة التعيين. حاول مرة أخرى."
+                                    } finally {
+                                        isLoading = false
+                                    }
                                 }
                             },
                             enabled = email.isNotBlank() && form.emailError == null,
                             isLoading = isLoading
                         )
+
+                        errorMessage?.let {
+                            Text(it, color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
+                        }
                     } else {
                         Text(
                             text = t("reset_success"),
@@ -766,7 +786,6 @@ fun OnboardingScreen(onDone: () -> Unit) {
                                         onDone()
                                     }
                                 } catch (e: Exception) {
-                                    e.printStackTrace()
                                 } finally {
                                     isLoading = false
                                 }
@@ -948,4 +967,3 @@ fun IntroWalkthroughScreen(onFinished: () -> Unit) {
         }
     }
 }
-

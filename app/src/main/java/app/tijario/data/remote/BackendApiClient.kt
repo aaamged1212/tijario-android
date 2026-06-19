@@ -5,6 +5,7 @@ import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.engine.android.Android
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.get
 import io.ktor.client.request.post
@@ -28,11 +29,17 @@ class BackendApiClient(
     suspend fun updateDocument(documentId: String, request: CreateDocumentRequest): ApiResult<CreateDocumentResponse> =
         authorizedPut("api/mobile/documents/$documentId", request).body()
 
-    suspend fun generateAiReply(request: AiReplyRequest): ApiResult<Map<String, String>> =
+    suspend fun generateAiReply(request: AiReplyRequest): ApiResult<AiReplyResponse> =
         authorizedPost("api/mobile/ai/reply", request).body()
 
-    suspend fun generateAiCaption(request: AiCaptionRequest): ApiResult<Map<String, String>> =
+    suspend fun generateAiCaption(request: AiCaptionRequest): ApiResult<AiCaptionResponse> =
         authorizedPost("api/mobile/ai/caption", request).body()
+
+    suspend fun uploadBusinessLogo(request: UploadLogoRequest): ApiResult<UploadLogoResponse> =
+        authorizedPost("api/mobile/business-settings/logo", request).body()
+
+    suspend fun requestPasswordReset(request: ResetPasswordRequest): ApiResult<ResetPasswordResponse> =
+        publicPost("api/mobile/auth/reset-password", request).body()
 
     suspend fun fetchDocumentPdf(documentId: String): ByteArray =
         authorizedGet("api/mobile/documents/$documentId/pdf").body()
@@ -48,6 +55,12 @@ class BackendApiClient(
         httpClient.put(url(path)) {
             contentType(ContentType.Application.Json)
             attachBearerToken()
+            setBody(body)
+        }
+
+    private suspend inline fun <reified T : Any> publicPost(path: String, body: T): HttpResponse =
+        httpClient.post(url(path)) {
+            contentType(ContentType.Application.Json)
             setBody(body)
         }
 
@@ -69,6 +82,11 @@ class BackendApiClient(
 @OptIn(ExperimentalSerializationApi::class)
 fun defaultHttpClient(): HttpClient =
     HttpClient(Android) {
+        install(HttpTimeout) {
+            requestTimeoutMillis = 45_000
+            connectTimeoutMillis = 15_000
+            socketTimeoutMillis = 45_000
+        }
         install(ContentNegotiation) {
             json(
                 Json {
