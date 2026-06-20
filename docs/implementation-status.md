@@ -28,3 +28,20 @@
 - Added real-time usage indicator blocks and plan details mapping the authenticated user's `period_month` usage metrics.
 - Refactored AI workflows in `AiToolsScreen` using structured fields for replies and captions (tones, Platforms, Dialects) and copy variant cards.
 - Refactored project structures into focused features packages. All tests, lint checks, and assemble builds successfully compile.
+
+## 2026-06-20 (Local Document Engine Phase)
+
+- Created local branch `feature/native-document-engine` from `feature/native-mvp-completion`.
+- Verified base commit `e3ccb62f921ddcf3db467d4c20656ef540aeec2d` is in branch history.
+- Inspected the external invoice-maker extraction as a read-only reference and documented findings in `docs/document-engine-reference-analysis.md`.
+- Replaced Android's split visual approach with a local canonical document engine under `app/src/main/java/app/tijario/features/documents`.
+- Added `DocumentRenderModel`, draft and saved mappers, local HTML renderer, template registry, HTML escaping, and deterministic formatting.
+- Added ten original Tijario templates under `app/src/main/assets/documents/templates`.
+- Connected draft preview and saved document preview to the same local renderer.
+- Added local PDF generation, cache keying, PDF signature validation, secure FileProvider sharing, MediaStore Downloads save, print, email, PDF sharing, and text sharing.
+- Added a local template picker and persisted default template selection using private SharedPreferences.
+- Added unit tests for templates, rendering security, neutral contact labels, no WhatsApp wording, financial visibility, invoice/quotation behavior, cache invalidation, and filename safety.
+- Connected successful document creation to the saved document detail screen so the authoritative saved preview opens immediately after backend creation returns `document_id`.
+- Validated with `compileDebugKotlin`, `testDebugUnitTest`, `lintDebug`, and `assembleDebug`.
+- Installed and launched the debug APK on a connected Android device for a startup smoke test with no immediate `AndroidRuntime` fatal crash in the sampled logs.
+- Manual visual QA of generated PDFs for all ten templates remains pending creation/opening of real fixture documents inside the Android runtime.

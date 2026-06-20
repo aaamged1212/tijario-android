@@ -1,0 +1,13 @@
+.template-tijario-service {
+  --accent: #15803D;
+  --deep: #166534;
+}
+.template-tijario-service .header {
+  grid-template-columns: 1fr 1fr;
+}
+.template-tijario-service .parties {
+  grid-template-columns: 1fr;
+}
+.template-tijario-service .party-card {
+  background: #F0FDF4;
+}

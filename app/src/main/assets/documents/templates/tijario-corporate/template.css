@@ -1,0 +1,13 @@
+.template-tijario-corporate {
+  --accent: #1E40AF;
+  --deep: #1E3A8A;
+}
+.template-tijario-corporate .header {
+  grid-template-columns: 1.2fr .8fr;
+  border: 1px solid var(--line);
+  padding: 14px;
+}
+.template-tijario-corporate .party-card,
+.template-tijario-corporate .totals {
+  border-radius: 2px;
+}

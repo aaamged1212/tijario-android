@@ -25,6 +25,7 @@ import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -32,6 +33,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.tijario.config.t
 import app.tijario.domain.Validation
+import app.tijario.features.documents.template.DocumentTemplateRegistry
+import app.tijario.features.documents.ui.DocumentTemplatePicker
+import app.tijario.features.documents.ui.DocumentTemplatePreferences
 import app.tijario.ui.components.ModernDocumentPreview
 import app.tijario.ui.components.TijarioButton
 import app.tijario.ui.components.TijarioTextField
@@ -536,6 +540,7 @@ fun DocumentFormScreen(
     dataViewModel: TijarioDataViewModel,
     type: app.tijario.data.model.DocumentType,
     onBack: () -> Unit,
+    onDocumentSaved: (String) -> Unit = {},
     onNavigateToSelectCustomer: () -> Unit = {},
     onNavigateToSelectProduct: () -> Unit = {},
     selectedCustomer: app.tijario.data.model.Customer? = null,
@@ -546,6 +551,9 @@ fun DocumentFormScreen(
     var selectedTab by remember { mutableStateOf(0) } // 0 = التعديل (Edit), 1 = المعاينة (Preview)
     var isLoading by remember { mutableStateOf(false) }
     var submitError by remember { mutableStateOf<String?>(null) }
+    val context = LocalContext.current
+    val templatePreferences = remember(context) { DocumentTemplatePreferences(context) }
+    var selectedTemplateId by remember { mutableStateOf(templatePreferences.getDefaultTemplateId()) }
     val uiState by dataViewModel.uiState.collectAsStateWithLifecycle()
     val businessSettings = uiState.businessSettings
     val scope = rememberCoroutineScope()
@@ -871,7 +879,12 @@ fun DocumentFormScreen(
                                         )
                                         val result = dataViewModel.createDocument(req)
                                         if (result.ok) {
-                                            onBack()
+                                            val savedDocumentId = result.data?.documentId
+                                            if (savedDocumentId.isNullOrBlank()) {
+                                                onBack()
+                                            } else {
+                                                onDocumentSaved(savedDocumentId)
+                                            }
                                         } else {
                                             submitError = result.displayMessage
                                         }
@@ -904,7 +917,7 @@ fun DocumentFormScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Text(
-                    text = "معاينة PDF",
+                    text = "معاينة أولية",
                     color = Color(0xFF0F172A),
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
@@ -912,11 +925,18 @@ fun DocumentFormScreen(
                     textAlign = TextAlign.Start,
                 )
                 Text(
-                    text = "هذه المعاينة تتبع قالب Tijario الحديث المستخدم في الويب.",
+                    text = "هذه المعاينة محلية وتستخدم نفس القالب الذي سيُستخدم في ملف PDF.",
                     color = Color(0xFF64748B),
                     fontSize = 12.sp,
                     modifier = Modifier.fillMaxWidth(),
                     textAlign = TextAlign.Start,
+                )
+                DocumentTemplatePicker(
+                    selectedTemplateId = selectedTemplateId,
+                    onTemplateSelected = {
+                        selectedTemplateId = DocumentTemplateRegistry.requireTemplate(it).id
+                        templatePreferences.setDefaultTemplateId(selectedTemplateId)
+                    },
                 )
                 Box(
                     modifier = Modifier
@@ -930,7 +950,7 @@ fun DocumentFormScreen(
                         form = form,
                         businessSettings = businessSettings,
                         customerCity = selectedCustomer?.city,
-                        productDescription = selectedProduct?.description,
+                        templateId = selectedTemplateId,
                     )
                 }
             }

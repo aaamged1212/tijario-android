@@ -1,0 +1,16 @@
+.template-tijario-bold {
+  --accent: #B91C1C;
+  --deep: #7F1D1D;
+}
+.template-tijario-bold .header {
+  grid-template-columns: .9fr 1.1fr;
+  background: #FFF1F2;
+  padding: 16px;
+}
+.template-tijario-bold .document-title {
+  font-size: 34px;
+}
+.template-tijario-bold .totals-row.final {
+  border: 2px solid var(--accent);
+  padding: 10px;
+}

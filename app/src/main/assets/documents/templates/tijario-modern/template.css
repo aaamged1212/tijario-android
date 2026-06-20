@@ -1,0 +1,18 @@
+.template-tijario-modern .header {
+  grid-template-columns: 1fr;
+  background: var(--deep);
+  color: #FFFFFF;
+  border-radius: 16px;
+  padding: 18px;
+}
+.template-tijario-modern .business-meta,
+.template-tijario-modern .title-block .muted {
+  color: #CCFBF1;
+}
+.template-tijario-modern .document-title {
+  color: #FFFFFF;
+}
+.template-tijario-modern .logo {
+  background: #FFFFFF;
+  color: var(--deep);
+}

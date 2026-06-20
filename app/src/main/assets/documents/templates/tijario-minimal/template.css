@@ -1,0 +1,16 @@
+.template-tijario-minimal {
+  --accent: #334155;
+}
+.template-tijario-minimal .header {
+  grid-template-columns: 1fr 1fr;
+}
+.template-tijario-minimal .logo {
+  border-radius: 50%;
+  background: #F1F5F9;
+  color: #0F172A;
+}
+.template-tijario-minimal th {
+  background: #F8FAFC;
+  color: #0F172A;
+  border-top: 1px solid var(--line);
+}

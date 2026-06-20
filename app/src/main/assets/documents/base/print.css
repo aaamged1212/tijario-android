@@ -1,0 +1,16 @@
+@page {
+  size: A4;
+  margin: 0;
+}
+
+@media print {
+  html,
+  body {
+    background: #FFFFFF;
+  }
+
+  .document-page {
+    margin: 0;
+    box-shadow: none;
+  }
+}

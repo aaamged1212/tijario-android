@@ -1,0 +1,14 @@
+.template-tijario-elegant {
+  --accent: #7C3AED;
+  --deep: #5B21B6;
+}
+.template-tijario-elegant .header {
+  grid-template-columns: 1fr;
+  text-align: center;
+}
+.template-tijario-elegant .brand {
+  justify-content: center;
+}
+.template-tijario-elegant .document-title {
+  letter-spacing: 0;
+}

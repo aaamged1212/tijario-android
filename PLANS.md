@@ -22,6 +22,14 @@ Build the native Android Tijario MVP as a Kotlin, Jetpack Compose, Material 3 ap
     - Stable edit and owner-scoped deletion of customers and products.
     - Authentic limits enforcement and usage checks from period_month.
     - Structured AI Reply and Caption workflows with copy confirmations.
+11. **[In Progress]** Local Document Engine phase:
+    - Child branch: `feature/native-document-engine`.
+    - Replace Android's split Compose-preview/backend-PDF visual flow with one local canonical renderer.
+    - Use the external invoice-maker extraction only as a read-only architectural reference.
+    - Build original Tijario HTML/CSS templates under local Android assets.
+    - Route preview, local PDF, cached PDF, print, save, email, and sharesheet through the same canonical model.
+    - Keep backend document creation and official totals authoritative.
+    - Keep backend PDF endpoint available, but not as the primary Android renderer.
 
 ## Verification Requirements
 
@@ -29,3 +37,5 @@ Build the native Android Tijario MVP as a Kotlin, Jetpack Compose, Material 3 ap
 - `.\gradlew.bat testDebugUnitTest`
 - `.\gradlew.bat lintDebug`
 - Git secret scan over tracked files
+- Document engine secret/proprietary asset scan
+- FileProvider and storage permission audit

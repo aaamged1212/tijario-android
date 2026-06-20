@@ -491,6 +491,11 @@ fun TijarioApp() {
                         dataViewModel = dataViewModel,
                         type = app.tijario.data.model.DocumentType.Quote,
                         onBack = { navController.popBackStack() },
+                        onDocumentSaved = { documentId ->
+                            navController.navigate("document-detail?documentId=$documentId") {
+                                popUpTo("new-quote") { inclusive = true }
+                            }
+                        },
                         onNavigateToSelectCustomer = { navController.navigate("customers") },
                         onNavigateToSelectProduct = { navController.navigate("products") },
                         selectedCustomer = activeSelectedCustomer,
@@ -502,6 +507,11 @@ fun TijarioApp() {
                         dataViewModel = dataViewModel,
                         type = app.tijario.data.model.DocumentType.Invoice,
                         onBack = { navController.popBackStack() },
+                        onDocumentSaved = { documentId ->
+                            navController.navigate("document-detail?documentId=$documentId") {
+                                popUpTo("new-invoice") { inclusive = true }
+                            }
+                        },
                         onNavigateToSelectCustomer = { navController.navigate("customers") },
                         onNavigateToSelectProduct = { navController.navigate("products") },
                         selectedCustomer = activeSelectedCustomer,
