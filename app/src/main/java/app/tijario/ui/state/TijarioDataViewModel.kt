@@ -128,6 +128,12 @@ class TijarioDataViewModel(
         return result
     }
 
+    suspend fun updateDocument(documentId: String, request: CreateDocumentRequest): ApiResult<CreateDocumentResponse> =
+        repository.updateDocument(documentId, request)
+
+    suspend fun deleteDocument(documentId: String): ApiResult<CreateDocumentResponse> =
+        repository.deleteDocument(documentId)
+
     suspend fun fetchCompleteDocument(documentId: String): Result<app.tijario.data.model.CompleteDocument> =
         repository.fetchCompleteDocument(documentId)
 

@@ -119,6 +119,7 @@ fun TijarioApp() {
     )
 
     val authState by authViewModel.authState.collectAsStateWithLifecycle()
+    val dataUiState by dataViewModel.uiState.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
 
     // Shared states for selection
@@ -219,6 +220,10 @@ fun TijarioApp() {
             )
         }
         is CentralAuthState.AuthenticatedReady -> {
+            if (dataUiState.isInitialLoading && !dataUiState.hasCachedData) {
+                SplashScreen()
+                return
+            }
             // Authenticated Graph
             val navController = rememberNavController()
             val pagerState = rememberPagerState(pageCount = { 5 })
@@ -393,6 +398,12 @@ fun TijarioApp() {
                                         onDocumentClick = { documentId ->
                                             navController.navigate("document-detail?documentId=$documentId")
                                         },
+                                        onEditDocument = { documentId, type ->
+                                            activeSelectedCustomer = null
+                                            activeSelectedProduct = null
+                                            val route = if (type == app.tijario.data.model.DocumentType.Invoice) "edit-invoice" else "edit-quote"
+                                            navController.navigate("$route?documentId=$documentId")
+                                        },
                                         hideHeader = true
                                     )
                                     2 -> AiToolsScreen(dataViewModel = dataViewModel, hideHeader = true)
@@ -510,6 +521,58 @@ fun TijarioApp() {
                         onDocumentSaved = { documentId ->
                             navController.navigate("document-detail?documentId=$documentId") {
                                 popUpTo("new-invoice") { inclusive = true }
+                            }
+                        },
+                        onNavigateToSelectCustomer = { navController.navigate("customers") },
+                        onNavigateToSelectProduct = { navController.navigate("products") },
+                        selectedCustomer = activeSelectedCustomer,
+                        selectedProduct = activeSelectedProduct
+                    )
+                }
+                composable(
+                    route = "edit-quote?documentId={documentId}",
+                    arguments = listOf(
+                        navArgument("documentId") {
+                            type = NavType.StringType
+                            defaultValue = ""
+                        }
+                    )
+                ) { backStackEntry ->
+                    val documentId = backStackEntry.arguments?.getString("documentId").orEmpty()
+                    DocumentFormScreen(
+                        dataViewModel = dataViewModel,
+                        type = app.tijario.data.model.DocumentType.Quote,
+                        documentId = documentId,
+                        onBack = { navController.popBackStack() },
+                        onDocumentSaved = { savedDocumentId ->
+                            navController.navigate("document-detail?documentId=$savedDocumentId") {
+                                launchSingleTop = true
+                            }
+                        },
+                        onNavigateToSelectCustomer = { navController.navigate("customers") },
+                        onNavigateToSelectProduct = { navController.navigate("products") },
+                        selectedCustomer = activeSelectedCustomer,
+                        selectedProduct = activeSelectedProduct
+                    )
+                }
+                composable(
+                    route = "edit-invoice?documentId={documentId}",
+                    arguments = listOf(
+                        navArgument("documentId") {
+                            type = NavType.StringType
+                            defaultValue = ""
+                        }
+                    )
+                ) { backStackEntry ->
+                    val documentId = backStackEntry.arguments?.getString("documentId").orEmpty()
+                    DocumentFormScreen(
+                        dataViewModel = dataViewModel,
+                        type = app.tijario.data.model.DocumentType.Invoice,
+                        documentId = documentId,
+                        onBack = { navController.popBackStack() },
+                        onDocumentSaved = { savedDocumentId ->
+                            navController.navigate("document-detail?documentId=$savedDocumentId") {
+                                launchSingleTop = true
                             }
                         },
                         onNavigateToSelectCustomer = { navController.navigate("customers") },

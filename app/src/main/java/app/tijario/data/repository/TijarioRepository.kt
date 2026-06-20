@@ -272,6 +272,22 @@ class TijarioRepository(
         return result
     }
 
+    suspend fun updateDocument(documentId: String, request: CreateDocumentRequest): ApiResult<CreateDocumentResponse> {
+        val result = backendApiClient.updateDocument(documentId, request)
+        if (result.ok) {
+            refreshDocuments()
+        }
+        return result
+    }
+
+    suspend fun deleteDocument(documentId: String): ApiResult<CreateDocumentResponse> {
+        val result = backendApiClient.deleteDocument(documentId)
+        if (result.ok) {
+            refreshDocuments()
+        }
+        return result
+    }
+
     suspend fun fetchUserPlanUsage(): Result<app.tijario.data.model.UserPlanUsage> =
         runCatching {
             val userId = requireUserId()

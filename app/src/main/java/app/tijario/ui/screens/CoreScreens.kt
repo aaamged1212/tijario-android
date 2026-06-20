@@ -1,10 +1,12 @@
 package app.tijario.ui.screens
 
 import android.content.Context
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.util.Base64
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
@@ -63,6 +65,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.tijario.MainActivity
 import app.tijario.config.AppLanguage
 import app.tijario.config.t
+import app.tijario.features.documents.export.DocumentExportManager
+import app.tijario.features.documents.mapper.TijarioDocumentMapper
+import app.tijario.features.documents.ui.DocumentTemplatePreferences
 import app.tijario.ui.components.TijarioButton
 import app.tijario.ui.state.TijarioDataViewModel
 import kotlinx.coroutines.Dispatchers
@@ -928,12 +933,19 @@ fun DocumentsScreen(
     onNewQuote: () -> Unit,
     onNewInvoice: () -> Unit,
     onDocumentClick: (String) -> Unit,
+    onEditDocument: (String, app.tijario.data.model.DocumentType) -> Unit = { _, _ -> },
     hideHeader: Boolean = false
 ) {
     var selectedSection by remember { mutableStateOf(0) } // 0 = Invoices, 1 = Quotes
     var menuExpanded by remember { mutableStateOf(false) }
+    var documentPendingDelete by remember { mutableStateOf<app.tijario.data.model.DocumentSummary?>(null) }
+    var busyDocumentId by remember { mutableStateOf<String?>(null) }
 
     val uiState by dataViewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val exportManager = remember(context) { DocumentExportManager(context) }
+    val templatePreferences = remember(context) { DocumentTemplatePreferences(context) }
     LaunchedEffect(Unit) {
         dataViewModel.refreshAll()
     }
@@ -944,6 +956,45 @@ fun DocumentsScreen(
     // Filter documents depending on selection
     val filteredDocs = documents.filter { doc ->
         if (selectedSection == 0) doc.type == app.tijario.data.model.DocumentType.Invoice else doc.type == app.tijario.data.model.DocumentType.Quote
+    }
+
+    fun shareDocument(documentId: String) {
+        scope.launch {
+            try {
+                busyDocumentId = documentId
+                val completeDocument = dataViewModel.fetchCompleteDocument(documentId).getOrThrow()
+                val renderModel = TijarioDocumentMapper.fromSaved(
+                    document = completeDocument,
+                    businessSettings = uiState.businessSettings,
+                    language = AppLanguage.AR,
+                    templateId = templatePreferences.getDefaultTemplateId(),
+                )
+                val intent = exportManager.shareIntent(renderModel)
+                context.startActivity(Intent.createChooser(intent, "مشاركة PDF"))
+            } catch (_: ActivityNotFoundException) {
+                Toast.makeText(context, "لا يوجد تطبيق مناسب للمشاركة", Toast.LENGTH_LONG).show()
+            } catch (_: Exception) {
+                Toast.makeText(context, "تعذر تجهيز المستند للمشاركة الآن", Toast.LENGTH_LONG).show()
+            } finally {
+                busyDocumentId = null
+            }
+        }
+    }
+
+    fun deleteDocument(documentId: String) {
+        scope.launch {
+            try {
+                busyDocumentId = documentId
+                val result = dataViewModel.deleteDocument(documentId)
+                if (!result.ok) {
+                    Toast.makeText(context, result.displayMessage, Toast.LENGTH_LONG).show()
+                }
+            } catch (_: Exception) {
+                Toast.makeText(context, "تعذر حذف المستند الآن", Toast.LENGTH_LONG).show()
+            } finally {
+                busyDocumentId = null
+            }
+        }
     }
 
     Box(
@@ -1037,25 +1088,17 @@ fun DocumentsScreen(
                                         color = MaterialTheme.colorScheme.onSurface,
                                         fontSize = 15.sp
                                     )
-                                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                        // Document Status Chip
-                                        val docStatusText = app.tijario.domain.DocumentStatusMapper.getStatusText(doc.status)
-                                        val docColors = app.tijario.domain.DocumentStatusMapper.getStatusColors(doc.status)
-                                        Surface(
-                                            color = Color(docColors.first),
-                                            shape = RoundedCornerShape(8.dp)
-                                        ) {
-                                            Text(
-                                                docStatusText,
-                                                color = Color(docColors.second),
-                                                fontSize = 11.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        if (busyDocumentId == doc.id) {
+                                            CircularProgressIndicator(
+                                                modifier = Modifier.size(18.dp),
+                                                strokeWidth = 2.dp,
+                                                color = MaterialTheme.colorScheme.primary,
                                             )
-                                        }
-
-                                        // Payment Status Chip (Invoices only)
-                                        if (doc.type == app.tijario.data.model.DocumentType.Invoice) {
+                                        } else if (doc.type == app.tijario.data.model.DocumentType.Invoice) {
                                             val payStatusText = app.tijario.domain.PaymentStatusMapper.getStatusText(doc.paymentStatus)
                                             val payColors = app.tijario.domain.PaymentStatusMapper.getStatusColors(doc.paymentStatus)
                                             Surface(
@@ -1080,6 +1123,30 @@ fun DocumentsScreen(
                                 ) {
                                     Text(customerName, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
                                     Text("${doc.total} ${doc.currency}", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Black, fontSize = 15.sp)
+                                }
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.End,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    IconButton(
+                                        onClick = { shareDocument(doc.id) },
+                                        enabled = busyDocumentId == null,
+                                    ) {
+                                        Icon(Icons.Filled.Share, contentDescription = "مشاركة", tint = MaterialTheme.colorScheme.primary)
+                                    }
+                                    IconButton(
+                                        onClick = { onEditDocument(doc.id, doc.type) },
+                                        enabled = busyDocumentId == null,
+                                    ) {
+                                        Icon(Icons.Filled.Edit, contentDescription = "تعديل", tint = Color(0xFF64748B))
+                                    }
+                                    IconButton(
+                                        onClick = { documentPendingDelete = doc },
+                                        enabled = busyDocumentId == null,
+                                    ) {
+                                        Icon(Icons.Filled.Delete, contentDescription = "حذف", tint = MaterialTheme.colorScheme.error)
+                                    }
                                 }
                             }
                         }
@@ -1122,6 +1189,29 @@ fun DocumentsScreen(
                     }
                 )
             }
+        }
+
+        documentPendingDelete?.let { doc ->
+            AlertDialog(
+                onDismissRequest = { documentPendingDelete = null },
+                title = { Text("حذف المستند") },
+                text = { Text("هل تريد حذف ${doc.documentNumber}؟ لا يمكن التراجع عن هذا الإجراء.") },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            documentPendingDelete = null
+                            deleteDocument(doc.id)
+                        },
+                    ) {
+                        Text("حذف", color = MaterialTheme.colorScheme.error)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { documentPendingDelete = null }) {
+                        Text("إلغاء")
+                    }
+                },
+            )
         }
     }
 }

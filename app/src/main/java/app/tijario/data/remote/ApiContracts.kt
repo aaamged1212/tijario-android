@@ -34,6 +34,7 @@ data class DocumentCustomerInput(
 @Serializable
 data class CreateDocumentRequest(
     val type: DocumentType,
+    @SerialName("payment_status") val paymentStatus: String? = null,
     val customer: DocumentCustomerInput,
     val items: List<DocumentItemInput>,
     val discount: Double = 0.0,

@@ -43,7 +43,7 @@ object SavedDocumentRenderMapper {
             issueDate = document.issueDate,
             updatedAt = document.issueDate,
             status = DocumentRenderStatus(
-                documentStatus = document.status,
+                documentStatus = null,
                 paymentStatus = if (document.type == DocumentType.Invoice) document.paymentStatus else null,
             ),
             business = DocumentPartyInfo(

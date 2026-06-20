@@ -48,7 +48,10 @@ object DraftDocumentRenderMapper {
             documentNumber = if (documentType == DocumentType.Invoice) "INV-DRAFT" else "QT-DRAFT",
             issueDate = DateFormat.getDateInstance(DateFormat.MEDIUM, locale(language)).format(Date()),
             updatedAt = "draft",
-            status = DocumentRenderStatus(documentStatus = "draft", paymentStatus = null),
+            status = DocumentRenderStatus(
+                documentStatus = null,
+                paymentStatus = if (documentType == DocumentType.Invoice) form.paymentStatus else null,
+            ),
             business = DocumentPartyInfo(
                 name = businessSettings?.businessName?.ifBlank { null } ?: if (language == AppLanguage.AR) "اسم النشاط" else "Business name",
                 contactNumber = businessSettings?.whatsappNumber.orEmpty(),

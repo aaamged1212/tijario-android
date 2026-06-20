@@ -7,6 +7,7 @@ import io.ktor.client.engine.android.Android
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.request.bearerAuth
+import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.post
 import io.ktor.client.request.put
@@ -28,6 +29,9 @@ class BackendApiClient(
 
     suspend fun updateDocument(documentId: String, request: CreateDocumentRequest): ApiResult<CreateDocumentResponse> =
         authorizedPut("api/mobile/documents/$documentId", request).body()
+
+    suspend fun deleteDocument(documentId: String): ApiResult<CreateDocumentResponse> =
+        authorizedDelete("api/mobile/documents/$documentId").body()
 
     suspend fun generateAiReply(request: AiReplyRequest): ApiResult<AiReplyResponse> =
         authorizedPost("api/mobile/ai/reply", request).body()
@@ -66,6 +70,11 @@ class BackendApiClient(
 
     private suspend fun authorizedGet(path: String): HttpResponse =
         httpClient.get(url(path)) {
+            attachBearerToken()
+        }
+
+    private suspend fun authorizedDelete(path: String): HttpResponse =
+        httpClient.delete(url(path)) {
             attachBearerToken()
         }
 

@@ -75,7 +75,7 @@ fun CustomerFormScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(if (isEditMode) "تعديل عميل" else t("btn_add_customer"), fontWeight = FontWeight.Bold) },
+                title = { Text(if (isEditMode) "ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¹ÃƒËœÃ‚Â¯Ãƒâ„¢Ã…Â Ãƒâ„¢Ã¢â‚¬Å¾ ÃƒËœÃ‚Â¹Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã…Â Ãƒâ„¢Ã¢â‚¬Å¾" else t("btn_add_customer"), fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Filled.ArrowBack, contentDescription = t("btn_back"))
@@ -141,7 +141,7 @@ fun CustomerFormScreen(
                     Spacer(modifier = Modifier.height(8.dp))
 
                     TijarioButton(
-                        text = if (isEditMode) "تعديل وحفظ" else t("btn_save_customer"),
+                        text = if (isEditMode) "ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¹ÃƒËœÃ‚Â¯Ãƒâ„¢Ã…Â Ãƒâ„¢Ã¢â‚¬Å¾ Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â­Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Â¸" else t("btn_save_customer"),
                         onClick = {
                             scope.launch {
                                 try {
@@ -163,10 +163,10 @@ fun CustomerFormScreen(
                                         onBack()
                                     } else {
                                         errorMessage = result.exceptionOrNull()?.message
-                                            ?: "تعذر حفظ العميل. تحقق من البيانات وحاول مرة أخرى."
+                                            ?: "ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¹ÃƒËœÃ‚Â°ÃƒËœÃ‚Â± ÃƒËœÃ‚Â­Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Â¸ ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Â¹Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã…Â Ãƒâ„¢Ã¢â‚¬Å¾. ÃƒËœÃ‚ÂªÃƒËœÃ‚Â­Ãƒâ„¢Ã¢â‚¬Å¡Ãƒâ„¢Ã¢â‚¬Å¡ Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã¢â‚¬Â  ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Â¨Ãƒâ„¢Ã…Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§ÃƒËœÃ‚Âª Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â­ÃƒËœÃ‚Â§Ãƒâ„¢Ã‹â€ Ãƒâ„¢Ã¢â‚¬Å¾ Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â±ÃƒËœÃ‚Â© ÃƒËœÃ‚Â£ÃƒËœÃ‚Â®ÃƒËœÃ‚Â±Ãƒâ„¢Ã¢â‚¬Â°."
                                     }
                                 } catch (e: Exception) {
-                                    errorMessage = "تعذر حفظ العميل. تحقق من البيانات وحاول مرة أخرى."
+                                    errorMessage = "ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¹ÃƒËœÃ‚Â°ÃƒËœÃ‚Â± ÃƒËœÃ‚Â­Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Â¸ ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Â¹Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã…Â Ãƒâ„¢Ã¢â‚¬Å¾. ÃƒËœÃ‚ÂªÃƒËœÃ‚Â­Ãƒâ„¢Ã¢â‚¬Å¡Ãƒâ„¢Ã¢â‚¬Å¡ Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã¢â‚¬Â  ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Â¨Ãƒâ„¢Ã…Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§ÃƒËœÃ‚Âª Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â­ÃƒËœÃ‚Â§Ãƒâ„¢Ã‹â€ Ãƒâ„¢Ã¢â‚¬Å¾ Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â±ÃƒËœÃ‚Â© ÃƒËœÃ‚Â£ÃƒËœÃ‚Â®ÃƒËœÃ‚Â±Ãƒâ„¢Ã¢â‚¬Â°."
                                 } finally {
                                     isLoading = false
                                 }
@@ -216,7 +216,7 @@ fun ProductFormScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(if (isEditMode) "تعديل المنتج" else t("btn_add_product"), fontWeight = FontWeight.Bold) },
+                title = { Text(if (isEditMode) "ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¹ÃƒËœÃ‚Â¯Ãƒâ„¢Ã…Â Ãƒâ„¢Ã¢â‚¬Å¾ ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¬" else t("btn_add_product"), fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Filled.ArrowBack, contentDescription = t("btn_back"))
@@ -317,7 +317,7 @@ fun ProductFormScreen(
                     Spacer(modifier = Modifier.height(8.dp))
 
                     TijarioButton(
-                        text = if (isEditMode) "تعديل وحفظ" else t("btn_save_product"),
+                        text = if (isEditMode) "ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¹ÃƒËœÃ‚Â¯Ãƒâ„¢Ã…Â Ãƒâ„¢Ã¢â‚¬Å¾ Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â­Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Â¸" else t("btn_save_product"),
                         onClick = {
                             scope.launch {
                                 try {
@@ -340,10 +340,10 @@ fun ProductFormScreen(
                                         onBack()
                                     } else {
                                         errorMessage = result.exceptionOrNull()?.message
-                                            ?: "تعذر حفظ المنتج أو الخدمة. تحقق من البيانات وحاول مرة أخرى."
+                                            ?: "ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¹ÃƒËœÃ‚Â°ÃƒËœÃ‚Â± ÃƒËœÃ‚Â­Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Â¸ ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¬ ÃƒËœÃ‚Â£Ãƒâ„¢Ã‹â€  ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Â®ÃƒËœÃ‚Â¯Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â©. ÃƒËœÃ‚ÂªÃƒËœÃ‚Â­Ãƒâ„¢Ã¢â‚¬Å¡Ãƒâ„¢Ã¢â‚¬Å¡ Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã¢â‚¬Â  ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Â¨Ãƒâ„¢Ã…Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§ÃƒËœÃ‚Âª Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â­ÃƒËœÃ‚Â§Ãƒâ„¢Ã‹â€ Ãƒâ„¢Ã¢â‚¬Å¾ Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â±ÃƒËœÃ‚Â© ÃƒËœÃ‚Â£ÃƒËœÃ‚Â®ÃƒËœÃ‚Â±Ãƒâ„¢Ã¢â‚¬Â°."
                                     }
                                 } catch (e: Exception) {
-                                    errorMessage = "تعذر حفظ المنتج أو الخدمة. تحقق من البيانات وحاول مرة أخرى."
+                                    errorMessage = "ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¹ÃƒËœÃ‚Â°ÃƒËœÃ‚Â± ÃƒËœÃ‚Â­Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Â¸ ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¬ ÃƒËœÃ‚Â£Ãƒâ„¢Ã‹â€  ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Â®ÃƒËœÃ‚Â¯Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â©. ÃƒËœÃ‚ÂªÃƒËœÃ‚Â­Ãƒâ„¢Ã¢â‚¬Å¡Ãƒâ„¢Ã¢â‚¬Å¡ Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã¢â‚¬Â  ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Â¨Ãƒâ„¢Ã…Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§ÃƒËœÃ‚Âª Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â­ÃƒËœÃ‚Â§Ãƒâ„¢Ã‹â€ Ãƒâ„¢Ã¢â‚¬Å¾ Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â±ÃƒËœÃ‚Â© ÃƒËœÃ‚Â£ÃƒËœÃ‚Â®ÃƒËœÃ‚Â±Ãƒâ„¢Ã¢â‚¬Â°."
                                 } finally {
                                     isLoading = false
                                 }
@@ -512,10 +512,10 @@ fun BusinessSettingsScreen(
                                         onBack()
                                     } else {
                                         errorMessage = result.exceptionOrNull()?.message
-                                            ?: "تعذر حفظ إعدادات المتجر. حاول مرة أخرى."
+                                            ?: "ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¹ÃƒËœÃ‚Â°ÃƒËœÃ‚Â± ÃƒËœÃ‚Â­Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Â¸ ÃƒËœÃ‚Â¥ÃƒËœÃ‚Â¹ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§ÃƒËœÃ‚Âª ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¬ÃƒËœÃ‚Â±. ÃƒËœÃ‚Â­ÃƒËœÃ‚Â§Ãƒâ„¢Ã‹â€ Ãƒâ„¢Ã¢â‚¬Å¾ Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â±ÃƒËœÃ‚Â© ÃƒËœÃ‚Â£ÃƒËœÃ‚Â®ÃƒËœÃ‚Â±Ãƒâ„¢Ã¢â‚¬Â°."
                                     }
                                 } catch (e: Exception) {
-                                    errorMessage = "تعذر حفظ إعدادات المتجر. حاول مرة أخرى."
+                                    errorMessage = "ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¹ÃƒËœÃ‚Â°ÃƒËœÃ‚Â± ÃƒËœÃ‚Â­Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Â¸ ÃƒËœÃ‚Â¥ÃƒËœÃ‚Â¹ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§ÃƒËœÃ‚Âª ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¬ÃƒËœÃ‚Â±. ÃƒËœÃ‚Â­ÃƒËœÃ‚Â§Ãƒâ„¢Ã‹â€ Ãƒâ„¢Ã¢â‚¬Å¾ Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â±ÃƒËœÃ‚Â© ÃƒËœÃ‚Â£ÃƒËœÃ‚Â®ÃƒËœÃ‚Â±Ãƒâ„¢Ã¢â‚¬Â°."
                                 } finally {
                                     isLoading = false
                                 }
@@ -539,6 +539,7 @@ fun BusinessSettingsScreen(
 fun DocumentFormScreen(
     dataViewModel: TijarioDataViewModel,
     type: app.tijario.data.model.DocumentType,
+    documentId: String? = null,
     onBack: () -> Unit,
     onDocumentSaved: (String) -> Unit = {},
     onNavigateToSelectCustomer: () -> Unit = {},
@@ -547,8 +548,9 @@ fun DocumentFormScreen(
     selectedProduct: app.tijario.data.model.Product? = null
 ) {
     var form by remember { mutableStateOf(DocumentFormState()) }
+    var isLoadingDocument by remember { mutableStateOf(documentId != null) }
     var activeProductSelectRowIndex by remember { mutableStateOf<Int?>(null) }
-    var selectedTab by remember { mutableStateOf(0) } // 0 = التعديل (Edit), 1 = المعاينة (Preview)
+    var selectedTab by remember { mutableStateOf(0) } // 0 = edit, 1 = preview
     var isLoading by remember { mutableStateOf(false) }
     var submitError by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
@@ -557,6 +559,8 @@ fun DocumentFormScreen(
     val uiState by dataViewModel.uiState.collectAsStateWithLifecycle()
     val businessSettings = uiState.businessSettings
     val scope = rememberCoroutineScope()
+    val editDocumentId = documentId?.takeIf { it.isNotBlank() }
+    val isEditMode = editDocumentId != null
 
     // Sync selected customer
     LaunchedEffect(selectedCustomer) {
@@ -564,8 +568,24 @@ fun DocumentFormScreen(
             form = form.copy(
                 customerId = it.id,
                 customerName = it.name,
-                customerWhatsapp = it.whatsappNumber
+                customerWhatsapp = it.whatsappNumber,
+                customerCity = it.city
             )
+        }
+    }
+
+    LaunchedEffect(documentId) {
+        if (editDocumentId != null) {
+            isLoadingDocument = true
+            submitError = null
+            val result = dataViewModel.fetchCompleteDocument(editDocumentId)
+            val existing = result.getOrNull()
+            if (existing != null) {
+                form = existing.toFormState()
+            } else {
+                submitError = result.exceptionOrNull()?.message ?: "تعذر تحميل المستند للتعديل."
+            }
+            isLoadingDocument = false
         }
     }
 
@@ -599,7 +619,9 @@ fun DocumentFormScreen(
                 TopAppBar(
                     title = {
                         Text(
-                            if (type == app.tijario.data.model.DocumentType.Invoice) t("btn_new_invoice") else t("btn_new_quote"),
+                            if (isEditMode) {
+                                if (type == app.tijario.data.model.DocumentType.Invoice) "تعديل الفاتورة" else "تعديل عرض السعر"
+                            } else if (type == app.tijario.data.model.DocumentType.Invoice) t("btn_new_invoice") else t("btn_new_quote"),
                             fontWeight = FontWeight.Bold
                         )
                     },
@@ -614,7 +636,7 @@ fun DocumentFormScreen(
                     )
                 )
 
-                // Tabs: التعديل & المعاينة
+                // Tabs: edit and preview
                 TabRow(
                     selectedTabIndex = selectedTab,
                     containerColor = MaterialTheme.colorScheme.surface,
@@ -634,7 +656,16 @@ fun DocumentFormScreen(
             }
         }
     ) { paddingValues ->
-        if (selectedTab == 0) {
+        if (isLoadingDocument) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues),
+                contentAlignment = Alignment.Center,
+            ) {
+                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+            }
+        } else if (selectedTab == 0) {
             // Edit Mode Form
             Column(
                 modifier = Modifier
@@ -775,7 +806,7 @@ fun DocumentFormScreen(
                                                 },
                                                 modifier = Modifier.size(48.dp)
                                             ) {
-                                                Icon(Icons.Filled.Description, contentDescription = "اختر منتجًا", tint = MaterialTheme.colorScheme.primary)
+                                                Icon(Icons.Filled.Description, contentDescription = "اختر منتجاً", tint = MaterialTheme.colorScheme.primary)
                                             }
                                         }
 
@@ -839,6 +870,38 @@ fun DocumentFormScreen(
                             )
                         }
 
+                        if (type == app.tijario.data.model.DocumentType.Invoice) {
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text(
+                                    text = "حالة الدفع",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                                    val options = listOf(
+                                        "unpaid" to "غير مدفوعة",
+                                        "paid" to "مدفوعة",
+                                        "partial" to "دفع جزئي",
+                                    )
+                                    options.forEachIndexed { index, option ->
+                                        SegmentedButton(
+                                            selected = form.paymentStatus == option.first,
+                                            onClick = { form = form.copy(paymentStatus = option.first) },
+                                            shape = SegmentedButtonDefaults.itemShape(index, options.size),
+                                            label = {
+                                                Text(
+                                                    option.second,
+                                                    fontSize = 12.sp,
+                                                    maxLines = 1,
+                                                )
+                                            },
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
                         TijarioTextField(
                             label = t("notes"),
                             value = form.notes,
@@ -858,10 +921,11 @@ fun DocumentFormScreen(
                                         submitError = null
                                         val req = app.tijario.data.remote.CreateDocumentRequest(
                                             type = type,
+                                            paymentStatus = if (type == app.tijario.data.model.DocumentType.Invoice) form.paymentStatus else null,
                                             customer = app.tijario.data.remote.DocumentCustomerInput(
                                                 name = form.customerName,
                                                 whatsappNumber = form.customerWhatsapp,
-                                                city = selectedCustomer?.city,
+                                                city = form.customerCity,
                                             ),
                                             items = form.items.map { itm ->
                                                 app.tijario.data.remote.DocumentItemInput(
@@ -877,7 +941,11 @@ fun DocumentFormScreen(
                                             notes = form.notes.ifBlank { null },
                                             termsText = form.terms.ifBlank { null }
                                         )
-                                        val result = dataViewModel.createDocument(req)
+                                        val result = if (editDocumentId != null) {
+                                            dataViewModel.updateDocument(editDocumentId, req)
+                                        } else {
+                                            dataViewModel.createDocument(req)
+                                        }
                                         if (result.ok) {
                                             val savedDocumentId = result.data?.documentId
                                             if (savedDocumentId.isNullOrBlank()) {
@@ -911,7 +979,6 @@ fun DocumentFormScreen(
                     .fillMaxSize()
                     .background(Color(0xFFF1F5F9))
                     .padding(paddingValues)
-                    .verticalScroll(rememberScrollState())
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -941,6 +1008,7 @@ fun DocumentFormScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .weight(1f)
                         .background(Color(0xFFE2E8F0), RoundedCornerShape(18.dp))
                         .padding(12.dp),
                     contentAlignment = Alignment.Center,
@@ -949,8 +1017,9 @@ fun DocumentFormScreen(
                         documentType = type,
                         form = form,
                         businessSettings = businessSettings,
-                        customerCity = selectedCustomer?.city,
+                        customerCity = form.customerCity,
                         templateId = selectedTemplateId,
+                        modifier = Modifier.fillMaxSize(),
                     )
                 }
             }

@@ -4,7 +4,7 @@ object DocumentTemplateValidator {
     fun validateRegistry(): List<String> {
         val errors = mutableListOf<String>()
         val templates = DocumentTemplateRegistry.templates
-        if (templates.size != 10) errors += "Expected exactly 10 templates."
+        if (templates.size < 10) errors += "Expected at least 10 templates."
         val duplicateIds = templates.groupBy { it.id }.filterValues { it.size > 1 }.keys
         if (duplicateIds.isNotEmpty()) errors += "Duplicate template IDs: ${duplicateIds.joinToString()}"
         val duplicateFamilies = templates.groupBy { it.layoutFamily }.filterValues { it.size > 1 }.keys

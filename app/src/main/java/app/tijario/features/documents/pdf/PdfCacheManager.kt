@@ -1,7 +1,6 @@
 package app.tijario.features.documents.pdf
 
 import android.content.Context
-import app.tijario.data.model.DocumentType
 import app.tijario.features.documents.model.DocumentRenderModel
 import java.io.File
 
@@ -14,8 +13,11 @@ class PdfCacheManager(
         File(cacheDir, "${PdfCacheKeyFactory.key(model)}.pdf")
 
     fun displayName(model: DocumentRenderModel): String {
-        val prefix = if (model.documentType == DocumentType.Invoice) "Tijario-Invoice" else "Tijario-Quote"
-        return "$prefix-${PdfFileNameSanitizer.sanitize(model.documentNumber)}.pdf"
+        val customerName = model.customer.name
+            .takeIf { it.isNotBlank() }
+            ?.let { " - ${PdfFileNameSanitizer.sanitize(it)}" }
+            .orEmpty()
+        return "${PdfFileNameSanitizer.sanitize(model.documentNumber)}$customerName.pdf"
     }
 
     fun isValid(file: File): Boolean =

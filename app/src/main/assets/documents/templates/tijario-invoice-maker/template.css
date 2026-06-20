@@ -1,0 +1,63 @@
+.template-tijario-aqua,
+.template-tijario-lime,
+.template-tijario-ruby,
+.template-tijario-ink,
+.template-tijario-blue-band,
+.template-tijario-navy-band,
+.template-tijario-gold-band,
+.template-tijario-orange-band,
+.template-tijario-cyan-band,
+.template-tijario-violet-band,
+.template-tijario-forest-band,
+.template-tijario-block,
+.template-tijario-outline,
+.template-tijario-slate-cover,
+.template-tijario-emerald-cover,
+.template-tijario-leaf {
+  --soft: var(--table-shade);
+}
+
+.template-tijario-aqua .header,
+.template-tijario-lime .header,
+.template-tijario-ruby .header {
+  grid-template-columns: 1.35fr .9fr;
+  border-bottom: 3px solid var(--accent);
+  padding-bottom: 12px;
+}
+
+.template-tijario-aqua .title-block,
+.template-tijario-lime .title-block,
+.template-tijario-ruby .title-block {
+  text-align: end;
+}
+
+.template-tijario-aqua .party-card,
+.template-tijario-lime .party-card,
+.template-tijario-ruby .party-card {
+  border-top: 4px solid var(--accent);
+}
+
+.template-tijario-blue-band .header,
+.template-tijario-navy-band .header,
+.template-tijario-gold-band .header,
+.template-tijario-orange-band .header,
+.template-tijario-cyan-band .header,
+.template-tijario-violet-band .header,
+.template-tijario-forest-band .header {
+  grid-template-columns: 1fr;
+}
+
+.template-tijario-block .header,
+.template-tijario-slate-cover .header,
+.template-tijario-emerald-cover .header {
+  grid-template-columns: 1fr;
+}
+
+.template-tijario-ink .header,
+.template-tijario-outline .header {
+  grid-template-columns: 1fr 1fr;
+}
+
+.template-tijario-leaf .header {
+  grid-template-columns: 1.2fr .8fr;
+}

@@ -2,65 +2,122 @@ package app.tijario.features.documents.preview
 
 import android.annotation.SuppressLint
 import android.graphics.Color
+import android.view.View
 import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.requiredHeight
+import androidx.compose.foundation.layout.requiredWidth
+import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import app.tijario.features.documents.model.DocumentRenderModel
 import app.tijario.features.documents.template.AndroidAssetDocumentTemplateLoader
 import app.tijario.features.documents.template.DocumentHtmlRenderer
+import app.tijario.features.documents.template.DocumentRenderTarget
 
-@SuppressLint("SetJavaScriptEnabled")
+private const val A4_WIDTH_TO_HEIGHT = 210f / 297f
+private val A4_LAYOUT_WIDTH = 794.dp
+private val A4_LAYOUT_HEIGHT = 1123.dp
+
+@SuppressLint("SetJavaScriptEnabled", "ClickableViewAccessibility")
 @Composable
 fun DocumentPreviewWebView(
     model: DocumentRenderModel,
     modifier: Modifier = Modifier,
+    interactive: Boolean = false,
 ) {
     val context = LocalContext.current
     val renderer = remember(context) { DocumentHtmlRenderer(AndroidAssetDocumentTemplateLoader(context)) }
-    val html = remember(model) { renderer.render(model) }
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .aspectRatio(794f / 1123f),
+    val html = remember(model) { renderer.render(model, DocumentRenderTarget.Preview) }
+
+    BoxWithConstraints(
+        modifier = modifier,
+        contentAlignment = Alignment.Center,
     ) {
-        AndroidView(
-            factory = { ctx ->
-                WebView(ctx).apply {
-                    settings.javaScriptEnabled = false
-                    settings.domStorageEnabled = false
-                    settings.allowContentAccess = false
-                    settings.allowFileAccess = true
-                    settings.cacheMode = WebSettings.LOAD_NO_CACHE
-                    settings.useWideViewPort = true
-                    settings.loadWithOverviewMode = true
-                    isVerticalScrollBarEnabled = false
-                    isHorizontalScrollBarEnabled = false
-                    setBackgroundColor(Color.TRANSPARENT)
-                    webViewClient = object : WebViewClient() {
-                        override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean = true
+        val boundedHeight = if (maxHeight == Dp.Infinity) maxWidth / A4_WIDTH_TO_HEIGHT else maxHeight
+        val pageWidth = minOf(maxWidth, boundedHeight * A4_WIDTH_TO_HEIGHT)
+        val pageHeight = pageWidth / A4_WIDTH_TO_HEIGHT
+        val pageScale = pageWidth.value / A4_LAYOUT_WIDTH.value
+
+        Box(
+            modifier = Modifier
+                .width(pageWidth)
+                .height(pageHeight)
+                .clipToBounds(),
+            contentAlignment = Alignment.Center,
+        ) {
+            AndroidView(
+                factory = { ctx ->
+                    WebView(ctx).apply {
+                        layoutDirection = View.LAYOUT_DIRECTION_LTR
+                        textDirection = View.TEXT_DIRECTION_LTR
+                        settings.javaScriptEnabled = false
+                        settings.domStorageEnabled = false
+                        settings.allowContentAccess = false
+                        settings.allowFileAccess = true
+                        settings.cacheMode = WebSettings.LOAD_NO_CACHE
+                        settings.useWideViewPort = false
+                        settings.loadWithOverviewMode = false
+                        settings.setSupportZoom(interactive)
+                        settings.builtInZoomControls = interactive
+                        settings.displayZoomControls = false
+                        setInitialScale(100)
+                        isVerticalScrollBarEnabled = interactive
+                        isHorizontalScrollBarEnabled = interactive
+                        isNestedScrollingEnabled = interactive
+                        overScrollMode = if (interactive) View.OVER_SCROLL_IF_CONTENT_SCROLLS else View.OVER_SCROLL_NEVER
+                        isFocusable = interactive
+                        setOnTouchListener { _, _ -> !interactive }
+                        setBackgroundColor(Color.TRANSPARENT)
+                        webViewClient = object : WebViewClient() {
+                            override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean = true
+
+                            override fun onPageFinished(view: WebView?, url: String?) {
+                                view?.scrollTo(0, 0)
+                            }
+                        }
                     }
-                }
-            },
-            update = { webView ->
-                webView.loadDataWithBaseURL(
-                    "file:///android_asset/documents/",
-                    html,
-                    "text/html",
-                    "utf-8",
-                    null,
-                )
-            },
-            modifier = Modifier.fillMaxSize(),
-        )
+                },
+                update = { webView ->
+                    webView.settings.setSupportZoom(interactive)
+                    webView.settings.builtInZoomControls = interactive
+                    webView.isVerticalScrollBarEnabled = interactive
+                    webView.isHorizontalScrollBarEnabled = interactive
+                    webView.isNestedScrollingEnabled = interactive
+                    webView.overScrollMode = if (interactive) View.OVER_SCROLL_IF_CONTENT_SCROLLS else View.OVER_SCROLL_NEVER
+                    webView.isFocusable = interactive
+                    webView.setOnTouchListener { _, _ -> !interactive }
+                    webView.loadDataWithBaseURL(
+                        "file:///android_asset/documents/",
+                        html,
+                        "text/html",
+                        "utf-8",
+                        null,
+                    )
+                },
+                modifier = Modifier
+                    .requiredWidth(A4_LAYOUT_WIDTH)
+                    .requiredHeight(A4_LAYOUT_HEIGHT)
+                    .graphicsLayer {
+                        scaleX = pageScale
+                        scaleY = pageScale
+                        transformOrigin = TransformOrigin.Center
+                    },
+            )
+        }
     }
 }

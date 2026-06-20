@@ -13,16 +13,18 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -30,7 +32,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -40,11 +41,15 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.tijario.config.AppLanguage
 import app.tijario.config.t
@@ -66,7 +71,7 @@ import kotlinx.coroutines.launch
 fun DocumentDetailScreen(
     dataViewModel: TijarioDataViewModel,
     documentId: String,
-    onBack: () -> Unit
+    onBack: () -> Unit,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -81,6 +86,7 @@ fun DocumentDetailScreen(
     var isBusy by remember { mutableStateOf(false) }
     var selectedTemplateId by remember { mutableStateOf(templatePreferences.getDefaultTemplateId()) }
     var showExportSheet by remember { mutableStateOf(false) }
+    var showFullScreenPreview by remember { mutableStateOf(false) }
 
     fun reloadDocument() {
         scope.launch {
@@ -107,7 +113,7 @@ fun DocumentDetailScreen(
                 title = {
                     Text(
                         if (document?.type == DocumentType.Invoice) "تفاصيل الفاتورة" else "تفاصيل عرض السعر",
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
                     )
                 },
                 navigationIcon = {
@@ -117,16 +123,16 @@ fun DocumentDetailScreen(
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
-                    titleContentColor = MaterialTheme.colorScheme.onSurface
-                )
+                    titleContentColor = MaterialTheme.colorScheme.onSurface,
+                ),
             )
-        }
+        },
     ) { paddingValues ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
-                .padding(paddingValues)
+                .padding(paddingValues),
         ) {
             when {
                 isLoading -> {
@@ -134,18 +140,19 @@ fun DocumentDetailScreen(
                         CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                     }
                 }
+
                 errorMessage != null -> {
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(24.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
+                        verticalArrangement = Arrangement.Center,
                     ) {
                         Text(
                             errorMessage ?: "تعذر تحميل تفاصيل المستند.",
                             color = MaterialTheme.colorScheme.error,
-                            textAlign = TextAlign.Center
+                            textAlign = TextAlign.Center,
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                         Button(onClick = { reloadDocument() }) {
@@ -153,6 +160,7 @@ fun DocumentDetailScreen(
                         }
                     }
                 }
+
                 document != null -> {
                     val doc = document!!
                     val renderModel = remember(doc, businessSettings, selectedTemplateId) {
@@ -167,26 +175,27 @@ fun DocumentDetailScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
-                            .verticalScroll(rememberScrollState())
                             .padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         Card(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                         ) {
-                            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Column(
+                                modifier = Modifier.padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
                                 Text(
                                     text = if (doc.type == DocumentType.Invoice) "فاتورة ${doc.documentNumber}" else "عرض سعر ${doc.documentNumber}",
                                     fontSize = 18.sp,
-                                    fontWeight = FontWeight.Bold
+                                    fontWeight = FontWeight.Bold,
                                 )
                                 Text("العميل: ${doc.customer?.name ?: "غير معروف"}", fontSize = 13.sp)
                                 Text("الإجمالي: ${doc.total} ${doc.currency}", fontSize = 13.sp)
-                                Text("الحالة: ${doc.status}", fontSize = 13.sp)
                                 if (doc.type == DocumentType.Invoice) {
-                                    Text("حالة الدفع: ${doc.paymentStatus ?: "غير محددة"}", fontSize = 13.sp)
+                                    Text("حالة الدفع: ${app.tijario.domain.PaymentStatusMapper.getStatusText(doc.paymentStatus, AppLanguage.AR)}", fontSize = 13.sp)
                                 }
                             }
                         }
@@ -195,7 +204,7 @@ fun DocumentDetailScreen(
                             text = "معاينة أولية",
                             fontWeight = FontWeight.Bold,
                             fontSize = 16.sp,
-                            color = MaterialTheme.colorScheme.onBackground
+                            color = MaterialTheme.colorScheme.onBackground,
                         )
 
                         DocumentTemplatePicker(
@@ -206,28 +215,35 @@ fun DocumentDetailScreen(
                             },
                         )
 
-                        DocumentPreviewWebView(model = renderModel)
-
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f),
                         ) {
-                            Column(
-                                modifier = Modifier.padding(16.dp),
-                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            DocumentPreviewWebView(
+                                model = renderModel,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                            IconButton(
+                                onClick = { showFullScreenPreview = true },
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(8.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)),
                             ) {
-                                Text("خيارات التصدير", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                                Button(
-                                    onClick = { showExportSheet = true },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    enabled = !isBusy,
-                                ) {
-                                    Icon(Icons.Filled.Share, contentDescription = null)
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(if (isBusy) "جاري تجهيز المستند..." else "فتح خيارات التصدير")
-                                }
+                                Icon(Icons.Filled.Fullscreen, contentDescription = "تكبير المعاينة")
                             }
+                        }
+
+                        Button(
+                            onClick = { showExportSheet = true },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = !isBusy,
+                        ) {
+                            Icon(Icons.Filled.Share, contentDescription = null)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(if (isBusy) "جاري تجهيز المستند..." else "فتح خيارات التصدير")
                         }
                     }
 
@@ -244,19 +260,24 @@ fun DocumentDetailScreen(
                                                 val intent = exportManager.viewIntent(renderModel)
                                                 context.startActivity(Intent.createChooser(intent, "عرض PDF"))
                                             }
+
                                             DocumentExportAction.SaveToDevice -> {
                                                 exportManager.saveToDownloads(renderModel)
                                                 Toast.makeText(context, "تم حفظ الملف في التنزيلات", Toast.LENGTH_LONG).show()
                                             }
+
                                             DocumentExportAction.Print -> exportManager.printPdf(renderModel)
+
                                             DocumentExportAction.Email -> {
                                                 val intent = exportManager.emailIntent(renderModel)
                                                 context.startActivity(Intent.createChooser(intent, "إرسال بالبريد"))
                                             }
+
                                             DocumentExportAction.SharePdf -> {
                                                 val intent = exportManager.shareIntent(renderModel)
                                                 context.startActivity(Intent.createChooser(intent, "مشاركة PDF"))
                                             }
+
                                             DocumentExportAction.ShareText -> {
                                                 val intent = exportManager.textShareIntent(renderModel)
                                                 context.startActivity(Intent.createChooser(intent, "مشاركة النص"))
@@ -273,29 +294,60 @@ fun DocumentDetailScreen(
                             },
                         )
                     }
+
+                    if (showFullScreenPreview) {
+                        Dialog(
+                            onDismissRequest = { showFullScreenPreview = false },
+                            properties = DialogProperties(usePlatformDefaultWidth = false),
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(Color(0xFF0F172A))
+                                    .padding(12.dp),
+                            ) {
+                                DocumentPreviewWebView(
+                                    model = renderModel,
+                                    modifier = Modifier.fillMaxSize(),
+                                    interactive = true,
+                                )
+                                IconButton(
+                                    onClick = { showFullScreenPreview = false },
+                                    modifier = Modifier
+                                        .align(Alignment.TopStart)
+                                        .padding(8.dp)
+                                        .clip(CircleShape)
+                                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)),
+                                ) {
+                                    Icon(Icons.Filled.Close, contentDescription = "إغلاق")
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
     }
 }
 
-fun CompleteDocument.toFormState(): app.tijario.ui.state.DocumentFormState {
-    return app.tijario.ui.state.DocumentFormState(
-        customerId = this.customerId,
-        customerName = this.customer?.name ?: "عميل غير معروف",
-        customerWhatsapp = this.customer?.whatsappNumber.orEmpty(),
-        items = this.items.map {
+fun CompleteDocument.toFormState(): app.tijario.ui.state.DocumentFormState =
+    app.tijario.ui.state.DocumentFormState(
+        customerId = customerId,
+        customerName = customer?.name ?: "عميل غير معروف",
+        customerWhatsapp = customer?.whatsappNumber.orEmpty(),
+        customerCity = customer?.city,
+        items = items.map {
             app.tijario.ui.state.DocumentItemState(
                 id = it.id,
                 productId = it.productId,
                 name = it.name,
                 quantity = it.quantity.toString(),
-                unitPrice = it.unitPrice.toString()
+                unitPrice = it.unitPrice.toString(),
             )
         },
-        discount = this.discount.toString(),
-        extraFees = this.extraFees.toString(),
-        notes = this.notes.orEmpty(),
-        terms = this.termsText.orEmpty()
+        discount = discount.toString(),
+        extraFees = extraFees.toString(),
+        paymentStatus = paymentStatus ?: "unpaid",
+        notes = notes.orEmpty(),
+        terms = termsText.orEmpty(),
     )
-}

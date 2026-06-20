@@ -42,6 +42,25 @@ data class DocumentTemplateDefinition(
     val layoutFamily: String,
     val accentColor: String,
     val description: String,
+    val visual: DocumentTemplateVisual = DocumentTemplateVisual(),
+)
+
+data class DocumentTemplateVisual(
+    val styleFamily: Int = 1,
+    val headStyle: Int = 0,
+    val deepColor: String = "#0B5F59",
+    val topTextColor: String = "#2C2D2F",
+    val titleTextColor: String? = null,
+    val logoBackgroundColor: String? = null,
+    val logoTextColor: String = "#FFFFFF",
+    val dividerColor: String = "#D9E2EC",
+    val tableShadeColor: String = "#F1F5F9",
+    val tableHeaderTextColor: String = "#FFFFFF",
+    val itemTopOuterLine: Boolean = false,
+    val itemBottomBlock: Boolean = true,
+    val itemBottomLine: Boolean = true,
+    val itemTextBold: Boolean = false,
+    val pageAccentColor: String? = null,
 )
 
 data class DocumentRenderModel(

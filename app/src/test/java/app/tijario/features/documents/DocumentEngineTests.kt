@@ -1,13 +1,13 @@
 package app.tijario.features.documents
 
 import app.tijario.config.AppLanguage
-import app.tijario.data.model.CompleteDocument
 import app.tijario.data.model.DocumentType
 import app.tijario.features.documents.mapper.DraftDocumentRenderMapper
 import app.tijario.features.documents.mapper.SavedDocumentRenderMapper
 import app.tijario.features.documents.pdf.PdfCacheKeyFactory
 import app.tijario.features.documents.pdf.PdfFileNameSanitizer
 import app.tijario.features.documents.template.DocumentHtmlRenderer
+import app.tijario.features.documents.template.DocumentRenderTarget
 import app.tijario.features.documents.template.DocumentTemplateRegistry
 import app.tijario.features.documents.template.DocumentTemplateValidator
 import app.tijario.features.documents.template.FileSystemDocumentTemplateLoader
@@ -24,11 +24,14 @@ class DocumentEngineTests {
     private val renderer = DocumentHtmlRenderer(FileSystemDocumentTemplateLoader(assetsRoot))
 
     @Test
-    fun registryContainsExactlyTenOriginalTemplates() {
+    fun registryContainsOriginalAndInvoiceMakerStyleTemplates() {
         val templates = DocumentTemplateRegistry.templates
-        assertEquals(10, templates.size)
-        assertEquals(10, templates.map { it.id }.toSet().size)
-        assertEquals(10, templates.map { it.layoutFamily }.toSet().size)
+        assertTrue(templates.size > 10)
+        assertEquals(templates.size, templates.map { it.id }.toSet().size)
+        assertEquals(templates.size, templates.map { it.layoutFamily }.toSet().size)
+        assertTrue(templates.any { it.visual.styleFamily == 2 })
+        assertTrue(templates.any { it.visual.styleFamily == 5 })
+        assertTrue(templates.any { it.visual.styleFamily == 7 })
         assertTrue(DocumentTemplateValidator.validateRegistry().isEmpty())
     }
 
@@ -40,6 +43,7 @@ class DocumentEngineTests {
         }
         assertTrue(File(assetsRoot, "documents/base/document.html").isFile)
         assertTrue(File(assetsRoot, "documents/base/common.css").isFile)
+        assertTrue(File(assetsRoot, "documents/base/preview.css").isFile)
         assertTrue(File(assetsRoot, "documents/base/print.css").isFile)
     }
 
@@ -110,6 +114,66 @@ class DocumentEngineTests {
     }
 
     @Test
+    fun everyTemplateShowsFullCustomerDetailsWithoutBusinessDetailsCard() {
+        val base = SavedDocumentRenderMapper.map(
+            document = DocumentFixtures.saved(),
+            businessSettings = DocumentFixtures.business,
+            language = AppLanguage.AR,
+        )
+
+        DocumentTemplateRegistry.templates.forEach { template ->
+            val html = renderer.render(base.copy(templateId = template.id, templateVersion = template.version))
+
+            assertFalse("Business details card should not be duplicated for ${template.id}", html.contains("<h3 class=\"section-title\">بيانات النشاط</h3>"))
+            assertTrue("Customer-only layout missing for ${template.id}", html.contains("parties customer-only"))
+            assertTrue("Customer title missing for ${template.id}", html.contains("بيانات العميل"))
+            assertTrue("Customer name missing for ${template.id}", html.contains(DocumentFixtures.customer.name))
+            assertTrue("Customer number missing for ${template.id}", html.contains(DocumentFixtures.customer.whatsappNumber))
+            assertTrue("Customer city missing for ${template.id}", html.contains(DocumentFixtures.customer.city.orEmpty()))
+        }
+    }
+
+    @Test
+    fun generatedDocumentUsesBusinessLogoWhenPublicUrlExists() {
+        val html = renderer.render(
+            SavedDocumentRenderMapper.map(
+                document = DocumentFixtures.saved(),
+                businessSettings = DocumentFixtures.business.copy(logoUrl = "https://example.com/logo.png"),
+                language = AppLanguage.EN,
+            )
+        )
+
+        assertTrue(html.contains("logo-image"))
+        assertTrue(html.contains("https://example.com/logo.png"))
+    }
+
+    @Test
+    fun generatedDocumentRejectsUnsafeLogoUrls() {
+        val html = renderer.render(
+            SavedDocumentRenderMapper.map(
+                document = DocumentFixtures.saved(),
+                businessSettings = DocumentFixtures.business.copy(logoUrl = "javascript:alert(1)"),
+                language = AppLanguage.EN,
+            )
+        )
+
+        assertFalse(html.contains("javascript:alert"))
+        assertTrue(html.contains("logo-initials"))
+    }
+
+    @Test
+    fun previewAndPdfUseDifferentRenderTargets() {
+        val model = SavedDocumentRenderMapper.map(DocumentFixtures.saved(), DocumentFixtures.business)
+        val previewHtml = renderer.render(model, DocumentRenderTarget.Preview)
+        val pdfHtml = renderer.render(model, DocumentRenderTarget.Pdf)
+
+        assertTrue(previewHtml.contains("preview-mode"))
+        assertTrue(pdfHtml.contains("pdf-mode"))
+        assertTrue(previewHtml.contains("height: 297mm"))
+        assertTrue(pdfHtml.contains("@page"))
+    }
+
+    @Test
     fun quotationOmitsPaymentStatus() {
         val html = renderer.render(
             SavedDocumentRenderMapper.map(
@@ -131,14 +195,17 @@ class DocumentEngineTests {
     }
 
     @Test
-    fun cacheKeyChangesWithTemplateLocaleAndRevision() {
+    fun cacheKeyChangesWithTemplateLocaleRevisionAndRenderEngine() {
         val base = SavedDocumentRenderMapper.map(DocumentFixtures.saved(), DocumentFixtures.business)
         val templateChanged = base.copy(templateId = "tijario-modern")
         val localeChanged = base.copy(language = AppLanguage.EN)
         val revisionChanged = base.copy(updatedAt = "2026-06-21")
-        assertNotEquals(PdfCacheKeyFactory.key(base), PdfCacheKeyFactory.key(templateChanged))
-        assertNotEquals(PdfCacheKeyFactory.key(base), PdfCacheKeyFactory.key(localeChanged))
-        assertNotEquals(PdfCacheKeyFactory.key(base), PdfCacheKeyFactory.key(revisionChanged))
+        val key = PdfCacheKeyFactory.key(base)
+
+        assertTrue(key.startsWith("pdfv3-"))
+        assertNotEquals(key, PdfCacheKeyFactory.key(templateChanged))
+        assertNotEquals(key, PdfCacheKeyFactory.key(localeChanged))
+        assertNotEquals(key, PdfCacheKeyFactory.key(revisionChanged))
     }
 
     @Test

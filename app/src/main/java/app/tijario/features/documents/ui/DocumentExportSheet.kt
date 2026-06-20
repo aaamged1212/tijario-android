@@ -1,10 +1,10 @@
 package app.tijario.features.documents.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Email
@@ -44,7 +44,7 @@ fun DocumentExportSheet(
             ExportRow("حفظ في الجهاز", DocumentExportAction.SaveToDevice, onAction) { Icon(Icons.Filled.Download, contentDescription = null) }
             ExportRow("طباعة", DocumentExportAction.Print, onAction) { Icon(Icons.Filled.Print, contentDescription = null) }
             ExportRow("إرسال بالبريد", DocumentExportAction.Email, onAction) { Icon(Icons.Filled.Email, contentDescription = null) }
-            ExportRow("مشاركة", DocumentExportAction.SharePdf, onAction) { Icon(Icons.Filled.Share, contentDescription = null) }
+            ExportRow("مشاركة PDF", DocumentExportAction.SharePdf, onAction) { Icon(Icons.Filled.Share, contentDescription = null) }
             ExportRow("مشاركة النص", DocumentExportAction.ShareText, onAction) { Icon(Icons.Filled.Share, contentDescription = null) }
         }
     }

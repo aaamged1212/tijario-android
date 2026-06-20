@@ -36,8 +36,12 @@ class AuthViewModel(
                     // Email verification is required if user exists but has unconfirmed email.
                     // If confirmedAt is null, user must verify.
                     val isEmailVerified = session.user?.emailConfirmedAt != null
-                    val hasSettings = userId?.let { repository.hasCachedBusinessSettings(it) } ?: false
-                    
+                    val hasSettings = if (isEmailVerified && userId != null) {
+                        resolveBusinessSettingsPresence(userId).getOrThrow()
+                    } else {
+                        false
+                    }
+
                     _authState.value = AuthStateResolver.resolve(
                         sessionExists = true,
                         isEmailVerified = isEmailVerified,
@@ -62,7 +66,7 @@ class AuthViewModel(
                 val session = supabaseClient.auth.currentSessionOrNull()
                 if (session != null) {
                     val userId = session.user?.id
-                    val hasSettings = userId?.let { repository.hasCachedBusinessSettings(it) } ?: false
+                    val hasSettings = userId?.let { resolveBusinessSettingsPresence(it).getOrThrow() } ?: false
                     _authState.value = AuthStateResolver.resolve(
                         sessionExists = true,
                         isEmailVerified = true,
@@ -80,6 +84,16 @@ class AuthViewModel(
     fun handleLoginSuccess() {
         checkCurrentSession()
     }
+
+    private suspend fun resolveBusinessSettingsPresence(userId: String): Result<Boolean> =
+        runCatching {
+            if (repository.hasCachedBusinessSettings(userId)) {
+                return@runCatching true
+            }
+
+            repository.refreshBusinessSettings(force = true).getOrThrow()
+            repository.hasCachedBusinessSettings(userId)
+        }
 
     fun logout() {
         viewModelScope.launch {

@@ -20,6 +20,13 @@
   --success: #22C55E;
   --error: #EF4444;
   --accent: var(--primary);
+  --top-text: #2C2D2F;
+  --title-text: var(--accent);
+  --logo-bg: var(--accent);
+  --logo-text: #FFFFFF;
+  --table-shade: #F1F5F9;
+  --table-head-text: #FFFFFF;
+  --page-accent: transparent;
 }
 
 * {
@@ -45,7 +52,7 @@ html[dir="ltr"] body {
 .document-page {
   width: 210mm;
   min-height: 297mm;
-  margin: 0 auto;
+  margin: 0;
   padding: 16mm;
   background: var(--surface);
 }
@@ -70,13 +77,26 @@ html[dir="ltr"] body {
 .logo {
   width: 48px;
   height: 48px;
-  border-radius: 12px;
+  border-radius: 10px;
   display: grid;
   place-items: center;
-  background: var(--accent);
-  color: #FFFFFF;
+  background: var(--logo-bg);
+  color: var(--logo-text);
   font-weight: 800;
   font-size: 18px;
+  overflow: hidden;
+  flex: 0 0 auto;
+}
+
+.logo-image {
+  padding: 4px;
+}
+
+.logo-image img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
 .business-name {
@@ -98,7 +118,7 @@ html[dir="ltr"] body {
   margin: 0;
   font-size: 28px;
   font-weight: 900;
-  color: var(--accent);
+  color: var(--title-text);
 }
 
 .status-row {
@@ -165,6 +185,50 @@ html[dir="ltr"] body {
   margin: 14px 0;
 }
 
+.parties.customer-only {
+  grid-template-columns: 1fr;
+}
+
+.customer-card {
+  display: grid;
+  gap: 8px;
+}
+
+.party-primary {
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 900;
+  overflow-wrap: anywhere;
+}
+
+.party-details {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.party-detail {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: var(--soft);
+}
+
+.party-detail span {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.party-detail strong {
+  display: block;
+  color: var(--text);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
 .section-title {
   margin: 0 0 8px;
   color: var(--deep);
@@ -198,9 +262,13 @@ td {
 
 th {
   background: var(--accent);
-  color: #FFFFFF;
+  color: var(--table-head-text);
   font-weight: 900;
   font-size: 11px;
+}
+
+tbody tr:nth-child(even) {
+  background: var(--table-shade);
 }
 
 .item-name {

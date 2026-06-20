@@ -31,6 +31,7 @@ object DocumentFormatting {
             "cancelled", "canceled" -> if (language == AppLanguage.AR) "ملغي" else "Cancelled"
             "paid" -> if (language == AppLanguage.AR) "مدفوع" else "Paid"
             "unpaid" -> if (language == AppLanguage.AR) "غير مدفوع" else "Unpaid"
+            "partial", "partially_paid" -> if (language == AppLanguage.AR) "دفع جزئي" else "Partially paid"
             "overdue" -> if (language == AppLanguage.AR) "متأخر" else "Overdue"
             else -> value.replace('_', ' ')
         }
