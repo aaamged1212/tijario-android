@@ -3,6 +3,7 @@ package app.tijario.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -27,6 +28,11 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShoppingBag
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.ShoppingBag
+import androidx.compose.material.icons.outlined.People
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
@@ -96,15 +102,16 @@ import androidx.compose.foundation.pager.rememberPagerState
 private data class RootTab(
     val route: String,
     val label: String,
-    val icon: ImageVector,
+    val iconFilled: ImageVector,
+    val iconOutlined: ImageVector,
 )
 
 private val rootTabs = listOf(
-    RootTab("dashboard", "tab_home", Icons.Filled.Home),
-    RootTab("documents", "tab_documents", Icons.Filled.Description),
-    RootTab("ai", "tab_ai", Icons.Filled.AutoAwesome),
-    RootTab("products", "tab_products", Icons.Filled.ShoppingBag),
-    RootTab("customers", "tab_customers", Icons.Filled.People),
+    RootTab("dashboard", "tab_home", Icons.Filled.Home, Icons.Outlined.Home),
+    RootTab("documents", "tab_documents", Icons.Filled.Description, Icons.Outlined.Description),
+    RootTab("ai", "tab_ai", Icons.Filled.AutoAwesome, Icons.Outlined.AutoAwesome),
+    RootTab("products", "tab_products", Icons.Filled.ShoppingBag, Icons.Outlined.ShoppingBag),
+    RootTab("customers", "tab_customers", Icons.Filled.People, Icons.Outlined.People),
 )
 
 @Composable
@@ -324,7 +331,7 @@ fun TijarioApp() {
                             NavigationBar(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(68.dp)
+                                    .height(72.dp)
                                     .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
                                     .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f), RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)),
                                 containerColor = MaterialTheme.colorScheme.background,
@@ -340,11 +347,25 @@ fun TijarioApp() {
                                             }
                                         },
                                         icon = {
-                                            Icon(
-                                                imageVector = tab.icon,
-                                                contentDescription = t(tab.label),
-                                                modifier = Modifier.size(24.dp)
-                                            )
+                                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                                if (selected) {
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .width(20.dp)
+                                                            .height(3.dp)
+                                                            .clip(RoundedCornerShape(1.5.dp))
+                                                            .background(MaterialTheme.colorScheme.primary)
+                                                    )
+                                                    Spacer(modifier = Modifier.height(4.dp))
+                                                } else {
+                                                    Spacer(modifier = Modifier.height(7.dp))
+                                                }
+                                                Icon(
+                                                    imageVector = if (selected) tab.iconFilled else tab.iconOutlined,
+                                                    contentDescription = t(tab.label),
+                                                    modifier = Modifier.size(24.dp)
+                                                )
+                                            }
                                         },
                                         label = {
                                             Text(
@@ -358,7 +379,7 @@ fun TijarioApp() {
                                             selectedTextColor = MaterialTheme.colorScheme.primary,
                                             unselectedIconColor = Color(0xFF64748B),
                                             unselectedTextColor = Color(0xFF64748B),
-                                            indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+                                            indicatorColor = Color.Transparent
                                         )
                                     )
                                 }

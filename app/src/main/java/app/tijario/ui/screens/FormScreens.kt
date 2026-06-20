@@ -499,12 +499,52 @@ fun BusinessSettingsScreen(
     var form by remember { mutableStateOf(BusinessSettingsFormState()) }
     var existingSettings by remember { mutableStateOf<app.tijario.data.model.BusinessSettings?>(null) }
     var isLoading by remember { mutableStateOf(false) }
+    var isLogoUploading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     val uiState by dataViewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+
+    // Caching business logo
+    val logoUrl = uiState.businessSettings?.logoUrl
+    val logoBitmap by produceState<android.graphics.Bitmap?>(initialValue = null, logoUrl) {
+        value = null
+        if (!logoUrl.isNullOrBlank()) {
+            value = loadCachedLogoBitmap(context, logoUrl)
+        }
+    }
+
+    val logoPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) {
+            scope.launch {
+                val settings = uiState.businessSettings
+                if (settings == null) {
+                    errorMessage = Localization.getString("complete_settings_logo", language)
+                    return@launch
+                }
+                try {
+                    isLogoUploading = true
+                    errorMessage = null
+                    val uploadRequest = buildLogoUploadRequest(context, uri, language)
+                    val result = app.tijario.config.Supabase.apiClient.uploadBusinessLogo(uploadRequest)
+                    val uploadedUrl = result.data?.logoUrl
+                    if (result.ok && !uploadedUrl.isNullOrBlank()) {
+                        dataViewModel.cacheBusinessSettings(settings.copy(logoUrl = uploadedUrl))
+                        dataViewModel.refreshAll()
+                    } else {
+                        errorMessage = result.displayMessage
+                    }
+                } catch (e: Exception) {
+                    errorMessage = e.message ?: Localization.getString("logo_upload_error", language)
+                } finally {
+                    isLogoUploading = false
+                }
+            }
+        }
+    }
 
     // Dialog control states
-    var activeDialog by remember { mutableStateOf<String?>(null) } // "name", "category", "phone", "country", "city", "currency", "terms"
+    var activeDialog by remember { mutableStateOf<String?>(null) } // "name", "phone", "country", "city", "currency", "terms"
 
     LaunchedEffect(Unit) {
         dataViewModel.refreshAll()
@@ -542,14 +582,7 @@ fun BusinessSettingsScreen(
                                 leadingIcon = { Icon(Icons.Filled.Business, contentDescription = null, tint = Color(0xFF0D9488)) }
                             )
                         }
-                        "category" -> {
-                            TijarioTextField(
-                                label = t("business_category"),
-                                value = t("category_default_value"),
-                                onValueChange = { /* category is mock/default in setup */ },
-                                leadingIcon = { Icon(Icons.Filled.GridView, contentDescription = null, tint = Color(0xFF0D9488)) }
-                            )
-                        }
+
                         "phone" -> {
                             TijarioTextField(
                                 label = t("whatsapp_phone"),
@@ -659,15 +692,26 @@ fun BusinessSettingsScreen(
                         Surface(
                             color = Color.White,
                             shape = CircleShape,
-                            modifier = Modifier.size(60.dp)
+                            modifier = Modifier
+                                .size(60.dp)
+                                .clickable(enabled = !isLogoUploading) { logoPicker.launch("image/*") }
                         ) {
                             Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    imageVector = Icons.Filled.Storefront,
-                                    contentDescription = null,
-                                    tint = Color(0xFF0D9488),
-                                    modifier = Modifier.size(32.dp)
-                                )
+                                when {
+                                    isLogoUploading -> CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color(0xFF0D9488))
+                                    logoBitmap != null -> Image(
+                                        bitmap = logoBitmap!!.asImageBitmap(),
+                                        contentDescription = null,
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                    else -> Icon(
+                                        imageVector = Icons.Filled.Storefront,
+                                        contentDescription = null,
+                                        tint = Color(0xFF0D9488),
+                                        modifier = Modifier.size(32.dp)
+                                    )
+                                }
                             }
                         }
                         Column {
@@ -739,15 +783,7 @@ fun BusinessSettingsScreen(
 
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = 4.dp))
 
-                    // Row 2: تصنيف النشاط التجاري
-                    SettingsItemRow(
-                        icon = Icons.Filled.GridView,
-                        title = t("business_category"),
-                        value = t("category_default_value"),
-                        onClick = { activeDialog = "category" }
-                    )
 
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = 4.dp))
 
                     // Row 3: رقم التواصل
                     val maskedPhone = remember(form.whatsapp) {
@@ -916,6 +952,68 @@ private fun SettingsItemRow(
         )
     }
 }
+
+private suspend fun loadCachedLogoBitmap(
+    context: Context,
+    logoUrl: String,
+): android.graphics.Bitmap? =
+    withContext(Dispatchers.IO) {
+        runCatching {
+            val cacheDir = File(context.filesDir, "business-logo-cache").apply { mkdirs() }
+            val cacheFile = File(cacheDir, "${logoUrl.sha256()}.img")
+
+            if (cacheFile.exists() && cacheFile.length() > 0) {
+                BitmapFactory.decodeFile(cacheFile.absolutePath)?.let { return@withContext it }
+            }
+
+            val bytes = URL(logoUrl).openStream().use { stream ->
+                stream.readBytes()
+            }
+
+            if (bytes.isNotEmpty()) {
+                cacheFile.writeBytes(bytes)
+            }
+
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+        }.getOrNull()
+    }
+
+private fun String.sha256(): String =
+    MessageDigest.getInstance("SHA-256")
+        .digest(toByteArray(Charsets.UTF_8))
+        .joinToString("") { byte -> "%02x".format(byte) }
+
+private suspend fun buildLogoUploadRequest(
+    context: Context,
+    uri: Uri,
+    language: AppLanguage,
+): app.tijario.data.remote.UploadLogoRequest =
+    withContext(Dispatchers.IO) {
+        val mimeType = context.contentResolver.getType(uri) ?: "image/jpeg"
+        val allowedMimeTypes = setOf("image/jpeg", "image/png", "image/webp")
+
+        require(mimeType in allowedMimeTypes) {
+            Localization.getString("logo_format_error", language)
+        }
+
+        val bytes = context.contentResolver.openInputStream(uri)?.use { input ->
+            input.readBytes()
+        } ?: error("تعذر قراءة صورة الشعار.")
+
+        require(bytes.isNotEmpty()) {
+            Localization.getString("logo_empty_error", language)
+        }
+        require(bytes.size <= 2 * 1024 * 1024) {
+            val errStr = if (language == AppLanguage.EN) "Logo size must not exceed 2MB." else "حجم الشعار يجب ألا يتجاوز 2MB."
+            errStr
+        }
+
+        app.tijario.data.remote.UploadLogoRequest(
+            fileName = "logo",
+            mimeType = mimeType,
+            base64 = Base64.encodeToString(bytes, Base64.NO_WRAP),
+        )
+    }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
