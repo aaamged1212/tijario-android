@@ -259,9 +259,9 @@ fun TijarioApp() {
 
                             Surface(
                                 modifier = Modifier.fillMaxWidth(),
-                                color = MaterialTheme.colorScheme.surface,
-                                tonalElevation = 2.dp,
-                                shadowElevation = 4.dp
+                                color = MaterialTheme.colorScheme.background,
+                                tonalElevation = 0.dp,
+                                shadowElevation = 0.dp
                             ) {
                                 Row(
                                     modifier = Modifier
@@ -321,9 +321,9 @@ fun TijarioApp() {
                                     .fillMaxWidth()
                                     .height(68.dp)
                                     .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
-                                    .border(1.dp, MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)),
-                                containerColor = MaterialTheme.colorScheme.surface,
-                                tonalElevation = 8.dp
+                                    .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f), RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)),
+                                containerColor = MaterialTheme.colorScheme.background,
+                                tonalElevation = 0.dp
                             ) {
                                 rootTabs.forEachIndexed { index, tab ->
                                     val selected = pagerState.currentPage == index
