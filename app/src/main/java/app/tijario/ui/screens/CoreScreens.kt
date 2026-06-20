@@ -74,8 +74,11 @@ import androidx.compose.foundation.border
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.tijario.MainActivity
 import app.tijario.config.AppLanguage
+import app.tijario.config.LocalLanguage
+import app.tijario.config.Localization
 import app.tijario.config.t
 import app.tijario.domain.DashboardStatsCalculator
+import app.tijario.domain.PaymentStatusMapper
 import app.tijario.features.documents.export.DocumentExportManager
 import app.tijario.features.documents.mapper.TijarioDocumentMapper
 import app.tijario.features.documents.ui.DocumentTemplatePreferences
@@ -86,7 +89,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import app.tijario.ui.components.TijarioTextField
 import io.github.jan.supabase.auth.auth
+import java.io.File
 import java.net.URL
+import java.security.MessageDigest
 
 @Composable
 fun ConfigurationRequiredScreen() {
@@ -131,7 +136,7 @@ fun ConfigurationRequiredScreen() {
                 )
 
                 Text(
-                    text = "يرجى إضافة مفاتيح ورابط Supabase في gradle.properties المحلي الخاص بك لتشغيل التطبيق.",
+                    text = t("config_req_msg"),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
@@ -189,16 +194,27 @@ fun TijarioLogoMark(modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun StatsWavyGraph(modifier: Modifier = Modifier) {
+fun StatsWavyGraph(
+    values: List<Double>,
+    modifier: Modifier = Modifier,
+) {
     Canvas(modifier = modifier) {
         val w = size.width
         val h = size.height
         val path = Path()
+        val normalized = normalizeSparkline(values)
+        val points = normalized.mapIndexed { index, value ->
+            val x = if (normalized.size == 1) w else (w / (normalized.lastIndex.toFloat())) * index
+            val y = h * (0.82f - (value * 0.62f))
+            Offset(x, y)
+        }
 
-        // Draw a smooth wavy line matching mockup
-        path.moveTo(0f, h * 0.7f)
-        path.cubicTo(w * 0.25f, h * 0.85f, w * 0.45f, h * 0.3f, w * 0.7f, h * 0.65f)
-        path.cubicTo(w * 0.85f, h * 0.8f, w * 0.92f, h * 0.2f, w, h * 0.2f)
+        path.moveTo(points.first().x, points.first().y)
+        points.drop(1).forEachIndexed { index, point ->
+            val previous = points[index]
+            val midX = (previous.x + point.x) / 2f
+            path.cubicTo(midX, previous.y, midX, point.y, point.x, point.y)
+        }
 
         // Path for fill
         val fillPath = Path().apply {
@@ -227,14 +243,49 @@ fun StatsWavyGraph(modifier: Modifier = Modifier) {
         drawCircle(
             color = Color(0xFF38BDF8),
             radius = 6.dp.toPx(),
-            center = Offset(w, h * 0.2f)
+            center = points.last()
         )
         drawCircle(
             color = Color.White,
             radius = 3.dp.toPx(),
-            center = Offset(w, h * 0.2f)
+            center = points.last()
         )
     }
+}
+
+private fun normalizeSparkline(values: List<Double>): List<Float> {
+    var clean = values.takeLast(7).map { it.coerceAtLeast(0.0) }
+    if (clean.isEmpty()) return listOf(0.15f, 0.3f, 0.22f, 0.45f, 0.38f, 0.62f, 0.5f)
+    if (clean.size == 1) {
+        clean = listOf(0.0, clean[0])
+    }
+    val max = clean.maxOrNull()?.takeIf { it > 0.0 } ?: return List(clean.size.coerceAtLeast(2)) { 0.2f }
+    return clean.map { (it / max).toFloat().coerceIn(0.08f, 1f) }
+}
+
+private fun dashboardSparklineValues(
+    documents: List<app.tijario.data.model.DocumentSummary>,
+    currency: String,
+): List<Double> {
+    val invoices = documents
+        .filter { it.type == app.tijario.data.model.DocumentType.Invoice }
+        .filter { it.currency.equals(currency, ignoreCase = true) }
+    val byDay = invoices.groupBy { it.issueDate.substringBefore("T").takeIf { value -> value.isNotBlank() } ?: it.issueDate }
+    return byDay.toSortedMap().values.toList().takeLast(7).map { dayDocs ->
+        DashboardStatsCalculator.calculateCollectedInvoiceAmount(dayDocs, currency)
+    }
+}
+
+private fun formatDashboardDate(issueDate: String, language: AppLanguage): String {
+    val rawDate = issueDate.substringBefore("T")
+    return runCatching {
+        val date = java.time.LocalDate.parse(rawDate)
+        val formatter = java.time.format.DateTimeFormatter.ofPattern(
+            "dd MMM yyyy",
+            if (language == AppLanguage.AR) java.util.Locale("ar") else java.util.Locale.US,
+        )
+        date.format(formatter)
+    }.getOrElse { rawDate }
 }
 
 @Composable
@@ -246,10 +297,13 @@ fun DashboardScreen(
     onCustomers: () -> Unit,
     onAiTools: () -> Unit,
     onBusinessSettings: () -> Unit,
+    onViewAllDocuments: () -> Unit,
     onDocumentClick: (String) -> Unit,
     hideHeader: Boolean = false,
 ) {
     val uiState by dataViewModel.uiState.collectAsStateWithLifecycle()
+    val language = LocalLanguage.current
+    val isArabic = language == AppLanguage.AR
     LaunchedEffect(Unit) {
         dataViewModel.refreshAll()
     }
@@ -270,6 +324,9 @@ fun DashboardScreen(
     val totalAmount = remember(uiState.documents, businessCurrency) {
         DashboardStatsCalculator.calculateCollectedInvoiceAmount(uiState.documents, businessCurrency)
     }
+    val sparklineValues = remember(uiState.documents, businessCurrency) {
+        dashboardSparklineValues(uiState.documents, businessCurrency)
+    }
 
     val planUsage = uiState.planUsage
     val isDocLimitReached = planUsage != null && planUsage.documentsLimit > 0 && planUsage.documentsUsed >= planUsage.documentsLimit
@@ -278,18 +335,18 @@ fun DashboardScreen(
     if (showLimitAlert) {
         AlertDialog(
             onDismissRequest = { showLimitAlert = false },
-            title = { Text("تم الوصول للحد الأقصى", fontWeight = FontWeight.Bold) },
-            text = { Text("لقد استهلكت كامل الحد المتاح لك من الفواتير وعروض الأسعار لشهرك الحالي حسب باقتك (${planUsage?.planName}). يرجى الترقية للاستمرار.") },
+            title = { Text(t("limit_reached_title"), fontWeight = FontWeight.Bold) },
+            text = { Text(t("limit_reached_msg") + " (${planUsage?.planName})") },
             confirmButton = {
                 Button(onClick = { showLimitAlert = false }) {
-                    Text("حسناً")
+                    Text(t("btn_ok"))
                 }
             }
         )
     }
 
     val latestDocuments = remember(uiState.documents) {
-        uiState.documents.sortedByDescending { it.issueDate }.take(3)
+        uiState.documents.sortedByDescending { it.issueDate }.take(5)
     }
 
     Column(
@@ -315,49 +372,51 @@ fun DashboardScreen(
                     )
                     .padding(24.dp)
             ) {
-                // Wavy graph on the left side of the card
+                // Wavy graph on the end side of the card (left in RTL, right in LTR)
                 StatsWavyGraph(
+                    values = sparklineValues,
                     modifier = Modifier
-                        .align(Alignment.CenterStart)
+                        .align(Alignment.CenterEnd)
                         .width(130.dp)
                         .height(80.dp)
-                        .offset(x = (-8).dp, y = (-12).dp)
+                        .offset(x = 8.dp, y = (-12).dp)
                 )
 
-                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Column(
+                    modifier = Modifier.align(Alignment.TopStart),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Column (الملخص المالي) first in the code row so it renders on the right in RTL
-                        Column(horizontalAlignment = Alignment.End) {
-                            Text("الملخص المالي", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                        Column(horizontalAlignment = Alignment.Start) {
+                            Text(t("financial_summary"), color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                             Text("جميع الأرقام بـ $currencyName", color = Color.White.copy(alpha = 0.6f), fontSize = 11.sp)
                         }
 
-                        // Button (عرض الملخص) second in the code row so it renders on the left in RTL
+                        // Button (هذا الشهر)
                         Button(
                             onClick = { /* Detail Action */ },
                             colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.1f)),
                             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                             modifier = Modifier.height(32.dp)
                         ) {
-                            // Icon first inside button Row so it renders on the right of text in RTL
                             Icon(
-                                imageVector = Icons.Filled.Visibility,
+                                imageVector = Icons.Filled.DateRange,
                                 contentDescription = null,
                                 tint = Color.White,
                                 modifier = Modifier.size(14.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("عرض الملخص", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            Text(t("this_month"), color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         }
                     }
 
                     Column(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalAlignment = Alignment.End
+                        horizontalAlignment = Alignment.Start
                     ) {
                         Text(
                             text = "إجمالي المبيعات",
@@ -415,7 +474,7 @@ fun DashboardScreen(
                                 }
                             }
                             Column(horizontalAlignment = Alignment.End) {
-                                Text("الفواتير غير المدفوعة", color = Color.White.copy(alpha = 0.7f), fontSize = 11.sp)
+                                Text(t("uncollected_amounts"), color = Color.White.copy(alpha = 0.7f), fontSize = 11.sp)
                                 Row(horizontalArrangement = Arrangement.spacedBy(3.dp), verticalAlignment = Alignment.CenterVertically) {
                                     Text(
                                         text = String.format(java.util.Locale.US, "%,.2f", unpaidAmount),
@@ -460,7 +519,7 @@ fun DashboardScreen(
                                 }
                             }
                             Column(horizontalAlignment = Alignment.End) {
-                                Text("العروض المفتوحة", color = Color.White.copy(alpha = 0.7f), fontSize = 11.sp)
+                                Text(t("open_quotes"), color = Color.White.copy(alpha = 0.7f), fontSize = 11.sp)
                                 Row(horizontalArrangement = Arrangement.spacedBy(3.dp), verticalAlignment = Alignment.CenterVertically) {
                                     Text(
                                         text = String.format(java.util.Locale.US, "%,.2f", openQuotesAmount),
@@ -520,7 +579,7 @@ fun DashboardScreen(
                             )
                         }
                     }
-                    Text("فاتورة جديدة", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                    Text(t("new_invoice"), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                 }
             }
 
@@ -554,7 +613,7 @@ fun DashboardScreen(
                             )
                         }
                     }
-                    Text("عرض سعر جديد", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                    Text(t("new_quote"), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                 }
             }
 
@@ -588,7 +647,7 @@ fun DashboardScreen(
                             )
                         }
                     }
-                    Text("إضافة عميل", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                    Text(t("add_customer"), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                 }
             }
         }
@@ -630,7 +689,7 @@ fun DashboardScreen(
                     }
                     Column {
                         Text("تجاريو AI", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                        Text("مساعدك الذكي لأعمالك", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(t("ai_assistant_sub"), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
@@ -665,7 +724,7 @@ fun DashboardScreen(
                             )
                         }
                     }
-                    Text("إضافة منتج أو خدمة", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                    Text(t("new_product_service"), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                 }
             }
         }
@@ -685,7 +744,7 @@ fun DashboardScreen(
             )
 
             // TextButton ("عرض الكل") second so it renders on the left in RTL
-            TextButton(onClick = onNewQuote /* Navigate to Documents Tab */) {
+            TextButton(onClick = onViewAllDocuments) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -715,96 +774,78 @@ fun DashboardScreen(
                         .padding(32.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("لا توجد فواتير أو عروض أسعار حتى الآن", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+                    Text(t("no_docs_yet"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
                 }
             }
         } else {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Column(
-                    modifier = Modifier.padding(vertical = 8.dp)
-                ) {
-                    latestDocuments.forEachIndexed { index, doc ->
-                        val customerName = uiState.customers.find { it.id == doc.customerId }?.name ?: "عميل غير معروف"
+                latestDocuments.forEach { doc ->
+                    val customerName = uiState.customers.find { it.id == doc.customerId }?.name ?: t("unknown_customer")
+                    val statusColor = when (doc.paymentStatus?.lowercase()) {
+                        "paid" -> Color(0xFF22C55E)
+                        "partial" -> Color(0xFFF97316)
+                        "unpaid" -> Color(0xFFEF4444)
+                        else -> MaterialTheme.colorScheme.primary
+                    }
+
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onDocumentClick(doc.id) },
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                    ) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { onDocumentClick(doc.id) /* Open real document details */ }
-                                .padding(horizontal = 16.dp, vertical = 14.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
+                                .height(IntrinsicSize.Min)
                         ) {
-                            // 1. Document Info (Renders on the right/start of RTL Row)
-                            Column(horizontalAlignment = Alignment.End) {
-                                Text(
-                                    text = doc.documentNumber,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 14.sp,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Text(
-                                    text = customerName,
-                                    fontSize = 12.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
+                            Box(
+                                modifier = Modifier
+                                    .width(6.dp)
+                                    .fillMaxHeight()
+                                    .background(statusColor)
+                            )
 
-                            // 2. Status tag & Pricing metrics (Renders in the middle)
                             Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(16.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                // Status chip color logic
-                                val (chipBg, chipFg, chipText) = when (doc.paymentStatus) {
-                                    "paid" -> Triple(Color(0xFFDCFCE7), Color(0xFF15803D), "مدفوعة")
-                                    "partial" -> Triple(Color(0xFFFEF3C7), Color(0xFFB45309), "جزئية")
-                                    else -> Triple(Color(0xFFFEE2E2), Color(0xFFB91C1C), "غير مدفوعة")
-                                }
-
-                                Surface(
-                                    color = chipBg,
-                                    shape = RoundedCornerShape(10.dp)
+                                Column(
+                                    horizontalAlignment = Alignment.Start,
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
+                                    Text(
+                                        text = doc.documentNumber,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 16.sp,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                                     ) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(6.dp)
-                                                .clip(CircleShape)
-                                                .background(chipFg)
-                                        )
                                         Text(
-                                            text = chipText,
-                                            color = chipFg,
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Bold
+                                            text = customerName,
+                                            fontSize = 13.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        Icon(
+                                            imageVector = Icons.Filled.Person,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                            modifier = Modifier.size(16.dp)
                                         )
                                     }
-                                }
 
-                                Column(horizontalAlignment = Alignment.End) {
-                                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                        Text(
-                                            text = String.format(java.util.Locale.US, "%,.2f", doc.total),
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 14.sp,
-                                            color = MaterialTheme.colorScheme.onSurface
-                                        )
-                                        Text(
-                                            text = doc.currency,
-                                            fontSize = 11.sp,
-                                            color = Color(0xFF0D9488),
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    }
-                                    // Parse date string
                                     val dateStr = try {
                                         val ldt = java.time.LocalDateTime.parse(doc.issueDate)
                                         val formatter = java.time.format.DateTimeFormatter.ofPattern("dd MMMM yyyy", java.util.Locale("ar"))
@@ -812,25 +853,64 @@ fun DashboardScreen(
                                     } catch (e: Exception) {
                                         doc.issueDate.substringBefore("T")
                                     }
+
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Text(
+                                            text = dateStr,
+                                            fontSize = 11.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                        )
+                                        Icon(
+                                            imageVector = Icons.Filled.Event,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                }
+
+                                Column(
+                                    horizontalAlignment = Alignment.End,
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    if (doc.type == app.tijario.data.model.DocumentType.Invoice) {
+                                        val payStatusText = app.tijario.domain.PaymentStatusMapper.getStatusText(doc.paymentStatus)
+                                        val payColors = app.tijario.domain.PaymentStatusMapper.getStatusColors(doc.paymentStatus)
+                                        Surface(
+                                            color = Color(payColors.first).copy(alpha = 0.15f),
+                                            shape = RoundedCornerShape(8.dp)
+                                        ) {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                            ) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(6.dp)
+                                                        .background(Color(payColors.second), CircleShape)
+                                                )
+                                                Text(
+                                                    text = payStatusText,
+                                                    color = Color(payColors.second),
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                            }
+                                        }
+                                    }
+
                                     Text(
-                                        text = dateStr,
-                                        fontSize = 11.sp,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                        text = "${doc.currency} ${String.format(java.util.Locale.US, "%,.2f", doc.total)}",
+                                        color = MaterialTheme.colorScheme.primary,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 16.sp
                                     )
                                 }
                             }
-
-                            // 3. Arrow left icon (Renders on the left/end of RTL Row)
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-
-                        if (index < latestDocuments.size - 1) {
-                            HorizontalDivider(color = Color(0xFFF1F5F9).copy(alpha = 0.5f), modifier = Modifier.padding(horizontal = 16.dp))
                         }
                     }
                 }
@@ -899,6 +979,7 @@ private fun QuickActionButton(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CustomersScreen(
     dataViewModel: TijarioDataViewModel,
@@ -907,16 +988,52 @@ fun CustomersScreen(
     onEditCustomer: ((String) -> Unit)? = null,
     hideHeader: Boolean = false
 ) {
+    val language = LocalLanguage.current
+    val isArabic = language == AppLanguage.AR
     var searchQuery by remember { mutableStateOf("") }
+    var selectedFilter by remember { mutableStateOf("all") } // "all", "active", "new", "top"
+    
     val uiState by dataViewModel.uiState.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) {
         dataViewModel.refreshAll()
     }
 
     val customers = uiState.customers
+    val documents = uiState.documents
     val isLoading = uiState.isInitialLoading && customers.isEmpty()
-    val filteredCustomers = customers.filter {
-        it.name.contains(searchQuery, ignoreCase = true) || it.whatsappNumber.contains(searchQuery)
+
+    // Calculate customer metrics dynamically
+    val customerDocCounts = remember(documents) {
+        documents.groupBy { it.customerId }.mapValues { it.value.size }
+    }
+    
+    val activeCustomersCount = remember(customers, customerDocCounts) {
+        customers.count { (customerDocCounts[it.id] ?: 0) > 0 }
+    }
+    val newCustomersCount = remember(customers, customerDocCounts) {
+        customers.count { (customerDocCounts[it.id] ?: 0) == 0 }
+    }
+    val topCustomersThreshold = remember(customerDocCounts) {
+        if (customerDocCounts.isEmpty()) 0 else customerDocCounts.values.maxOrNull() ?: 0
+    }
+    val topCustomersCount = remember(customers, customerDocCounts, topCustomersThreshold) {
+        if (topCustomersThreshold == 0) 0 
+        else customers.count { (customerDocCounts[it.id] ?: 0) >= (topCustomersThreshold * 0.5).coerceAtLeast(1.0) }
+    }
+
+    // Filter logic
+    val filteredCustomers = remember(customers, searchQuery, selectedFilter, customerDocCounts, topCustomersThreshold) {
+        customers.filter { customer ->
+            val matchesSearch = customer.name.contains(searchQuery, ignoreCase = true) || 
+                                customer.whatsappNumber.contains(searchQuery)
+            val matchesFilter = when (selectedFilter) {
+                "active" -> (customerDocCounts[customer.id] ?: 0) > 0
+                "new" -> (customerDocCounts[customer.id] ?: 0) == 0
+                "top" -> topCustomersThreshold > 0 && (customerDocCounts[customer.id] ?: 0) >= (topCustomersThreshold * 0.5).coerceAtLeast(1.0)
+                else -> true
+            }
+            matchesSearch && matchesFilter
+        }
     }
 
     var customerToDelete by remember { mutableStateOf<app.tijario.data.model.Customer?>(null) }
@@ -927,10 +1044,10 @@ fun CustomersScreen(
     if (customerToDelete != null) {
         AlertDialog(
             onDismissRequest = { customerToDelete = null; deleteErrorMessage = null },
-            title = { Text("تأكيد الحذف", fontWeight = FontWeight.Bold) },
+            title = { Text(t("confirm_delete"), fontWeight = FontWeight.Bold) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("هل أنت متأكد من رغبتك في حذف العميل ${customerToDelete?.name}؟")
+                    Text(t("delete_customer_confirm") + " ${customerToDelete?.name}?")
                     deleteErrorMessage?.let {
                         Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
                     }
@@ -947,7 +1064,7 @@ fun CustomersScreen(
                                 if (res.isSuccess) {
                                     customerToDelete = null
                                 } else {
-                                    deleteErrorMessage = res.exceptionOrNull()?.message ?: "فشل حذف العميل."
+                                    deleteErrorMessage = res.exceptionOrNull()?.message ?: Localization.getString("delete_customer_error", language)
                                 }
                             } catch (e: Exception) {
                                 deleteErrorMessage = e.message ?: "حدث خطأ غير متوقع."
@@ -959,12 +1076,12 @@ fun CustomersScreen(
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
                     if (isDeleting) CircularProgressIndicator(color = Color.White, modifier = Modifier.size(16.dp))
-                    else Text("حذف")
+                    else Text(t("delete"))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { customerToDelete = null; deleteErrorMessage = null }) {
-                    Text("إلغاء")
+                    Text(t("cancel"))
                 }
             }
         )
@@ -981,31 +1098,66 @@ fun CustomersScreen(
                 .padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Header with Icon next to Title
+            // Header with custom layout matching image
             if (!hideHeader) {
-                Column {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top
+                ) {
+                    // Right block in RTL (Title/Subtitle with Double People icon)
                     Row(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        modifier = Modifier.weight(1f)
                     ) {
-                        Icon(
-                            imageVector = Icons.Filled.People,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(28.dp)
-                        )
-                        Text(
-                            text = t("customers_title"),
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
+                        Surface(
+                            color = Color(0xFFE4F2F1),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.size(48.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Filled.People,
+                                    contentDescription = null,
+                                    tint = Color(0xFF0D9488),
+                                    modifier = Modifier.size(26.dp)
+                                )
+                            }
+                        }
+                        Column {
+                            Text(
+                                text = t("customers_title"),
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Black,
+                                color = MaterialTheme.colorScheme.onBackground
+                            )
+                            Text(
+                                text = t("customers_desc"),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
-                    Text(
-                        text = if (onCustomerSelected != null) "اختر عميلاً لتحديده للفاتورة" else t("customers_subtitle"),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    
+                    // Left settings gear button in RTL
+                    Surface(
+                        color = Color.Transparent,
+                        shape = CircleShape,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clickable { /* settings click */ }
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Filled.Settings,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
                 }
             }
 
@@ -1017,6 +1169,140 @@ fun CustomersScreen(
                 leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) }
             )
 
+            // Horizontal Filter Chips Row
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // الكل (All)
+                TijarioFilterChip(
+                    selected = selectedFilter == "all",
+                    onClick = { selectedFilter = "all" },
+                    label = t("filter_all"),
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Filled.GridView,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = if (selectedFilter == "all") Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                )
+
+                // نشط (Active)
+                TijarioFilterChip(
+                    selected = selectedFilter == "active",
+                    onClick = { selectedFilter = "active" },
+                    label = t("filter_unpaid"), // Maps to active/unpaid filter text
+                    leadingIcon = {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .background(Color(0xFF22C55E), CircleShape)
+                        )
+                    }
+                )
+
+                // عميل جديد (New Customer)
+                TijarioFilterChip(
+                    selected = selectedFilter == "new",
+                    onClick = { selectedFilter = "new" },
+                    label = t("add_new_customer"),
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Filled.Star,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = if (selectedFilter == "new") Color.White else Color(0xFFFBBF24)
+                        )
+                    }
+                )
+
+                // أكثر تعاملاً (Top Customer)
+                TijarioFilterChip(
+                    selected = selectedFilter == "top",
+                    onClick = { selectedFilter = "top" },
+                    label = t("most_active_customers"),
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Filled.TrendingUp,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = if (selectedFilter == "top") Color.White else MaterialTheme.colorScheme.primary
+                        )
+                    }
+                )
+            }
+
+            // Stats Card (Unified card divided into 4 columns)
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // 1. أكثر تعاملاً (Top)
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Filled.Star, contentDescription = null, tint = Color(0xFFFBBF24), modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(topCustomersCount.toString(), fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        Text(t("most_active_customers"), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+
+                    Box(modifier = Modifier.width(1.dp).height(32.dp).background(MaterialTheme.colorScheme.outlineVariant))
+
+                    // 2. عملاء جدد (New)
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Filled.Description, contentDescription = null, tint = Color(0xFF3B82F6), modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(newCustomersCount.toString(), fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        Text(t("new_customers"), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+
+                    Box(modifier = Modifier.width(1.dp).height(32.dp).background(MaterialTheme.colorScheme.outlineVariant))
+
+                    // 3. عملاء نشطين (Active)
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = Color(0xFF10B981), modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(activeCustomersCount.toString(), fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        Text(t("active_customers"), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+
+                    Box(modifier = Modifier.width(1.dp).height(32.dp).background(MaterialTheme.colorScheme.outlineVariant))
+
+                    // 4. إجمالي العملاء (Total)
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Filled.People, contentDescription = null, tint = Color(0xFF6B7280), modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(customers.size.toString(), fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        Text(t("total_customers"), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+
             // Loading state or Empty state
             if (isLoading) {
                 Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
@@ -1025,9 +1311,9 @@ fun CustomersScreen(
             } else if (filteredCustomers.isEmpty()) {
                 Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("لا يوجد عملاء مضافين", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(t("no_search_results"), color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Button(onClick = onCreateCustomer) {
-                            Text("إضافة عميل جديد")
+                            Text(t("add_new_customer"))
                         }
                     }
                 }
@@ -1038,6 +1324,11 @@ fun CustomersScreen(
                     modifier = Modifier.weight(1f)
                 ) {
                     items(filteredCustomers) { customer ->
+                        val latestDoc = remember(documents, customer.id) {
+                            documents.filter { it.customerId == customer.id }.maxByOrNull { it.issueDate }
+                        }
+                        val isCustomerActive = (customerDocCounts[customer.id] ?: 0) > 0
+
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -1046,68 +1337,123 @@ fun CustomersScreen(
                                 },
                             shape = RoundedCornerShape(16.dp),
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
                         ) {
                             Row(
                                 modifier = Modifier
-                                    .padding(16.dp)
+                                    .padding(12.dp)
                                     .fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
+                                // Right / Main customer info block
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                                     modifier = Modifier.weight(1f)
                                 ) {
+                                    // Initials Avatar with dynamic background colors
+                                    val colorsList = listOf(
+                                        Color(0xFFE0F2F1), Color(0xFFEDE7F6), Color(0xFFE8EAF6),
+                                        Color(0xFFE0F7FA), Color(0xFFF3E5F5), Color(0xFFFFF3E0)
+                                    )
+                                    val hash = customer.name.hashCode().coerceAtLeast(0)
+                                    val bgColor = colorsList[hash % colorsList.size]
+                                    val textColors = listOf(
+                                        Color(0xFF00796B), Color(0xFF512DA8), Color(0xFF303F9F),
+                                        Color(0xFF0097A7), Color(0xFF7B1FA2), Color(0xFFE65100)
+                                    )
+                                    val textColor = textColors[hash % textColors.size]
+
                                     Surface(
-                                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                                        color = bgColor,
                                         shape = CircleShape,
                                         modifier = Modifier.size(44.dp)
                                     ) {
                                         Box(contentAlignment = Alignment.Center) {
-                                            Icon(
-                                                Icons.Filled.Person,
-                                                contentDescription = null,
-                                                tint = MaterialTheme.colorScheme.primary,
-                                                modifier = Modifier.size(20.dp)
+                                            Text(
+                                                text = customer.name.take(1).uppercase(java.util.Locale.ROOT),
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 18.sp,
+                                                color = textColor
                                             )
                                         }
                                     }
-                                    Column {
-                                        Text(
-                                            customer.name,
-                                            fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.onSurface,
-                                            fontSize = 15.sp
-                                        )
-                                        Text(
-                                            customer.whatsappNumber,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            fontSize = 12.sp
-                                        )
+
+                                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            Text(
+                                                customer.name,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.onSurface,
+                                                fontSize = 15.sp
+                                            )
+                                            
+                                            // Active status badge
+                                            val badgeBg = if (isCustomerActive) Color(0xFFE6F4EA) else Color(0xFFF1F3F4)
+                                            val badgeText = if (isCustomerActive) Color(0xFF137333) else Color(0xFF5F6368)
+                                            Surface(
+                                                color = badgeBg,
+                                                shape = RoundedCornerShape(4.dp),
+                                                modifier = Modifier.padding(horizontal = 2.dp)
+                                            ) {
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                                ) {
+                                                    Box(modifier = Modifier.size(5.dp).background(badgeText, CircleShape))
+                                                    Text(
+                                                        text = if (isCustomerActive) t("filter_unpaid") else t("theme_light"), // Active / Normal
+                                                        color = badgeText,
+                                                        fontSize = 10.sp,
+                                                        fontWeight = FontWeight.Bold
+                                                    )
+                                                }
+                                            }
+                                        }
+
+                                        if (latestDoc != null) {
+                                            Text(
+                                                text = "آخر فاتورة: ${latestDoc.documentNumber}",
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                fontSize = 11.sp
+                                            )
+                                        } else {
+                                            Text(
+                                                text = customer.whatsappNumber,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                fontSize = 11.sp
+                                            )
+                                        }
                                     }
                                 }
+
+                                // Left inline action buttons block (Delete, Chat, Call, Edit)
                                 val context = LocalContext.current
                                 Row(
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
+                                    // 1. Edit Button (Pencil)
                                     if (onCustomerSelected == null) {
                                         IconButton(
-                                            onClick = {
-                                                onEditCustomer?.invoke(customer.id!!)
-                                            }
+                                            onClick = { onEditCustomer?.invoke(customer.id!!) },
+                                            modifier = Modifier.size(32.dp)
                                         ) {
-                                            Icon(Icons.Filled.Edit, contentDescription = "تعديل", tint = MaterialTheme.colorScheme.primary)
-                                        }
-                                        IconButton(
-                                            onClick = {
-                                                customerToDelete = customer
-                                            }
-                                        ) {
-                                            Icon(Icons.Filled.Delete, contentDescription = "حذف", tint = MaterialTheme.colorScheme.error)
+                                            Icon(
+                                                Icons.Filled.Edit,
+                                                contentDescription = "تعديل",
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                                modifier = Modifier.size(16.dp)
+                                            )
                                         }
                                     }
+
+                                    // 2. Call Button
                                     IconButton(
                                         onClick = {
                                             try {
@@ -1116,10 +1462,18 @@ fun CustomersScreen(
                                             } catch (e: Exception) {
                                                 android.widget.Toast.makeText(context, "تعذر تشغيل تطبيق الاتصال", android.widget.Toast.LENGTH_SHORT).show()
                                             }
-                                        }
+                                        },
+                                        modifier = Modifier.size(32.dp)
                                     ) {
-                                        Icon(Icons.Filled.Phone, contentDescription = "اتصال", tint = MaterialTheme.colorScheme.primary)
+                                        Icon(
+                                            Icons.Filled.Phone,
+                                            contentDescription = "اتصال",
+                                            tint = Color(0xFF0F9D58),
+                                            modifier = Modifier.size(16.dp)
+                                        )
                                     }
+
+                                    // 3. WhatsApp chat Button
                                     IconButton(
                                         onClick = {
                                             try {
@@ -1127,11 +1481,32 @@ fun CustomersScreen(
                                                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/$formatted"))
                                                 context.startActivity(intent)
                                             } catch (e: Exception) {
-                                                android.widget.Toast.makeText(context, "تعذر فتح تطبيق واتساب", android.widget.Toast.LENGTH_SHORT).show()
+                                                Toast.makeText(context, Localization.getString("cant_open_whatsapp", language), Toast.LENGTH_SHORT).show()
                                             }
-                                        }
+                                        },
+                                        modifier = Modifier.size(32.dp)
                                     ) {
-                                        Icon(Icons.Filled.Chat, contentDescription = "واتساب", tint = Color(0xFF25D366))
+                                        Icon(
+                                            Icons.Filled.Chat,
+                                            contentDescription = "واتساب",
+                                            tint = Color(0xFF25D366),
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+
+                                    // 4. Delete Button directly replacing the three dots options menu
+                                    if (onCustomerSelected == null) {
+                                        IconButton(
+                                            onClick = { customerToDelete = customer },
+                                            modifier = Modifier.size(32.dp)
+                                        ) {
+                                            Icon(
+                                                Icons.Filled.Delete,
+                                                contentDescription = t("delete"),
+                                                tint = MaterialTheme.colorScheme.error,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -1141,14 +1516,14 @@ fun CustomersScreen(
             }
         }
 
-        // Floating Action Button - BottomStart mirrors to bottom-right in AR and bottom-left in EN
+        // Floating Action Button
         FloatingActionButton(
             onClick = onCreateCustomer,
             containerColor = MaterialTheme.colorScheme.primary,
             contentColor = Color.White,
             shape = CircleShape,
             modifier = Modifier
-                .align(Alignment.BottomStart)
+                .align(Alignment.BottomEnd)
                 .padding(24.dp)
         ) {
             Icon(Icons.Filled.Add, contentDescription = null)
@@ -1164,6 +1539,7 @@ fun ProductsScreen(
     onEditProduct: ((String) -> Unit)? = null,
     hideHeader: Boolean = false
 ) {
+    val language = LocalLanguage.current
     var searchQuery by remember { mutableStateOf("") }
     val uiState by dataViewModel.uiState.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) {
@@ -1185,10 +1561,10 @@ fun ProductsScreen(
     if (productToDelete != null) {
         AlertDialog(
             onDismissRequest = { productToDelete = null; deleteErrorMessage = null },
-            title = { Text("تأكيد الحذف", fontWeight = FontWeight.Bold) },
+            title = { Text(t("confirm_delete"), fontWeight = FontWeight.Bold) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("هل أنت متأكد من رغبتك في حذف المنتج ${productToDelete?.name}؟")
+                    Text(t("delete_product_confirm") + " ${productToDelete?.name}?")
                     deleteErrorMessage?.let {
                         Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
                     }
@@ -1205,7 +1581,7 @@ fun ProductsScreen(
                                 if (res.isSuccess) {
                                     productToDelete = null
                                 } else {
-                                    deleteErrorMessage = res.exceptionOrNull()?.message ?: "فشل حذف المنتج."
+                                    deleteErrorMessage = res.exceptionOrNull()?.message ?: Localization.getString("delete_product_error", language)
                                 }
                             } catch (e: Exception) {
                                 deleteErrorMessage = e.message ?: "حدث خطأ غير متوقع."
@@ -1217,12 +1593,12 @@ fun ProductsScreen(
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
                     if (isDeleting) CircularProgressIndicator(color = Color.White, modifier = Modifier.size(16.dp))
-                    else Text("حذف")
+                    else Text(t("delete"))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { productToDelete = null; deleteErrorMessage = null }) {
-                    Text("إلغاء")
+                    Text(t("cancel"))
                 }
             }
         )
@@ -1259,7 +1635,7 @@ fun ProductsScreen(
                         )
                     }
                     Text(
-                        text = if (onProductSelected != null) "اختر منتجاً أو خدمة لتحديد قيمتها للفاتورة" else t("products_subtitle"),
+                        text = if (onProductSelected != null) t("choose_product_doc") else t("products_subtitle"),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -1280,9 +1656,9 @@ fun ProductsScreen(
             } else if (filteredProducts.isEmpty()) {
                 Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("لا يوجد منتجات أو خدمات مضافة", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(t("no_products_available"), color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Button(onClick = onCreateProduct) {
-                            Text("إضافة منتج جديد")
+                            Text(t("add_new_product"))
                         }
                     }
                 }
@@ -1340,6 +1716,13 @@ fun ProductsScreen(
                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             fontSize = 12.sp
                                         )
+                                        item.stockQuantity?.let { stock ->
+                                            Text(
+                                                t("available_stock") + "$stock",
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                fontSize = 12.sp
+                                            )
+                                        }
                                     }
                                 }
                                 Row(
@@ -1365,7 +1748,7 @@ fun ProductsScreen(
                                                 productToDelete = item
                                             }
                                         ) {
-                                            Icon(Icons.Filled.Delete, contentDescription = "حذف", tint = MaterialTheme.colorScheme.error)
+                                            Icon(Icons.Filled.Delete, contentDescription = t("delete"), tint = MaterialTheme.colorScheme.error)
                                         }
                                     }
                                 }
@@ -1382,7 +1765,7 @@ fun ProductsScreen(
             contentColor = Color.White,
             shape = CircleShape,
             modifier = Modifier
-                .align(Alignment.BottomStart)
+                .align(Alignment.BottomEnd)
                 .padding(24.dp)
         ) {
             Icon(Icons.Filled.Add, contentDescription = null)
@@ -1433,6 +1816,7 @@ fun DocumentsScreen(
     onEditDocument: (String, app.tijario.data.model.DocumentType) -> Unit = { _, _ -> },
     hideHeader: Boolean = false
 ) {
+    val language = LocalLanguage.current
     var selectedSection by remember { mutableStateOf(0) } // 0 = Invoices, 1 = Quotes
     var selectedFilter by remember { mutableStateOf("all") } // "all", "unpaid", "paid", "partial"
     var menuExpanded by remember { mutableStateOf(false) }
@@ -1501,7 +1885,7 @@ fun DocumentsScreen(
                     Toast.makeText(context, result.displayMessage, Toast.LENGTH_LONG).show()
                 }
             } catch (_: Exception) {
-                Toast.makeText(context, "تعذر حذف المستند الآن", Toast.LENGTH_LONG).show()
+                Toast.makeText(context, Localization.getString("cant_delete_doc", language), Toast.LENGTH_LONG).show()
             } finally {
                 busyDocumentId = null
             }
@@ -1621,7 +2005,7 @@ fun DocumentsScreen(
                     TijarioFilterChip(
                         selected = selectedFilter == "all",
                         onClick = { selectedFilter = "all" },
-                        label = "الكل",
+                        label = t("filter_all"),
                         leadingIcon = {
                             Icon(
                                 imageVector = Icons.Filled.GridView,
@@ -1636,7 +2020,7 @@ fun DocumentsScreen(
                     TijarioFilterChip(
                         selected = selectedFilter == "unpaid",
                         onClick = { selectedFilter = "unpaid" },
-                        label = "غير مدفوعة",
+                        label = t("filter_unpaid"),
                         leadingIcon = {
                             Box(
                                 modifier = Modifier
@@ -1650,7 +2034,7 @@ fun DocumentsScreen(
                     TijarioFilterChip(
                         selected = selectedFilter == "paid",
                         onClick = { selectedFilter = "paid" },
-                        label = "مدفوعة",
+                        label = t("filter_paid"),
                         leadingIcon = {
                             Box(
                                 modifier = Modifier
@@ -1664,7 +2048,7 @@ fun DocumentsScreen(
                     TijarioFilterChip(
                         selected = selectedFilter == "partial",
                         onClick = { selectedFilter = "partial" },
-                        label = "جزئية",
+                        label = t("filter_partial"),
                         leadingIcon = {
                             Box(
                                 modifier = Modifier
@@ -1678,7 +2062,7 @@ fun DocumentsScreen(
                     TijarioFilterChip(
                         selected = true,
                         onClick = { /* sorting is default active */ },
-                        label = "الأحدث",
+                        label = t("filter_latest"),
                         leadingIcon = {
                             Icon(
                                 imageVector = Icons.Filled.Event,
@@ -1703,7 +2087,7 @@ fun DocumentsScreen(
                     modifier = Modifier.weight(1f)
                 ) {
                     items(sortedDocs) { doc ->
-                        val customerName = customers.find { it.id == doc.customerId }?.name ?: "عميل غير معروف"
+                        val customerName = customers.find { it.id == doc.customerId }?.name ?: t("unknown_customer")
                         val statusColor = when (doc.paymentStatus?.lowercase()) {
                             "paid" -> Color(0xFF22C55E)
                             "partial" -> Color(0xFFF97316)
@@ -1845,7 +2229,7 @@ fun DocumentsScreen(
                                                     }
                                                 )
                                                 DropdownMenuItem(
-                                                    text = { Text("حذف", fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.error) },
+                                                    text = { Text(t("delete"), fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.error) },
                                                     onClick = {
                                                         actionsMenuExpanded = false
                                                         documentPendingDelete = doc
@@ -1900,7 +2284,7 @@ fun DocumentsScreen(
         // Floating Action Button with DropdownMenu - BottomStart mirrors to bottom-right in AR and bottom-left in EN
         Box(
             modifier = Modifier
-                .align(Alignment.BottomStart)
+                .align(Alignment.BottomEnd)
                 .padding(24.dp)
         ) {
             FloatingActionButton(
@@ -1936,8 +2320,8 @@ fun DocumentsScreen(
         documentPendingDelete?.let { doc ->
             AlertDialog(
                 onDismissRequest = { documentPendingDelete = null },
-                title = { Text("حذف المستند") },
-                text = { Text("هل تريد حذف ${doc.documentNumber}؟ لا يمكن التراجع عن هذا الإجراء.") },
+                title = { Text(t("delete_doc_title")) },
+                text = { Text(t("delete_doc_confirm") + " (${doc.documentNumber})") },
                 confirmButton = {
                     TextButton(
                         onClick = {
@@ -1945,12 +2329,12 @@ fun DocumentsScreen(
                             deleteDocument(doc.id)
                         },
                     ) {
-                        Text("حذف", color = MaterialTheme.colorScheme.error)
+                        Text(t("delete"), color = MaterialTheme.colorScheme.error)
                     }
                 },
                 dismissButton = {
                     TextButton(onClick = { documentPendingDelete = null }) {
-                        Text("إلغاء")
+                        Text(t("cancel"))
                     }
                 },
             )
@@ -1964,6 +2348,7 @@ fun AiToolsScreen(
     dataViewModel: TijarioDataViewModel,
     hideHeader: Boolean = false
 ) {
+    val language = LocalLanguage.current
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val uiState by dataViewModel.uiState.collectAsStateWithLifecycle()
@@ -1975,6 +2360,7 @@ fun AiToolsScreen(
     // Smart Reply form
     var caseType by remember { mutableStateOf("customer_inquiry") }
     var customerName by remember { mutableStateOf("") }
+    var customerMessage by remember { mutableStateOf("") }
     var replyDialect by remember { mutableStateOf("gulf") }
     var replyTone by remember { mutableStateOf("friendly") }
     var replyLength by remember { mutableStateOf("short") }
@@ -1991,10 +2377,28 @@ fun AiToolsScreen(
     var captionLength by remember { mutableStateOf("short") }
     var productOrService by remember { mutableStateOf("") }
     var offer by remember { mutableStateOf("") }
+    var captionImage by remember { mutableStateOf<app.tijario.data.remote.AiImageInput?>(null) }
+    var captionImageLabel by remember { mutableStateOf<String?>(null) }
     var captionExtraNote by remember { mutableStateOf("") }
     var captionsList by remember { mutableStateOf<List<Pair<String, app.tijario.data.remote.AiCaptionVariant>>>(emptyList()) }
     var captionError by remember { mutableStateOf<String?>(null) }
     var isCaptionLoading by remember { mutableStateOf(false) }
+
+    val captionImagePicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            try {
+                val imageInput = buildAiImageInput(context, uri, language)
+                captionImage = imageInput
+                captionImageLabel = "تم اختيار صورة المنتج"
+                captionError = null
+            } catch (e: Exception) {
+                captionError = e.message ?: "تعذر قراءة صورة المنتج."
+            }
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -2066,12 +2470,12 @@ fun AiToolsScreen(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("إعدادات الرد الذكي", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                    Text(t("ai_reply_settings"), fontWeight = FontWeight.Bold, fontSize = 15.sp)
 
                     // Case type
-                    Text("نوع الحالة", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
+                    Text(t("ai_case_type"), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        listOf("customer_inquiry" to "استفسار", "objection" to "شكوى", "greeting" to "ترحيب").forEach { (code, label) ->
+                        listOf("customer_inquiry" to t("ai_inquiry"), "objection" to t("ai_objection"), "greeting" to t("ai_greeting")).forEach { (code, label) ->
                             FilterChip(
                                 selected = caseType == code,
                                 onClick = { caseType = code },
@@ -2081,9 +2485,9 @@ fun AiToolsScreen(
                     }
 
                     // Dialect
-                    Text("اللهجة", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
+                    Text(t("ai_dialect"), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        listOf("gulf" to "خليجي", "egyptian" to "مصري", "standard" to "فصحى").forEach { (code, label) ->
+                        listOf("gulf" to t("ai_gulf"), "egyptian" to t("ai_egyptian"), "standard" to t("ai_standard")).forEach { (code, label) ->
                             FilterChip(
                                 selected = replyDialect == code,
                                 onClick = { replyDialect = code },
@@ -2093,9 +2497,9 @@ fun AiToolsScreen(
                     }
 
                     // Tone
-                    Text("الأسلوب", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
+                    Text(t("ai_tone"), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        listOf("friendly" to "ودي", "formal" to "رسمي", "sales" to "تسويقي").forEach { (code, label) ->
+                        listOf("friendly" to t("ai_tone_friendly"), "formal" to t("ai_tone_formal"), "sales" to t("ai_tone_sales")).forEach { (code, label) ->
                             FilterChip(
                                 selected = replyTone == code,
                                 onClick = { replyTone = code },
@@ -2105,20 +2509,27 @@ fun AiToolsScreen(
                     }
 
                     TijarioTextField(
-                        label = "اسم العميل (اختياري)",
+                        label = t("ai_cust_name_opt"),
                         value = customerName,
                         onValueChange = { customerName = it }
                     )
 
                     TijarioTextField(
-                        label = "ملاحظات إضافية أو تفاصيل الاستفسار",
+                        label = t("ai_cust_msg_opt"),
+                        value = customerMessage,
+                        onValueChange = { customerMessage = it },
+                        singleLine = false
+                    )
+
+                    TijarioTextField(
+                        label = t("ai_notes_label"),
                         value = replyExtraNote,
                         onValueChange = { replyExtraNote = it },
                         singleLine = false
                     )
 
                     TijarioButton(
-                        text = "توليد الرد الذكي",
+                        text = t("btn_generate_reply"),
                         onClick = {
                             scope.launch {
                                 try {
@@ -2128,6 +2539,7 @@ fun AiToolsScreen(
                                     val req = app.tijario.data.remote.AiReplyRequest(
                                         caseType = caseType,
                                         customerName = customerName.ifBlank { null },
+                                        customerMessage = customerMessage.ifBlank { null },
                                         dialect = replyDialect,
                                         tone = replyTone,
                                         length = replyLength,
@@ -2140,13 +2552,13 @@ fun AiToolsScreen(
                                         replyError = res.displayMessage
                                     }
                                 } catch (e: Exception) {
-                                    replyError = e.message ?: "حدث خطأ غير متوقع"
+                                    replyError = e.message ?: Localization.getString("unexpected_error", language)
                                 } finally {
                                     isReplyLoading = false
                                 }
                             }
                         },
-                        enabled = !isAiLimitReached && !isReplyLoading && replyExtraNote.isNotBlank(),
+                        enabled = !isAiLimitReached && !isReplyLoading,
                         isLoading = isReplyLoading,
                         icon = Icons.AutoMirrored.Filled.Send
                     )
@@ -2159,7 +2571,7 @@ fun AiToolsScreen(
 
             // Suggestions List
             if (repliesList.isNotEmpty()) {
-                Text("الاقتراحات المولدة", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                Text(t("generated_suggestions"), fontWeight = FontWeight.Bold, fontSize = 14.sp)
                 repliesList.forEach { (variant, text) ->
                     Card(
                         modifier = Modifier.fillMaxWidth(),
@@ -2172,14 +2584,14 @@ fun AiToolsScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text("صيغة: $variant", fontWeight = FontWeight.Bold, color = Color(0xFF15803D), fontSize = 12.sp)
+                                Text(t("variant_format").format(variant), fontWeight = FontWeight.Bold, color = Color(0xFF15803D), fontSize = 12.sp)
                                 IconButton(onClick = {
                                     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
                                     val clip = android.content.ClipData.newPlainText("Reply", text)
                                     clipboard.setPrimaryClip(clip)
-                                    android.widget.Toast.makeText(context, "تم نسخ الرد بنجاح", android.widget.Toast.LENGTH_SHORT).show()
+                                    android.widget.Toast.makeText(context, Localization.getString("reply_copied", language), android.widget.Toast.LENGTH_SHORT).show()
                                 }, modifier = Modifier.size(36.dp)) {
-                                    Icon(Icons.Filled.Share, contentDescription = "نسخ", tint = Color(0xFF15803D))
+                                    Icon(Icons.Filled.Share, contentDescription = Localization.getString("copy", language), tint = Color(0xFF15803D))
                                 }
                             }
                             Text(text, color = Color(0xFF1E293B), fontSize = 14.sp)
@@ -2195,12 +2607,12 @@ fun AiToolsScreen(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("إعدادات كابشن منصات التواصل", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                    Text(t("ai_caption_settings"), fontWeight = FontWeight.Bold, fontSize = 15.sp)
 
                     // Platform
-                    Text("المنصة", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
+                    Text(t("ai_platform"), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        listOf("instagram" to "انستغرام", "twitter" to "تويتر", "facebook" to "فيسبوك").forEach { (code, label) ->
+                        listOf("instagram" to t("ai_instagram"), "twitter" to t("ai_twitter"), "facebook" to t("ai_facebook")).forEach { (code, label) ->
                             FilterChip(
                                 selected = platform == code,
                                 onClick = { platform = code },
@@ -2210,9 +2622,9 @@ fun AiToolsScreen(
                     }
 
                     // Dialect
-                    Text("اللهجة", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
+                    Text(t("ai_dialect"), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        listOf("gulf" to "خليجي", "egyptian" to "مصري", "standard" to "فصحى").forEach { (code, label) ->
+                        listOf("gulf" to t("ai_gulf"), "egyptian" to t("ai_egyptian"), "standard" to t("ai_standard")).forEach { (code, label) ->
                             FilterChip(
                                 selected = captionDialect == code,
                                 onClick = { captionDialect = code },
@@ -2222,9 +2634,9 @@ fun AiToolsScreen(
                     }
 
                     // Tone
-                    Text("الأسلوب", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
+                    Text(t("ai_tone"), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        listOf("sales" to "تسويقي", "friendly" to "ودي", "funny" to "مرح").forEach { (code, label) ->
+                        listOf("sales" to t("ai_tone_sales"), "friendly" to t("ai_tone_friendly"), "funny" to t("ai_tone_funny")).forEach { (code, label) ->
                             FilterChip(
                                 selected = captionTone == code,
                                 onClick = { captionTone = code },
@@ -2234,26 +2646,45 @@ fun AiToolsScreen(
                     }
 
                     TijarioTextField(
-                        label = "المنتج أو الخدمة",
+                        label = t("ai_prod_srv_label"),
                         value = productOrService,
                         onValueChange = { productOrService = it }
                     )
 
                     TijarioTextField(
-                        label = "تفاصيل العرض (اختياري)",
+                        label = t("ai_offer_label"),
                         value = offer,
                         onValueChange = { offer = it }
                     )
 
+                    OutlinedButton(
+                        onClick = { captionImagePicker.launch("image/*") },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Icon(Icons.Filled.PhotoCamera, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(captionImageLabel ?: t("ai_add_image_opt"))
+                    }
+
+                    if (captionImage != null) {
+                        TextButton(onClick = {
+                            captionImage = null
+                            captionImageLabel = null
+                        }) {
+                            Text(t("ai_remove_image"))
+                        }
+                    }
+
                     TijarioTextField(
-                        label = "ملاحظات إضافية",
+                        label = t("ai_notes_simple"),
                         value = captionExtraNote,
                         onValueChange = { captionExtraNote = it },
                         singleLine = false
                     )
 
                     TijarioButton(
-                        text = "توليد الكابشن",
+                        text = t("ai_btn_gen_caption"),
                         onClick = {
                             scope.launch {
                                 try {
@@ -2268,6 +2699,7 @@ fun AiToolsScreen(
                                         length = captionLength,
                                         productOrService = productOrService,
                                         offer = offer.ifBlank { null },
+                                        productImage = captionImage,
                                         extraNote = captionExtraNote.ifBlank { null }
                                     )
                                     val res = dataViewModel.generateAiCaption(req)
@@ -2277,7 +2709,7 @@ fun AiToolsScreen(
                                         captionError = res.displayMessage
                                     }
                                 } catch (e: Exception) {
-                                    captionError = e.message ?: "حدث خطأ غير متوقع"
+                                    captionError = e.message ?: Localization.getString("unexpected_error", language)
                                 } finally {
                                     isCaptionLoading = false
                                 }
@@ -2296,7 +2728,7 @@ fun AiToolsScreen(
 
             // Captions List
             if (captionsList.isNotEmpty()) {
-                Text("الاقتراحات المولدة", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                Text(t("generated_suggestions"), fontWeight = FontWeight.Bold, fontSize = 14.sp)
                 captionsList.forEach { (variant, item) ->
                     Card(
                         modifier = Modifier.fillMaxWidth(),
@@ -2309,15 +2741,15 @@ fun AiToolsScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text("صيغة: $variant", fontWeight = FontWeight.Bold, color = Color(0xFF15803D), fontSize = 12.sp)
+                                Text(t("variant_format").format(variant), fontWeight = FontWeight.Bold, color = Color(0xFF15803D), fontSize = 12.sp)
                                 IconButton(onClick = {
                                     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
                                     val textToCopy = "${item.caption}\n\n${item.cta}\n\n${item.hashtags.joinToString(" ")}"
                                     val clip = android.content.ClipData.newPlainText("Caption", textToCopy)
                                     clipboard.setPrimaryClip(clip)
-                                    android.widget.Toast.makeText(context, "تم نسخ الكابشن بنجاح", android.widget.Toast.LENGTH_SHORT).show()
+                                    android.widget.Toast.makeText(context, Localization.getString("caption_copied", language), android.widget.Toast.LENGTH_SHORT).show()
                                 }, modifier = Modifier.size(36.dp)) {
-                                    Icon(Icons.Filled.Share, contentDescription = "نسخ", tint = Color(0xFF15803D))
+                                    Icon(Icons.Filled.Share, contentDescription = Localization.getString("copy", language), tint = Color(0xFF15803D))
                                 }
                             }
                             Text(item.caption, color = Color(0xFF1E293B), fontSize = 14.sp)
@@ -2340,6 +2772,7 @@ fun AccountScreen(
     onLogout: () -> Unit,
     onBack: () -> Unit,
 ) {
+    val language = LocalLanguage.current
     var selectedTab by remember { mutableStateOf(0) } // 0 = Store, 1 = Personal
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -2397,12 +2830,12 @@ fun AccountScreen(
                     Tab(
                         selected = selectedTab == 0,
                         onClick = { selectedTab = 0 },
-                        text = { Text("حساب المتجر", fontWeight = FontWeight.Bold) } // Store Account
+                        text = { Text(t("tab_store_account"), fontWeight = FontWeight.Bold) } // Store Account
                     )
                     Tab(
                         selected = selectedTab == 1,
                         onClick = { selectedTab = 1 },
-                        text = { Text("الحساب الشخصي", fontWeight = FontWeight.Bold) } // Personal Account
+                        text = { Text(t("tab_personal_account"), fontWeight = FontWeight.Bold) } // Personal Account
                     )
                 }
             }
@@ -2425,23 +2858,23 @@ fun AccountScreen(
                         scope.launch {
                             val settings = businessSettings
                             if (settings == null) {
-                                snackbarHostState.showSnackbar("أكمل إعدادات المتجر أولاً قبل رفع الشعار")
+                                snackbarHostState.showSnackbar(Localization.getString("complete_settings_logo", language))
                                 return@launch
                             }
 
                             try {
                                 isLogoUploading = true
-                                val uploadRequest = buildLogoUploadRequest(context, logoUri)
+                                val uploadRequest = buildLogoUploadRequest(context, logoUri, language)
                                 val result = app.tijario.config.Supabase.apiClient.uploadBusinessLogo(uploadRequest)
                                 val logoUrl = result.data?.logoUrl
                                 if (result.ok && !logoUrl.isNullOrBlank()) {
                                     dataViewModel.cacheBusinessSettings(settings.copy(logoUrl = logoUrl))
-                                    snackbarHostState.showSnackbar("تم حفظ شعار المتجر بنجاح")
+                                    snackbarHostState.showSnackbar(Localization.getString("logo_saved_success", language))
                                 } else {
                                     snackbarHostState.showSnackbar(result.displayMessage)
                                 }
                             } catch (e: Exception) {
-                                snackbarHostState.showSnackbar(e.message ?: "تعذر رفع الشعار. حاول مرة أخرى.")
+                                snackbarHostState.showSnackbar(e.message ?: Localization.getString("logo_upload_error", language))
                             } finally {
                                 isLogoUploading = false
                             }
@@ -2452,12 +2885,12 @@ fun AccountScreen(
                             try {
                                 val result = dataViewModel.saveBusinessSettings(updated)
                                 if (result.isSuccess) {
-                                    snackbarHostState.showSnackbar("تم حفظ تغييرات المتجر بنجاح")
+                                    snackbarHostState.showSnackbar(Localization.getString("settings_saved_success", language))
                                 } else {
-                                    snackbarHostState.showSnackbar("خطأ في الحفظ")
+                                    snackbarHostState.showSnackbar(Localization.getString("save_settings_error", language))
                                 }
                             } catch (e: Exception) {
-                                snackbarHostState.showSnackbar("خطأ في الحفظ")
+                                snackbarHostState.showSnackbar(Localization.getString("save_settings_error", language))
                             }
                         }
                     }
@@ -2582,7 +3015,7 @@ fun StoreAccountContent(
             leadingIcon = { Icon(Icons.Filled.Public, contentDescription = null) }
         )
         TijarioTextField(
-            label = "المدينة",
+            label = t("city"),
             value = city,
             onValueChange = { city = it },
             leadingIcon = { Icon(Icons.Filled.LocationCity, contentDescription = null) }
@@ -2595,7 +3028,7 @@ fun StoreAccountContent(
         )
 
         TijarioButton(
-            text = "حفظ تغييرات المتجر",
+            text = t("btn_save_store_changes"),
             onClick = {
                 if (settings != null) {
                     onUpdate(settings.copy(
@@ -2616,16 +3049,11 @@ private fun StoreLogoPicker(
     isUploading: Boolean,
     onClick: () -> Unit,
 ) {
+    val context = LocalContext.current
     val logoBitmap by produceState<android.graphics.Bitmap?>(initialValue = null, logoUrl) {
         value = null
         if (!logoUrl.isNullOrBlank()) {
-            value = withContext(Dispatchers.IO) {
-                runCatching {
-                    URL(logoUrl).openStream().use { stream ->
-                        BitmapFactory.decodeStream(stream)
-                    }
-                }.getOrNull()
-            }
+            value = loadCachedLogoBitmap(context, logoUrl)
         }
     }
 
@@ -2641,28 +3069,59 @@ private fun StoreLogoPicker(
             isUploading -> CircularProgressIndicator(modifier = Modifier.size(28.dp))
             logoBitmap != null -> Image(
                 bitmap = logoBitmap!!.asImageBitmap(),
-                contentDescription = "شعار المتجر",
+                contentDescription = t("store_logo"),
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop,
             )
             else -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Icon(Icons.Filled.PhotoCamera, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                Text("شعار المتجر", fontSize = 10.sp, color = MaterialTheme.colorScheme.primary)
+                Text(t("store_logo"), fontSize = 10.sp, color = MaterialTheme.colorScheme.primary)
             }
         }
     }
 }
 
+private suspend fun loadCachedLogoBitmap(
+    context: Context,
+    logoUrl: String,
+): android.graphics.Bitmap? =
+    withContext(Dispatchers.IO) {
+        runCatching {
+            val cacheDir = File(context.filesDir, "business-logo-cache").apply { mkdirs() }
+            val cacheFile = File(cacheDir, "${logoUrl.sha256()}.img")
+
+            if (cacheFile.exists() && cacheFile.length() > 0) {
+                BitmapFactory.decodeFile(cacheFile.absolutePath)?.let { return@withContext it }
+            }
+
+            val bytes = URL(logoUrl).openStream().use { stream ->
+                stream.readBytes()
+            }
+
+            if (bytes.isNotEmpty()) {
+                cacheFile.writeBytes(bytes)
+            }
+
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+        }.getOrNull()
+    }
+
+private fun String.sha256(): String =
+    MessageDigest.getInstance("SHA-256")
+        .digest(toByteArray(Charsets.UTF_8))
+        .joinToString("") { byte -> "%02x".format(byte) }
+
 private suspend fun buildLogoUploadRequest(
     context: Context,
     uri: Uri,
+    language: AppLanguage,
 ): app.tijario.data.remote.UploadLogoRequest =
     withContext(Dispatchers.IO) {
         val mimeType = context.contentResolver.getType(uri) ?: "image/jpeg"
         val allowedMimeTypes = setOf("image/jpeg", "image/png", "image/webp")
 
         require(mimeType in allowedMimeTypes) {
-            "ارفع صورة بصيغة PNG أو JPG أو WebP."
+            Localization.getString("logo_format_error", language)
         }
 
         val bytes = context.contentResolver.openInputStream(uri)?.use { input ->
@@ -2670,14 +3129,45 @@ private suspend fun buildLogoUploadRequest(
         } ?: error("تعذر قراءة صورة الشعار.")
 
         require(bytes.isNotEmpty()) {
-            "ملف الشعار فارغ."
+            Localization.getString("logo_empty_error", language)
         }
         require(bytes.size <= 2 * 1024 * 1024) {
-            "حجم الشعار يجب ألا يتجاوز 2MB."
+            val errStr = if (language == AppLanguage.EN) "Logo size must not exceed 2MB." else "حجم الشعار يجب ألا يتجاوز 2MB."
+            errStr
         }
 
         app.tijario.data.remote.UploadLogoRequest(
             fileName = "logo",
+            mimeType = mimeType,
+            base64 = Base64.encodeToString(bytes, Base64.NO_WRAP),
+        )
+    }
+
+private suspend fun buildAiImageInput(
+    context: Context,
+    uri: Uri,
+    language: AppLanguage,
+): app.tijario.data.remote.AiImageInput =
+    withContext(Dispatchers.IO) {
+        val mimeType = context.contentResolver.getType(uri) ?: "image/jpeg"
+        val allowedMimeTypes = setOf("image/jpeg", "image/png", "image/webp")
+
+        require(mimeType in allowedMimeTypes) {
+            Localization.getString("product_image_format_error", language)
+        }
+
+        val bytes = context.contentResolver.openInputStream(uri)?.use { input ->
+            input.readBytes()
+        } ?: error("تعذر قراءة صورة المنتج.")
+
+        require(bytes.isNotEmpty()) {
+            Localization.getString("image_empty_error", language)
+        }
+        require(bytes.size <= 1024 * 1024) {
+            Localization.getString("image_size_error", language)
+        }
+
+        app.tijario.data.remote.AiImageInput(
             mimeType = mimeType,
             base64 = Base64.encodeToString(bytes, Base64.NO_WRAP),
         )
@@ -2698,13 +3188,13 @@ fun PersonalAccountContent(
         ) {
             Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 TijarioTextField(
-                    label = "الاسم الكامل",
+                    label = t("fullname"),
                     value = name,
                     onValueChange = {},
                     leadingIcon = { Icon(Icons.Filled.Person, contentDescription = null) }
                 )
                 TijarioTextField(
-                    label = "البريد الإلكتروني",
+                    label = t("email"),
                     value = email,
                     onValueChange = {},
                     leadingIcon = { Icon(Icons.Filled.Email, contentDescription = null) }
@@ -2723,7 +3213,7 @@ fun PersonalAccountContent(
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Icon(Icons.Filled.Lock, contentDescription = null, modifier = Modifier.size(20.dp))
-                Text("تغيير كلمة المرور", fontWeight = FontWeight.Bold)
+                Text(t("change_password"), fontWeight = FontWeight.Bold)
             }
         }
 
@@ -2736,7 +3226,7 @@ fun PersonalAccountContent(
                 contentColor = MaterialTheme.colorScheme.error
             )
         ) {
-            Text("تسجيل الخروج", fontWeight = FontWeight.Bold)
+            Text(t("logout"), fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -2750,7 +3240,7 @@ private fun UsageIndicator(title: String, used: Int, total: Int, color: Color) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(title, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface)
-            Text("$used من $total", fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = color)
+            Text("$used ${t("of")} $total", fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = color)
         }
         LinearProgressIndicator(
             progress = { used.toFloat() / total.toFloat() },

@@ -78,8 +78,12 @@ import app.tijario.ui.screens.RegisterScreen
 import app.tijario.ui.screens.VerifyEmailScreen
 import app.tijario.ui.screens.ProductsScreen
 import app.tijario.ui.screens.ProductFormScreen
+import app.tijario.ui.screens.AccountSettingsScreen
+import app.tijario.ui.screens.AppSettingsScreen
 import app.tijario.ui.screens.IntroWalkthroughScreen
 import app.tijario.ui.screens.DocumentDetailScreen
+import app.tijario.ui.screens.SettingsHomeScreen
+import app.tijario.ui.screens.UpgradePlanScreen
 import app.tijario.ui.state.TijarioDataViewModel
 import app.tijario.ui.state.TijarioDataViewModelFactory
 import app.tijario.ui.state.AuthViewModel
@@ -126,6 +130,7 @@ fun TijarioApp() {
     // Shared states for selection
     var activeSelectedCustomer by remember { mutableStateOf<app.tijario.data.model.Customer?>(null) }
     var activeSelectedProduct by remember { mutableStateOf<app.tijario.data.model.Product?>(null) }
+    var activeSelectedProductRowIndex by remember { mutableStateOf<Int?>(null) }
 
     // Start data sync when authenticated
     LaunchedEffect(authState) {
@@ -298,7 +303,7 @@ fun TijarioApp() {
                                         }
                                     }
                                     IconButton(
-                                        onClick = { navController.navigate("account") },
+                                        onClick = { navController.navigate("settings") },
                                         colors = IconButtonDefaults.iconButtonColors(
                                             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                                         ),
@@ -387,6 +392,7 @@ fun TijarioApp() {
                                         onCustomers = { pagerScope.launch { pagerState.animateScrollToPage(4) } },
                                         onAiTools = { pagerScope.launch { pagerState.animateScrollToPage(2) } },
                                         onBusinessSettings = { navController.navigate("business-settings") },
+                                        onViewAllDocuments = { pagerScope.launch { pagerState.animateScrollToPage(1) } },
                                         onDocumentClick = { documentId ->
                                             navController.navigate("document-detail?documentId=$documentId")
                                         },
@@ -517,9 +523,17 @@ fun TijarioApp() {
                             }
                         },
                         onNavigateToSelectCustomer = { navController.navigate("customers") },
-                        onNavigateToSelectProduct = { navController.navigate("products") },
+                        onNavigateToSelectProduct = { rowIndex ->
+                            activeSelectedProductRowIndex = rowIndex
+                            navController.navigate("products")
+                        },
                         selectedCustomer = activeSelectedCustomer,
-                        selectedProduct = activeSelectedProduct
+                        selectedProduct = activeSelectedProduct,
+                        selectedProductRowIndex = activeSelectedProductRowIndex,
+                        onSelectedProductConsumed = {
+                            activeSelectedProduct = null
+                            activeSelectedProductRowIndex = null
+                        }
                     )
                 }
                 composable("new-invoice") {
@@ -533,9 +547,17 @@ fun TijarioApp() {
                             }
                         },
                         onNavigateToSelectCustomer = { navController.navigate("customers") },
-                        onNavigateToSelectProduct = { navController.navigate("products") },
+                        onNavigateToSelectProduct = { rowIndex ->
+                            activeSelectedProductRowIndex = rowIndex
+                            navController.navigate("products")
+                        },
                         selectedCustomer = activeSelectedCustomer,
-                        selectedProduct = activeSelectedProduct
+                        selectedProduct = activeSelectedProduct,
+                        selectedProductRowIndex = activeSelectedProductRowIndex,
+                        onSelectedProductConsumed = {
+                            activeSelectedProduct = null
+                            activeSelectedProductRowIndex = null
+                        }
                     )
                 }
                 composable(
@@ -559,9 +581,17 @@ fun TijarioApp() {
                             }
                         },
                         onNavigateToSelectCustomer = { navController.navigate("customers") },
-                        onNavigateToSelectProduct = { navController.navigate("products") },
+                        onNavigateToSelectProduct = { rowIndex ->
+                            activeSelectedProductRowIndex = rowIndex
+                            navController.navigate("products")
+                        },
                         selectedCustomer = activeSelectedCustomer,
-                        selectedProduct = activeSelectedProduct
+                        selectedProduct = activeSelectedProduct,
+                        selectedProductRowIndex = activeSelectedProductRowIndex,
+                        onSelectedProductConsumed = {
+                            activeSelectedProduct = null
+                            activeSelectedProductRowIndex = null
+                        }
                     )
                 }
                 composable(
@@ -585,9 +615,17 @@ fun TijarioApp() {
                             }
                         },
                         onNavigateToSelectCustomer = { navController.navigate("customers") },
-                        onNavigateToSelectProduct = { navController.navigate("products") },
+                        onNavigateToSelectProduct = { rowIndex ->
+                            activeSelectedProductRowIndex = rowIndex
+                            navController.navigate("products")
+                        },
                         selectedCustomer = activeSelectedCustomer,
-                        selectedProduct = activeSelectedProduct
+                        selectedProduct = activeSelectedProduct,
+                        selectedProductRowIndex = activeSelectedProductRowIndex,
+                        onSelectedProductConsumed = {
+                            activeSelectedProduct = null
+                            activeSelectedProductRowIndex = null
+                        }
                     )
                 }
                 composable(
@@ -616,6 +654,29 @@ fun TijarioApp() {
                             navController.popBackStack()
                         }
                     )
+                }
+                composable("settings") {
+                    SettingsHomeScreen(
+                        dataViewModel = dataViewModel,
+                        onBack = { navController.popBackStack() },
+                        onStoreSettings = { navController.navigate("business-settings") },
+                        onAccountSettings = { navController.navigate("account-settings") },
+                        onAppSettings = { navController.navigate("app-settings") },
+                        onUpgrade = { navController.navigate("upgrade-plan") },
+                        onLogout = { authViewModel.logout() },
+                    )
+                }
+                composable("account-settings") {
+                    AccountSettingsScreen(
+                        onBack = { navController.popBackStack() },
+                        onLogout = { authViewModel.logout() },
+                    )
+                }
+                composable("app-settings") {
+                    AppSettingsScreen(onBack = { navController.popBackStack() })
+                }
+                composable("upgrade-plan") {
+                    UpgradePlanScreen(onBack = { navController.popBackStack() })
                 }
             }
         }

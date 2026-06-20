@@ -19,8 +19,26 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.PriceChange
 import androidx.compose.material.icons.filled.Receipt
+import androidx.compose.material.icons.filled.Storefront
+import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.Public
+import androidx.compose.material.icons.filled.Domain
+import androidx.compose.material.icons.filled.AttachMoney
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material3.*
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.*
+import androidx.compose.ui.graphics.vector.ImageVector
+import app.tijario.config.AppLanguage
 import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -31,6 +49,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.style.TextAlign
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import app.tijario.config.LocalLanguage
+import app.tijario.config.Localization
 import app.tijario.config.t
 import app.tijario.domain.Validation
 import app.tijario.features.documents.template.DocumentTemplateRegistry
@@ -44,6 +64,20 @@ import app.tijario.ui.state.CustomerFormState
 import app.tijario.ui.state.DocumentFormState
 import app.tijario.ui.state.TijarioDataViewModel
 import kotlinx.coroutines.launch
+import android.net.Uri
+import java.io.File
+import java.security.MessageDigest
+import java.net.URL
+import android.graphics.BitmapFactory
+import android.content.Context
+import android.util.Base64
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -52,6 +86,7 @@ fun CustomerFormScreen(
     customerId: String? = null,
     onBack: () -> Unit,
 ) {
+    val language = LocalLanguage.current
     var form by remember { mutableStateOf(CustomerFormState()) }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
@@ -75,7 +110,7 @@ fun CustomerFormScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(if (isEditMode) "ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¹ÃƒËœÃ‚Â¯Ãƒâ„¢Ã…Â Ãƒâ„¢Ã¢â‚¬Å¾ ÃƒËœÃ‚Â¹Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã…Â Ãƒâ„¢Ã¢â‚¬Å¾" else t("btn_add_customer"), fontWeight = FontWeight.Bold) },
+                title = { Text(if (isEditMode) "تعديل عميل" else t("btn_add_customer"), fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Filled.ArrowBack, contentDescription = t("btn_back"))
@@ -141,7 +176,7 @@ fun CustomerFormScreen(
                     Spacer(modifier = Modifier.height(8.dp))
 
                     TijarioButton(
-                        text = if (isEditMode) "ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¹ÃƒËœÃ‚Â¯Ãƒâ„¢Ã…Â Ãƒâ„¢Ã¢â‚¬Å¾ Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â­Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Â¸" else t("btn_save_customer"),
+                        text = if (isEditMode) t("edit_customer") else t("btn_save_customer"),
                         onClick = {
                             scope.launch {
                                 try {
@@ -163,10 +198,10 @@ fun CustomerFormScreen(
                                         onBack()
                                     } else {
                                         errorMessage = result.exceptionOrNull()?.message
-                                            ?: "ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¹ÃƒËœÃ‚Â°ÃƒËœÃ‚Â± ÃƒËœÃ‚Â­Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Â¸ ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Â¹Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã…Â Ãƒâ„¢Ã¢â‚¬Å¾. ÃƒËœÃ‚ÂªÃƒËœÃ‚Â­Ãƒâ„¢Ã¢â‚¬Å¡Ãƒâ„¢Ã¢â‚¬Å¡ Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã¢â‚¬Â  ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Â¨Ãƒâ„¢Ã…Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§ÃƒËœÃ‚Âª Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â­ÃƒËœÃ‚Â§Ãƒâ„¢Ã‹â€ Ãƒâ„¢Ã¢â‚¬Å¾ Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â±ÃƒËœÃ‚Â© ÃƒËœÃ‚Â£ÃƒËœÃ‚Â®ÃƒËœÃ‚Â±Ãƒâ„¢Ã¢â‚¬Â°."
+                                            ?: Localization.getString("save_customer_error", language)
                                     }
                                 } catch (e: Exception) {
-                                    errorMessage = "ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¹ÃƒËœÃ‚Â°ÃƒËœÃ‚Â± ÃƒËœÃ‚Â­Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Â¸ ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Â¹Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã…Â Ãƒâ„¢Ã¢â‚¬Å¾. ÃƒËœÃ‚ÂªÃƒËœÃ‚Â­Ãƒâ„¢Ã¢â‚¬Å¡Ãƒâ„¢Ã¢â‚¬Å¡ Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã¢â‚¬Â  ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Â¨Ãƒâ„¢Ã…Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§ÃƒËœÃ‚Âª Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â­ÃƒËœÃ‚Â§Ãƒâ„¢Ã‹â€ Ãƒâ„¢Ã¢â‚¬Å¾ Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â±ÃƒËœÃ‚Â© ÃƒËœÃ‚Â£ÃƒËœÃ‚Â®ÃƒËœÃ‚Â±Ãƒâ„¢Ã¢â‚¬Â°."
+                                    errorMessage = Localization.getString("save_customer_error", language)
                                 } finally {
                                     isLoading = false
                                 }
@@ -187,11 +222,92 @@ fun CustomerFormScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+private fun SettingsDropdownField(
+    label: String,
+    value: String,
+    options: List<String>,
+    onValueChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    error: String? = null,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = !expanded },
+        modifier = modifier,
+    ) {
+        OutlinedTextField(
+            value = value,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text(label) },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            isError = error != null,
+            supportingText = error?.let { { Text(it) } },
+            modifier = Modifier
+                .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                .fillMaxWidth(),
+            singleLine = true,
+            shape = RoundedCornerShape(16.dp),
+        )
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+        ) {
+            options.forEach { option ->
+                DropdownMenuItem(
+                    text = { Text(option) },
+                    onClick = {
+                        onValueChange(option)
+                        expanded = false
+                    },
+                )
+            }
+        }
+    }
+}
+
+private fun countryOptions(): List<String> = listOf(
+    "السعودية",
+    "اليمن",
+    "الإمارات",
+    "مصر",
+    "الكويت",
+    "قطر",
+    "عمان",
+    "البحرين",
+    "الأردن",
+    "لبنان",
+    "المغرب",
+    "تونس",
+    "الجزائر",
+    "ليبيا",
+    "السودان",
+    "العراق",
+    "سوريا",
+    "فلسطين",
+)
+
+private fun currencyOptions(): List<String> = listOf(
+    "SAR",
+    "YER",
+    "USD",
+    "AED",
+    "EGP",
+    "KWD",
+    "BHD",
+    "OMR",
+    "QAR",
+)
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
 fun ProductFormScreen(
     dataViewModel: TijarioDataViewModel,
     productId: String? = null,
     onBack: () -> Unit,
 ) {
+    val language = LocalLanguage.current
     var form by remember { mutableStateOf(app.tijario.ui.state.ProductFormState()) }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
@@ -206,6 +322,7 @@ fun ProductFormScreen(
                     name = existing.name,
                     description = existing.description.orEmpty(),
                     price = Validation.normalizedMoneyString(existing.price.toString()),
+                    stockQuantity = existing.stockQuantity?.toString().orEmpty(),
                     kind = existing.kind,
                     currency = existing.currency
                 )
@@ -216,7 +333,7 @@ fun ProductFormScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(if (isEditMode) "ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¹ÃƒËœÃ‚Â¯Ãƒâ„¢Ã…Â Ãƒâ„¢Ã¢â‚¬Å¾ ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¬" else t("btn_add_product"), fontWeight = FontWeight.Bold) },
+                title = { Text(if (isEditMode) "تعديل المنتج" else t("btn_add_product"), fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Filled.ArrowBack, contentDescription = t("btn_back"))
@@ -272,6 +389,14 @@ fun ProductFormScreen(
                         leadingIcon = { Icon(Icons.Filled.PriceChange, contentDescription = null, tint = Color(0xFF64748B)) }
                     )
 
+                    TijarioTextField(
+                        label = "الكمية المتوفرة (اختياري)",
+                        value = form.stockQuantity,
+                        onValueChange = { form = form.copy(stockQuantity = it) },
+                        error = if (form.stockQuantity.isNotEmpty()) form.stockQuantityError else null,
+                        leadingIcon = { Icon(Icons.Filled.Numbers, contentDescription = null, tint = Color(0xFF64748B)) }
+                    )
+
                     Text(
                         text = t("product_kind"),
                         fontWeight = FontWeight.Bold,
@@ -317,7 +442,7 @@ fun ProductFormScreen(
                     Spacer(modifier = Modifier.height(8.dp))
 
                     TijarioButton(
-                        text = if (isEditMode) "ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¹ÃƒËœÃ‚Â¯Ãƒâ„¢Ã…Â Ãƒâ„¢Ã¢â‚¬Å¾ Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â­Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Â¸" else t("btn_save_product"),
+                        text = if (isEditMode) t("edit_product") else t("btn_save_product"),
                         onClick = {
                             scope.launch {
                                 try {
@@ -329,6 +454,7 @@ fun ProductFormScreen(
                                         name = form.name,
                                         description = form.description.ifBlank { null },
                                         price = Validation.parseNonNegativeMoney(form.price) ?: 0.0,
+                                        stockQuantity = Validation.parseNonNegativeInt(form.stockQuantity),
                                         currency = form.currency
                                     )
                                     val result = if (isEditMode) {
@@ -340,10 +466,10 @@ fun ProductFormScreen(
                                         onBack()
                                     } else {
                                         errorMessage = result.exceptionOrNull()?.message
-                                            ?: "ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¹ÃƒËœÃ‚Â°ÃƒËœÃ‚Â± ÃƒËœÃ‚Â­Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Â¸ ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¬ ÃƒËœÃ‚Â£Ãƒâ„¢Ã‹â€  ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Â®ÃƒËœÃ‚Â¯Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â©. ÃƒËœÃ‚ÂªÃƒËœÃ‚Â­Ãƒâ„¢Ã¢â‚¬Å¡Ãƒâ„¢Ã¢â‚¬Å¡ Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã¢â‚¬Â  ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Â¨Ãƒâ„¢Ã…Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§ÃƒËœÃ‚Âª Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â­ÃƒËœÃ‚Â§Ãƒâ„¢Ã‹â€ Ãƒâ„¢Ã¢â‚¬Å¾ Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â±ÃƒËœÃ‚Â© ÃƒËœÃ‚Â£ÃƒËœÃ‚Â®ÃƒËœÃ‚Â±Ãƒâ„¢Ã¢â‚¬Â°."
+                                            ?: Localization.getString("save_product_error", language)
                                     }
                                 } catch (e: Exception) {
-                                    errorMessage = "ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¹ÃƒËœÃ‚Â°ÃƒËœÃ‚Â± ÃƒËœÃ‚Â­Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Â¸ ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¬ ÃƒËœÃ‚Â£Ãƒâ„¢Ã‹â€  ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Â®ÃƒËœÃ‚Â¯Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â©. ÃƒËœÃ‚ÂªÃƒËœÃ‚Â­Ãƒâ„¢Ã¢â‚¬Å¡Ãƒâ„¢Ã¢â‚¬Å¡ Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã¢â‚¬Â  ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Â¨Ãƒâ„¢Ã…Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§ÃƒËœÃ‚Âª Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â­ÃƒËœÃ‚Â§Ãƒâ„¢Ã‹â€ Ãƒâ„¢Ã¢â‚¬Å¾ Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â±ÃƒËœÃ‚Â© ÃƒËœÃ‚Â£ÃƒËœÃ‚Â®ÃƒËœÃ‚Â±Ãƒâ„¢Ã¢â‚¬Â°."
+                                    errorMessage = Localization.getString("save_product_error", language)
                                 } finally {
                                     isLoading = false
                                 }
@@ -368,12 +494,17 @@ fun BusinessSettingsScreen(
     dataViewModel: TijarioDataViewModel,
     onBack: () -> Unit,
 ) {
+    val language = LocalLanguage.current
+    val isArabic = language == AppLanguage.AR
     var form by remember { mutableStateOf(BusinessSettingsFormState()) }
     var existingSettings by remember { mutableStateOf<app.tijario.data.model.BusinessSettings?>(null) }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     val uiState by dataViewModel.uiState.collectAsStateWithLifecycle()
+
+    // Dialog control states
+    var activeDialog by remember { mutableStateOf<String?>(null) } // "name", "category", "phone", "country", "city", "currency", "terms"
 
     LaunchedEffect(Unit) {
         dataViewModel.refreshAll()
@@ -394,10 +525,93 @@ fun BusinessSettingsScreen(
         }
     }
 
+    // Edit Dialog Popups
+    if (activeDialog != null) {
+        AlertDialog(
+            onDismissRequest = { activeDialog = null },
+            title = { Text(t("edit_customer"), fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    when (activeDialog) {
+                        "name" -> {
+                            TijarioTextField(
+                                label = t("shop_name"),
+                                value = form.businessName,
+                                onValueChange = { form = form.copy(businessName = it) },
+                                error = if (form.businessName.isNotEmpty()) form.businessNameError else null,
+                                leadingIcon = { Icon(Icons.Filled.Business, contentDescription = null, tint = Color(0xFF0D9488)) }
+                            )
+                        }
+                        "category" -> {
+                            TijarioTextField(
+                                label = t("business_category"),
+                                value = t("category_default_value"),
+                                onValueChange = { /* category is mock/default in setup */ },
+                                leadingIcon = { Icon(Icons.Filled.GridView, contentDescription = null, tint = Color(0xFF0D9488)) }
+                            )
+                        }
+                        "phone" -> {
+                            TijarioTextField(
+                                label = t("whatsapp_phone"),
+                                value = form.whatsapp,
+                                onValueChange = { form = form.copy(whatsapp = it) },
+                                error = if (form.whatsapp.isNotEmpty()) form.whatsappError else null,
+                                leadingIcon = { Icon(Icons.Filled.Phone, contentDescription = null, tint = Color(0xFF0D9488)) }
+                            )
+                        }
+                        "country" -> {
+                            SettingsDropdownField(
+                                label = t("country"),
+                                value = form.country,
+                                options = countryOptions(),
+                                onValueChange = { form = form.copy(country = it) },
+                                error = if (form.country.isNotEmpty()) form.countryError else null
+                            )
+                        }
+                        "city" -> {
+                            TijarioTextField(
+                                label = t("city"),
+                                value = form.city,
+                                onValueChange = { form = form.copy(city = it) },
+                                leadingIcon = { Icon(Icons.Filled.LocationOn, contentDescription = null, tint = Color(0xFF0D9488)) }
+                            )
+                        }
+                        "currency" -> {
+                            SettingsDropdownField(
+                                label = t("currency"),
+                                value = form.currency,
+                                options = currencyOptions(),
+                                onValueChange = { form = form.copy(currency = it) },
+                                error = if (form.currency.isNotEmpty()) form.currencyError else null
+                            )
+                        }
+                        "terms" -> {
+                            TijarioTextField(
+                                label = t("terms"),
+                                value = form.terms,
+                                onValueChange = { form = form.copy(terms = it) },
+                                singleLine = false,
+                                leadingIcon = { Icon(Icons.Filled.Note, contentDescription = null, tint = Color(0xFF0D9488)) }
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { activeDialog = null },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0D9488))
+                ) {
+                    Text(t("btn_ok"))
+                }
+            }
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(t("tab_account"), fontWeight = FontWeight.Bold) },
+                title = { Text(t("tab_store_account"), fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Filled.ArrowBack, contentDescription = t("btn_back"))
@@ -419,118 +633,287 @@ fun BusinessSettingsScreen(
                 .padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // Header store card Teal/Green gradient
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .background(
+                            brush = Brush.verticalGradient(
+                                colors = listOf(Color(0xFF033E43), Color(0xFF0D9488))
+                            )
+                        )
+                        .padding(24.dp)
+                        .fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Surface(
+                            color = Color.White,
+                            shape = CircleShape,
+                            modifier = Modifier.size(60.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Filled.Storefront,
+                                    contentDescription = null,
+                                    tint = Color(0xFF0D9488),
+                                    modifier = Modifier.size(32.dp)
+                                )
+                            }
+                        }
+                        Column {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    text = form.businessName.ifBlank { "تجاريو" },
+                                    color = Color.White,
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Surface(
+                                    color = Color.White.copy(alpha = 0.15f),
+                                    shape = RoundedCornerShape(6.dp)
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        Icon(Icons.Filled.Shield, contentDescription = null, tint = Color(0xFF2DD4BF), modifier = Modifier.size(10.dp))
+                                        Text(t("verified_store"), color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                            Text(
+                                text = t("store_slogan"),
+                                color = Color.White.copy(alpha = 0.7f),
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
+
+                    // Edit Icon
+                    Surface(
+                        color = Color.Transparent,
+                        shape = CircleShape,
+                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.4f)),
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clickable { activeDialog = "name" }
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(Icons.Filled.Edit, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                        }
+                    }
+                }
+            }
+
+            // Options card list matching the screen layout exactly
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(20.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
             ) {
                 Column(
-                    modifier = Modifier.padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                    modifier = Modifier.padding(12.dp)
                 ) {
-                    TijarioTextField(
-                        label = t("shop_name"),
-                        value = form.businessName,
-                        onValueChange = { form = form.copy(businessName = it) },
-                        error = if (form.businessName.isNotEmpty()) form.businessNameError else null,
-                        leadingIcon = { Icon(Icons.Filled.Business, contentDescription = null, tint = Color(0xFF64748B)) }
+                    // Row 1: اسم المتجر / النشاط التجاري
+                    SettingsItemRow(
+                        icon = Icons.Filled.Storefront,
+                        title = t("shop_name"),
+                        value = form.businessName.ifBlank { "تجاريو" },
+                        onClick = { activeDialog = "name" }
                     )
 
-                    TijarioTextField(
-                        label = t("whatsapp_phone"),
-                        value = form.whatsapp,
-                        onValueChange = { form = form.copy(whatsapp = it) },
-                        error = if (form.whatsapp.isNotEmpty()) form.whatsappError else null,
-                        leadingIcon = { Icon(Icons.Filled.Phone, contentDescription = null, tint = Color(0xFF64748B)) }
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = 4.dp))
+
+                    // Row 2: تصنيف النشاط التجاري
+                    SettingsItemRow(
+                        icon = Icons.Filled.GridView,
+                        title = t("business_category"),
+                        value = t("category_default_value"),
+                        onClick = { activeDialog = "category" }
                     )
 
-                    TijarioTextField(
-                        label = t("city"),
-                        value = form.city,
-                        onValueChange = { form = form.copy(city = it) },
-                        leadingIcon = { Icon(Icons.Filled.LocationOn, contentDescription = null, tint = Color(0xFF64748B)) }
-                    )
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = 4.dp))
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        TijarioTextField(
-                            label = t("country"),
-                            value = form.country,
-                            onValueChange = { form = form.copy(country = it) },
-                            error = if (form.country.isNotEmpty()) form.countryError else null,
-                            leadingIcon = { Icon(Icons.Filled.LocationOn, contentDescription = null, tint = Color(0xFF64748B)) },
-                            modifier = Modifier.weight(1f)
-                        )
-                        TijarioTextField(
-                            label = t("currency"),
-                            value = form.currency,
-                            onValueChange = { form = form.copy(currency = it) },
-                            error = if (form.currency.isNotEmpty()) form.currencyError else null,
-                            leadingIcon = { Icon(Icons.Filled.Note, contentDescription = null, tint = Color(0xFF64748B)) },
-                            modifier = Modifier.weight(1f)
-                        )
+                    // Row 3: رقم التواصل
+                    val maskedPhone = remember(form.whatsapp) {
+                        if (form.whatsapp.length > 4) "•••• " + form.whatsapp.takeLast(4) else "•••• ••••"
                     }
-
-                    TijarioTextField(
-                        label = t("terms"),
-                        value = form.terms,
-                        onValueChange = { form = form.copy(terms = it) },
-                        singleLine = false,
-                        leadingIcon = { Icon(Icons.Filled.Note, contentDescription = null, tint = Color(0xFF64748B)) }
+                    SettingsItemRow(
+                        icon = Icons.Filled.Phone,
+                        title = t("contact_phone"),
+                        value = maskedPhone,
+                        onClick = { activeDialog = "phone" }
                     )
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = 4.dp))
 
-                    TijarioButton(
-                        text = t("btn_save_settings"),
-                        onClick = {
-                            scope.launch {
-                                try {
-                                    isLoading = true
-                                    errorMessage = null
-                                    val settings = existingSettings?.copy(
-                                        businessName = form.businessName,
-                                        whatsappNumber = form.whatsapp,
-                                        country = form.country,
-                                        city = form.city.ifBlank { null },
-                                        currency = form.currency,
-                                        termsText = form.terms.ifBlank { null },
-                                    ) ?: app.tijario.data.model.BusinessSettings(
-                                        userId = uiState.userId,
-                                        businessName = form.businessName,
-                                        whatsappNumber = form.whatsapp,
-                                        country = form.country,
-                                        city = form.city.ifBlank { null },
-                                        currency = form.currency,
-                                        termsText = form.terms.ifBlank { null },
-                                    )
-                                    val result = dataViewModel.saveBusinessSettings(settings)
-                                    if (result.isSuccess) {
-                                        onBack()
-                                    } else {
-                                        errorMessage = result.exceptionOrNull()?.message
-                                            ?: "ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¹ÃƒËœÃ‚Â°ÃƒËœÃ‚Â± ÃƒËœÃ‚Â­Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Â¸ ÃƒËœÃ‚Â¥ÃƒËœÃ‚Â¹ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§ÃƒËœÃ‚Âª ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¬ÃƒËœÃ‚Â±. ÃƒËœÃ‚Â­ÃƒËœÃ‚Â§Ãƒâ„¢Ã‹â€ Ãƒâ„¢Ã¢â‚¬Å¾ Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â±ÃƒËœÃ‚Â© ÃƒËœÃ‚Â£ÃƒËœÃ‚Â®ÃƒËœÃ‚Â±Ãƒâ„¢Ã¢â‚¬Â°."
-                                    }
-                                } catch (e: Exception) {
-                                    errorMessage = "ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¹ÃƒËœÃ‚Â°ÃƒËœÃ‚Â± ÃƒËœÃ‚Â­Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Â¸ ÃƒËœÃ‚Â¥ÃƒËœÃ‚Â¹ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§ÃƒËœÃ‚Âª ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¬ÃƒËœÃ‚Â±. ÃƒËœÃ‚Â­ÃƒËœÃ‚Â§Ãƒâ„¢Ã‹â€ Ãƒâ„¢Ã¢â‚¬Å¾ Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â±ÃƒËœÃ‚Â© ÃƒËœÃ‚Â£ÃƒËœÃ‚Â®ÃƒËœÃ‚Â±Ãƒâ„¢Ã¢â‚¬Â°."
-                                } finally {
-                                    isLoading = false
-                                }
+                    // Row 4: الدولة
+                    SettingsItemRow(
+                        icon = Icons.Filled.Public,
+                        title = t("country"),
+                        value = form.country.ifBlank { "اليمن" },
+                        onClick = { activeDialog = "country" }
+                    )
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = 4.dp))
+
+                    // Row 5: المدينة
+                    SettingsItemRow(
+                        icon = Icons.Filled.Domain,
+                        title = t("city"),
+                        value = form.city.ifBlank { "صنعاء" },
+                        onClick = { activeDialog = "city" }
+                    )
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = 4.dp))
+
+                    // Row 6: العملة
+                    val displayCurrency = when (form.currency.uppercase()) {
+                        "YER" -> "ريال يمني - YER"
+                        "SAR" -> "الريال السعودي - SAR"
+                        "USD" -> "الدولار الأمريكي - USD"
+                        else -> form.currency
+                    }
+                    SettingsItemRow(
+                        icon = Icons.Filled.AttachMoney,
+                        title = t("currency"),
+                        value = displayCurrency,
+                        onClick = { activeDialog = "currency" }
+                    )
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = 4.dp))
+
+                    // Row 7: تفضيلات الفواتير والإشعارات
+                    SettingsItemRow(
+                        icon = Icons.Filled.Receipt,
+                        title = t("invoice_notifications_prefs"),
+                        value = t("billing_prefs_value"),
+                        onClick = { activeDialog = "terms" }
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            // Save store changes button
+            Button(
+                onClick = {
+                    scope.launch {
+                        try {
+                            isLoading = true
+                            errorMessage = null
+                            val settings = existingSettings?.copy(
+                                businessName = form.businessName,
+                                whatsappNumber = form.whatsapp,
+                                country = form.country,
+                                city = form.city.ifBlank { null },
+                                currency = form.currency,
+                                termsText = form.terms.ifBlank { null },
+                            ) ?: app.tijario.data.model.BusinessSettings(
+                                userId = uiState.userId,
+                                businessName = form.businessName,
+                                whatsappNumber = form.whatsapp,
+                                country = form.country,
+                                city = form.city.ifBlank { null },
+                                currency = form.currency,
+                                termsText = form.terms.ifBlank { null },
+                            )
+                            val result = dataViewModel.saveBusinessSettings(settings)
+                            if (result.isSuccess) {
+                                onBack()
+                            } else {
+                                errorMessage = result.exceptionOrNull()?.message
+                                    ?: Localization.getString("save_settings_error", language)
                             }
-                        },
-                        enabled = form.canSubmit,
-                        isLoading = isLoading
-                    )
-
-                    errorMessage?.let {
-                        Text(it, color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
+                        } catch (e: Exception) {
+                            errorMessage = Localization.getString("save_settings_error", language)
+                        } finally {
+                            isLoading = false
+                        }
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(54.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00796B)),
+                enabled = form.canSubmit && !isLoading
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    if (isLoading) {
+                        CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp))
+                    } else {
+                        Icon(Icons.Filled.Save, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+                        Text(t("save_store_changes"), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                     }
                 }
             }
+
+            errorMessage?.let {
+                Text(it, color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
+            }
         }
+    }
+}
+
+@Composable
+private fun SettingsItemRow(
+    icon: ImageVector,
+    title: String,
+    value: String,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .padding(vertical = 12.dp, horizontal = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.weight(1f)
+        ) {
+            Surface(
+                color = Color(0xFFF1F5F9),
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier.size(40.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(icon, contentDescription = null, tint = Color(0xFF0F2D54), modifier = Modifier.size(20.dp))
+                }
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(title, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(value, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+            }
+        }
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(20.dp)
+        )
     }
 }
 
@@ -543,13 +926,14 @@ fun DocumentFormScreen(
     onBack: () -> Unit,
     onDocumentSaved: (String) -> Unit = {},
     onNavigateToSelectCustomer: () -> Unit = {},
-    onNavigateToSelectProduct: () -> Unit = {},
+    onNavigateToSelectProduct: (Int) -> Unit = {},
     selectedCustomer: app.tijario.data.model.Customer? = null,
-    selectedProduct: app.tijario.data.model.Product? = null
+    selectedProduct: app.tijario.data.model.Product? = null,
+    selectedProductRowIndex: Int? = null,
+    onSelectedProductConsumed: () -> Unit = {},
 ) {
     var form by remember { mutableStateOf(DocumentFormState()) }
     var isLoadingDocument by remember { mutableStateOf(documentId != null) }
-    var activeProductSelectRowIndex by remember { mutableStateOf<Int?>(null) }
     var selectedTab by remember { mutableStateOf(0) } // 0 = edit, 1 = preview
     var isLoading by remember { mutableStateOf(false) }
     var submitError by remember { mutableStateOf<String?>(null) }
@@ -592,7 +976,7 @@ fun DocumentFormScreen(
     // Sync selected product to specific row
     LaunchedEffect(selectedProduct) {
         selectedProduct?.let { prod ->
-            val idx = activeProductSelectRowIndex
+            val idx = selectedProductRowIndex
             if (idx != null && idx in form.items.indices) {
                 form = form.copy(
                     items = form.items.mapIndexed { i, item ->
@@ -605,6 +989,7 @@ fun DocumentFormScreen(
                         } else item
                     }
                 )
+                onSelectedProductConsumed()
             }
         }
     }
@@ -801,8 +1186,7 @@ fun DocumentFormScreen(
                                             )
                                             IconButton(
                                                 onClick = {
-                                                    activeProductSelectRowIndex = index
-                                                    onNavigateToSelectProduct()
+                                                    onNavigateToSelectProduct(index)
                                                 },
                                                 modifier = Modifier.size(48.dp)
                                             ) {

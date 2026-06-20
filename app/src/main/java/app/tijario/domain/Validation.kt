@@ -7,7 +7,7 @@ object Validation {
     fun email(value: String): String? =
         when {
             value.trim().isEmpty() -> "البريد الإلكتروني مطلوب"
-            !value.contains("@") || !value.contains(".") -> "أدخل بريد إلكتروني صحيح"
+            !value.contains("@") || !value.contains(".") -> "أدخل بريدًا إلكترونيًا صحيحًا"
             else -> null
         }
 
@@ -30,6 +30,11 @@ object Validation {
         else if (parsePositiveInt(value) != null) null
         else "$fieldName يجب أن يكون رقمًا أكبر من صفر"
 
+    fun nonNegativeInt(value: String, fieldName: String): String? =
+        if (value.trim().isEmpty()) null
+        else if (parseNonNegativeInt(value) != null) null
+        else "$fieldName يجب أن يكون رقمًا صحيحًا غير سالب"
+
     fun nonNegativeMoney(value: String, fieldName: String): String? =
         if (value.trim().isEmpty()) null
         else if (parseNonNegativeMoney(value) != null) null
@@ -38,6 +43,11 @@ object Validation {
     fun parsePositiveInt(value: String): Int? {
         val number = parseNumber(value) ?: return null
         return number.toInt().takeIf { number > 0.0 && number % 1.0 == 0.0 }
+    }
+
+    fun parseNonNegativeInt(value: String): Int? {
+        val number = parseNumber(value) ?: return null
+        return number.toInt().takeIf { number >= 0.0 && number % 1.0 == 0.0 }
     }
 
     fun parseNonNegativeMoney(value: String): Double? =

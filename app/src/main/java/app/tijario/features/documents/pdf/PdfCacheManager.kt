@@ -13,11 +13,7 @@ class PdfCacheManager(
         File(cacheDir, "${PdfCacheKeyFactory.key(model)}.pdf")
 
     fun displayName(model: DocumentRenderModel): String {
-        val customerName = model.customer.name
-            .takeIf { it.isNotBlank() }
-            ?.let { " - ${PdfFileNameSanitizer.sanitize(it)}" }
-            .orEmpty()
-        return "${PdfFileNameSanitizer.sanitize(model.documentNumber)}$customerName.pdf"
+        return "${PdfFileNameSanitizer.sanitize(model.documentNumber)}.pdf"
     }
 
     fun isValid(file: File): Boolean =

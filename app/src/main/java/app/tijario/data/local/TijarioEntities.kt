@@ -62,6 +62,8 @@ data class ProductEntity(
     val description: String?,
     val price: Double,
     val currency: String,
+    @ColumnInfo(name = "stock_quantity")
+    val stockQuantity: Int?,
     @ColumnInfo(name = "synced_at")
     val syncedAt: Long,
 )
@@ -154,6 +156,7 @@ fun Product.toEntity(userIdFallback: String, syncedAt: Long = System.currentTime
         description = description,
         price = price,
         currency = currency,
+        stockQuantity = stockQuantity,
         syncedAt = syncedAt,
     )
 }
@@ -167,6 +170,7 @@ fun ProductEntity.toModel(): Product =
         description = description,
         price = price,
         currency = currency,
+        stockQuantity = stockQuantity,
     )
 
 fun DocumentSummary.toEntity(userId: String, syncedAt: Long = System.currentTimeMillis()): DocumentEntity =

@@ -54,10 +54,17 @@ data class CreateDocumentResponse(
 data class AiReplyRequest(
     @SerialName("case_type") val caseType: String,
     @SerialName("customer_name") val customerName: String? = null,
+    @SerialName("customer_message") val customerMessage: String? = null,
     val dialect: String,
     val tone: String,
     val length: String,
     @SerialName("extra_note") val extraNote: String? = null,
+)
+
+@Serializable
+data class AiImageInput(
+    @SerialName("mime_type") val mimeType: String,
+    val base64: String,
 )
 
 @Serializable
@@ -69,6 +76,7 @@ data class AiCaptionRequest(
     val length: String,
     @SerialName("product_or_service") val productOrService: String,
     val offer: String? = null,
+    @SerialName("product_image") val productImage: AiImageInput? = null,
     @SerialName("extra_note") val extraNote: String? = null,
 )
 

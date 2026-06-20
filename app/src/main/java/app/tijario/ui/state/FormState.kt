@@ -92,6 +92,7 @@ data class DocumentFormState(
 data class AiReplyFormState(
     val caseType: String = "customer_inquiry",
     val customerName: String = "",
+    val customerMessage: String = "",
     val dialect: String = "gulf",
     val tone: String = "friendly",
     val length: String = "short",
@@ -116,10 +117,12 @@ data class ProductFormState(
     val name: String = "",
     val description: String = "",
     val price: String = "",
+    val stockQuantity: String = "",
     val kind: app.tijario.data.model.ProductKind = app.tijario.data.model.ProductKind.Product,
     val currency: String = "SAR",
 ) {
     val nameError: String? get() = Validation.required(name, "الاسم")
     val priceError: String? get() = Validation.nonNegativeMoney(price, "السعر")
-    val canSubmit: Boolean get() = nameError == null && price.isNotBlank() && priceError == null
+    val stockQuantityError: String? get() = Validation.nonNegativeInt(stockQuantity, "الكمية")
+    val canSubmit: Boolean get() = nameError == null && price.isNotBlank() && priceError == null && stockQuantityError == null
 }

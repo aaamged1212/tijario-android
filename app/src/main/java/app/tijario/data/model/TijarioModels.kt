@@ -11,7 +11,7 @@ data class BusinessSettings(
     @SerialName("whatsapp_number") val whatsappNumber: String,
     val country: String,
     val city: String? = null,
-    val currency: String = "SAR",
+    val currency: String,
     @SerialName("logo_url") val logoUrl: String? = null,
     @SerialName("instagram_url") val instagramUrl: String? = null,
     @SerialName("invoice_note") val invoiceNote: String? = null,
@@ -37,6 +37,7 @@ data class Product(
     val description: String? = null,
     val price: Double,
     val currency: String = "SAR",
+    @SerialName("stock_quantity") val stockQuantity: Int? = null,
 )
 
 @Serializable
