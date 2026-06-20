@@ -71,19 +71,22 @@ data class DocumentFormState(
     val discount: String = "",
     val extraFees: String = "",
     val paymentStatus: String = "unpaid",
+    val amountPaid: String = "",
     val notes: String = "",
     val terms: String = "",
 ) {
     val customerNameError: String? get() = Validation.required(customerName, "اسم العميل")
     val discountError: String? get() = Validation.nonNegativeMoney(discount, "الخصم")
     val extraFeesError: String? get() = Validation.nonNegativeMoney(extraFees, "الرسوم الإضافية")
+    val amountPaidError: String? get() = if (paymentStatus == "partial") Validation.nonNegativeMoney(amountPaid, "المبلغ المدفوع") else null
     val canSubmit: Boolean get() =
         customerId != null &&
             customerName.isNotEmpty() &&
             items.isNotEmpty() &&
             items.all { it.isValid } &&
             discountError == null &&
-            extraFeesError == null
+            extraFeesError == null &&
+            amountPaidError == null
 }
 
 data class AiReplyFormState(

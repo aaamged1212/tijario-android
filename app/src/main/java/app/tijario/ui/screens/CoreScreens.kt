@@ -1611,85 +1611,87 @@ fun DocumentsScreen(
                 }
             }
 
-            // Filtering Chips under Tabs
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // All Filter
-                TijarioFilterChip(
-                    selected = selectedFilter == "all",
-                    onClick = { selectedFilter = "all" },
-                    label = "الكل",
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Filled.GridView,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp),
-                            tint = if (selectedFilter == "all") Color.White else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                )
+            // Filtering Chips under Tabs - only show for Invoices
+            if (selectedSection == 0) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // All Filter
+                    TijarioFilterChip(
+                        selected = selectedFilter == "all",
+                        onClick = { selectedFilter = "all" },
+                        label = "الكل",
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Filled.GridView,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = if (selectedFilter == "all") Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    )
 
-                // Unpaid Filter (only meaningful for invoices, but can show)
-                TijarioFilterChip(
-                    selected = selectedFilter == "unpaid",
-                    onClick = { selectedFilter = "unpaid" },
-                    label = "غير مدفوعة",
-                    leadingIcon = {
-                        Box(
-                            modifier = Modifier
-                                .size(8.dp)
-                                .background(Color(0xFFEF4444), CircleShape)
-                        )
-                    }
-                )
+                    // Unpaid Filter (only meaningful for invoices, but can show)
+                    TijarioFilterChip(
+                        selected = selectedFilter == "unpaid",
+                        onClick = { selectedFilter = "unpaid" },
+                        label = "غير مدفوعة",
+                        leadingIcon = {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .background(Color(0xFFEF4444), CircleShape)
+                            )
+                        }
+                    )
 
-                // Paid Filter
-                TijarioFilterChip(
-                    selected = selectedFilter == "paid",
-                    onClick = { selectedFilter = "paid" },
-                    label = "مدفوعة",
-                    leadingIcon = {
-                        Box(
-                            modifier = Modifier
-                                .size(8.dp)
-                                .background(Color(0xFF22C55E), CircleShape)
-                        )
-                    }
-                )
+                    // Paid Filter
+                    TijarioFilterChip(
+                        selected = selectedFilter == "paid",
+                        onClick = { selectedFilter = "paid" },
+                        label = "مدفوعة",
+                        leadingIcon = {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .background(Color(0xFF22C55E), CircleShape)
+                            )
+                        }
+                    )
 
-                // Partial Filter
-                TijarioFilterChip(
-                    selected = selectedFilter == "partial",
-                    onClick = { selectedFilter = "partial" },
-                    label = "جزئية",
-                    leadingIcon = {
-                        Box(
-                            modifier = Modifier
-                                .size(8.dp)
-                                .background(Color(0xFFF97316), CircleShape)
-                        )
-                    }
-                )
+                    // Partial Filter
+                    TijarioFilterChip(
+                        selected = selectedFilter == "partial",
+                        onClick = { selectedFilter = "partial" },
+                        label = "جزئية",
+                        leadingIcon = {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .background(Color(0xFFF97316), CircleShape)
+                            )
+                        }
+                    )
 
-                // Latest indicator (just design / sort toggle)
-                TijarioFilterChip(
-                    selected = true,
-                    onClick = { /* sorting is default active */ },
-                    label = "الأحدث",
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Filled.Event,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp),
-                            tint = Color.White
-                        )
-                    }
-                )
+                    // Latest indicator (just design / sort toggle)
+                    TijarioFilterChip(
+                        selected = true,
+                        onClick = { /* sorting is default active */ },
+                        label = "الأحدث",
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Filled.Event,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = Color.White
+                            )
+                        }
+                    )
+                }
             }
 
             // Loading state or List
@@ -1742,128 +1744,9 @@ fun DocumentsScreen(
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    // Left Column: More options, payment status, total amount, quick action buttons
+                                    // Right Column: INV code, Customer name, Date (Drawn on the right in RTL, so first child)
                                     Column(
                                         horizontalAlignment = Alignment.Start,
-                                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                                        modifier = Modifier.weight(1f)
-                                    ) {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                        ) {
-                                            IconButton(
-                                                onClick = { documentPendingDelete = doc },
-                                                modifier = Modifier.size(32.dp)
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.Filled.MoreVert,
-                                                    contentDescription = null,
-                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                                )
-                                            }
-
-                                            if (doc.type == app.tijario.data.model.DocumentType.Invoice) {
-                                                val payStatusText = app.tijario.domain.PaymentStatusMapper.getStatusText(doc.paymentStatus)
-                                                val payColors = app.tijario.domain.PaymentStatusMapper.getStatusColors(doc.paymentStatus)
-                                                Surface(
-                                                    color = Color(payColors.first).copy(alpha = 0.15f),
-                                                    shape = RoundedCornerShape(8.dp)
-                                                ) {
-                                                    Row(
-                                                        verticalAlignment = Alignment.CenterVertically,
-                                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                                    ) {
-                                                        Box(
-                                                            modifier = Modifier
-                                                                .size(6.dp)
-                                                                .background(Color(payColors.second), CircleShape)
-                                                        )
-                                                        Text(
-                                                            text = payStatusText,
-                                                            color = Color(payColors.second),
-                                                            fontSize = 11.sp,
-                                                            fontWeight = FontWeight.Bold
-                                                        )
-                                                    }
-                                                }
-                                            }
-                                        }
-
-                                        // Total Price
-                                        Text(
-                                            text = "${doc.currency} ${String.format(java.util.Locale.US, "%,.2f", doc.total)}",
-                                            color = MaterialTheme.colorScheme.primary,
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 16.sp
-                                        )
-
-                                        // Quick Action Buttons Row
-                                        Row(
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            // View details button
-                                            IconButton(
-                                                onClick = { onDocumentClick(doc.id) },
-                                                modifier = Modifier
-                                                    .size(32.dp)
-                                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f), CircleShape)
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.Filled.Visibility,
-                                                    contentDescription = null,
-                                                    tint = MaterialTheme.colorScheme.primary,
-                                                    modifier = Modifier.size(16.dp)
-                                                )
-                                            }
-
-                                            // Edit Button
-                                            IconButton(
-                                                onClick = { onEditDocument(doc.id, doc.type) },
-                                                enabled = busyDocumentId == null,
-                                                modifier = Modifier
-                                                    .size(32.dp)
-                                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f), CircleShape)
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.Filled.Edit,
-                                                    contentDescription = null,
-                                                    tint = MaterialTheme.colorScheme.primary,
-                                                    modifier = Modifier.size(16.dp)
-                                                )
-                                            }
-
-                                            // Share Button
-                                            IconButton(
-                                                onClick = { shareDocument(doc.id) },
-                                                enabled = busyDocumentId == null,
-                                                modifier = Modifier
-                                                    .size(32.dp)
-                                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f), CircleShape)
-                                            ) {
-                                                if (busyDocumentId == doc.id) {
-                                                    CircularProgressIndicator(
-                                                        modifier = Modifier.size(12.dp),
-                                                        strokeWidth = 1.5.dp,
-                                                        color = MaterialTheme.colorScheme.primary
-                                                    )
-                                                } else {
-                                                    Icon(
-                                                        imageVector = Icons.Filled.Share,
-                                                        contentDescription = null,
-                                                        tint = MaterialTheme.colorScheme.primary,
-                                                        modifier = Modifier.size(16.dp)
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    }
-
-                                    // Right Column: INV code, Customer name, Date (visually matches RTL starting right)
-                                    Column(
-                                        horizontalAlignment = Alignment.End,
                                         verticalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
                                         Text(
@@ -1916,6 +1799,98 @@ fun DocumentsScreen(
                                                 modifier = Modifier.size(16.dp)
                                             )
                                         }
+                                    }
+
+                                    // Left Column: Three-dot options, payment status, total amount (Drawn on the left in RTL, so second child)
+                                    Column(
+                                        horizontalAlignment = Alignment.End,
+                                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        var actionsMenuExpanded by remember { mutableStateOf(false) }
+
+                                        Box {
+                                            IconButton(
+                                                onClick = { actionsMenuExpanded = true },
+                                                modifier = Modifier.size(32.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Filled.MoreVert,
+                                                    contentDescription = null,
+                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+
+                                            DropdownMenu(
+                                                expanded = actionsMenuExpanded,
+                                                onDismissRequest = { actionsMenuExpanded = false },
+                                                modifier = Modifier.background(MaterialTheme.colorScheme.surface)
+                                            ) {
+                                                DropdownMenuItem(
+                                                    text = { Text("معاينة", fontWeight = FontWeight.Medium) },
+                                                    onClick = {
+                                                        actionsMenuExpanded = false
+                                                        onDocumentClick(doc.id)
+                                                    }
+                                                )
+                                                DropdownMenuItem(
+                                                    text = { Text("تعديل", fontWeight = FontWeight.Medium) },
+                                                    onClick = {
+                                                        actionsMenuExpanded = false
+                                                        onEditDocument(doc.id, doc.type)
+                                                    }
+                                                )
+                                                DropdownMenuItem(
+                                                    text = { Text("مشاركة", fontWeight = FontWeight.Medium) },
+                                                    onClick = {
+                                                        actionsMenuExpanded = false
+                                                        shareDocument(doc.id)
+                                                    }
+                                                )
+                                                DropdownMenuItem(
+                                                    text = { Text("حذف", fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.error) },
+                                                    onClick = {
+                                                        actionsMenuExpanded = false
+                                                        documentPendingDelete = doc
+                                                    }
+                                                )
+                                            }
+                                        }
+
+                                        if (doc.type == app.tijario.data.model.DocumentType.Invoice) {
+                                            val payStatusText = app.tijario.domain.PaymentStatusMapper.getStatusText(doc.paymentStatus)
+                                            val payColors = app.tijario.domain.PaymentStatusMapper.getStatusColors(doc.paymentStatus)
+                                            Surface(
+                                                color = Color(payColors.first).copy(alpha = 0.15f),
+                                                shape = RoundedCornerShape(8.dp)
+                                            ) {
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                                ) {
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .size(6.dp)
+                                                            .background(Color(payColors.second), CircleShape)
+                                                    )
+                                                    Text(
+                                                        text = payStatusText,
+                                                        color = Color(payColors.second),
+                                                        fontSize = 11.sp,
+                                                        fontWeight = FontWeight.Bold
+                                                    )
+                                                }
+                                            }
+                                        }
+
+                                        // Total Price
+                                        Text(
+                                            text = "${doc.currency} ${String.format(java.util.Locale.US, "%,.2f", doc.total)}",
+                                            color = MaterialTheme.colorScheme.primary,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 16.sp
+                                        )
                                     }
                                 }
                             }

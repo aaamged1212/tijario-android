@@ -900,6 +900,21 @@ fun DocumentFormScreen(
                                     }
                                 }
                             }
+
+                            if (form.paymentStatus == "partial") {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                TijarioTextField(
+                                    label = "المبلغ المدفوع",
+                                    value = form.amountPaid,
+                                    onValueChange = { form = form.copy(amountPaid = it) },
+                                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Number,
+                                        imeAction = androidx.compose.ui.text.input.ImeAction.Next
+                                    ),
+                                    error = form.amountPaidError,
+                                    leadingIcon = { Icon(Icons.Filled.PriceChange, contentDescription = null, tint = Color(0xFF64748B)) }
+                                )
+                            }
                         }
 
                         TijarioTextField(
@@ -922,6 +937,7 @@ fun DocumentFormScreen(
                                         val req = app.tijario.data.remote.CreateDocumentRequest(
                                             type = type,
                                             paymentStatus = if (type == app.tijario.data.model.DocumentType.Invoice) form.paymentStatus else null,
+                                            amountPaid = if (type == app.tijario.data.model.DocumentType.Invoice && form.paymentStatus == "partial") Validation.parseNonNegativeMoney(form.amountPaid) else null,
                                             customer = app.tijario.data.remote.DocumentCustomerInput(
                                                 name = form.customerName,
                                                 whatsappNumber = form.customerWhatsapp,

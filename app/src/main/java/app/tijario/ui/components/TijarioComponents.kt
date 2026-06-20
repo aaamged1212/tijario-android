@@ -111,6 +111,7 @@ fun TijarioTextField(
     leadingIcon: @Composable (() -> Unit)? = null,
     trailingIcon: @Composable (() -> Unit)? = null,
     readOnly: Boolean = false,
+    keyboardOptions: androidx.compose.foundation.text.KeyboardOptions = androidx.compose.foundation.text.KeyboardOptions.Default,
 ) {
     var passwordVisible by remember { mutableStateOf(false) }
 
@@ -124,6 +125,7 @@ fun TijarioTextField(
         singleLine = singleLine,
         leadingIcon = leadingIcon,
         readOnly = readOnly,
+        keyboardOptions = keyboardOptions,
         trailingIcon = if (isPassword) {
             {
                 IconButton(onClick = { passwordVisible = !passwordVisible }) {

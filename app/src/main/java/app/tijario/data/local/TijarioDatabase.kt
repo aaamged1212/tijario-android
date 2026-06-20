@@ -12,7 +12,7 @@ import androidx.room.RoomDatabase
         ProductEntity::class,
         DocumentEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = false,
 )
 abstract class TijarioDatabase : RoomDatabase() {
@@ -29,7 +29,7 @@ abstract class TijarioDatabase : RoomDatabase() {
                     TijarioDatabase::class.java,
                     "tijario-local-cache.db",
                 )
-                    .fallbackToDestructiveMigration(false)
+                    .fallbackToDestructiveMigration()
                     .build()
                     .also { instance = it }
             }

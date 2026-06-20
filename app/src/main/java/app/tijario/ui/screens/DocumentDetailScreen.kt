@@ -348,6 +348,7 @@ fun CompleteDocument.toFormState(): app.tijario.ui.state.DocumentFormState =
         discount = discount.toString(),
         extraFees = extraFees.toString(),
         paymentStatus = paymentStatus ?: "unpaid",
+        amountPaid = amountPaid?.toString().orEmpty(),
         notes = notes.orEmpty(),
         terms = termsText.orEmpty(),
     )

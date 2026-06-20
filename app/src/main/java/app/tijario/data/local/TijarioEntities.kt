@@ -80,6 +80,8 @@ data class DocumentEntity(
     val status: String,
     @ColumnInfo(name = "payment_status")
     val paymentStatus: String?,
+    @ColumnInfo(name = "amount_paid")
+    val amountPaid: Double?,
     @ColumnInfo(name = "issue_date")
     val issueDate: String,
     val total: Double,
@@ -176,6 +178,7 @@ fun DocumentSummary.toEntity(userId: String, syncedAt: Long = System.currentTime
         documentNumber = documentNumber,
         status = status,
         paymentStatus = paymentStatus,
+        amountPaid = amountPaid,
         issueDate = issueDate,
         total = total,
         currency = currency,
@@ -190,6 +193,7 @@ fun DocumentEntity.toModel(): DocumentSummary =
         documentNumber = documentNumber,
         status = status,
         paymentStatus = paymentStatus,
+        amountPaid = amountPaid,
         issueDate = issueDate,
         total = total,
         currency = currency,
