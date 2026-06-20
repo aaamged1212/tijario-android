@@ -381,6 +381,9 @@ fun TijarioApp() {
                                         onCustomers = { pagerScope.launch { pagerState.animateScrollToPage(4) } },
                                         onAiTools = { pagerScope.launch { pagerState.animateScrollToPage(2) } },
                                         onBusinessSettings = { navController.navigate("business-settings") },
+                                        onDocumentClick = { documentId ->
+                                            navController.navigate("document-detail?documentId=$documentId")
+                                        },
                                         hideHeader = true
                                     )
                                     1 -> DocumentsScreen(

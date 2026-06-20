@@ -243,6 +243,7 @@ fun DashboardScreen(
     onCustomers: () -> Unit,
     onAiTools: () -> Unit,
     onBusinessSettings: () -> Unit,
+    onDocumentClick: (String) -> Unit,
     hideHeader: Boolean = false,
 ) {
     val uiState by dataViewModel.uiState.collectAsStateWithLifecycle()
@@ -278,87 +279,12 @@ fun DashboardScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF8FAFC)) // Clean slate-white background
+            .background(MaterialTheme.colorScheme.background)
             .verticalScroll(rememberScrollState())
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
-        // App brand header row
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Profile settings icon with green status dot on the left in RTL
-            Box(modifier = Modifier.size(48.dp)) {
-                IconButton(
-                    onClick = onBusinessSettings,
-                    colors = IconButtonDefaults.iconButtonColors(
-                        containerColor = Color(0xFFF1F5F9)
-                    ),
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(CircleShape)
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Person,
-                        contentDescription = null,
-                        tint = Color(0xFF64748B),
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-                Box(
-                    modifier = Modifier
-                        .size(12.dp)
-                        .align(Alignment.TopEnd)
-                        .clip(CircleShape)
-                        .background(Color(0xFF10B981))
-                        .border(2.dp, Color.White, CircleShape)
-                )
-            }
-
-            // Tijario Brand mark on the right in RTL
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Column(horizontalAlignment = Alignment.End) {
-                    Text(
-                        text = "تجاريو",
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Black,
-                        color = Color(0xFF0B2545)
-                    )
-                    Text(
-                        text = "أدوات ذكية لتجارتك اليومية",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF0D9488)
-                    )
-                }
-                TijarioLogoMark(modifier = Modifier.size(38.dp))
-            }
-        }
-
-        // Welcome Text
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            Text(
-                text = "أهلاً بك في تجاريو 👋",
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Black,
-                color = Color(0xFF0F172A)
-            )
-            Text(
-                text = "تابع أعمالك اليومية وأدر نشاطك بسهولة وذكاء.",
-                fontSize = 14.sp,
-                color = Color(0xFF64748B)
-            )
-        }
-
-        // Stats Navy Card Gradient with wavy graph
+        // Stats Navy Card Gradient with wavy graph - directly at the top
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(28.dp),
@@ -539,10 +465,10 @@ fun DashboardScreen(
 
         // Quick Actions title
         Text(
-            text = "إجراءات سريعة ✨",
+            text = "إجراءات سريعة",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
-            color = Color(0xFF0F172A)
+            color = MaterialTheme.colorScheme.onBackground
         )
 
         // Actions grid first row
@@ -556,7 +482,7 @@ fun DashboardScreen(
                     .weight(1f)
                     .clickable { if (isDocLimitReached) showLimitAlert = true else onNewInvoice() },
                 shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
             ) {
                 Column(
@@ -580,7 +506,7 @@ fun DashboardScreen(
                             )
                         }
                     }
-                    Text("فاتورة جديدة", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF334155))
+                    Text("فاتورة جديدة", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                 }
             }
 
@@ -590,7 +516,7 @@ fun DashboardScreen(
                     .weight(1f)
                     .clickable { if (isDocLimitReached) showLimitAlert = true else onNewQuote() },
                 shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
             ) {
                 Column(
@@ -614,7 +540,7 @@ fun DashboardScreen(
                             )
                         }
                     }
-                    Text("عرض سعر جديد", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF334155))
+                    Text("عرض سعر جديد", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                 }
             }
 
@@ -624,7 +550,7 @@ fun DashboardScreen(
                     .weight(1f)
                     .clickable { onCustomers() },
                 shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
             ) {
                 Column(
@@ -648,7 +574,7 @@ fun DashboardScreen(
                             )
                         }
                     }
-                    Text("إضافة عميل", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF334155))
+                    Text("إضافة عميل", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                 }
             }
         }
@@ -664,7 +590,7 @@ fun DashboardScreen(
                     .weight(1.8f)
                     .clickable { onAiTools() },
                 shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
             ) {
                 Row(
@@ -689,8 +615,8 @@ fun DashboardScreen(
                         }
                     }
                     Column {
-                        Text("تجاريو AI", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1E1B4B))
-                        Text("مساعدك الذكي لأعمالك", fontSize = 11.sp, color = Color(0xFF64748B))
+                        Text("تجاريو AI", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                        Text("مساعدك الذكي لأعمالك", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
@@ -701,7 +627,7 @@ fun DashboardScreen(
                     .weight(1.2f)
                     .clickable { onAddProduct() },
                 shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
             ) {
                 Row(
@@ -725,7 +651,7 @@ fun DashboardScreen(
                             )
                         }
                     }
-                    Text("إضافة منتج أو خدمة", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF334155))
+                    Text("إضافة منتج أو خدمة", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                 }
             }
         }
@@ -741,7 +667,7 @@ fun DashboardScreen(
                 text = "آخر المستندات",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF0F172A)
+                color = MaterialTheme.colorScheme.onBackground
             )
 
             // TextButton ("عرض الكل") second so it renders on the left in RTL
@@ -767,7 +693,7 @@ fun DashboardScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White)
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
                 Box(
                     modifier = Modifier
@@ -775,14 +701,14 @@ fun DashboardScreen(
                         .padding(32.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("لا توجد فواتير أو عروض أسعار حتى الآن", color = Color(0xFF64748B), fontSize = 14.sp)
+                    Text("لا توجد فواتير أو عروض أسعار حتى الآن", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
                 }
             }
         } else {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
             ) {
                 Column(
@@ -793,19 +719,27 @@ fun DashboardScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { onNewInvoice() /* Navigate or view detail */ }
+                                .clickable { onDocumentClick(doc.id) /* Open real document details */ }
                                 .padding(horizontal = 16.dp, vertical = 14.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Icon(
-                                imageVector = Icons.Filled.KeyboardArrowLeft,
-                                contentDescription = null,
-                                tint = Color(0xFF64748B),
-                                modifier = Modifier.size(20.dp)
-                            )
+                            // 1. Document Info (Renders on the right/start of RTL Row)
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text(
+                                    text = doc.documentNumber,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = customerName,
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
 
-                            // Status tag & Pricing metrics
+                            // 2. Status tag & Pricing metrics (Renders in the middle)
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -847,7 +781,7 @@ fun DashboardScreen(
                                             text = String.format(java.util.Locale.US, "%,.2f", doc.total),
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 14.sp,
-                                            color = Color(0xFF0F172A)
+                                            color = MaterialTheme.colorScheme.onSurface
                                         )
                                         Text(
                                             text = doc.currency,
@@ -867,29 +801,22 @@ fun DashboardScreen(
                                     Text(
                                         text = dateStr,
                                         fontSize = 11.sp,
-                                        color = Color(0xFF94A3B8)
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                                     )
                                 }
                             }
 
-                            // Document Info
-                            Column(horizontalAlignment = Alignment.End) {
-                                Text(
-                                    text = doc.documentNumber,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 14.sp,
-                                    color = Color(0xFF0F172A)
-                                )
-                                Text(
-                                    text = customerName,
-                                    fontSize = 12.sp,
-                                    color = Color(0xFF64748B)
-                                )
-                            }
+                            // 3. Arrow left icon (Renders on the left/end of RTL Row)
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(20.dp)
+                            )
                         }
 
                         if (index < latestDocuments.size - 1) {
-                            HorizontalDivider(color = Color(0xFFF1F5F9), modifier = Modifier.padding(horizontal = 16.dp))
+                            HorizontalDivider(color = Color(0xFFF1F5F9).copy(alpha = 0.5f), modifier = Modifier.padding(horizontal = 16.dp))
                         }
                     }
                 }
