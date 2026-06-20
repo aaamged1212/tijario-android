@@ -1,6 +1,7 @@
 package app.tijario.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -316,8 +317,13 @@ fun TijarioApp() {
                         },
                         bottomBar = {
                             NavigationBar(
-                                containerColor = MaterialTheme.colorScheme.background,
-                                tonalElevation = 0.dp
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(68.dp)
+                                    .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
+                                    .border(1.dp, MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)),
+                                containerColor = MaterialTheme.colorScheme.surface,
+                                tonalElevation = 8.dp
                             ) {
                                 rootTabs.forEachIndexed { index, tab ->
                                     val selected = pagerState.currentPage == index
