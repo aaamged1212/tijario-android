@@ -42,6 +42,7 @@ import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
@@ -61,6 +62,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.foundation.border
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.tijario.MainActivity
 import app.tijario.config.AppLanguage
@@ -145,6 +153,88 @@ fun ConfigurationRequiredScreen() {
 }
 
 @Composable
+fun TijarioLogoMark(modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier) {
+        val w = size.width
+        val h = size.height
+        val tealColor = Color(0xFF0D9488)
+        val navyColor = Color(0xFF081C36)
+        val stroke = size.width * 0.16f
+
+        // Draw teal loop (upper-left)
+        drawArc(
+            color = tealColor,
+            startAngle = 135f,
+            sweepAngle = 180f,
+            useCenter = false,
+            style = Stroke(width = stroke, cap = StrokeCap.Round),
+            topLeft = Offset(w * 0.08f, h * 0.08f),
+            size = Size(w * 0.65f, h * 0.65f)
+        )
+
+        // Draw navy loop (lower-right)
+        drawArc(
+            color = navyColor,
+            startAngle = -45f,
+            sweepAngle = 180f,
+            useCenter = false,
+            style = Stroke(width = stroke, cap = StrokeCap.Round),
+            topLeft = Offset(w * 0.27f, h * 0.27f),
+            size = Size(w * 0.65f, h * 0.65f)
+        )
+    }
+}
+
+@Composable
+fun StatsWavyGraph(modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier) {
+        val w = size.width
+        val h = size.height
+        val path = Path()
+
+        // Draw a smooth wavy line matching mockup
+        path.moveTo(0f, h * 0.7f)
+        path.cubicTo(w * 0.25f, h * 0.85f, w * 0.45f, h * 0.3f, w * 0.7f, h * 0.65f)
+        path.cubicTo(w * 0.85f, h * 0.8f, w * 0.92f, h * 0.2f, w, h * 0.2f)
+
+        // Path for fill
+        val fillPath = Path().apply {
+            addPath(path)
+            lineTo(w, h)
+            lineTo(0f, h)
+            close()
+        }
+
+        // Draw gradient fill under wave
+        drawPath(
+            path = fillPath,
+            brush = Brush.verticalGradient(
+                colors = listOf(Color(0xFF38BDF8).copy(alpha = 0.25f), Color.Transparent)
+            )
+        )
+
+        // Draw the wave line itself
+        drawPath(
+            path = path,
+            color = Color(0xFF38BDF8),
+            style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
+        )
+
+        // Draw peak glow point
+        drawCircle(
+            color = Color(0xFF38BDF8),
+            radius = 6.dp.toPx(),
+            center = Offset(w, h * 0.2f)
+        )
+        drawCircle(
+            color = Color.White,
+            radius = 3.dp.toPx(),
+            center = Offset(w, h * 0.2f)
+        )
+    }
+}
+
+@Composable
 fun DashboardScreen(
     dataViewModel: TijarioDataViewModel,
     onNewQuote: () -> Unit,
@@ -163,8 +253,6 @@ fun DashboardScreen(
     val businessCurrency = uiState.businessSettings?.currency ?: "SAR"
     val referenceDate = remember { java.time.LocalDate.now() }
     val totalAmount = app.tijario.domain.DashboardStatsCalculator.calculateCurrentMonthEarnings(uiState.documents, referenceDate)
-    val paidInvoicesCount = app.tijario.domain.DashboardStatsCalculator.countPaidInvoices(uiState.documents, referenceDate)
-    val pendingQuotesCount = app.tijario.domain.DashboardStatsCalculator.countPendingQuotes(uiState.documents)
 
     val planUsage = uiState.planUsage
     val isDocLimitReached = planUsage != null && planUsage.documentsLimit > 0 && planUsage.documentsUsed >= planUsage.documentsLimit
@@ -183,193 +271,627 @@ fun DashboardScreen(
         )
     }
 
+    val latestDocuments = remember(uiState.documents) {
+        uiState.documents.sortedByDescending { it.issueDate }.take(3)
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
+            .background(Color(0xFFF8FAFC)) // Clean slate-white background
             .verticalScroll(rememberScrollState())
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
-        // Welcome Header
-        if (!hideHeader) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(
-                        text = t("welcome"),
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onBackground
-                    )
-                    Text(
-                        text = t("dash_subtitle"),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+        // App brand header row
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Profile settings icon with green status dot on the left in RTL
+            Box(modifier = Modifier.size(48.dp)) {
                 IconButton(
                     onClick = onBusinessSettings,
                     colors = IconButtonDefaults.iconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.surface
+                        containerColor = Color(0xFFF1F5F9)
                     ),
                     modifier = Modifier
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.surface)
                         .size(48.dp)
+                        .clip(CircleShape)
                 ) {
-                    Icon(Icons.Filled.Settings, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Icon(
+                        imageVector = Icons.Filled.Person,
+                        contentDescription = null,
+                        tint = Color(0xFF64748B),
+                        modifier = Modifier.size(24.dp)
+                    )
                 }
+                Box(
+                    modifier = Modifier
+                        .size(12.dp)
+                        .align(Alignment.TopEnd)
+                        .clip(CircleShape)
+                        .background(Color(0xFF10B981))
+                        .border(2.dp, Color.White, CircleShape)
+                )
+            }
+
+            // Tijario Brand mark on the right in RTL
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        text = "تجاريو",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Black,
+                        color = Color(0xFF0B2545)
+                    )
+                    Text(
+                        text = "أدوات ذكية لتجارتك اليومية",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF0D9488)
+                    )
+                }
+                TijarioLogoMark(modifier = Modifier.size(38.dp))
             }
         }
 
-        // Stats Card Gradient
+        // Welcome Text
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                text = "أهلاً بك في تجاريو 👋",
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Black,
+                color = Color(0xFF0F172A)
+            )
+            Text(
+                text = "تابع أعمالك اليومية وأدر نشاطك بسهولة وذكاء.",
+                fontSize = 14.sp,
+                color = Color(0xFF64748B)
+            )
+        }
+
+        // Stats Navy Card Gradient with wavy graph
         Card(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(24.dp),
+            shape = RoundedCornerShape(28.dp),
             colors = CardDefaults.cardColors(containerColor = Color.Transparent)
         ) {
             Box(
                 modifier = Modifier
                     .background(
-                        brush = Brush.horizontalGradient(
-                            colors = listOf(Color(0xFF0F766E), Color(0xFF0D9488))
+                        brush = Brush.verticalGradient(
+                            colors = listOf(Color(0xFF081C36), Color(0xFF0F2D54))
                         )
                     )
                     .padding(24.dp)
             ) {
+                // Wavy graph on the left side of the card
+                StatsWavyGraph(
+                    modifier = Modifier
+                        .align(Alignment.CenterStart)
+                        .width(130.dp)
+                        .height(80.dp)
+                        .offset(x = (-8).dp, y = (-12).dp)
+                )
+
                 Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(t("financial_summary"), color = Color.White.copy(alpha = 0.8f), fontSize = 14.sp)
-                        Surface(
-                            color = Color.White.copy(alpha = 0.2f),
-                            shape = RoundedCornerShape(8.dp)
+                        // Column (الملخص المالي) first in the code row so it renders on the right in RTL
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text("الملخص المالي", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                            Text("جميع الأرقام بالريال السعودي", color = Color.White.copy(alpha = 0.6f), fontSize = 11.sp)
+                        }
+
+                        // Button (عرض الملخص) second in the code row so it renders on the left in RTL
+                        Button(
+                            onClick = { /* Detail Action */ },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.1f)),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                            modifier = Modifier.height(32.dp)
+                        ) {
+                            // Icon first inside button Row so it renders on the right of text in RTL
+                            Icon(
+                                imageVector = Icons.Filled.Visibility,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("عرض الملخص", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.End
+                    ) {
+                        Text(
+                            text = "إجمالي المبيعات",
+                            color = Color.White.copy(alpha = 0.7f),
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Row(
+                            verticalAlignment = Alignment.Bottom,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             Text(
-                                t("this_month"),
+                                text = String.format(java.util.Locale.US, "%,.2f", totalAmount),
                                 color = Color.White,
-                                fontSize = 12.sp,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                fontWeight = FontWeight.Bold
+                                fontSize = 32.sp,
+                                fontWeight = FontWeight.Black
+                            )
+                            Text(
+                                text = "SAR",
+                                color = Color(0xFF38BDF8),
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(bottom = 4.dp)
                             )
                         }
                     }
-                    Text(
-                        String.format(java.util.Locale.getDefault(), "%.2f %s", totalAmount, businessCurrency),
-                        color = Color.White,
-                        fontSize = 32.sp,
-                        fontWeight = FontWeight.Black
-                    )
-                    HorizontalDivider(color = Color.White.copy(alpha = 0.2f))
+
+                    HorizontalDivider(color = Color.White.copy(alpha = 0.12f))
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        StatsSmall(label = t("paid_invoices"), value = paidInvoicesCount.toString(), icon = Icons.Filled.Payments)
-                        StatsSmall(label = t("pending_quotes"), value = pendingQuotesCount.toString(), icon = Icons.Filled.Description)
+                        // Unpaid Invoices
+                        val unpaidAmount = remember(uiState.documents) {
+                            uiState.documents
+                                .filter { it.type == app.tijario.data.model.DocumentType.Invoice && it.paymentStatus == "unpaid" }
+                                .sumOf { it.total }
+                        }
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Surface(
+                                color = Color.White.copy(alpha = 0.08f),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.size(40.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = Icons.Filled.AccountBalanceWallet,
+                                        contentDescription = null,
+                                        tint = Color(0xFF38BDF8),
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text("الفواتير غير المدفوعة", color = Color.White.copy(alpha = 0.7f), fontSize = 11.sp)
+                                Row(horizontalArrangement = Arrangement.spacedBy(3.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = String.format(java.util.Locale.US, "%,.2f", unpaidAmount),
+                                        color = Color.White,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text("SAR", color = Color(0xFF38BDF8), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .height(32.dp)
+                                .width(1.dp)
+                                .background(Color.White.copy(alpha = 0.12f))
+                        )
+
+                        // Open Quotes
+                        val openQuotesAmount = remember(uiState.documents) {
+                            uiState.documents
+                                .filter { it.type == app.tijario.data.model.DocumentType.Quote && (it.status == "draft" || it.status == "sent") }
+                                .sumOf { it.total }
+                        }
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Surface(
+                                color = Color.White.copy(alpha = 0.08f),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.size(40.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = Icons.Filled.LocalOffer,
+                                        contentDescription = null,
+                                        tint = Color(0xFF38BDF8),
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text("العروض المفتوحة", color = Color.White.copy(alpha = 0.7f), fontSize = 11.sp)
+                                Row(horizontalArrangement = Arrangement.spacedBy(3.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = String.format(java.util.Locale.US, "%,.2f", openQuotesAmount),
+                                        color = Color.White,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text("SAR", color = Color(0xFF38BDF8), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
                     }
                 }
             }
         }
 
-        // Quick Actions Grid
+        // Quick Actions title
         Text(
-            text = t("quick_actions"),
+            text = "إجراءات سريعة ✨",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground
+            color = Color(0xFF0F172A)
         )
 
+        // Actions grid first row
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            QuickActionButton(
-                title = t("btn_new_invoice"),
-                icon = Icons.Filled.Receipt,
-                backgroundColor = if (isDocLimitReached) Color.LightGray.copy(alpha = 0.2f) else Color(0xFFF0FDF4),
-                iconColor = if (isDocLimitReached) Color.Gray else Color(0xFF16A34A),
-                onClick = { if (isDocLimitReached) showLimitAlert = true else onNewInvoice() },
-                modifier = Modifier.weight(1f)
-            )
-            QuickActionButton(
-                title = t("btn_new_quote"),
-                icon = Icons.Filled.Description,
-                backgroundColor = if (isDocLimitReached) Color.LightGray.copy(alpha = 0.2f) else Color(0xFFEFF6FF),
-                iconColor = if (isDocLimitReached) Color.Gray else Color(0xFF2563EB),
-                onClick = { if (isDocLimitReached) showLimitAlert = true else onNewQuote() },
-                modifier = Modifier.weight(1f)
-            )
+            // New Invoice
+            Card(
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable { if (isDocLimitReached) showLimitAlert = true else onNewInvoice() },
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Surface(
+                        color = Color(0xFFE6F4EA),
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier.size(44.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Filled.Receipt,
+                                contentDescription = null,
+                                tint = Color(0xFF137333),
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                    }
+                    Text("فاتورة جديدة", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF334155))
+                }
+            }
+
+            // New Quote
+            Card(
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable { if (isDocLimitReached) showLimitAlert = true else onNewQuote() },
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Surface(
+                        color = Color(0xFFE8F0FE),
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier.size(44.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Filled.Description,
+                                contentDescription = null,
+                                tint = Color(0xFF1A73E8),
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                    }
+                    Text("عرض سعر جديد", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF334155))
+                }
+            }
+
+            // Add Customer
+            Card(
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable { onCustomers() },
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Surface(
+                        color = Color(0xFFFCE8E6),
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier.size(44.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Filled.PersonAdd,
+                                contentDescription = null,
+                                tint = Color(0xFFC5221F),
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                    }
+                    Text("إضافة عميل", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF334155))
+                }
+            }
         }
 
+        // Actions grid second row
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            QuickActionButton(
-                title = t("btn_add_product"),
-                icon = Icons.Filled.BusinessCenter,
-                backgroundColor = Color(0xFFECFDF5),
-                iconColor = Color(0xFF059669),
-                onClick = onAddProduct,
-                modifier = Modifier.weight(1f)
-            )
-            QuickActionButton(
-                title = t("btn_add_customer"),
-                icon = Icons.Filled.People,
-                backgroundColor = Color(0xFFFDF2F8),
-                iconColor = Color(0xFFDB2777),
-                onClick = onCustomers,
-                modifier = Modifier.weight(1f)
-            )
-        }
-        QuickActionButton(
-            title = t("tab_ai"),
-            icon = Icons.Filled.AutoAwesome,
-            backgroundColor = Color(0xFFF5F3FF),
-            iconColor = Color(0xFF7C3AED),
-            onClick = onAiTools,
-            modifier = Modifier.fillMaxWidth()
-        )
+            // Smart Assistant Card (Tijario AI Helper) - first in code so it renders on the right in RTL
+            Card(
+                modifier = Modifier
+                    .weight(1.8f)
+                    .clickable { onAiTools() },
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Surface(
+                        color = Color(0xFFF3E8FF),
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier.size(44.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Filled.AutoAwesome,
+                                contentDescription = null,
+                                tint = Color(0xFF9333EA),
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                    }
+                    Column {
+                        Text("تجاريو AI", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1E1B4B))
+                        Text("مساعدك الذكي لأعمالك", fontSize = 11.sp, color = Color(0xFF64748B))
+                    }
+                }
+            }
 
-        if (planUsage != null) {
+            // Add Product / Service - second in code so it renders on the left in RTL
+            Card(
+                modifier = Modifier
+                    .weight(1.2f)
+                    .clickable { onAddProduct() },
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Surface(
+                        color = Color(0xFFE4F7EB),
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier.size(44.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Filled.BusinessCenter,
+                                contentDescription = null,
+                                tint = Color(0xFF0F9D58),
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                    }
+                    Text("إضافة منتج أو خدمة", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF334155))
+                }
+            }
+        }
+
+        // Latest Invoices / Quotes list Header
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Text ("آخر المستندات") first so it renders on the right in RTL
             Text(
-                text = "تفاصيل باقتك الحالية",
+                text = "آخر المستندات",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground
+                color = Color(0xFF0F172A)
             )
+
+            // TextButton ("عرض الكل") second so it renders on the left in RTL
+            TextButton(onClick = onNewQuote /* Navigate to Documents Tab */) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    // Arrow left icon second in the button Row so it renders on the left of text in RTL
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                        contentDescription = null,
+                        tint = Color(0xFF0D9488),
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Text("عرض الكل", color = Color(0xFF0D9488), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+
+        // Invoices / Documents Card list
+        if (latestDocuments.isEmpty()) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                colors = CardDefaults.cardColors(containerColor = Color.White)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(32.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("لا توجد فواتير أو عروض أسعار حتى الآن", color = Color(0xFF64748B), fontSize = 14.sp)
+                }
+            }
+        } else {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
             ) {
                 Column(
-                    modifier = Modifier.padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                    modifier = Modifier.padding(vertical = 8.dp)
                 ) {
-                    Text("الباقة: ${planUsage.planName}", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                    HorizontalDivider(color = Color(0xFFF1F5F9))
-                    UsageIndicator(
-                        title = "المستندات المستخدمة",
-                        used = planUsage.documentsUsed,
-                        total = planUsage.documentsLimit,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    UsageIndicator(
-                        title = "استعلامات الذكاء الاصطناعي",
-                        used = planUsage.aiUsed,
-                        total = planUsage.aiLimit,
-                        color = Color(0xFF7C3AED)
-                    )
+                    latestDocuments.forEachIndexed { index, doc ->
+                        val customerName = uiState.customers.find { it.id == doc.customerId }?.name ?: "عميل غير معروف"
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onNewInvoice() /* Navigate or view detail */ }
+                                .padding(horizontal = 16.dp, vertical = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.KeyboardArrowLeft,
+                                contentDescription = null,
+                                tint = Color(0xFF64748B),
+                                modifier = Modifier.size(20.dp)
+                            )
+
+                            // Status tag & Pricing metrics
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                // Status chip color logic
+                                val (chipBg, chipFg, chipText) = when (doc.paymentStatus) {
+                                    "paid" -> Triple(Color(0xFFDCFCE7), Color(0xFF15803D), "مدفوعة")
+                                    "partial" -> Triple(Color(0xFFFEF3C7), Color(0xFFB45309), "جزئية")
+                                    else -> Triple(Color(0xFFFEE2E2), Color(0xFFB91C1C), "غير مدفوعة")
+                                }
+
+                                Surface(
+                                    color = chipBg,
+                                    shape = RoundedCornerShape(10.dp)
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(6.dp)
+                                                .clip(CircleShape)
+                                                .background(chipFg)
+                                        )
+                                        Text(
+                                            text = chipText,
+                                            color = chipFg,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+
+                                Column(horizontalAlignment = Alignment.End) {
+                                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        Text(
+                                            text = String.format(java.util.Locale.US, "%,.2f", doc.total),
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 14.sp,
+                                            color = Color(0xFF0F172A)
+                                        )
+                                        Text(
+                                            text = doc.currency,
+                                            fontSize = 11.sp,
+                                            color = Color(0xFF0D9488),
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                    // Parse date string
+                                    val dateStr = try {
+                                        val ldt = java.time.LocalDateTime.parse(doc.issueDate)
+                                        val formatter = java.time.format.DateTimeFormatter.ofPattern("dd MMMM yyyy", java.util.Locale("ar"))
+                                        ldt.format(formatter)
+                                    } catch (e: Exception) {
+                                        doc.issueDate.substringBefore("T")
+                                    }
+                                    Text(
+                                        text = dateStr,
+                                        fontSize = 11.sp,
+                                        color = Color(0xFF94A3B8)
+                                    )
+                                }
+                            }
+
+                            // Document Info
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text(
+                                    text = doc.documentNumber,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp,
+                                    color = Color(0xFF0F172A)
+                                )
+                                Text(
+                                    text = customerName,
+                                    fontSize = 12.sp,
+                                    color = Color(0xFF64748B)
+                                )
+                            }
+                        }
+
+                        if (index < latestDocuments.size - 1) {
+                            HorizontalDivider(color = Color(0xFFF1F5F9), modifier = Modifier.padding(horizontal = 16.dp))
+                        }
+                    }
                 }
             }
         }
