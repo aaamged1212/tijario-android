@@ -252,8 +252,23 @@ fun DashboardScreen(
     }
 
     val businessCurrency = uiState.businessSettings?.currency ?: "SAR"
-    val referenceDate = remember { java.time.LocalDate.now() }
-    val totalAmount = app.tijario.domain.DashboardStatsCalculator.calculateCurrentMonthEarnings(uiState.documents, referenceDate)
+    val currencyName = when (businessCurrency.uppercase()) {
+        "SAR" -> "الريال السعودي"
+        "YER" -> "الريال اليمني"
+        "USD" -> "الدولار الأمريكي"
+        "AED" -> "الدرهم الإماراتي"
+        "EGP" -> "الجنيه المصري"
+        "KWD" -> "الدينار الكويتي"
+        "BHD" -> "الدينار البحريني"
+        "OMR" -> "الريال العماني"
+        "QAR" -> "الريال القطري"
+        else -> businessCurrency
+    }
+    val totalAmount = remember(uiState.documents, businessCurrency) {
+        uiState.documents
+            .filter { it.type == app.tijario.data.model.DocumentType.Invoice && it.paymentStatus?.lowercase() == "paid" && it.currency.uppercase() == businessCurrency.uppercase() }
+            .sumOf { it.total }
+    }
 
     val planUsage = uiState.planUsage
     val isDocLimitReached = planUsage != null && planUsage.documentsLimit > 0 && planUsage.documentsUsed >= planUsage.documentsLimit
@@ -317,7 +332,7 @@ fun DashboardScreen(
                         // Column (الملخص المالي) first in the code row so it renders on the right in RTL
                         Column(horizontalAlignment = Alignment.End) {
                             Text("الملخص المالي", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                            Text("جميع الأرقام بالريال السعودي", color = Color.White.copy(alpha = 0.6f), fontSize = 11.sp)
+                            Text("جميع الأرقام بـ $currencyName", color = Color.White.copy(alpha = 0.6f), fontSize = 11.sp)
                         }
 
                         // Button (عرض الملخص) second in the code row so it renders on the left in RTL
@@ -360,7 +375,7 @@ fun DashboardScreen(
                                 fontWeight = FontWeight.Black
                             )
                             Text(
-                                text = "SAR",
+                                text = businessCurrency,
                                 color = Color(0xFF38BDF8),
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold,
@@ -377,9 +392,9 @@ fun DashboardScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         // Unpaid Invoices
-                        val unpaidAmount = remember(uiState.documents) {
+                        val unpaidAmount = remember(uiState.documents, businessCurrency) {
                             uiState.documents
-                                .filter { it.type == app.tijario.data.model.DocumentType.Invoice && it.paymentStatus == "unpaid" }
+                                .filter { it.type == app.tijario.data.model.DocumentType.Invoice && it.paymentStatus?.lowercase() == "unpaid" && it.currency.uppercase() == businessCurrency.uppercase() }
                                 .sumOf { it.total }
                         }
                         Row(
@@ -409,7 +424,7 @@ fun DashboardScreen(
                                         fontSize = 14.sp,
                                         fontWeight = FontWeight.Bold
                                     )
-                                    Text("SAR", color = Color(0xFF38BDF8), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                    Text(text = businessCurrency, color = Color(0xFF38BDF8), fontSize = 10.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
                         }
@@ -422,9 +437,9 @@ fun DashboardScreen(
                         )
 
                         // Open Quotes
-                        val openQuotesAmount = remember(uiState.documents) {
+                        val openQuotesAmount = remember(uiState.documents, businessCurrency) {
                             uiState.documents
-                                .filter { it.type == app.tijario.data.model.DocumentType.Quote && (it.status == "draft" || it.status == "sent") }
+                                .filter { it.type == app.tijario.data.model.DocumentType.Quote && (it.status?.lowercase() == "draft" || it.status?.lowercase() == "sent") && it.currency.uppercase() == businessCurrency.uppercase() }
                                 .sumOf { it.total }
                         }
                         Row(
@@ -454,7 +469,7 @@ fun DashboardScreen(
                                         fontSize = 14.sp,
                                         fontWeight = FontWeight.Bold
                                     )
-                                    Text("SAR", color = Color(0xFF38BDF8), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                    Text(text = businessCurrency, color = Color(0xFF38BDF8), fontSize = 10.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
                         }
