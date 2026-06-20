@@ -116,7 +116,7 @@ fun SettingsHomeScreen(
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("الإعدادات", fontWeight = FontWeight.Bold) },
+                title = { Text(t("settings"), fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = t("btn_back"))
@@ -152,6 +152,15 @@ fun SettingsHomeScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        val displayPlanName = when (usage?.planName) {
+                            "Free", "الخطة المجانية", null -> t("free_plan")
+                            "Pro", "الباقة الاحترافية" -> t("account_pro_badge")
+                            else -> usage.planName
+                        }
+                        Column(horizontalAlignment = Alignment.Start) {
+                            Text(t("current_plan"), color = Color.White.copy(alpha = 0.72f), fontSize = 13.sp)
+                            Text(displayPlanName, color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Black)
+                        }
                         Surface(
                             color = Color.White.copy(alpha = 0.15f),
                             shape = CircleShape,
@@ -166,23 +175,19 @@ fun SettingsHomeScreen(
                                 )
                             }
                         }
-                        Column(horizontalAlignment = Alignment.End) {
-                            Text("الخطة الحالية", color = Color.White.copy(alpha = 0.72f), fontSize = 13.sp)
-                            Text(usage?.planName ?: "الخطة المجانية", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Black)
-                        }
                     }
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    UsageLine("المستندات", usage?.documentsUsed ?: 0, usage?.documentsLimit ?: 0, Icons.Filled.Description, Color(0xFFCCFBF1))
-                    UsageLine("استخدامات AI", usage?.aiUsed ?: 0, usage?.aiLimit ?: 0, Icons.Filled.AutoAwesome, Color(0xFFBAE6FD))
+                    UsageLine(t("documents"), usage?.documentsUsed ?: 0, usage?.documentsLimit ?: 0, Icons.Filled.Description, Color(0xFFCCFBF1))
+                    UsageLine(t("ai_uses"), usage?.aiUsed ?: 0, usage?.aiLimit ?: 0, Icons.Filled.AutoAwesome, Color(0xFFBAE6FD))
                 }
             }
 
-            SettingsOption(Icons.Filled.Business, "إعدادات المتجر", "الشعار، بيانات النشاط، العملة والدولة", onStoreSettings)
-            SettingsOption(Icons.Filled.AccountCircle, "إعدادات الحساب", "البريد، كلمة المرور، بيانات الحساب", onAccountSettings)
-            SettingsOption(Icons.Filled.Settings, "إعدادات التطبيق", "اللغة، المظهر، تفضيلات التطبيق", onAppSettings)
-            SettingsOption(Icons.Filled.WorkspacePremium, "ترقية الخطة", "افتح حدود أعلى وميزات احترافية", onUpgrade)
+            SettingsOption(Icons.Filled.Business, t("store_settings"), t("store_settings_desc"), onStoreSettings)
+            SettingsOption(Icons.Filled.AccountCircle, t("account_settings"), t("account_settings_desc"), onAccountSettings)
+            SettingsOption(Icons.Filled.Settings, t("app_settings"), t("app_settings_desc"), onAppSettings)
+            SettingsOption(Icons.Filled.WorkspacePremium, t("upgrade_plan"), t("upgrade_plan_desc"), onUpgrade)
 
             Button(
                 onClick = onLogout,
@@ -195,7 +200,7 @@ fun SettingsHomeScreen(
             ) {
                 Icon(Icons.Filled.Logout, contentDescription = null)
                 Spacer(modifier = Modifier.size(8.dp))
-                Text("تسجيل الخروج", fontWeight = FontWeight.Bold)
+                Text(t("logout"), fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -208,6 +213,7 @@ fun AccountSettingsScreen(
     onLogout: () -> Unit,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
+    val noEmailMsg = t("no_email_associated")
     val scope = rememberCoroutineScope()
     var email by remember { mutableStateOf("") }
     val context = LocalContext.current
@@ -437,7 +443,7 @@ fun AccountSettingsScreen(
                     .clickable {
                         scope.launch {
                             if (email.isBlank()) {
-                                snackbarHostState.showSnackbar("لا يوجد بريد إلكتروني مرتبط بالحساب")
+                                snackbarHostState.showSnackbar(noEmailMsg)
                             } else {
                                 val result = Supabase.apiClient.requestPasswordReset(ResetPasswordRequest(email))
                                 snackbarHostState.showSnackbar(if (result.ok) "تم إرسال رابط إعادة تعيين كلمة المرور" else result.displayMessage)
@@ -471,7 +477,6 @@ fun AccountSettingsScreen(
                             Text(t("update_password_desc"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
                         }
                     }
-                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
 
@@ -507,7 +512,6 @@ fun AccountSettingsScreen(
                             Text(t("logout_desc"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
                         }
                     }
-                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
@@ -626,7 +630,6 @@ fun AppSettingsScreen(onBack: () -> Unit) {
                                 )
                             }
                         }
-                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
 
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = 8.dp))
@@ -679,7 +682,7 @@ fun UpgradePlanScreen(onBack: () -> Unit) {
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("ترقية الخطة", fontWeight = FontWeight.Bold) },
+                title = { Text(t("upgrade_plan"), fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = t("btn_back"))
@@ -702,19 +705,19 @@ fun UpgradePlanScreen(onBack: () -> Unit) {
                     Icon(Icons.Filled.RocketLaunch, contentDescription = null, tint = Color(0xFF0F766E), modifier = Modifier.size(36.dp))
                 }
             }
-            Text("ارتق بتجاريو برو", fontSize = 26.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center)
-            Text("حدود أعلى للمستندات والذكاء الاصطناعي وتجربة أعمال أكثر احترافية.", color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+            Text(t("rise_to_pro"), fontSize = 26.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center)
+            Text(t("pro_benefits_desc"), color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
             
             PlanCard(
                 title = "Pro", 
-                subtitle = "مناسب للمتاجر النامية", 
-                features = listOf("مستندات شهرية أكثر", "استخدامات AI أعلى", "قوالب PDF احترافية", "دعم ميزات متقدمة"),
+                subtitle = t("suitable_growing_stores"), 
+                features = listOf(t("more_monthly_docs"), t("higher_ai_uses"), t("pro_pdf_templates"), t("advanced_features_support")),
                 border = BorderStroke(1.dp, Color(0xFF2DD4BF))
             )
             PlanCard(
                 title = "Business", 
-                subtitle = "للأعمال كثيرة المستندات", 
-                features = listOf("حدود أعلى", "أولوية في الميزات", "إدارة أكثر مرونة", "جاهز للتوسع"),
+                subtitle = t("business_lots_docs"), 
+                features = listOf(t("higher_limits"), t("priority_features"), t("more_flexible_management"), t("ready_to_expand")),
                 badgeColor = Color(0xFFF1F5F9),
                 badgeTextColor = Color(0xFF475569),
                 border = BorderStroke(1.dp, Color(0xFFE2E8F0))
@@ -725,7 +728,7 @@ fun UpgradePlanScreen(onBack: () -> Unit) {
                 shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0D9488))
             ) {
-                Text("قريبًا: تفعيل الترقية", fontWeight = FontWeight.Bold, color = Color.White)
+                Text(t("coming_soon_upgrade"), fontWeight = FontWeight.Bold, color = Color.White)
             }
         }
     }
@@ -746,7 +749,6 @@ private fun SettingsOption(icon: ImageVector, title: String, subtitle: String, o
                 Text(title, fontWeight = FontWeight.Bold)
                 Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
             }
-            Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -773,17 +775,10 @@ private fun UsageLine(title: String, used: Int, limit: Int, icon: ImageVector, c
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = if (limit <= 0) "$used" else "$used / $limit",
-                color = Color.White,
-                fontWeight = FontWeight.Bold,
-                fontSize = 14.sp
-            )
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text(title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                 Surface(
                     color = Color.White.copy(alpha = 0.15f),
                     shape = CircleShape,
@@ -793,7 +788,14 @@ private fun UsageLine(title: String, used: Int, limit: Int, icon: ImageVector, c
                         Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
                     }
                 }
+                Text(title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
             }
+            Text(
+                text = if (limit <= 0) "$used" else "$used / $limit",
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp
+            )
         }
         LinearProgressIndicator(
             progress = { progress }, 
@@ -826,11 +828,7 @@ private fun PlanCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "", 
-                    modifier = Modifier.weight(1f)
-                )
-                Column(horizontalAlignment = Alignment.End) {
+                Column(horizontalAlignment = Alignment.Start) {
                     Surface(
                         color = badgeColor, 
                         shape = RoundedCornerShape(12.dp),
@@ -851,21 +849,15 @@ private fun PlanCard(
                         color = Color(0xFF081C36)
                     )
                 }
+                Spacer(modifier = Modifier.weight(1f))
             }
             HorizontalDivider(color = Color(0xFFE2E8F0), thickness = 1.dp, modifier = Modifier.padding(vertical = 4.dp))
             features.forEach {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
+                    horizontalArrangement = Arrangement.Start,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = it, 
-                        fontWeight = FontWeight.Medium, 
-                        fontSize = 14.sp, 
-                        color = Color(0xFF475569), 
-                        modifier = Modifier.padding(end = 8.dp)
-                    )
                     Surface(
                         color = Color(0xFFE6FFFA), 
                         shape = CircleShape, 
@@ -880,6 +872,13 @@ private fun PlanCard(
                             )
                         }
                     }
+                    Spacer(modifier = Modifier.size(8.dp))
+                    Text(
+                        text = it, 
+                        fontWeight = FontWeight.Medium, 
+                        fontSize = 14.sp, 
+                        color = Color(0xFF475569)
+                    )
                 }
             }
         }

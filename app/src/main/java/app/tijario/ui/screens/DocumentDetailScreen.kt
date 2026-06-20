@@ -52,6 +52,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.tijario.config.AppLanguage
+import app.tijario.config.LocalLanguage
 import app.tijario.config.t
 import app.tijario.data.model.CompleteDocument
 import app.tijario.data.model.DocumentType
@@ -73,6 +74,7 @@ fun DocumentDetailScreen(
     documentId: String,
     onBack: () -> Unit,
 ) {
+    val language = LocalLanguage.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val uiState by dataViewModel.uiState.collectAsStateWithLifecycle()
@@ -188,20 +190,20 @@ fun DocumentDetailScreen(
                                 verticalArrangement = Arrangement.spacedBy(6.dp),
                             ) {
                                 Text(
-                                    text = if (doc.type == DocumentType.Invoice) "فاتورة ${doc.documentNumber}" else "عرض سعر ${doc.documentNumber}",
+                                    text = if (doc.type == DocumentType.Invoice) t("invoice_num").replace("%s", doc.documentNumber) else t("quote_num").replace("%s", doc.documentNumber),
                                     fontSize = 18.sp,
                                     fontWeight = FontWeight.Bold,
                                 )
-                                Text("العميل: ${doc.customer?.name ?: "غير معروف"}", fontSize = 13.sp)
-                                Text("الإجمالي: ${doc.total} ${doc.currency}", fontSize = 13.sp)
+                                Text(t("customer_label").replace("%s", doc.customer?.name ?: t("unknown_customer")), fontSize = 13.sp)
+                                Text(t("total_label").replaceFirst("%s", doc.total.toString()).replaceFirst("%s", doc.currency), fontSize = 13.sp)
                                 if (doc.type == DocumentType.Invoice) {
-                                    Text("حالة الدفع: ${app.tijario.domain.PaymentStatusMapper.getStatusText(doc.paymentStatus, AppLanguage.AR)}", fontSize = 13.sp)
+                                    Text(t("payment_status_label").replace("%s", app.tijario.domain.PaymentStatusMapper.getStatusText(doc.paymentStatus, language)), fontSize = 13.sp)
                                 }
                             }
                         }
 
                         Text(
-                            text = "معاينة أولية",
+                            text = t("document_preview"),
                             fontWeight = FontWeight.Bold,
                             fontSize = 16.sp,
                             color = MaterialTheme.colorScheme.onBackground,

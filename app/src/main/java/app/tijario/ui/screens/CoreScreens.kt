@@ -393,7 +393,7 @@ fun DashboardScreen(
                     ) {
                         Column(horizontalAlignment = Alignment.Start) {
                             Text(t("financial_summary"), color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                            Text("جميع الأرقام بـ $currencyName", color = Color.White.copy(alpha = 0.6f), fontSize = 11.sp)
+                            Text(t("all_amounts_in").replace("%s", currencyName), color = Color.White.copy(alpha = 0.6f), fontSize = 11.sp)
                         }
 
                         // Button (هذا الشهر)
@@ -419,7 +419,7 @@ fun DashboardScreen(
                         horizontalAlignment = Alignment.Start
                     ) {
                         Text(
-                            text = "إجمالي المبيعات",
+                            text = t("total_sales"),
                             color = Color.White.copy(alpha = 0.7f),
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Medium
@@ -538,7 +538,7 @@ fun DashboardScreen(
 
         // Quick Actions title
         Text(
-            text = "إجراءات سريعة",
+            text = t("quick_actions"),
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onBackground
@@ -688,7 +688,7 @@ fun DashboardScreen(
                         }
                     }
                     Column {
-                        Text("تجاريو AI", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                        Text(t("tab_ai"), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                         Text(t("ai_assistant_sub"), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
@@ -737,7 +737,7 @@ fun DashboardScreen(
         ) {
             // Text ("آخر المستندات") first so it renders on the right in RTL
             Text(
-                text = "آخر المستندات",
+                text = t("latest_documents"),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground
@@ -756,7 +756,7 @@ fun DashboardScreen(
                         tint = Color(0xFF0D9488),
                         modifier = Modifier.size(16.dp)
                     )
-                    Text("عرض الكل", color = Color(0xFF0D9488), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Text(t("view_all"), color = Color(0xFF0D9488), fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -877,7 +877,7 @@ fun DashboardScreen(
                                     verticalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     if (doc.type == app.tijario.data.model.DocumentType.Invoice) {
-                                        val payStatusText = app.tijario.domain.PaymentStatusMapper.getStatusText(doc.paymentStatus)
+                                        val payStatusText = app.tijario.domain.PaymentStatusMapper.getStatusText(doc.paymentStatus, language)
                                         val payColors = app.tijario.domain.PaymentStatusMapper.getStatusColors(doc.paymentStatus)
                                         Surface(
                                             color = Color(payColors.first).copy(alpha = 0.15f),
@@ -1196,7 +1196,7 @@ fun CustomersScreen(
                 TijarioFilterChip(
                     selected = selectedFilter == "active",
                     onClick = { selectedFilter = "active" },
-                    label = t("filter_unpaid"), // Maps to active/unpaid filter text
+                    label = t("customer_active"), // Maps to active filter text
                     leadingIcon = {
                         Box(
                             modifier = Modifier
@@ -1251,33 +1251,20 @@ fun CustomersScreen(
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // 1. أكثر تعاملاً (Top)
+                    // 1. إجمالي العملاء (Total)
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier.weight(1f)
                     ) {
-                        Icon(Icons.Filled.Star, contentDescription = null, tint = Color(0xFFFBBF24), modifier = Modifier.size(18.dp))
+                        Icon(Icons.Filled.People, contentDescription = null, tint = Color(0xFF6B7280), modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.height(4.dp))
-                        Text(topCustomersCount.toString(), fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                        Text(t("most_active_customers"), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(customers.size.toString(), fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        Text(t("total_customers"), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
 
                     Box(modifier = Modifier.width(1.dp).height(32.dp).background(MaterialTheme.colorScheme.outlineVariant))
 
-                    // 2. عملاء جدد (New)
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Icon(Icons.Filled.Description, contentDescription = null, tint = Color(0xFF3B82F6), modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(newCustomersCount.toString(), fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                        Text(t("new_customers"), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-
-                    Box(modifier = Modifier.width(1.dp).height(32.dp).background(MaterialTheme.colorScheme.outlineVariant))
-
-                    // 3. عملاء نشطين (Active)
+                    // 2. عملاء نشطين (Active)
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier.weight(1f)
@@ -1290,15 +1277,28 @@ fun CustomersScreen(
 
                     Box(modifier = Modifier.width(1.dp).height(32.dp).background(MaterialTheme.colorScheme.outlineVariant))
 
-                    // 4. إجمالي العملاء (Total)
+                    // 3. عملاء جدد (New)
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier.weight(1f)
                     ) {
-                        Icon(Icons.Filled.People, contentDescription = null, tint = Color(0xFF6B7280), modifier = Modifier.size(18.dp))
+                        Icon(Icons.Filled.Description, contentDescription = null, tint = Color(0xFF3B82F6), modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.height(4.dp))
-                        Text(customers.size.toString(), fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                        Text(t("total_customers"), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(newCustomersCount.toString(), fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        Text(t("new_customers"), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+
+                    Box(modifier = Modifier.width(1.dp).height(32.dp).background(MaterialTheme.colorScheme.outlineVariant))
+
+                    // 4. أكثر تعاملاً (Top)
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Filled.Star, contentDescription = null, tint = Color(0xFFFBBF24), modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(topCustomersCount.toString(), fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        Text(t("most_active_customers"), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
@@ -1407,7 +1407,7 @@ fun CustomersScreen(
                                                 ) {
                                                     Box(modifier = Modifier.size(5.dp).background(badgeText, CircleShape))
                                                     Text(
-                                                        text = if (isCustomerActive) t("filter_unpaid") else t("theme_light"), // Active / Normal
+                                                        text = if (isCustomerActive) t("customer_active") else t("theme_light"), // Active / Normal
                                                         color = badgeText,
                                                         fontSize = 10.sp,
                                                         fontWeight = FontWeight.Bold
@@ -2239,7 +2239,7 @@ fun DocumentsScreen(
                                         }
 
                                         if (doc.type == app.tijario.data.model.DocumentType.Invoice) {
-                                            val payStatusText = app.tijario.domain.PaymentStatusMapper.getStatusText(doc.paymentStatus)
+                                            val payStatusText = app.tijario.domain.PaymentStatusMapper.getStatusText(doc.paymentStatus, language)
                                             val payColors = app.tijario.domain.PaymentStatusMapper.getStatusColors(doc.paymentStatus)
                                             Surface(
                                                 color = Color(payColors.first).copy(alpha = 0.15f),

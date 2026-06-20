@@ -390,7 +390,7 @@ fun ProductFormScreen(
                     )
 
                     TijarioTextField(
-                        label = "الكمية المتوفرة (اختياري)",
+                        label = t("available_stock_optional"),
                         value = form.stockQuantity,
                         onValueChange = { form = form.copy(stockQuantity = it) },
                         error = if (form.stockQuantity.isNotEmpty()) form.stockQuantityError else null,
@@ -944,12 +944,6 @@ private fun SettingsItemRow(
                 Text(value, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
             }
         }
-        Icon(
-            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(20.dp)
-        )
     }
 }
 
