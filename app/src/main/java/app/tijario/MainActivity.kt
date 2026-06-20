@@ -23,7 +23,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            TijarioTheme(darkTheme = isDarkMode) {
+            TijarioTheme(darkTheme = isDarkMode, language = currentLanguage) {
                 val layoutDirection = if (currentLanguage == AppLanguage.AR) {
                     LayoutDirection.Rtl
                 } else {
