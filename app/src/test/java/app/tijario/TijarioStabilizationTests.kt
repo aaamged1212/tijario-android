@@ -95,34 +95,44 @@ class TijarioStabilizationTests {
         val referenceDate = LocalDate.of(2026, 6, 20)
         val docs = listOf(
             // Paid invoice this month -> Should be counted in revenue
-            DocumentSummary("1", "c1", DocumentType.Invoice, "INV-001", "sent", "paid", "2026-06-15T12:00:00", 100.0, "SAR"),
+            documentSummary("1", "c1", DocumentType.Invoice, "INV-001", "sent", "paid", "2026-06-15T12:00:00", 100.0, "SAR"),
             // Paid invoice this month, different day -> Should be counted
-            DocumentSummary("2", "c1", DocumentType.Invoice, "INV-002", "sent", "paid", "2026-06-19T22:30:00", 150.0, "SAR"),
+            documentSummary("2", "c1", DocumentType.Invoice, "INV-002", "sent", "paid", "2026-06-19T22:30:00", 150.0, "SAR"),
             // Paid invoice different month -> Ignored from monthly revenue
-            DocumentSummary("3", "c1", DocumentType.Invoice, "INV-003", "sent", "paid", "2026-05-15T12:00:00", 500.0, "SAR"),
+            documentSummary("3", "c1", DocumentType.Invoice, "INV-003", "sent", "paid", "2026-05-15T12:00:00", 500.0, "SAR"),
             // Unpaid invoice this month -> Ignored from revenue
-            DocumentSummary("4", "c1", DocumentType.Invoice, "INV-004", "sent", "unpaid", "2026-06-10T08:00:00", 300.0, "SAR"),
+            documentSummary("4", "c1", DocumentType.Invoice, "INV-004", "sent", "unpaid", "2026-06-10T08:00:00", 300.0, "SAR"),
             // Paid quote this month -> Quotes are never revenue
-            DocumentSummary("5", "c1", DocumentType.Quote, "QTE-001", "accepted", "paid", "2026-06-15T12:00:00", 1000.0, "SAR"),
+            documentSummary("5", "c1", DocumentType.Quote, "QTE-001", "accepted", "paid", "2026-06-15T12:00:00", 1000.0, "SAR"),
             // Malformed date -> Ignored safely
-            DocumentSummary("6", "c1", DocumentType.Invoice, "INV-005", "sent", "paid", "invalid-date", 100.0, "SAR")
+            documentSummary("6", "c1", DocumentType.Invoice, "INV-005", "sent", "paid", "invalid-date", 100.0, "SAR"),
+            // Partial invoice -> paid portion is collected, remaining portion is outstanding
+            documentSummary("7", "c1", DocumentType.Invoice, "INV-006", "sent", "partial", "2026-06-20T12:00:00", 500.0, "SAR", amountPaid = 125.0),
+            // Different currency -> ignored when filtering financial dashboard currency
+            documentSummary("8", "c1", DocumentType.Invoice, "INV-007", "sent", "partial", "2026-06-20T12:00:00", 900.0, "YER", amountPaid = 400.0)
         )
 
         val totalAmount = DashboardStatsCalculator.calculateCurrentMonthEarnings(docs, referenceDate)
-        assertEquals(250.0, totalAmount, 0.001)
+        assertEquals(775.0, totalAmount, 0.001)
 
         val paidCount = DashboardStatsCalculator.countPaidInvoices(docs, referenceDate)
         assertEquals(2, paidCount)
+
+        val collectedAmount = DashboardStatsCalculator.calculateCollectedInvoiceAmount(docs, "SAR")
+        assertEquals(975.0, collectedAmount, 0.001)
+
+        val outstandingAmount = DashboardStatsCalculator.calculateOutstandingInvoiceAmount(docs, "SAR")
+        assertEquals(675.0, outstandingAmount, 0.001)
     }
 
     @Test
     fun testDashboardStatsCalculator_pendingQuotesCount() {
         val docs = listOf(
-            DocumentSummary("1", "c1", DocumentType.Quote, "Q1", "draft", null, "2026-06-20", 100.0, "SAR"),
-            DocumentSummary("2", "c1", DocumentType.Quote, "Q2", "sent", null, "2026-06-20", 200.0, "SAR"),
-            DocumentSummary("3", "c1", DocumentType.Quote, "Q3", "accepted", null, "2026-06-20", 300.0, "SAR"),
-            DocumentSummary("4", "c1", DocumentType.Quote, "Q4", "cancelled", null, "2026-06-20", 400.0, "SAR"),
-            DocumentSummary("5", "c1", DocumentType.Invoice, "I1", "draft", null, "2026-06-20", 500.0, "SAR")
+            documentSummary("1", "c1", DocumentType.Quote, "Q1", "draft", null, "2026-06-20", 100.0, "SAR"),
+            documentSummary("2", "c1", DocumentType.Quote, "Q2", "sent", null, "2026-06-20", 200.0, "SAR"),
+            documentSummary("3", "c1", DocumentType.Quote, "Q3", "accepted", null, "2026-06-20", 300.0, "SAR"),
+            documentSummary("4", "c1", DocumentType.Quote, "Q4", "cancelled", null, "2026-06-20", 400.0, "SAR"),
+            documentSummary("5", "c1", DocumentType.Invoice, "I1", "draft", null, "2026-06-20", 500.0, "SAR")
         )
 
         // Confirmed Tijario rule: draft and sent quotes only
@@ -170,4 +180,28 @@ class TijarioStabilizationTests {
         assertEquals("هذا العميل مضاف بالفعل.", ErrorMapper.mapApiCode("DUPLICATE_CUSTOMER"))
         assertEquals("حدث خطأ في النظام (RANDOM_CODE).", ErrorMapper.mapApiCode("RANDOM_CODE"))
     }
+    private fun documentSummary(
+        id: String,
+        customerId: String,
+        type: DocumentType,
+        documentNumber: String,
+        status: String,
+        paymentStatus: String?,
+        issueDate: String,
+        total: Double,
+        currency: String,
+        amountPaid: Double? = null,
+    ): DocumentSummary =
+        DocumentSummary(
+            id = id,
+            customerId = customerId,
+            type = type,
+            documentNumber = documentNumber,
+            status = status,
+            paymentStatus = paymentStatus,
+            amountPaid = amountPaid,
+            issueDate = issueDate,
+            total = total,
+            currency = currency,
+        )
 }

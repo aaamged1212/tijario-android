@@ -75,6 +75,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.tijario.MainActivity
 import app.tijario.config.AppLanguage
 import app.tijario.config.t
+import app.tijario.domain.DashboardStatsCalculator
 import app.tijario.features.documents.export.DocumentExportManager
 import app.tijario.features.documents.mapper.TijarioDocumentMapper
 import app.tijario.features.documents.ui.DocumentTemplatePreferences
@@ -267,9 +268,7 @@ fun DashboardScreen(
         else -> businessCurrency
     }
     val totalAmount = remember(uiState.documents, businessCurrency) {
-        uiState.documents
-            .filter { it.type == app.tijario.data.model.DocumentType.Invoice && it.paymentStatus?.lowercase() == "paid" && it.currency.uppercase() == businessCurrency.uppercase() }
-            .sumOf { it.total }
+        DashboardStatsCalculator.calculateCollectedInvoiceAmount(uiState.documents, businessCurrency)
     }
 
     val planUsage = uiState.planUsage
@@ -395,9 +394,7 @@ fun DashboardScreen(
                     ) {
                         // Unpaid Invoices
                         val unpaidAmount = remember(uiState.documents, businessCurrency) {
-                            uiState.documents
-                                .filter { it.type == app.tijario.data.model.DocumentType.Invoice && it.paymentStatus?.lowercase() == "unpaid" && it.currency.uppercase() == businessCurrency.uppercase() }
-                                .sumOf { it.total }
+                            DashboardStatsCalculator.calculateOutstandingInvoiceAmount(uiState.documents, businessCurrency)
                         }
                         Row(
                             verticalAlignment = Alignment.CenterVertically,

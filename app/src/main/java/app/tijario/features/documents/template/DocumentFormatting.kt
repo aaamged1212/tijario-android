@@ -11,7 +11,7 @@ object DocumentFormatting {
         if (language == AppLanguage.AR) Locale("ar", "SA") else Locale.US
 
     fun money(value: BigDecimal, currency: String, language: AppLanguage): String {
-        val formatted = NumberFormat.getNumberInstance(locale(language)).apply {
+        val formatted = NumberFormat.getNumberInstance(Locale.US).apply {
             minimumFractionDigits = 2
             maximumFractionDigits = 2
         }.format(value.setScale(2, RoundingMode.HALF_UP))
@@ -19,7 +19,7 @@ object DocumentFormatting {
     }
 
     fun quantity(value: Int, language: AppLanguage): String =
-        NumberFormat.getIntegerInstance(locale(language)).format(value)
+        NumberFormat.getIntegerInstance(Locale.US).format(value)
 
     fun status(value: String?, language: AppLanguage): String? =
         when (value?.lowercase(Locale.US)) {

@@ -10,9 +10,14 @@ object DashboardStatsCalculator {
         val targetPrefix = referenceDate.format(DateTimeFormatter.ofPattern("yyyy-MM"))
         return documents
             .filter { it.type == DocumentType.Invoice }
-            .filter { it.paymentStatus?.lowercase() == "paid" }
             .filter { safeMatchDate(it.issueDate, targetPrefix) }
-            .sumOf { it.total }
+            .sumOf {
+                PaymentAmountCalculator.calculate(
+                    paymentStatus = it.paymentStatus,
+                    total = java.math.BigDecimal.valueOf(it.total),
+                    amountPaid = it.amountPaid?.let(java.math.BigDecimal::valueOf),
+                ).paid.toDouble()
+            }
     }
 
     fun countPaidInvoices(documents: List<DocumentSummary>, referenceDate: LocalDate): Int {
@@ -22,6 +27,30 @@ object DashboardStatsCalculator {
             .filter { it.paymentStatus?.lowercase() == "paid" }
             .count { safeMatchDate(it.issueDate, targetPrefix) }
     }
+
+    fun calculateCollectedInvoiceAmount(documents: List<DocumentSummary>, currency: String? = null): Double =
+        documents
+            .filter { it.type == DocumentType.Invoice }
+            .filter { matchesCurrency(it.currency, currency) }
+            .sumOf {
+                PaymentAmountCalculator.calculate(
+                    paymentStatus = it.paymentStatus,
+                    total = java.math.BigDecimal.valueOf(it.total),
+                    amountPaid = it.amountPaid?.let(java.math.BigDecimal::valueOf),
+                ).paid.toDouble()
+            }
+
+    fun calculateOutstandingInvoiceAmount(documents: List<DocumentSummary>, currency: String? = null): Double =
+        documents
+            .filter { it.type == DocumentType.Invoice }
+            .filter { matchesCurrency(it.currency, currency) }
+            .sumOf {
+                PaymentAmountCalculator.remainingDouble(
+                    paymentStatus = it.paymentStatus,
+                    total = it.total,
+                    amountPaid = it.amountPaid,
+                )
+            }
 
     fun countPendingQuotes(documents: List<DocumentSummary>): Int {
         // Confirmed Tijario rule: draft and sent quotations only
@@ -45,4 +74,7 @@ object DashboardStatsCalculator {
             false // safe ignore malformed dates without crashing
         }
     }
+
+    private fun matchesCurrency(documentCurrency: String, currency: String?): Boolean =
+        currency.isNullOrBlank() || documentCurrency.equals(currency, ignoreCase = true)
 }

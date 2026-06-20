@@ -26,6 +26,8 @@ data class DocumentTotals(
     val discount: BigDecimal,
     val extraFees: BigDecimal,
     val total: BigDecimal,
+    val amountPaid: BigDecimal = BigDecimal.ZERO,
+    val amountRemaining: BigDecimal = BigDecimal.ZERO,
     val currency: String,
 )
 

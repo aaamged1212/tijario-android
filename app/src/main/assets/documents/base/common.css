@@ -40,8 +40,8 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: "Almarai", "DINNext", sans-serif;
-  font-size: 12px;
-  line-height: 1.55;
+  font-size: 14px;
+  line-height: 1.65;
 }
 
 body[dir="ltr"],
@@ -64,32 +64,34 @@ html[dir="ltr"] body {
 
 .header {
   display: grid;
-  gap: 14px;
-  margin-bottom: 16px;
+  grid-template-columns: minmax(0, 1fr) 72mm !important;
+  gap: 18px;
+  align-items: start;
+  margin-bottom: 18px;
 }
 
 .brand {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
 }
 
 .logo {
-  width: 48px;
-  height: 48px;
-  border-radius: 10px;
+  width: 96px !important;
+  height: 96px !important;
+  border-radius: 14px;
   display: grid;
   place-items: center;
   background: var(--logo-bg);
   color: var(--logo-text);
   font-weight: 800;
-  font-size: 18px;
+  font-size: 32px;
   overflow: hidden;
   flex: 0 0 auto;
 }
 
 .logo-image {
-  padding: 4px;
+  padding: 6px;
 }
 
 .logo-image img {
@@ -101,9 +103,16 @@ html[dir="ltr"] body {
 
 .business-name {
   margin: 0;
-  font-size: 22px;
+  font-size: 32px !important;
   line-height: 1.25;
   font-weight: 800;
+}
+
+.business-meta,
+.party-lines {
+  font-size: 16px;
+  line-height: 1.75;
+  font-weight: 700;
 }
 
 .business-meta,
@@ -116,9 +125,16 @@ html[dir="ltr"] body {
 
 .document-title {
   margin: 0;
-  font-size: 28px;
+  font-size: 34px;
   font-weight: 900;
   color: var(--title-text);
+}
+
+.title-block {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+  text-align: start;
 }
 
 .status-row {
@@ -132,7 +148,7 @@ html[dir="ltr"] body {
   align-items: center;
   border-radius: 999px;
   padding: 4px 10px;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 800;
   background: var(--soft);
   color: var(--text);
@@ -151,8 +167,8 @@ html[dir="ltr"] body {
 
 .meta-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  grid-template-columns: 1fr;
+  gap: 4px;
 }
 
 .meta-card,
@@ -166,16 +182,31 @@ html[dir="ltr"] body {
   background: #FFFFFF;
 }
 
+.meta-card {
+  border: 0 !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+}
+
+.party-card {
+  border: 0 !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+}
+
 .label {
   display: block;
-  margin-bottom: 2px;
+  margin-bottom: 0;
   color: var(--muted);
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .value {
   color: var(--text);
   font-weight: 800;
+  font-size: 15px;
 }
 
 .parties {
@@ -196,43 +227,44 @@ html[dir="ltr"] body {
 
 .party-primary {
   color: var(--text);
-  font-size: 15px;
+  font-size: 20px;
   font-weight: 900;
   overflow-wrap: anywhere;
 }
 
 .party-details {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  grid-template-columns: 1fr;
+  gap: 2px;
 }
 
 .party-detail {
   min-width: 0;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 8px 10px;
-  background: var(--soft);
+  border: 0 !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
 }
 
 .party-detail span {
-  display: block;
-  margin-bottom: 2px;
+  display: inline;
+  margin-inline-end: 6px;
+  margin-bottom: 0;
   color: var(--muted);
-  font-size: 10px;
+  font-size: 13px;
 }
 
 .party-detail strong {
-  display: block;
+  display: inline;
   color: var(--text);
-  font-size: 12px;
+  font-size: 15px;
   overflow-wrap: anywhere;
 }
 
 .section-title {
   margin: 0 0 8px;
   color: var(--deep);
-  font-size: 14px;
+  font-size: 18px;
   font-weight: 900;
 }
 
@@ -255,7 +287,7 @@ tr {
 th,
 td {
   border-bottom: 1px solid var(--line);
-  padding: 9px 8px;
+  padding: 11px 9px;
   vertical-align: top;
   overflow-wrap: anywhere;
 }
@@ -264,7 +296,7 @@ th {
   background: var(--accent);
   color: var(--table-head-text);
   font-weight: 900;
-  font-size: 11px;
+  font-size: 13px;
 }
 
 tbody tr:nth-child(even) {
@@ -273,12 +305,13 @@ tbody tr:nth-child(even) {
 
 .item-name {
   font-weight: 900;
+  font-size: 15px;
 }
 
 .item-desc {
   margin-top: 3px;
   color: var(--muted);
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .num {
@@ -286,6 +319,8 @@ tbody tr:nth-child(even) {
   text-align: end;
   font-family: "DINNext", sans-serif;
   white-space: nowrap;
+  font-size: 15px;
+  font-weight: 800;
 }
 
 .summary {
@@ -299,8 +334,9 @@ tbody tr:nth-child(even) {
   display: flex;
   justify-content: space-between;
   gap: 12px;
-  padding: 6px 0;
+  padding: 8px 0;
   border-bottom: 1px solid var(--line);
+  font-size: 14px;
 }
 
 .totals-row.final {
@@ -308,7 +344,7 @@ tbody tr:nth-child(even) {
   padding-top: 10px;
   border-bottom: none;
   color: var(--accent);
-  font-size: 16px;
+  font-size: 20px;
   font-weight: 900;
 }
 
@@ -322,7 +358,7 @@ tbody tr:nth-child(even) {
   padding-top: 10px;
   border-top: 1px solid var(--line);
   text-align: center;
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .muted {

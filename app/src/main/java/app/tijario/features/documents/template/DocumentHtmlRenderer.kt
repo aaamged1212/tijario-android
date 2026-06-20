@@ -185,6 +185,8 @@ class DocumentHtmlRenderer(
                 discount = "الخصم",
                 extraFees = "الرسوم الإضافية",
                 total = "الإجمالي النهائي",
+                amountPaid = "المبلغ المدفوع",
+                amountRemaining = "المبلغ المتبقي",
                 invoiceNote = "ملاحظة الفاتورة",
                 documentNote = "ملاحظة",
                 terms = "الشروط والأحكام",
@@ -206,6 +208,8 @@ class DocumentHtmlRenderer(
                 discount = "Discount",
                 extraFees = "Extra fees",
                 total = "Final total",
+                amountPaid = "Amount paid",
+                amountRemaining = "Amount remaining",
                 invoiceNote = "Invoice note",
                 documentNote = "Note",
                 terms = "Terms and conditions",
@@ -279,6 +283,14 @@ class DocumentHtmlRenderer(
             if (model.totals.discount > BigDecimal.ZERO) append(totalsRow(labels.discount, model.totals.discount, model))
             if (model.totals.extraFees > BigDecimal.ZERO) append(totalsRow(labels.extraFees, model.totals.extraFees, model))
             append("<div class=\"totals-row final\"><span>${labels.total}</span><strong>${DocumentFormatting.money(model.totals.total, model.totals.currency, model.language)}</strong></div>")
+            if (model.documentType == DocumentType.Invoice) {
+                if (model.totals.amountPaid > BigDecimal.ZERO) {
+                    append(totalsRow(labels.amountPaid, model.totals.amountPaid, model))
+                }
+                if (model.totals.amountRemaining > BigDecimal.ZERO) {
+                    append(totalsRow(labels.amountRemaining, model.totals.amountRemaining, model))
+                }
+            }
             append("</aside>")
         }
 
@@ -305,6 +317,8 @@ class DocumentHtmlRenderer(
         val discount: String,
         val extraFees: String,
         val total: String,
+        val amountPaid: String,
+        val amountRemaining: String,
         val invoiceNote: String,
         val documentNote: String,
         val terms: String,

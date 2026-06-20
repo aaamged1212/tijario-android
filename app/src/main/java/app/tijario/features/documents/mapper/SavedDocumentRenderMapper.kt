@@ -4,6 +4,7 @@ import app.tijario.config.AppLanguage
 import app.tijario.data.model.BusinessSettings
 import app.tijario.data.model.CompleteDocument
 import app.tijario.data.model.DocumentType
+import app.tijario.domain.PaymentAmountCalculator
 import app.tijario.features.documents.model.DocumentPartyInfo
 import app.tijario.features.documents.model.DocumentRenderItem
 import app.tijario.features.documents.model.DocumentRenderModel
@@ -36,6 +37,11 @@ object SavedDocumentRenderMapper {
                 lineTotal = unitPrice.multiply(BigDecimal(quantity)),
             )
         }
+        val paymentAmounts = PaymentAmountCalculator.calculate(
+            paymentStatus = if (document.type == DocumentType.Invoice) document.paymentStatus else null,
+            total = BigDecimal.valueOf(document.total),
+            amountPaid = document.amountPaid?.let(BigDecimal::valueOf),
+        )
         return DocumentRenderModel(
             documentId = document.id,
             documentType = document.type,
@@ -64,6 +70,8 @@ object SavedDocumentRenderMapper {
                 discount = BigDecimal.valueOf(document.discount),
                 extraFees = BigDecimal.valueOf(document.extraFees),
                 total = BigDecimal.valueOf(document.total),
+                amountPaid = paymentAmounts.paid,
+                amountRemaining = paymentAmounts.remaining,
                 currency = document.currency,
             ),
             invoiceNote = businessSettings?.invoiceNote,

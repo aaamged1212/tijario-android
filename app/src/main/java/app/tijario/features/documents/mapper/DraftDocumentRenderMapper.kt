@@ -4,6 +4,7 @@ import app.tijario.config.AppLanguage
 import app.tijario.data.model.BusinessSettings
 import app.tijario.data.model.DocumentType
 import app.tijario.domain.DocumentCalculator
+import app.tijario.domain.PaymentAmountCalculator
 import app.tijario.domain.Validation
 import app.tijario.features.documents.model.DocumentPartyInfo
 import app.tijario.features.documents.model.DocumentRenderItem
@@ -13,7 +14,7 @@ import app.tijario.features.documents.model.DocumentTotals
 import app.tijario.features.documents.template.DocumentTemplateRegistry
 import app.tijario.ui.state.DocumentFormState
 import java.math.BigDecimal
-import java.text.DateFormat
+import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
@@ -43,10 +44,15 @@ object DraftDocumentRenderMapper {
                 lineTotal = unitPrice.multiply(BigDecimal(quantity)),
             )
         }
+        val paymentAmounts = PaymentAmountCalculator.calculate(
+            paymentStatus = if (documentType == DocumentType.Invoice) form.paymentStatus else null,
+            total = calculation.total,
+            amountPaid = Validation.parseNonNegativeMoney(form.amountPaid)?.let(BigDecimal::valueOf),
+        )
         return DocumentRenderModel(
             documentType = documentType,
             documentNumber = if (documentType == DocumentType.Invoice) "INV-DRAFT" else "QT-DRAFT",
-            issueDate = DateFormat.getDateInstance(DateFormat.MEDIUM, locale(language)).format(Date()),
+            issueDate = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date()),
             updatedAt = "draft",
             status = DocumentRenderStatus(
                 documentStatus = null,
@@ -70,6 +76,8 @@ object DraftDocumentRenderMapper {
                 discount = calculation.discount,
                 extraFees = calculation.extraFees,
                 total = calculation.total,
+                amountPaid = paymentAmounts.paid,
+                amountRemaining = paymentAmounts.remaining,
                 currency = businessSettings?.currency ?: "SAR",
             ),
             invoiceNote = businessSettings?.invoiceNote,
@@ -80,7 +88,4 @@ object DraftDocumentRenderMapper {
             templateVersion = DocumentTemplateRegistry.requireTemplate(templateId).version,
         )
     }
-
-    private fun locale(language: AppLanguage): Locale =
-        if (language == AppLanguage.AR) Locale("ar", "SA") else Locale.US
 }
