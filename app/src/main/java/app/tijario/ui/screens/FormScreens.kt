@@ -6,6 +6,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Business
 import androidx.compose.material.icons.filled.Description
@@ -19,6 +21,7 @@ import androidx.compose.material.icons.filled.PriceChange
 import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -42,17 +45,33 @@ import kotlinx.coroutines.launch
 @Composable
 fun CustomerFormScreen(
     dataViewModel: TijarioDataViewModel,
+    customerId: String? = null,
     onBack: () -> Unit,
 ) {
     var form by remember { mutableStateOf(CustomerFormState()) }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+    val isEditMode = customerId != null
+
+    LaunchedEffect(customerId) {
+        if (customerId != null) {
+            val existing = dataViewModel.uiState.value.customers.find { it.id == customerId }
+            if (existing != null) {
+                form = CustomerFormState(
+                    name = existing.name,
+                    whatsapp = existing.whatsappNumber,
+                    city = existing.city.orEmpty(),
+                    notes = existing.notes.orEmpty()
+                )
+            }
+        }
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(t("btn_add_customer"), fontWeight = FontWeight.Bold) },
+                title = { Text(if (isEditMode) "تعديل عميل" else t("btn_add_customer"), fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Filled.ArrowBack, contentDescription = t("btn_back"))
@@ -118,19 +137,24 @@ fun CustomerFormScreen(
                     Spacer(modifier = Modifier.height(8.dp))
 
                     TijarioButton(
-                        text = t("btn_save_customer"),
+                        text = if (isEditMode) "تعديل وحفظ" else t("btn_save_customer"),
                         onClick = {
                             scope.launch {
                                 try {
                                     isLoading = true
                                     errorMessage = null
                                     val customer = app.tijario.data.model.Customer(
+                                        id = customerId ?: java.util.UUID.randomUUID().toString(),
                                         name = form.name,
                                         whatsappNumber = form.whatsapp,
                                         city = form.city.ifBlank { null },
                                         notes = form.notes.ifBlank { null }
                                     )
-                                    val result = dataViewModel.createCustomer(customer)
+                                    val result = if (isEditMode) {
+                                        dataViewModel.updateCustomer(customer)
+                                    } else {
+                                        dataViewModel.createCustomer(customer)
+                                    }
                                     if (result.isSuccess) {
                                         onBack()
                                     } else {
@@ -161,17 +185,34 @@ fun CustomerFormScreen(
 @Composable
 fun ProductFormScreen(
     dataViewModel: TijarioDataViewModel,
+    productId: String? = null,
     onBack: () -> Unit,
 ) {
     var form by remember { mutableStateOf(app.tijario.ui.state.ProductFormState()) }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+    val isEditMode = productId != null
+
+    LaunchedEffect(productId) {
+        if (productId != null) {
+            val existing = dataViewModel.uiState.value.products.find { it.id == productId }
+            if (existing != null) {
+                form = app.tijario.ui.state.ProductFormState(
+                    name = existing.name,
+                    description = existing.description.orEmpty(),
+                    price = Validation.normalizedMoneyString(existing.price.toString()),
+                    kind = existing.kind,
+                    currency = existing.currency
+                )
+            }
+        }
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(t("btn_add_product"), fontWeight = FontWeight.Bold) },
+                title = { Text(if (isEditMode) "تعديل المنتج" else t("btn_add_product"), fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Filled.ArrowBack, contentDescription = t("btn_back"))
@@ -272,20 +313,25 @@ fun ProductFormScreen(
                     Spacer(modifier = Modifier.height(8.dp))
 
                     TijarioButton(
-                        text = t("btn_save_product"),
+                        text = if (isEditMode) "تعديل وحفظ" else t("btn_save_product"),
                         onClick = {
                             scope.launch {
                                 try {
                                     isLoading = true
                                     errorMessage = null
                                     val product = app.tijario.data.model.Product(
+                                        id = productId ?: java.util.UUID.randomUUID().toString(),
                                         kind = form.kind,
                                         name = form.name,
                                         description = form.description.ifBlank { null },
                                         price = Validation.parseNonNegativeMoney(form.price) ?: 0.0,
                                         currency = form.currency
                                     )
-                                    val result = dataViewModel.createProduct(product)
+                                    val result = if (isEditMode) {
+                                        dataViewModel.updateProduct(product)
+                                    } else {
+                                        dataViewModel.createProduct(product)
+                                    }
                                     if (result.isSuccess) {
                                         onBack()
                                     } else {
@@ -496,6 +542,7 @@ fun DocumentFormScreen(
     selectedProduct: app.tijario.data.model.Product? = null
 ) {
     var form by remember { mutableStateOf(DocumentFormState()) }
+    var activeProductSelectRowIndex by remember { mutableStateOf<Int?>(null) }
     var selectedTab by remember { mutableStateOf(0) } // 0 = التعديل (Edit), 1 = المعاينة (Preview)
     var isLoading by remember { mutableStateOf(false) }
     var submitError by remember { mutableStateOf<String?>(null) }
@@ -514,14 +561,23 @@ fun DocumentFormScreen(
         }
     }
 
-    // Sync selected product
+    // Sync selected product to specific row
     LaunchedEffect(selectedProduct) {
-        selectedProduct?.let {
-            form = form.copy(
-                productId = it.id,
-                itemName = it.name,
-                unitPrice = Validation.normalizedMoneyString(it.price.toString())
-            )
+        selectedProduct?.let { prod ->
+            val idx = activeProductSelectRowIndex
+            if (idx != null && idx in form.items.indices) {
+                form = form.copy(
+                    items = form.items.mapIndexed { i, item ->
+                        if (i == idx) {
+                            item.copy(
+                                productId = prod.id,
+                                name = prod.name,
+                                unitPrice = Validation.normalizedMoneyString(prod.price.toString())
+                            )
+                        } else item
+                    }
+                )
+            }
         }
     }
 
@@ -636,70 +692,121 @@ fun DocumentFormScreen(
 
                         HorizontalDivider(color = Color(0xFFF1F5F9))
 
-                        Text(
-                            t("form_items_info"),
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-
-                        // Product/Service Selector Button
-                        Button(
-                            onClick = onNavigateToSelectProduct,
-                            modifier = Modifier.fillMaxWidth().height(52.dp),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
-                                contentColor = MaterialTheme.colorScheme.primary
-                            )
+                        // Header with Add Item button
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Icon(Icons.Filled.Description, contentDescription = null)
-                                    Text(
-                                        text = if (form.itemName.isNotEmpty()) form.itemName else "اختر المنتج أو الخدمة",
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 14.sp
-                                    )
-                                }
-                                if (form.unitPrice.isNotEmpty() && form.unitPrice != "0") {
-                                    Text(
-                                        text = "${form.unitPrice} ${businessSettings?.currency ?: "SAR"}",
-                                        fontSize = 13.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                }
+                            Text(
+                                t("form_items_info"),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            IconButton(onClick = {
+                                form = form.copy(items = form.items + app.tijario.ui.state.DocumentItemState())
+                            }) {
+                                Icon(Icons.Filled.Add, contentDescription = "إضافة بند", tint = MaterialTheme.colorScheme.primary)
                             }
                         }
 
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            TijarioTextField(
-                                label = t("form_quantity"),
-                                value = form.quantity,
-                                onValueChange = { form = form.copy(quantity = it) },
-                                error = if (form.quantity.isNotEmpty()) form.quantityError else null,
-                                leadingIcon = { Icon(Icons.Filled.Numbers, contentDescription = null, tint = Color(0xFF64748B)) },
-                                modifier = Modifier.weight(1f)
-                            )
-                            TijarioTextField(
-                                label = t("form_unit_price"),
-                                value = form.unitPrice,
-                                onValueChange = { form = form.copy(unitPrice = it) },
-                                error = if (form.unitPrice.isNotEmpty()) form.unitPriceError else null,
-                                leadingIcon = { Icon(Icons.Filled.PriceChange, contentDescription = null, tint = Color(0xFF64748B)) },
-                                modifier = Modifier.weight(1.2f)
-                            )
+                        form.items.forEachIndexed { index, item ->
+                            key(item.id) {
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(12.dp),
+                                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                "البند ${index + 1}",
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 13.sp,
+                                                color = MaterialTheme.colorScheme.primary
+                                            )
+                                            if (form.items.size > 1) {
+                                                IconButton(onClick = {
+                                                    form = form.copy(items = form.items.filter { it.id != item.id })
+                                                }) {
+                                                    Icon(Icons.Filled.Delete, contentDescription = "حذف البند", tint = MaterialTheme.colorScheme.error)
+                                                }
+                                            }
+                                        }
+
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            TijarioTextField(
+                                                label = "اسم البند",
+                                                value = item.name,
+                                                onValueChange = { newName ->
+                                                    form = form.copy(
+                                                        items = form.items.map {
+                                                            if (it.id == item.id) it.copy(name = newName) else it
+                                                        }
+                                                    )
+                                                },
+                                                error = if (item.name.isNotEmpty()) item.nameError else null,
+                                                modifier = Modifier.weight(1f)
+                                            )
+                                            IconButton(
+                                                onClick = {
+                                                    activeProductSelectRowIndex = index
+                                                    onNavigateToSelectProduct()
+                                                },
+                                                modifier = Modifier.size(48.dp)
+                                            ) {
+                                                Icon(Icons.Filled.Description, contentDescription = "اختر منتجًا", tint = MaterialTheme.colorScheme.primary)
+                                            }
+                                        }
+
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            TijarioTextField(
+                                                label = t("form_quantity"),
+                                                value = item.quantity,
+                                                onValueChange = { qty ->
+                                                    form = form.copy(
+                                                        items = form.items.map {
+                                                            if (it.id == item.id) it.copy(quantity = qty) else it
+                                                        }
+                                                    )
+                                                },
+                                                error = if (item.quantity.isNotEmpty()) item.quantityError else null,
+                                                leadingIcon = { Icon(Icons.Filled.Numbers, contentDescription = null, tint = Color(0xFF64748B)) },
+                                                modifier = Modifier.weight(1f)
+                                            )
+                                            TijarioTextField(
+                                                label = t("form_unit_price"),
+                                                value = item.unitPrice,
+                                                onValueChange = { price ->
+                                                    form = form.copy(
+                                                        items = form.items.map {
+                                                            if (it.id == item.id) it.copy(unitPrice = price) else it
+                                                        }
+                                                    )
+                                                },
+                                                error = if (item.unitPrice.isNotEmpty()) item.unitPriceError else null,
+                                                leadingIcon = { Icon(Icons.Filled.PriceChange, contentDescription = null, tint = Color(0xFF64748B)) },
+                                                modifier = Modifier.weight(1.2f)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
                         }
 
                         Row(
@@ -748,15 +855,15 @@ fun DocumentFormScreen(
                                                 whatsappNumber = form.customerWhatsapp,
                                                 city = selectedCustomer?.city,
                                             ),
-                                            items = listOf(
+                                            items = form.items.map { itm ->
                                                 app.tijario.data.remote.DocumentItemInput(
-                                                    name = form.itemName,
-                                                    productId = form.productId,
-                                                    description = selectedProduct?.description,
-                                                    quantity = Validation.parsePositiveInt(form.quantity) ?: 1,
-                                                    unitPrice = Validation.parseNonNegativeMoney(form.unitPrice) ?: 0.0
+                                                    name = itm.name,
+                                                    productId = itm.productId,
+                                                    description = null,
+                                                    quantity = Validation.parsePositiveInt(itm.quantity) ?: throw IllegalArgumentException("invalid quantity"),
+                                                    unitPrice = Validation.parseNonNegativeMoney(itm.unitPrice) ?: throw IllegalArgumentException("invalid price")
                                                 )
-                                            ),
+                                            },
                                             discount = Validation.parseNonNegativeMoney(form.discount) ?: 0.0,
                                             extraFees = Validation.parseNonNegativeMoney(form.extraFees) ?: 0.0,
                                             notes = form.notes.ifBlank { null },
@@ -769,7 +876,7 @@ fun DocumentFormScreen(
                                             submitError = result.displayMessage
                                         }
                                     } catch (e: Exception) {
-                                        submitError = "تعذر حفظ المستند الآن. تحقق من الاتصال وحاول مرة أخرى."
+                                        submitError = e.message ?: "تعذر حفظ المستند الآن. تحقق من الاتصال وحاول مرة أخرى."
                                     } finally {
                                         isLoading = false
                                     }

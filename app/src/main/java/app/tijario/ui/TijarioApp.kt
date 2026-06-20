@@ -78,6 +78,7 @@ import app.tijario.ui.screens.VerifyEmailScreen
 import app.tijario.ui.screens.ProductsScreen
 import app.tijario.ui.screens.ProductFormScreen
 import app.tijario.ui.screens.IntroWalkthroughScreen
+import app.tijario.ui.screens.DocumentDetailScreen
 import app.tijario.ui.state.TijarioDataViewModel
 import app.tijario.ui.state.TijarioDataViewModelFactory
 import app.tijario.ui.state.AuthViewModel
@@ -389,17 +390,22 @@ fun TijarioApp() {
                                             activeSelectedProduct = null
                                             navController.navigate("new-invoice")
                                         },
+                                        onDocumentClick = { documentId ->
+                                            navController.navigate("document-detail?documentId=$documentId")
+                                        },
                                         hideHeader = true
                                     )
-                                    2 -> AiToolsScreen(hideHeader = true)
+                                    2 -> AiToolsScreen(dataViewModel = dataViewModel, hideHeader = true)
                                     3 -> ProductsScreen(
                                         dataViewModel = dataViewModel,
                                         onCreateProduct = { navController.navigate("product-form") },
+                                        onEditProduct = { id -> navController.navigate("product-form?productId=$id") },
                                         hideHeader = true
                                     )
                                     4 -> CustomersScreen(
                                         dataViewModel = dataViewModel,
                                         onCreateCustomer = { navController.navigate("customer-form") },
+                                        onEditCustomer = { id -> navController.navigate("customer-form?customerId=$id") },
                                         hideHeader = true
                                     )
                                 }
@@ -418,6 +424,23 @@ fun TijarioApp() {
                         }
                     )
                 }
+                composable(
+                    route = "customer-form?customerId={customerId}",
+                    arguments = listOf(
+                        navArgument("customerId") {
+                            type = NavType.StringType
+                            nullable = true
+                            defaultValue = null
+                        }
+                    )
+                ) { backStackEntry ->
+                    val customerId = backStackEntry.arguments?.getString("customerId")
+                    CustomerFormScreen(
+                        dataViewModel = dataViewModel,
+                        customerId = customerId,
+                        onBack = { navController.popBackStack() }
+                    )
+                }
                 composable("customer-form") {
                     CustomerFormScreen(
                         dataViewModel = dataViewModel,
@@ -432,6 +455,23 @@ fun TijarioApp() {
                             activeSelectedProduct = product
                             navController.popBackStack()
                         }
+                    )
+                }
+                composable(
+                    route = "product-form?productId={productId}",
+                    arguments = listOf(
+                        navArgument("productId") {
+                            type = NavType.StringType
+                            nullable = true
+                            defaultValue = null
+                        }
+                    )
+                ) { backStackEntry ->
+                    val productId = backStackEntry.arguments?.getString("productId")
+                    ProductFormScreen(
+                        dataViewModel = dataViewModel,
+                        productId = productId,
+                        onBack = { navController.popBackStack() }
                     )
                 }
                 composable("product-form") {
@@ -466,6 +506,22 @@ fun TijarioApp() {
                         onNavigateToSelectProduct = { navController.navigate("products") },
                         selectedCustomer = activeSelectedCustomer,
                         selectedProduct = activeSelectedProduct
+                    )
+                }
+                composable(
+                    route = "document-detail?documentId={documentId}",
+                    arguments = listOf(
+                        navArgument("documentId") {
+                            type = NavType.StringType
+                            defaultValue = ""
+                        }
+                    )
+                ) { backStackEntry ->
+                    val documentId = backStackEntry.arguments?.getString("documentId").orEmpty()
+                    DocumentDetailScreen(
+                        dataViewModel = dataViewModel,
+                        documentId = documentId,
+                        onBack = { navController.popBackStack() }
                     )
                 }
                 composable("account") {

@@ -161,6 +161,23 @@ fun DashboardScreen(
     val paidInvoicesCount = app.tijario.domain.DashboardStatsCalculator.countPaidInvoices(uiState.documents, referenceDate)
     val pendingQuotesCount = app.tijario.domain.DashboardStatsCalculator.countPendingQuotes(uiState.documents)
 
+    val planUsage = uiState.planUsage
+    val isDocLimitReached = planUsage != null && planUsage.documentsLimit > 0 && planUsage.documentsUsed >= planUsage.documentsLimit
+    var showLimitAlert by remember { mutableStateOf(false) }
+
+    if (showLimitAlert) {
+        AlertDialog(
+            onDismissRequest = { showLimitAlert = false },
+            title = { Text("تم الوصول للحد الأقصى", fontWeight = FontWeight.Bold) },
+            text = { Text("لقد استهلكت كامل الحد المتاح لك من الفواتير وعروض الأسعار لشهرك الحالي حسب باقتك (${planUsage?.planName}). يرجى الترقية للاستمرار.") },
+            confirmButton = {
+                Button(onClick = { showLimitAlert = false }) {
+                    Text("حسناً")
+                }
+            }
+        )
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -272,17 +289,17 @@ fun DashboardScreen(
             QuickActionButton(
                 title = t("btn_new_invoice"),
                 icon = Icons.Filled.Receipt,
-                backgroundColor = Color(0xFFF0FDF4),
-                iconColor = Color(0xFF16A34A),
-                onClick = onNewInvoice,
+                backgroundColor = if (isDocLimitReached) Color.LightGray.copy(alpha = 0.2f) else Color(0xFFF0FDF4),
+                iconColor = if (isDocLimitReached) Color.Gray else Color(0xFF16A34A),
+                onClick = { if (isDocLimitReached) showLimitAlert = true else onNewInvoice() },
                 modifier = Modifier.weight(1f)
             )
             QuickActionButton(
                 title = t("btn_new_quote"),
                 icon = Icons.Filled.Description,
-                backgroundColor = Color(0xFFEFF6FF),
-                iconColor = Color(0xFF2563EB),
-                onClick = onNewQuote,
+                backgroundColor = if (isDocLimitReached) Color.LightGray.copy(alpha = 0.2f) else Color(0xFFEFF6FF),
+                iconColor = if (isDocLimitReached) Color.Gray else Color(0xFF2563EB),
+                onClick = { if (isDocLimitReached) showLimitAlert = true else onNewQuote() },
                 modifier = Modifier.weight(1f)
             )
         }
@@ -316,6 +333,41 @@ fun DashboardScreen(
             onClick = onAiTools,
             modifier = Modifier.fillMaxWidth()
         )
+
+        if (planUsage != null) {
+            Text(
+                text = "تفاصيل باقتك الحالية",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Text("الباقة: ${planUsage.planName}", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    HorizontalDivider(color = Color(0xFFF1F5F9))
+                    UsageIndicator(
+                        title = "المستندات المستخدمة",
+                        used = planUsage.documentsUsed,
+                        total = planUsage.documentsLimit,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    UsageIndicator(
+                        title = "استعلامات الذكاء الاصطناعي",
+                        used = planUsage.aiUsed,
+                        total = planUsage.aiLimit,
+                        color = Color(0xFF7C3AED)
+                    )
+                }
+            }
+        }
 
         Spacer(modifier = Modifier.height(20.dp))
     }
@@ -384,6 +436,7 @@ fun CustomersScreen(
     dataViewModel: TijarioDataViewModel,
     onCreateCustomer: () -> Unit,
     onCustomerSelected: ((app.tijario.data.model.Customer) -> Unit)? = null,
+    onEditCustomer: ((String) -> Unit)? = null,
     hideHeader: Boolean = false
 ) {
     var searchQuery by remember { mutableStateOf("") }
@@ -396,6 +449,57 @@ fun CustomersScreen(
     val isLoading = uiState.isInitialLoading && customers.isEmpty()
     val filteredCustomers = customers.filter {
         it.name.contains(searchQuery, ignoreCase = true) || it.whatsappNumber.contains(searchQuery)
+    }
+
+    var customerToDelete by remember { mutableStateOf<app.tijario.data.model.Customer?>(null) }
+    var deleteErrorMessage by remember { mutableStateOf<String?>(null) }
+    var isDeleting by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+
+    if (customerToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { customerToDelete = null; deleteErrorMessage = null },
+            title = { Text("تأكيد الحذف", fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("هل أنت متأكد من رغبتك في حذف العميل ${customerToDelete?.name}؟")
+                    deleteErrorMessage?.let {
+                        Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        scope.launch {
+                            try {
+                                isDeleting = true
+                                deleteErrorMessage = null
+                                val res = dataViewModel.deleteCustomer(customerToDelete!!.id!!)
+                                if (res.isSuccess) {
+                                    customerToDelete = null
+                                } else {
+                                    deleteErrorMessage = res.exceptionOrNull()?.message ?: "فشل حذف العميل."
+                                }
+                            } catch (e: Exception) {
+                                deleteErrorMessage = e.message ?: "حدث خطأ غير متوقع."
+                            } finally {
+                                isDeleting = false
+                            }
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    if (isDeleting) CircularProgressIndicator(color = Color.White, modifier = Modifier.size(16.dp))
+                    else Text("حذف")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { customerToDelete = null; deleteErrorMessage = null }) {
+                    Text("إلغاء")
+                }
+            }
+        )
     }
 
     Box(
@@ -450,6 +554,15 @@ fun CustomersScreen(
                 Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                 }
+            } else if (filteredCustomers.isEmpty()) {
+                Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("لا يوجد عملاء مضافين", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Button(onClick = onCreateCustomer) {
+                            Text("إضافة عميل جديد")
+                        }
+                    }
+                }
             } else {
                 // Customers List
                 LazyColumn(
@@ -476,7 +589,8 @@ fun CustomersScreen(
                             ) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                    modifier = Modifier.weight(1f)
                                 ) {
                                     Surface(
                                         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
@@ -508,8 +622,24 @@ fun CustomersScreen(
                                 }
                                 val context = LocalContext.current
                                 Row(
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
+                                    if (onCustomerSelected == null) {
+                                        IconButton(
+                                            onClick = {
+                                                onEditCustomer?.invoke(customer.id!!)
+                                            }
+                                        ) {
+                                            Icon(Icons.Filled.Edit, contentDescription = "تعديل", tint = MaterialTheme.colorScheme.primary)
+                                        }
+                                        IconButton(
+                                            onClick = {
+                                                customerToDelete = customer
+                                            }
+                                        ) {
+                                            Icon(Icons.Filled.Delete, contentDescription = "حذف", tint = MaterialTheme.colorScheme.error)
+                                        }
+                                    }
                                     IconButton(
                                         onClick = {
                                             try {
@@ -563,6 +693,7 @@ fun ProductsScreen(
     dataViewModel: TijarioDataViewModel,
     onCreateProduct: () -> Unit,
     onProductSelected: ((app.tijario.data.model.Product) -> Unit)? = null,
+    onEditProduct: ((String) -> Unit)? = null,
     hideHeader: Boolean = false
 ) {
     var searchQuery by remember { mutableStateOf("") }
@@ -576,6 +707,57 @@ fun ProductsScreen(
     val isLoading = uiState.isInitialLoading && products.isEmpty()
     val filteredProducts = products.filter {
         it.name.contains(searchQuery, ignoreCase = true) || (it.description ?: "").contains(searchQuery, ignoreCase = true)
+    }
+
+    var productToDelete by remember { mutableStateOf<app.tijario.data.model.Product?>(null) }
+    var deleteErrorMessage by remember { mutableStateOf<String?>(null) }
+    var isDeleting by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+
+    if (productToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { productToDelete = null; deleteErrorMessage = null },
+            title = { Text("تأكيد الحذف", fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("هل أنت متأكد من رغبتك في حذف المنتج ${productToDelete?.name}؟")
+                    deleteErrorMessage?.let {
+                        Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        scope.launch {
+                            try {
+                                isDeleting = true
+                                deleteErrorMessage = null
+                                val res = dataViewModel.deleteProduct(productToDelete!!.id!!)
+                                if (res.isSuccess) {
+                                    productToDelete = null
+                                } else {
+                                    deleteErrorMessage = res.exceptionOrNull()?.message ?: "فشل حذف المنتج."
+                                }
+                            } catch (e: Exception) {
+                                deleteErrorMessage = e.message ?: "حدث خطأ غير متوقع."
+                            } finally {
+                                isDeleting = false
+                            }
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    if (isDeleting) CircularProgressIndicator(color = Color.White, modifier = Modifier.size(16.dp))
+                    else Text("حذف")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { productToDelete = null; deleteErrorMessage = null }) {
+                    Text("إلغاء")
+                }
+            }
+        )
     }
 
     Box(
@@ -626,6 +808,15 @@ fun ProductsScreen(
             if (isLoading) {
                 Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                }
+            } else if (filteredProducts.isEmpty()) {
+                Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("لا يوجد منتجات أو خدمات مضافة", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Button(onClick = onCreateProduct) {
+                            Text("إضافة منتج جديد")
+                        }
+                    }
                 }
             } else {
                 LazyColumn(
@@ -683,12 +874,33 @@ fun ProductsScreen(
                                         )
                                     }
                                 }
-                                Text(
-                                    "${item.price} ${businessCurrency.ifBlank { item.currency }}",
-                                    color = MaterialTheme.colorScheme.primary,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 15.sp
-                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Text(
+                                        "${item.price} ${businessCurrency.ifBlank { item.currency }}",
+                                        color = MaterialTheme.colorScheme.primary,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 15.sp
+                                    )
+                                    if (onProductSelected == null) {
+                                        IconButton(
+                                            onClick = {
+                                                onEditProduct?.invoke(item.id!!)
+                                            }
+                                        ) {
+                                            Icon(Icons.Filled.Edit, contentDescription = "تعديل", tint = MaterialTheme.colorScheme.primary)
+                                        }
+                                        IconButton(
+                                            onClick = {
+                                                productToDelete = item
+                                            }
+                                        ) {
+                                            Icon(Icons.Filled.Delete, contentDescription = "حذف", tint = MaterialTheme.colorScheme.error)
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -715,6 +927,7 @@ fun DocumentsScreen(
     dataViewModel: TijarioDataViewModel,
     onNewQuote: () -> Unit,
     onNewInvoice: () -> Unit,
+    onDocumentClick: (String) -> Unit,
     hideHeader: Boolean = false
 ) {
     var selectedSection by remember { mutableStateOf(0) } // 0 = Invoices, 1 = Quotes
@@ -805,7 +1018,9 @@ fun DocumentsScreen(
                     items(filteredDocs) { doc ->
                         val customerName = customers.find { it.id == doc.customerId }?.name ?: "عميل غير معروف"
                         Card(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onDocumentClick(doc.id) },
                             shape = RoundedCornerShape(16.dp),
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -911,21 +1126,43 @@ fun DocumentsScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AiToolsScreen(hideHeader: Boolean = false) {
+fun AiToolsScreen(
+    dataViewModel: TijarioDataViewModel,
+    hideHeader: Boolean = false
+) {
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val uiState by dataViewModel.uiState.collectAsStateWithLifecycle()
+    val planUsage = uiState.planUsage
+    val isAiLimitReached = planUsage != null && planUsage.aiLimit > 0 && planUsage.aiUsed >= planUsage.aiLimit
+
     var selectedTab by remember { mutableStateOf(0) }
 
-    var chatMessage by remember { mutableStateOf("") }
-    var aiReplyResult by remember { mutableStateOf("") }
-    var aiReplyError by remember { mutableStateOf<String?>(null) }
+    // Smart Reply form
+    var caseType by remember { mutableStateOf("customer_inquiry") }
+    var customerName by remember { mutableStateOf("") }
+    var replyDialect by remember { mutableStateOf("gulf") }
+    var replyTone by remember { mutableStateOf("friendly") }
+    var replyLength by remember { mutableStateOf("short") }
+    var replyExtraNote by remember { mutableStateOf("") }
+    var repliesList by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
+    var replyError by remember { mutableStateOf<String?>(null) }
     var isReplyLoading by remember { mutableStateOf(false) }
 
-    var captionMessage by remember { mutableStateOf("") }
-    var aiCaptionResult by remember { mutableStateOf("") }
-    var aiCaptionError by remember { mutableStateOf<String?>(null) }
+    // Smart Caption form
+    var captionType by remember { mutableStateOf("product_post") }
+    var platform by remember { mutableStateOf("instagram") }
+    var captionDialect by remember { mutableStateOf("gulf") }
+    var captionTone by remember { mutableStateOf("sales") }
+    var captionLength by remember { mutableStateOf("short") }
+    var productOrService by remember { mutableStateOf("") }
+    var offer by remember { mutableStateOf("") }
+    var captionExtraNote by remember { mutableStateOf("") }
+    var captionsList by remember { mutableStateOf<List<Pair<String, app.tijario.data.remote.AiCaptionVariant>>>(emptyList()) }
+    var captionError by remember { mutableStateOf<String?>(null) }
     var isCaptionLoading by remember { mutableStateOf(false) }
-
-    val scope = rememberCoroutineScope()
 
     Column(
         modifier = Modifier
@@ -954,7 +1191,23 @@ fun AiToolsScreen(hideHeader: Boolean = false) {
             }
         }
 
-        // TabRow for AI sections
+        // Limit Banner
+        if (isAiLimitReached) {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = "لقد استهلكت كامل الحد المتاح لك من استعلامات الذكاء الاصطناعي لشهرك الحالي. يرجى الترقية للاستمرار.",
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    modifier = Modifier.padding(16.dp),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
+
         TabRow(
             selectedTabIndex = selectedTab,
             containerColor = MaterialTheme.colorScheme.surface,
@@ -974,187 +1227,273 @@ fun AiToolsScreen(hideHeader: Boolean = false) {
         }
 
         if (selectedTab == 0) {
-            // Card AI Assistant - Smart Reply
+            // Smart Reply Form Card
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
-                Column(
-                    modifier = Modifier.padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    Text(
-                        t("ai_card_title"),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("إعدادات الرد الذكي", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+
+                    // Case type
+                    Text("نوع الحالة", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        listOf("customer_inquiry" to "استفسار", "objection" to "شكوى", "greeting" to "ترحيب").forEach { (code, label) ->
+                            FilterChip(
+                                selected = caseType == code,
+                                onClick = { caseType = code },
+                                label = { Text(label) }
+                            )
+                        }
+                    }
+
+                    // Dialect
+                    Text("اللهجة", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        listOf("gulf" to "خليجي", "egyptian" to "مصري", "standard" to "فصحى").forEach { (code, label) ->
+                            FilterChip(
+                                selected = replyDialect == code,
+                                onClick = { replyDialect = code },
+                                label = { Text(label) }
+                            )
+                        }
+                    }
+
+                    // Tone
+                    Text("الأسلوب", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        listOf("friendly" to "ودي", "formal" to "رسمي", "sales" to "تسويقي").forEach { (code, label) ->
+                            FilterChip(
+                                selected = replyTone == code,
+                                onClick = { replyTone = code },
+                                label = { Text(label) }
+                            )
+                        }
+                    }
+
+                    TijarioTextField(
+                        label = "اسم العميل (اختياري)",
+                        value = customerName,
+                        onValueChange = { customerName = it }
                     )
 
                     TijarioTextField(
-                        label = t("ai_input_placeholder"),
-                        value = chatMessage,
-                        onValueChange = { chatMessage = it },
+                        label = "ملاحظات إضافية أو تفاصيل الاستفسار",
+                        value = replyExtraNote,
+                        onValueChange = { replyExtraNote = it },
                         singleLine = false
                     )
 
                     TijarioButton(
-                        text = t("btn_generate_reply"),
+                        text = "توليد الرد الذكي",
                         onClick = {
                             scope.launch {
                                 try {
                                     isReplyLoading = true
-                                    aiReplyError = null
-                                    aiReplyResult = ""
-                                    val result = app.tijario.config.Supabase.apiClient.generateAiReply(
-                                        app.tijario.data.remote.AiReplyRequest(
-                                            caseType = "customer_inquiry",
-                                            customerName = null,
-                                            dialect = "gulf",
-                                            tone = "friendly",
-                                            length = "short",
-                                            extraNote = chatMessage,
-                                        )
+                                    replyError = null
+                                    repliesList = emptyList()
+                                    val req = app.tijario.data.remote.AiReplyRequest(
+                                        caseType = caseType,
+                                        customerName = customerName.ifBlank { null },
+                                        dialect = replyDialect,
+                                        tone = replyTone,
+                                        length = replyLength,
+                                        extraNote = replyExtraNote.ifBlank { null }
                                     )
-                                    if (result.ok) {
-                                        val replies = result.data?.replies.orEmpty()
-                                        aiReplyResult = listOfNotNull(
-                                            replies["short"],
-                                            replies["sales"],
-                                            replies["formal"],
-                                        ).joinToString("\n\n").ifBlank {
-                                            "تم إنشاء الرد لكن لم تصل صيغة صالحة من الخادم."
-                                        }
+                                    val res = dataViewModel.generateAiReply(req)
+                                    if (res.ok) {
+                                        repliesList = res.data?.replies?.toList() ?: emptyList()
                                     } else {
-                                        aiReplyError = result.displayMessage
+                                        replyError = res.displayMessage
                                     }
                                 } catch (e: Exception) {
-                                    aiReplyError = "تعذر إنشاء الرد الآن. تحقق من الاتصال وحاول مرة أخرى."
+                                    replyError = e.message ?: "حدث خطأ غير متوقع"
                                 } finally {
                                     isReplyLoading = false
                                 }
                             }
                         },
-                        enabled = chatMessage.isNotBlank(),
+                        enabled = !isAiLimitReached && !isReplyLoading && replyExtraNote.isNotBlank(),
                         isLoading = isReplyLoading,
                         icon = Icons.AutoMirrored.Filled.Send
                     )
 
-                    if (aiReplyResult.isNotBlank()) {
-                        Surface(
-                            color = Color(0xFFF0FDF4),
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                                    Text(t("ai_suggestion"), color = Color(0xFF15803D), fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                                    Icon(Icons.Filled.Star, contentDescription = null, tint = Color(0xFFFBBC05), modifier = Modifier.size(16.dp))
-                                }
-                                Text(aiReplyResult, color = Color(0xFF1E293B), fontSize = 14.sp)
-                            }
-                        }
+                    if (replyError != null) {
+                        Text(replyError!!, color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
                     }
+                }
+            }
 
-                    aiReplyError?.let {
-                        Text(it, color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
+            // Suggestions List
+            if (repliesList.isNotEmpty()) {
+                Text("الاقتراحات المولدة", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                repliesList.forEach { (variant, text) ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFF0FDF4)),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("صيغة: $variant", fontWeight = FontWeight.Bold, color = Color(0xFF15803D), fontSize = 12.sp)
+                                IconButton(onClick = {
+                                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                                    val clip = android.content.ClipData.newPlainText("Reply", text)
+                                    clipboard.setPrimaryClip(clip)
+                                    android.widget.Toast.makeText(context, "تم نسخ الرد بنجاح", android.widget.Toast.LENGTH_SHORT).show()
+                                }, modifier = Modifier.size(36.dp)) {
+                                    Icon(Icons.Filled.Share, contentDescription = "نسخ", tint = Color(0xFF15803D))
+                                }
+                            }
+                            Text(text, color = Color(0xFF1E293B), fontSize = 14.sp)
+                        }
                     }
                 }
             }
         } else {
-            // Card AI Assistant - Smart Caption
+            // Smart Caption Form Card
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
-                Column(
-                    modifier = Modifier.padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    Text(
-                        t("ai_caption_card_title"),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("إعدادات كابشن منصات التواصل", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+
+                    // Platform
+                    Text("المنصة", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        listOf("instagram" to "انستغرام", "twitter" to "تويتر", "facebook" to "فيسبوك").forEach { (code, label) ->
+                            FilterChip(
+                                selected = platform == code,
+                                onClick = { platform = code },
+                                label = { Text(label) }
+                            )
+                        }
+                    }
+
+                    // Dialect
+                    Text("اللهجة", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        listOf("gulf" to "خليجي", "egyptian" to "مصري", "standard" to "فصحى").forEach { (code, label) ->
+                            FilterChip(
+                                selected = captionDialect == code,
+                                onClick = { captionDialect = code },
+                                label = { Text(label) }
+                            )
+                        }
+                    }
+
+                    // Tone
+                    Text("الأسلوب", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        listOf("sales" to "تسويقي", "friendly" to "ودي", "funny" to "مرح").forEach { (code, label) ->
+                            FilterChip(
+                                selected = captionTone == code,
+                                onClick = { captionTone = code },
+                                label = { Text(label) }
+                            )
+                        }
+                    }
+
+                    TijarioTextField(
+                        label = "المنتج أو الخدمة",
+                        value = productOrService,
+                        onValueChange = { productOrService = it }
                     )
 
                     TijarioTextField(
-                        label = t("ai_caption_input_placeholder"),
-                        value = captionMessage,
-                        onValueChange = { captionMessage = it },
+                        label = "تفاصيل العرض (اختياري)",
+                        value = offer,
+                        onValueChange = { offer = it }
+                    )
+
+                    TijarioTextField(
+                        label = "ملاحظات إضافية",
+                        value = captionExtraNote,
+                        onValueChange = { captionExtraNote = it },
                         singleLine = false
                     )
 
                     TijarioButton(
-                        text = t("btn_generate_caption"),
+                        text = "توليد الكابشن",
                         onClick = {
                             scope.launch {
                                 try {
                                     isCaptionLoading = true
-                                    aiCaptionError = null
-                                    aiCaptionResult = ""
-                                    val result = app.tijario.config.Supabase.apiClient.generateAiCaption(
-                                        app.tijario.data.remote.AiCaptionRequest(
-                                            captionType = "product_post",
-                                            platform = "instagram",
-                                            dialect = "gulf",
-                                            tone = "sales",
-                                            length = "short",
-                                            productOrService = captionMessage,
-                                        )
+                                    captionError = null
+                                    captionsList = emptyList()
+                                    val req = app.tijario.data.remote.AiCaptionRequest(
+                                        captionType = captionType,
+                                        platform = platform,
+                                        dialect = captionDialect,
+                                        tone = captionTone,
+                                        length = captionLength,
+                                        productOrService = productOrService,
+                                        offer = offer.ifBlank { null },
+                                        extraNote = captionExtraNote.ifBlank { null }
                                     )
-                                    if (result.ok) {
-                                        val captions = result.data?.captions.orEmpty()
-                                        aiCaptionResult = listOf("short", "sales", "premium")
-                                            .mapNotNull { key -> captions[key] }
-                                            .joinToString("\n\n") { variant ->
-                                                buildString {
-                                                    append(variant.caption)
-                                                    append("\n")
-                                                    append(variant.cta)
-                                                    if (variant.hashtags.isNotEmpty()) {
-                                                        append("\n")
-                                                        append(variant.hashtags.joinToString(" "))
-                                                    }
-                                                }
-                                            }
-                                            .ifBlank { "تم إنشاء الكابشن لكن لم تصل صيغة صالحة من الخادم." }
+                                    val res = dataViewModel.generateAiCaption(req)
+                                    if (res.ok) {
+                                        captionsList = res.data?.captions?.toList() ?: emptyList()
                                     } else {
-                                        aiCaptionError = result.displayMessage
+                                        captionError = res.displayMessage
                                     }
                                 } catch (e: Exception) {
-                                    aiCaptionError = "تعذر إنشاء الكابشن الآن. تحقق من الاتصال وحاول مرة أخرى."
+                                    captionError = e.message ?: "حدث خطأ غير متوقع"
                                 } finally {
                                     isCaptionLoading = false
                                 }
                             }
                         },
-                        enabled = captionMessage.isNotBlank(),
+                        enabled = !isAiLimitReached && !isCaptionLoading && productOrService.isNotBlank(),
                         isLoading = isCaptionLoading,
                         icon = Icons.AutoMirrored.Filled.Send
                     )
 
-                    if (aiCaptionResult.isNotBlank()) {
-                        Surface(
-                            color = Color(0xFFF0FDF4),
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                                    Text(t("ai_caption_suggestion"), color = Color(0xFF15803D), fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                                    Icon(Icons.Filled.Star, contentDescription = null, tint = Color(0xFFFBBC05), modifier = Modifier.size(16.dp))
+                    if (captionError != null) {
+                        Text(captionError!!, color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
+                    }
+                }
+            }
+
+            // Captions List
+            if (captionsList.isNotEmpty()) {
+                Text("الاقتراحات المولدة", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                captionsList.forEach { (variant, item) ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFF0FDF4)),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("صيغة: $variant", fontWeight = FontWeight.Bold, color = Color(0xFF15803D), fontSize = 12.sp)
+                                IconButton(onClick = {
+                                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                                    val textToCopy = "${item.caption}\n\n${item.cta}\n\n${item.hashtags.joinToString(" ")}"
+                                    val clip = android.content.ClipData.newPlainText("Caption", textToCopy)
+                                    clipboard.setPrimaryClip(clip)
+                                    android.widget.Toast.makeText(context, "تم نسخ الكابشن بنجاح", android.widget.Toast.LENGTH_SHORT).show()
+                                }, modifier = Modifier.size(36.dp)) {
+                                    Icon(Icons.Filled.Share, contentDescription = "نسخ", tint = Color(0xFF15803D))
                                 }
-                                Text(aiCaptionResult, color = Color(0xFF1E293B), fontSize = 14.sp)
+                            }
+                            Text(item.caption, color = Color(0xFF1E293B), fontSize = 14.sp)
+                            Text(item.cta, color = Color(0xFF16A34A), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            if (item.hashtags.isNotEmpty()) {
+                                Text(item.hashtags.joinToString(" "), color = Color(0xFF2563EB), fontSize = 12.sp)
                             }
                         }
-                    }
-
-                    aiCaptionError?.let {
-                        Text(it, color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
                     }
                 }
             }

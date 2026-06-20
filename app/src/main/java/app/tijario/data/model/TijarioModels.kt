@@ -77,3 +77,53 @@ data class Plan(
     @SerialName("monthly_document_limit") val monthlyDocumentLimit: Int,
     @SerialName("monthly_ai_limit") val monthlyAiLimit: Int,
 )
+
+@Serializable
+data class PeriodMonth(
+    val id: String? = null,
+    @SerialName("user_id") val userId: String,
+    val month: String,
+    @SerialName("documents_used") val documentsUsed: Int,
+    @SerialName("ai_used") val aiUsed: Int,
+    @SerialName("plan_code") val planCode: String,
+)
+
+data class UserPlanUsage(
+    val planName: String,
+    val documentsUsed: Int,
+    val documentsLimit: Int,
+    val aiUsed: Int,
+    val aiLimit: Int,
+)
+
+@Serializable
+data class DocumentItem(
+    val id: String,
+    @SerialName("document_id") val documentId: String,
+    @SerialName("product_id") val productId: String? = null,
+    val name: String,
+    val description: String? = null,
+    val quantity: Int,
+    @SerialName("unit_price") val unitPrice: Double,
+)
+
+@Serializable
+data class CompleteDocument(
+    val id: String,
+    @SerialName("user_id") val userId: String,
+    @SerialName("customer_id") val customerId: String,
+    val type: DocumentType,
+    @SerialName("document_number") val documentNumber: String,
+    val status: String,
+    @SerialName("payment_status") val paymentStatus: String? = null,
+    @SerialName("issue_date") val issueDate: String,
+    val subtotal: Double,
+    val discount: Double,
+    @SerialName("extra_fees") val extraFees: Double,
+    val total: Double,
+    val currency: String,
+    val notes: String? = null,
+    @SerialName("terms_text") val termsText: String? = null,
+    val customer: Customer? = null,
+    val items: List<DocumentItem> = emptyList(),
+)

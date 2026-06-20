@@ -64,14 +64,23 @@ fun ModernDocumentPreview(
     modifier: Modifier = Modifier,
 ) {
     val currency = businessSettings?.currency ?: "SAR"
-    val quantity = Validation.parsePositiveInt(form.quantity)?.toDouble() ?: 0.0
-    val unitPrice = Validation.parseNonNegativeMoney(form.unitPrice) ?: 0.0
-    val subtotal = quantity * unitPrice
-    val discount = Validation.parseNonNegativeMoney(form.discount) ?: 0.0
-    val extraFees = Validation.parseNonNegativeMoney(form.extraFees) ?: 0.0
-    val total = subtotal - discount + extraFees
-    val hasItem = form.itemName.isNotBlank() || !productDescription.isNullOrBlank()
-    val emptyRows = max(0, 5 - if (hasItem) 1 else 0)
+    val itemsInput = form.items.map {
+        app.tijario.domain.DocumentCalculator.ItemInput(
+            quantity = it.quantity,
+            unitPrice = it.unitPrice
+        )
+    }
+    val calc = app.tijario.domain.DocumentCalculator.calculate(
+        itemsInput,
+        form.discount,
+        form.extraFees
+    )
+    val subtotal = calc.subtotal.toDouble()
+    val discount = calc.discount.toDouble()
+    val extraFees = calc.extraFees.toDouble()
+    val total = calc.total.toDouble()
+    val hasItem = form.items.any { it.name.isNotBlank() }
+    val emptyRows = max(0, 5 - form.items.size)
     val issueDate = remember {
         DateTimeFormatter.ofPattern("d MMM yyyy", PreviewLocale).format(LocalDate.now())
     }
@@ -246,15 +255,20 @@ fun ModernDocumentPreview(
                 ) {
                     PreviewTableHeader()
                     if (hasItem) {
-                        PreviewItemRow(
-                            index = 1,
-                            name = form.itemName.ifBlank { "غير محدد" },
-                            description = productDescription,
-                            quantity = quantity,
-                            unitPrice = unitPrice,
-                            lineTotal = subtotal,
-                            currency = currency,
-                        )
+                        form.items.forEachIndexed { index, item ->
+                            val qVal = Validation.parsePositiveInt(item.quantity)?.toDouble() ?: 0.0
+                            val pVal = Validation.parseNonNegativeMoney(item.unitPrice) ?: 0.0
+                            val rowTotal = qVal * pVal
+                            PreviewItemRow(
+                                index = index + 1,
+                                name = item.name.ifBlank { "غير محدد" },
+                                description = null,
+                                quantity = qVal,
+                                unitPrice = pVal,
+                                lineTotal = rowTotal,
+                                currency = currency,
+                            )
+                        }
                     } else {
                         Box(
                             modifier = Modifier

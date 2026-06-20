@@ -58,4 +58,7 @@ interface TijarioDao {
 
     @Query("DELETE FROM documents_cache")
     suspend fun clearDocuments()
+
+    @Query("SELECT COUNT(*) FROM documents_cache WHERE customer_id = :customerId")
+    suspend fun countDocumentsForCustomer(customerId: String): Int
 }

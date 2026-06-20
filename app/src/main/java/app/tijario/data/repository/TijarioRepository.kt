@@ -174,11 +174,71 @@ class TijarioRepository(
             refreshCustomers().getOrThrow()
         }
 
+    suspend fun updateCustomer(customer: Customer): Result<Unit> =
+        runCatching {
+            val userId = requireUserId()
+            withContext(Dispatchers.IO) {
+                supabaseClient.from("customers").update(customer.copy(userId = userId)) {
+                    filter {
+                        eq("id", customer.id!!)
+                        eq("user_id", userId)
+                    }
+                }
+            }
+            refreshCustomers().getOrThrow()
+        }
+
+    suspend fun deleteCustomer(customerId: String): Result<Unit> =
+        runCatching {
+            val userId = requireUserId()
+            val docCount = dao.countDocumentsForCustomer(customerId)
+            if (docCount > 0) {
+                throw IllegalStateException("لا يمكن حذف العميل لوجود مستندات تاريخية مرتبطة به.")
+            }
+            withContext(Dispatchers.IO) {
+                supabaseClient.from("customers").delete {
+                    filter {
+                        eq("id", customerId)
+                        eq("user_id", userId)
+                    }
+                }
+            }
+            refreshCustomers().getOrThrow()
+        }
+
     suspend fun createProduct(product: Product): Result<Unit> =
         runCatching {
             val userId = requireUserId()
             withContext(Dispatchers.IO) {
                 supabaseClient.from("products").insert(product.copy(userId = userId))
+            }
+            refreshProducts().getOrThrow()
+        }
+
+    suspend fun updateProduct(product: Product): Result<Unit> =
+        runCatching {
+            val userId = requireUserId()
+            withContext(Dispatchers.IO) {
+                supabaseClient.from("products").update(product.copy(userId = userId)) {
+                    filter {
+                        eq("id", product.id!!)
+                        eq("user_id", userId)
+                    }
+                }
+            }
+            refreshProducts().getOrThrow()
+        }
+
+    suspend fun deleteProduct(productId: String): Result<Unit> =
+        runCatching {
+            val userId = requireUserId()
+            withContext(Dispatchers.IO) {
+                supabaseClient.from("products").delete {
+                    filter {
+                        eq("id", productId)
+                        eq("user_id", userId)
+                    }
+                }
             }
             refreshProducts().getOrThrow()
         }
@@ -211,6 +271,94 @@ class TijarioRepository(
         }
         return result
     }
+
+    suspend fun fetchUserPlanUsage(): Result<app.tijario.data.model.UserPlanUsage> =
+        runCatching {
+            val userId = requireUserId()
+            val currentMonthStr = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM"))
+            withContext(Dispatchers.IO) {
+                val usage = supabaseClient.from("period_month")
+                    .select {
+                        filter {
+                            eq("user_id", userId)
+                            eq("month", currentMonthStr)
+                        }
+                    }
+                    .decodeList<app.tijario.data.model.PeriodMonth>()
+                    .firstOrNull() ?: app.tijario.data.model.PeriodMonth(
+                        userId = userId,
+                        month = currentMonthStr,
+                        documentsUsed = 0,
+                        aiUsed = 0,
+                        planCode = "free"
+                    )
+
+                val plan = supabaseClient.from("plans")
+                    .select {
+                        filter {
+                            eq("code", usage.planCode)
+                        }
+                    }
+                    .decodeList<app.tijario.data.model.Plan>()
+                    .firstOrNull() ?: app.tijario.data.model.Plan(
+                        code = "free",
+                        name = "الباقة المجانية",
+                        monthlyDocumentLimit = 5,
+                        monthlyAiLimit = 10
+                    )
+
+                app.tijario.data.model.UserPlanUsage(
+                    planName = plan.name,
+                    documentsUsed = usage.documentsUsed,
+                    documentsLimit = plan.monthlyDocumentLimit,
+                    aiUsed = usage.aiUsed,
+                    aiLimit = plan.monthlyAiLimit
+                )
+            }
+        }
+
+    suspend fun fetchCompleteDocument(documentId: String): Result<app.tijario.data.model.CompleteDocument> =
+        runCatching {
+            val userId = requireUserId()
+            withContext(Dispatchers.IO) {
+                val doc = supabaseClient.from("documents")
+                    .select {
+                        filter {
+                            eq("id", documentId)
+                            eq("user_id", userId)
+                        }
+                    }
+                    .decodeList<app.tijario.data.model.CompleteDocument>()
+                    .firstOrNull() ?: error("Document not found.")
+
+                val customer = supabaseClient.from("customers")
+                    .select {
+                        filter {
+                            eq("id", doc.customerId)
+                        }
+                    }
+                    .decodeList<app.tijario.data.model.Customer>()
+                    .firstOrNull()
+
+                val items = supabaseClient.from("document_items")
+                    .select {
+                        filter {
+                            eq("document_id", documentId)
+                        }
+                    }
+                    .decodeList<app.tijario.data.model.DocumentItem>()
+
+                doc.copy(
+                    customer = customer,
+                    items = items
+                )
+            }
+        }
+
+    suspend fun fetchDocumentPdf(documentId: String): ByteArray =
+        withContext(Dispatchers.IO) {
+            backendApiClient.fetchDocumentPdf(documentId)
+        }
 
     suspend fun clearLocalCache() {
         withContext(Dispatchers.IO) {

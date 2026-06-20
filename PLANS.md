@@ -14,18 +14,18 @@ Build the native Android Tijario MVP as a Kotlin, Jetpack Compose, Material 3 ap
 6. Documents list/detail, quote/invoice submission contracts, PDF retrieval, and WhatsApp share.
 7. AI Reply and AI Caption through secure backend APIs.
 8. Validation, repair, release-readiness documentation, and PR preparation.
-9. **[Completed]** Stabilization phase:
-   - Structured navigation around authenticated and unauthenticated graphs.
-   - Centralized authentication state coordinator and state resolver.
-   - Fixed dashboard stats revenue logic.
-   - Enforced 8-digit OTP verification constraint.
-   - Separate document and payment status mappers.
-   - Unified ErrorMapper to handle network, timeouts, and ApiResult codes.
-   - Validation via Gradle compilation, unit tests, and lint checks.
+9. **[Completed]** Stabilization phase.
+10. **[Completed]** Core MVP Completion phase:
+    - Feature-oriented structure refactoring (documents, customers, products, ai, account).
+    - Support multiple items in quotes/invoices with BigDecimal math.
+    - Full document detail screen and PDF sharing/viewing flows.
+    - Stable edit and owner-scoped deletion of customers and products.
+    - Authentic limits enforcement and usage checks from period_month.
+    - Structured AI Reply and Caption workflows with copy confirmations.
 
 ## Verification Requirements
 
-- `.\gradlew.bat assembleDebug` -> Passed.
-- `.\gradlew.bat testDebugUnitTest` -> Passed.
-- `.\gradlew.bat lintDebug` -> Passed.
-- Git secret scan -> Passed.
+- `.\gradlew.bat assembleDebug`
+- `.\gradlew.bat testDebugUnitTest`
+- `.\gradlew.bat lintDebug`
+- Git secret scan over tracked files

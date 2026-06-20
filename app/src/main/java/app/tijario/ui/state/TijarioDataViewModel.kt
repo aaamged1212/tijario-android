@@ -27,6 +27,7 @@ data class TijarioDataUiState(
     val customers: List<Customer> = emptyList(),
     val products: List<Product> = emptyList(),
     val documents: List<DocumentSummary> = emptyList(),
+    val planUsage: app.tijario.data.model.UserPlanUsage? = null,
     val isInitialLoading: Boolean = false,
     val isRefreshing: Boolean = false,
     val lastSyncedAt: Long? = null,
@@ -38,6 +39,7 @@ data class TijarioDataUiState(
 
 class TijarioDataViewModel(
     private val repository: TijarioRepository,
+    private val aiRepository: app.tijario.data.repository.AiRepository,
 ) : ViewModel() {
     private val uiStateMutable = MutableStateFlow(TijarioDataUiState())
     private var cacheCollectionJob: Job? = null
@@ -61,6 +63,7 @@ class TijarioDataViewModel(
             }
 
             refreshAll(force = forceRefresh)
+            refreshPlanUsage()
         }
     }
 
@@ -77,15 +80,39 @@ class TijarioDataViewModel(
         if (refreshJob?.isActive == true) return
         refreshJob = viewModelScope.launch {
             repository.refreshAll(force = force)
-            uiStateMutable.update { it.copy(isInitialLoading = false) }
+            repository.fetchUserPlanUsage().onSuccess { usage ->
+                uiStateMutable.update { it.copy(planUsage = usage, isInitialLoading = false) }
+            }.onFailure {
+                uiStateMutable.update { it.copy(isInitialLoading = false) }
+            }
+        }
+    }
+
+    fun refreshPlanUsage() {
+        viewModelScope.launch {
+            repository.fetchUserPlanUsage().onSuccess { usage ->
+                uiStateMutable.update { it.copy(planUsage = usage) }
+            }
         }
     }
 
     suspend fun createCustomer(customer: Customer): Result<Unit> =
         repository.createCustomer(customer)
 
+    suspend fun updateCustomer(customer: Customer): Result<Unit> =
+        repository.updateCustomer(customer)
+
+    suspend fun deleteCustomer(customerId: String): Result<Unit> =
+        repository.deleteCustomer(customerId)
+
     suspend fun createProduct(product: Product): Result<Unit> =
         repository.createProduct(product)
+
+    suspend fun updateProduct(product: Product): Result<Unit> =
+        repository.updateProduct(product)
+
+    suspend fun deleteProduct(productId: String): Result<Unit> =
+        repository.deleteProduct(productId)
 
     suspend fun saveBusinessSettings(settings: BusinessSettings): Result<Unit> =
         repository.saveBusinessSettings(settings)
@@ -93,8 +120,35 @@ class TijarioDataViewModel(
     suspend fun cacheBusinessSettings(settings: BusinessSettings): Result<Unit> =
         repository.cacheBusinessSettings(settings)
 
-    suspend fun createDocument(request: CreateDocumentRequest): ApiResult<CreateDocumentResponse> =
-        repository.createDocument(request)
+    suspend fun createDocument(request: CreateDocumentRequest): ApiResult<CreateDocumentResponse> {
+        val result = repository.createDocument(request)
+        if (result.ok) {
+            refreshPlanUsage()
+        }
+        return result
+    }
+
+    suspend fun fetchCompleteDocument(documentId: String): Result<app.tijario.data.model.CompleteDocument> =
+        repository.fetchCompleteDocument(documentId)
+
+    suspend fun fetchDocumentPdf(documentId: String): ByteArray =
+        repository.fetchDocumentPdf(documentId)
+
+    suspend fun generateAiReply(request: app.tijario.data.remote.AiReplyRequest): ApiResult<app.tijario.data.remote.AiReplyResponse> {
+        val result = aiRepository.generateReply(request)
+        if (result.ok) {
+            refreshPlanUsage()
+        }
+        return result
+    }
+
+    suspend fun generateAiCaption(request: app.tijario.data.remote.AiCaptionRequest): ApiResult<app.tijario.data.remote.AiCaptionResponse> {
+        val result = aiRepository.generateCaption(request)
+        if (result.ok) {
+            refreshPlanUsage()
+        }
+        return result
+    }
 
     fun clearSessionCache() {
         viewModelScope.launch {
@@ -113,20 +167,19 @@ class TijarioDataViewModel(
                 repository.observeDocuments(userId),
                 repository.syncState,
             ) { settings, customers, products, documents, syncState ->
-                TijarioDataUiState(
-                    userId = userId,
-                    businessSettings = settings,
-                    customers = customers,
-                    products = products,
-                    documents = documents,
-                    isInitialLoading = false,
-                    isRefreshing = syncState.isRefreshing,
-                    lastSyncedAt = syncState.lastSyncedAt,
-                    errorMessage = syncState.errorMessage,
-                )
-            }.collect { state ->
-                uiStateMutable.value = state
-            }
+                uiStateMutable.update {
+                    it.copy(
+                        userId = userId,
+                        businessSettings = settings,
+                        customers = customers,
+                        products = products,
+                        documents = documents,
+                        isRefreshing = syncState.isRefreshing,
+                        lastSyncedAt = syncState.lastSyncedAt,
+                        errorMessage = syncState.errorMessage,
+                    )
+                }
+            }.collect {}
         }
 }
 
@@ -136,7 +189,9 @@ class TijarioDataViewModelFactory(
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(TijarioDataViewModel::class.java)) {
-            return TijarioDataViewModel(AppContainer.repository(context.applicationContext)) as T
+            val repo = AppContainer.repository(context.applicationContext)
+            val aiRepo = app.tijario.data.repository.AiRepository(app.tijario.config.Supabase.apiClient)
+            return TijarioDataViewModel(repo, aiRepo) as T
         }
         error("Unknown ViewModel class: ${modelClass.name}")
     }
