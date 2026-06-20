@@ -20,6 +20,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
@@ -1392,6 +1394,40 @@ fun ProductsScreen(
 }
 
 @Composable
+fun TijarioFilterChip(
+    selected: Boolean,
+    onClick: () -> Unit,
+    label: String,
+    leadingIcon: @Composable (() -> Unit)? = null
+) {
+    Surface(
+        modifier = Modifier
+            .clickable(onClick = onClick)
+            .clip(RoundedCornerShape(20.dp)),
+        color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+        border = BorderStroke(
+            1.dp,
+            if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+        ),
+        shape = RoundedCornerShape(20.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            leadingIcon?.invoke()
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                color = if (selected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
 fun DocumentsScreen(
     dataViewModel: TijarioDataViewModel,
     onNewQuote: () -> Unit,
@@ -1401,6 +1437,7 @@ fun DocumentsScreen(
     hideHeader: Boolean = false
 ) {
     var selectedSection by remember { mutableStateOf(0) } // 0 = Invoices, 1 = Quotes
+    var selectedFilter by remember { mutableStateOf("all") } // "all", "unpaid", "paid", "partial"
     var menuExpanded by remember { mutableStateOf(false) }
     var documentPendingDelete by remember { mutableStateOf<app.tijario.data.model.DocumentSummary?>(null) }
     var busyDocumentId by remember { mutableStateOf<String?>(null) }
@@ -1417,9 +1454,22 @@ fun DocumentsScreen(
     val documents = uiState.documents
     val customers = uiState.customers
     val isLoading = uiState.isInitialLoading && documents.isEmpty()
-    // Filter documents depending on selection
+
+    // Filter documents depending on selection and status filter
     val filteredDocs = documents.filter { doc ->
-        if (selectedSection == 0) doc.type == app.tijario.data.model.DocumentType.Invoice else doc.type == app.tijario.data.model.DocumentType.Quote
+        val matchesTab = if (selectedSection == 0) doc.type == app.tijario.data.model.DocumentType.Invoice else doc.type == app.tijario.data.model.DocumentType.Quote
+        val matchesFilter = when (selectedFilter) {
+            "unpaid" -> doc.paymentStatus?.lowercase() == "unpaid"
+            "paid" -> doc.paymentStatus?.lowercase() == "paid"
+            "partial" -> doc.paymentStatus?.lowercase() == "partial"
+            else -> true
+        }
+        matchesTab && matchesFilter
+    }
+
+    // Sort documents (latest first by issueDate)
+    val sortedDocs = remember(filteredDocs) {
+        filteredDocs.sortedByDescending { it.issueDate }
     }
 
     fun shareDocument(documentId: String) {
@@ -1500,22 +1550,145 @@ fun DocumentsScreen(
                 }
             }
 
-            // TabRow for sections
-            TabRow(
-                selectedTabIndex = selectedSection,
-                containerColor = MaterialTheme.colorScheme.surface,
-                contentColor = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.clip(RoundedCornerShape(12.dp))
+            // Custom Pill Tab Layout under Navbar
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f), RoundedCornerShape(16.dp))
+                    .padding(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                Tab(
-                    selected = selectedSection == 0,
-                    onClick = { selectedSection = 0 },
-                    text = { Text(t("section_invoices"), fontWeight = FontWeight.Bold, fontSize = 14.sp) }
+                // Invoices tab
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(if (selectedSection == 0) MaterialTheme.colorScheme.primary else Color.Transparent)
+                        .clickable { selectedSection = 0 }
+                        .padding(vertical = 12.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Description,
+                        contentDescription = null,
+                        tint = if (selectedSection == 0) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = t("section_invoices"),
+                        fontWeight = FontWeight.Bold,
+                        color = if (selectedSection == 0) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 14.sp
+                    )
+                }
+
+                // Quotes tab
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(if (selectedSection == 1) MaterialTheme.colorScheme.primary else Color.Transparent)
+                        .clickable { selectedSection = 1 }
+                        .padding(vertical = 12.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Label,
+                        contentDescription = null,
+                        tint = if (selectedSection == 1) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = t("section_quotes"),
+                        fontWeight = FontWeight.Bold,
+                        color = if (selectedSection == 1) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 14.sp
+                    )
+                }
+            }
+
+            // Filtering Chips under Tabs
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // All Filter
+                TijarioFilterChip(
+                    selected = selectedFilter == "all",
+                    onClick = { selectedFilter = "all" },
+                    label = "الكل",
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Filled.GridView,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = if (selectedFilter == "all") Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 )
-                Tab(
-                    selected = selectedSection == 1,
-                    onClick = { selectedSection = 1 },
-                    text = { Text(t("section_quotes"), fontWeight = FontWeight.Bold, fontSize = 14.sp) }
+
+                // Unpaid Filter (only meaningful for invoices, but can show)
+                TijarioFilterChip(
+                    selected = selectedFilter == "unpaid",
+                    onClick = { selectedFilter = "unpaid" },
+                    label = "غير مدفوعة",
+                    leadingIcon = {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .background(Color(0xFFEF4444), CircleShape)
+                        )
+                    }
+                )
+
+                // Paid Filter
+                TijarioFilterChip(
+                    selected = selectedFilter == "paid",
+                    onClick = { selectedFilter = "paid" },
+                    label = "مدفوعة",
+                    leadingIcon = {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .background(Color(0xFF22C55E), CircleShape)
+                        )
+                    }
+                )
+
+                // Partial Filter
+                TijarioFilterChip(
+                    selected = selectedFilter == "partial",
+                    onClick = { selectedFilter = "partial" },
+                    label = "جزئية",
+                    leadingIcon = {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .background(Color(0xFFF97316), CircleShape)
+                        )
+                    }
+                )
+
+                // Latest indicator (just design / sort toggle)
+                TijarioFilterChip(
+                    selected = true,
+                    onClick = { /* sorting is default active */ },
+                    label = "الأحدث",
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Filled.Event,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = Color.White
+                        )
+                    }
                 )
             }
 
@@ -1530,8 +1703,15 @@ fun DocumentsScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.weight(1f)
                 ) {
-                    items(filteredDocs) { doc ->
+                    items(sortedDocs) { doc ->
                         val customerName = customers.find { it.id == doc.customerId }?.name ?: "عميل غير معروف"
+                        val statusColor = when (doc.paymentStatus?.lowercase()) {
+                            "paid" -> Color(0xFF22C55E)
+                            "partial" -> Color(0xFFF97316)
+                            "unpaid" -> Color(0xFFEF4444)
+                            else -> MaterialTheme.colorScheme.primary
+                        }
+
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -1540,76 +1720,202 @@ fun DocumentsScreen(
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                         ) {
-                            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(IntrinsicSize.Min)
+                            ) {
+                                // 1. Vertical status colored line on the right edge in RTL.
+                                // In RTL, the first child in Row is placed on the far right.
+                                Box(
+                                    modifier = Modifier
+                                        .width(6.dp)
+                                        .fillMaxHeight()
+                                        .background(statusColor)
+                                )
+
+                                // 2. Document Content Area
                                 Row(
-                                    modifier = Modifier.fillMaxWidth(),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .padding(16.dp),
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text(
-                                        doc.documentNumber,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                        fontSize = 15.sp
-                                    )
-                                    Row(
-                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
+                                    // Left Column: More options, payment status, total amount, quick action buttons
+                                    Column(
+                                        horizontalAlignment = Alignment.Start,
+                                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                                        modifier = Modifier.weight(1f)
                                     ) {
-                                        if (busyDocumentId == doc.id) {
-                                            CircularProgressIndicator(
-                                                modifier = Modifier.size(18.dp),
-                                                strokeWidth = 2.dp,
-                                                color = MaterialTheme.colorScheme.primary,
-                                            )
-                                        } else if (doc.type == app.tijario.data.model.DocumentType.Invoice) {
-                                            val payStatusText = app.tijario.domain.PaymentStatusMapper.getStatusText(doc.paymentStatus)
-                                            val payColors = app.tijario.domain.PaymentStatusMapper.getStatusColors(doc.paymentStatus)
-                                            Surface(
-                                                color = Color(payColors.first),
-                                                shape = RoundedCornerShape(8.dp)
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            IconButton(
+                                                onClick = { documentPendingDelete = doc },
+                                                modifier = Modifier.size(32.dp)
                                             ) {
-                                                Text(
-                                                    payStatusText,
-                                                    color = Color(payColors.second),
-                                                    fontSize = 11.sp,
-                                                    fontWeight = FontWeight.Bold,
-                                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                                Icon(
+                                                    imageVector = Icons.Filled.MoreVert,
+                                                    contentDescription = null,
+                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
+                                            }
+
+                                            if (doc.type == app.tijario.data.model.DocumentType.Invoice) {
+                                                val payStatusText = app.tijario.domain.PaymentStatusMapper.getStatusText(doc.paymentStatus)
+                                                val payColors = app.tijario.domain.PaymentStatusMapper.getStatusColors(doc.paymentStatus)
+                                                Surface(
+                                                    color = Color(payColors.first).copy(alpha = 0.15f),
+                                                    shape = RoundedCornerShape(8.dp)
+                                                ) {
+                                                    Row(
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                                    ) {
+                                                        Box(
+                                                            modifier = Modifier
+                                                                .size(6.dp)
+                                                                .background(Color(payColors.second), CircleShape)
+                                                        )
+                                                        Text(
+                                                            text = payStatusText,
+                                                            color = Color(payColors.second),
+                                                            fontSize = 11.sp,
+                                                            fontWeight = FontWeight.Bold
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        // Total Price
+                                        Text(
+                                            text = "${doc.currency} ${String.format(java.util.Locale.US, "%,.2f", doc.total)}",
+                                            color = MaterialTheme.colorScheme.primary,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 16.sp
+                                        )
+
+                                        // Quick Action Buttons Row
+                                        Row(
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            // View details button
+                                            IconButton(
+                                                onClick = { onDocumentClick(doc.id) },
+                                                modifier = Modifier
+                                                    .size(32.dp)
+                                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f), CircleShape)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Filled.Visibility,
+                                                    contentDescription = null,
+                                                    tint = MaterialTheme.colorScheme.primary,
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                            }
+
+                                            // Edit Button
+                                            IconButton(
+                                                onClick = { onEditDocument(doc.id, doc.type) },
+                                                enabled = busyDocumentId == null,
+                                                modifier = Modifier
+                                                    .size(32.dp)
+                                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f), CircleShape)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Filled.Edit,
+                                                    contentDescription = null,
+                                                    tint = MaterialTheme.colorScheme.primary,
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                            }
+
+                                            // Share Button
+                                            IconButton(
+                                                onClick = { shareDocument(doc.id) },
+                                                enabled = busyDocumentId == null,
+                                                modifier = Modifier
+                                                    .size(32.dp)
+                                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f), CircleShape)
+                                            ) {
+                                                if (busyDocumentId == doc.id) {
+                                                    CircularProgressIndicator(
+                                                        modifier = Modifier.size(12.dp),
+                                                        strokeWidth = 1.5.dp,
+                                                        color = MaterialTheme.colorScheme.primary
+                                                    )
+                                                } else {
+                                                    Icon(
+                                                        imageVector = Icons.Filled.Share,
+                                                        contentDescription = null,
+                                                        tint = MaterialTheme.colorScheme.primary,
+                                                        modifier = Modifier.size(16.dp)
+                                                    )
+                                                }
                                             }
                                         }
                                     }
-                                }
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(customerName, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
-                                    Text("${doc.total} ${doc.currency}", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Black, fontSize = 15.sp)
-                                }
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.End,
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    IconButton(
-                                        onClick = { shareDocument(doc.id) },
-                                        enabled = busyDocumentId == null,
+
+                                    // Right Column: INV code, Customer name, Date (visually matches RTL starting right)
+                                    Column(
+                                        horizontalAlignment = Alignment.End,
+                                        verticalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
-                                        Icon(Icons.Filled.Share, contentDescription = "مشاركة", tint = MaterialTheme.colorScheme.primary)
-                                    }
-                                    IconButton(
-                                        onClick = { onEditDocument(doc.id, doc.type) },
-                                        enabled = busyDocumentId == null,
-                                    ) {
-                                        Icon(Icons.Filled.Edit, contentDescription = "تعديل", tint = Color(0xFF64748B))
-                                    }
-                                    IconButton(
-                                        onClick = { documentPendingDelete = doc },
-                                        enabled = busyDocumentId == null,
-                                    ) {
-                                        Icon(Icons.Filled.Delete, contentDescription = "حذف", tint = MaterialTheme.colorScheme.error)
+                                        Text(
+                                            text = doc.documentNumber,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 16.sp,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+
+                                        // Customer Name
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            Text(
+                                                text = customerName,
+                                                fontSize = 13.sp,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                            Icon(
+                                                imageVector = Icons.Filled.Person,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
+
+                                        // Issue Date
+                                        val dateStr = try {
+                                            val ldt = java.time.LocalDateTime.parse(doc.issueDate)
+                                            val formatter = java.time.format.DateTimeFormatter.ofPattern("dd MMMM yyyy", java.util.Locale("ar"))
+                                            ldt.format(formatter)
+                                        } catch (e: Exception) {
+                                            doc.issueDate.substringBefore("T")
+                                        }
+
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            Text(
+                                                text = dateStr,
+                                                fontSize = 11.sp,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                            )
+                                            Icon(
+                                                imageVector = Icons.Filled.Event,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
                                     }
                                 }
                             }
