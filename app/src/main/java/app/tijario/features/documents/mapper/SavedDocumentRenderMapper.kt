@@ -19,6 +19,7 @@ object SavedDocumentRenderMapper {
         businessSettings: BusinessSettings?,
         language: AppLanguage = AppLanguage.AR,
         templateId: String = DocumentTemplateRegistry.defaultTemplateId,
+        metadata: app.tijario.data.local.LocalDocumentMetadataEntity? = null,
     ): DocumentRenderModel {
         require(document.id.isNotBlank()) { "Missing document ID" }
         require(document.documentNumber.isNotBlank()) { "Missing document number" }
@@ -72,7 +73,7 @@ object SavedDocumentRenderMapper {
                 total = BigDecimal.valueOf(document.total),
                 amountPaid = paymentAmounts.paid,
                 amountRemaining = paymentAmounts.remaining,
-                currency = document.currency,
+                currency = metadata?.currency ?: document.currency.ifBlank { null } ?: businessSettings?.currency ?: "SAR",
             ),
             invoiceNote = businessSettings?.invoiceNote,
             documentNote = document.notes,
@@ -80,6 +81,9 @@ object SavedDocumentRenderMapper {
             language = language,
             templateId = templateId,
             templateVersion = DocumentTemplateRegistry.requireTemplate(templateId).version,
+            signatureData = metadata?.signatureData,
+            paymentMethod = metadata?.paymentMethod,
+            documentTitle = if (document.type == DocumentType.Invoice) "Online Orders" else "عرض سعر",
         )
     }
 }

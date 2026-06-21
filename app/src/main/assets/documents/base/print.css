@@ -7,10 +7,20 @@
   html,
   body {
     background: #FFFFFF;
+    height: auto !important;
+    overflow: visible !important;
   }
 
   .document-page {
     margin: 0;
     box-shadow: none;
+    height: auto !important;
+    min-height: 297mm;
+  }
+
+  .document-shell {
+    height: auto !important;
+    min-height: 265mm;
+    overflow: visible !important;
   }
 }

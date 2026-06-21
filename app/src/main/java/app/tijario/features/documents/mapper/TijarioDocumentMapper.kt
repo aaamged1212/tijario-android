@@ -24,6 +24,7 @@ object TijarioDocumentMapper {
         businessSettings: BusinessSettings?,
         language: AppLanguage = AppLanguage.AR,
         templateId: String = DocumentTemplateRegistry.defaultTemplateId,
+        metadata: app.tijario.data.local.LocalDocumentMetadataEntity? = null,
     ): DocumentRenderModel =
-        SavedDocumentRenderMapper.map(document, businessSettings, language, templateId)
+        SavedDocumentRenderMapper.map(document, businessSettings, language, templateId, metadata)
 }

@@ -328,6 +328,8 @@ tbody tr:nth-child(even) {
   grid-template-columns: minmax(0, 1fr) 78mm;
   gap: 12px;
   align-items: start;
+  break-inside: avoid;
+  page-break-inside: avoid;
 }
 
 .totals-row {
@@ -359,6 +361,8 @@ tbody tr:nth-child(even) {
   border-top: 1px solid var(--line);
   text-align: center;
   font-size: 12px;
+  break-inside: avoid;
+  page-break-inside: avoid;
 }
 
 .muted {

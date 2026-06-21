@@ -24,10 +24,19 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import android.content.Context
+import android.util.Base64
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import app.tijario.features.documents.model.DocumentRenderModel
 import app.tijario.features.documents.template.AndroidAssetDocumentTemplateLoader
 import app.tijario.features.documents.template.DocumentHtmlRenderer
 import app.tijario.features.documents.template.DocumentRenderTarget
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.io.File
+import java.net.URL
+import java.security.MessageDigest
 
 private const val A4_WIDTH_TO_HEIGHT = 210f / 297f
 private val A4_LAYOUT_WIDTH = 794.dp
@@ -41,8 +50,25 @@ fun DocumentPreviewWebView(
     interactive: Boolean = false,
 ) {
     val context = LocalContext.current
+    val logoUrl = model.business.logoUrl
+    val cachedLogoBase64 by produceState<String?>(initialValue = null, logoUrl) {
+        if (!logoUrl.isNullOrBlank() && logoUrl.startsWith("http")) {
+            value = getCachedLogoBase64(context, logoUrl)
+        }
+    }
+
+    val finalModel = remember(model, cachedLogoBase64) {
+        if (cachedLogoBase64 != null) {
+            model.copy(
+                business = model.business.copy(logoUrl = cachedLogoBase64)
+            )
+        } else {
+            model
+        }
+    }
+
     val renderer = remember(context) { DocumentHtmlRenderer(AndroidAssetDocumentTemplateLoader(context)) }
-    val html = remember(model) { renderer.render(model, DocumentRenderTarget.Preview) }
+    val html = remember(finalModel) { renderer.render(finalModel, DocumentRenderTarget.Preview) }
 
     BoxWithConstraints(
         modifier = modifier,
@@ -121,3 +147,38 @@ fun DocumentPreviewWebView(
         }
     }
 }
+
+private suspend fun getCachedLogoBase64(context: Context, logoUrl: String): String? =
+    withContext(Dispatchers.IO) {
+        runCatching {
+            val cacheDir = File(context.filesDir, "business-logo-cache").apply { mkdirs() }
+            val cacheFile = File(cacheDir, "${logoUrl.sha256()}.img")
+            
+            // If it doesn't exist, try loading/downloading it first
+            if (!cacheFile.exists() || cacheFile.length() == 0L) {
+                val bytes = URL(logoUrl).openStream().use { it.readBytes() }
+                if (bytes.isNotEmpty()) {
+                    cacheFile.writeBytes(bytes)
+                }
+            }
+            
+            if (cacheFile.exists() && cacheFile.length() > 0L) {
+                val bytes = cacheFile.readBytes()
+                val base64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
+                val mimeType = when {
+                    logoUrl.endsWith(".png", ignoreCase = true) -> "image/png"
+                    logoUrl.endsWith(".webp", ignoreCase = true) -> "image/webp"
+                    else -> "image/jpeg"
+                }
+                "data:$mimeType;base64,$base64"
+            } else {
+                null
+            }
+        }.getOrNull()
+    }
+
+private fun String.sha256(): String =
+    MessageDigest.getInstance("SHA-256")
+        .digest(toByteArray(Charsets.UTF_8))
+        .joinToString("") { byte -> "%02x".format(byte) }
+

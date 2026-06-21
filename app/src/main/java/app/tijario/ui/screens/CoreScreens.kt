@@ -2869,7 +2869,7 @@ fun AccountScreen(
                                 val result = app.tijario.config.Supabase.apiClient.uploadBusinessLogo(uploadRequest)
                                 val logoUrl = result.data?.logoUrl
                                 if (result.ok && !logoUrl.isNullOrBlank()) {
-                                    dataViewModel.cacheBusinessSettings(settings.copy(logoUrl = logoUrl))
+                                    dataViewModel.saveBusinessSettings(settings.copy(logoUrl = logoUrl))
                                     snackbarHostState.showSnackbar(Localization.getString("logo_saved_success", language))
                                 } else {
                                     snackbarHostState.showSnackbar(result.displayMessage)

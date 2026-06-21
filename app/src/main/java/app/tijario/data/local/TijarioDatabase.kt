@@ -15,8 +15,9 @@ import androidx.room.RoomDatabase
         LocalPaymentMethodEntity::class,
         LocalSignatureEntity::class,
         LocalTermsEntity::class,
+        LocalDocumentMetadataEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = false,
 )
 abstract class TijarioDatabase : RoomDatabase() {

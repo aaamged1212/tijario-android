@@ -253,3 +253,15 @@ data class LocalTermsEntity(
     val title: String,
     val content: String
 )
+
+@Entity(tableName = "local_document_metadata")
+data class LocalDocumentMetadataEntity(
+    @PrimaryKey
+    val documentId: String,
+    val currency: String,
+    @ColumnInfo(name = "signature_data")
+    val signatureData: String?,
+    @ColumnInfo(name = "payment_method")
+    val paymentMethod: String?
+)
+

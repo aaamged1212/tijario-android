@@ -53,7 +53,21 @@ class TijarioRepository(
         dao.observeProducts(userId).map { rows -> rows.map { it.toModel() } }
 
     fun observeDocuments(userId: String): Flow<List<DocumentSummary>> =
-        dao.observeDocuments(userId).map { rows -> rows.map { it.toModel() } }
+        kotlinx.coroutines.flow.combine(
+            dao.observeDocuments(userId),
+            dao.observeAllDocumentMetadata()
+        ) { rows, metadataList ->
+            val metadataMap = metadataList.associateBy { it.documentId }
+            rows.map { row ->
+                val model = row.toModel()
+                val meta = metadataMap[model.id]
+                if (meta != null) {
+                    model.copy(currency = meta.currency)
+                } else {
+                    model
+                }
+            }
+        }
 
     suspend fun currentUserId(): String? =
         supabaseClient.auth.currentUserOrNull()?.id
@@ -489,6 +503,14 @@ class TijarioRepository(
     fun observeLocalTerms(): Flow<List<app.tijario.data.local.LocalTermsEntity>> = dao.observeLocalTerms()
     suspend fun upsertLocalTerms(terms: app.tijario.data.local.LocalTermsEntity) = withContext(Dispatchers.IO) { dao.upsertLocalTerms(terms) }
     suspend fun deleteLocalTerms(id: String) = withContext(Dispatchers.IO) { dao.deleteLocalTerms(id) }
+
+    suspend fun getDocumentMetadata(documentId: String): app.tijario.data.local.LocalDocumentMetadataEntity? = withContext(Dispatchers.IO) {
+        dao.getDocumentMetadata(documentId)
+    }
+
+    suspend fun upsertDocumentMetadata(metadata: app.tijario.data.local.LocalDocumentMetadataEntity) = withContext(Dispatchers.IO) {
+        dao.upsertDocumentMetadata(metadata)
+    }
 
     private companion object {
         const val FULL_REFRESH_THROTTLE_MS = 15_000L

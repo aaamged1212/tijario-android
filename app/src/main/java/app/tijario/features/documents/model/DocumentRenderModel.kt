@@ -44,7 +44,8 @@ data class DocumentTemplateDefinition(
     val name: String,
     val version: Int,
     val assetDir: String,
-    val layoutFamily: String,
+    val family: String,
+    val palette: String,
     val accentColor: String,
     val description: String,
     val visual: DocumentTemplateVisual = DocumentTemplateVisual(),
@@ -86,6 +87,9 @@ data class DocumentRenderModel(
     val templateId: String = "tijario-classic",
     val templateVersion: Int = 1,
     val formattingVersion: Int = 1,
+    val signatureData: String? = null,
+    val paymentMethod: String? = null,
+    val documentTitle: String? = null,
 ) {
     val isRtl: Boolean get() = language == AppLanguage.AR
 }

@@ -55,7 +55,7 @@ object DraftDocumentRenderMapper {
         )
         return DocumentRenderModel(
             documentType = documentType,
-            documentNumber = if (documentType == DocumentType.Invoice) "INV-DRAFT" else "QT-DRAFT",
+            documentNumber = form.documentNumber.takeIf { it.isNotBlank() } ?: if (documentType == DocumentType.Invoice) "INV-DRAFT" else "QT-DRAFT",
             issueDate = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date()),
             updatedAt = "draft",
             status = DocumentRenderStatus(
@@ -93,6 +93,9 @@ object DraftDocumentRenderMapper {
             language = language,
             templateId = templateId,
             templateVersion = DocumentTemplateRegistry.requireTemplate(templateId).version,
+            signatureData = form.signatureData.takeIf { it.isNotBlank() },
+            paymentMethod = form.paymentMethod.takeIf { it.isNotBlank() },
+            documentTitle = form.documentTitle.takeIf { it.isNotBlank() },
         )
     }
 }

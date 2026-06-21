@@ -100,4 +100,13 @@ interface TijarioDao {
 
     @Query("DELETE FROM local_terms WHERE id = :id")
     suspend fun deleteLocalTerms(id: String)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertDocumentMetadata(metadata: LocalDocumentMetadataEntity)
+
+    @Query("SELECT * FROM local_document_metadata WHERE documentId = :documentId LIMIT 1")
+    suspend fun getDocumentMetadata(documentId: String): LocalDocumentMetadataEntity?
+
+    @Query("SELECT * FROM local_document_metadata")
+    fun observeAllDocumentMetadata(): Flow<List<LocalDocumentMetadataEntity>>
 }

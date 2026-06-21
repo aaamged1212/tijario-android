@@ -42,6 +42,7 @@ data class CreateDocumentRequest(
     @SerialName("extra_fees") val extraFees: Double = 0.0,
     val notes: String? = null,
     @SerialName("terms_text") val termsText: String? = null,
+    val currency: String? = null,
 )
 
 @Serializable

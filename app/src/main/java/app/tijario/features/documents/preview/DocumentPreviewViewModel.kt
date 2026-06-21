@@ -10,6 +10,6 @@ class DocumentPreviewViewModel : ViewModel() {
     val state: StateFlow<DocumentPreviewState> = _state
 
     fun selectTemplate(templateId: String) {
-        _state.value = _state.value.copy(templateId = DocumentTemplateRegistry.requireTemplate(templateId).id)
+        _state.value = _state.value.copy(templateId = DocumentTemplateRegistry.normalizeId(templateId))
     }
 }

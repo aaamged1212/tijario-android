@@ -49,6 +49,9 @@ class BackendApiClient(
     suspend fun requestPasswordReset(request: ResetPasswordRequest): ApiResult<ResetPasswordResponse> =
         publicPost("api/mobile/auth/reset-password", request).decodeApiResult()
 
+    suspend fun deleteAccount(): ApiResult<Unit> =
+        authorizedPostNoBody("api/mobile/account/delete").decodeApiResult()
+
     suspend fun fetchDocumentPdf(documentId: String): ByteArray =
         authorizedGet("api/mobile/documents/$documentId/pdf").body()
 
@@ -77,6 +80,12 @@ class BackendApiClient(
 
     private suspend fun authorizedGet(path: String): HttpResponse =
         httpClient.get(url(path)) {
+            attachBearerToken()
+        }
+
+    private suspend fun authorizedPostNoBody(path: String): HttpResponse =
+        httpClient.post(url(path)) {
+            accept(ContentType.Application.Json)
             attachBearerToken()
         }
 

@@ -9,10 +9,10 @@ class DocumentTemplatePreferences(
     private val prefs = context.getSharedPreferences("tijario_document_templates", Context.MODE_PRIVATE)
 
     fun getDefaultTemplateId(): String =
-        DocumentTemplateRegistry.requireTemplate(prefs.getString(KEY_DEFAULT_TEMPLATE, DocumentTemplateRegistry.defaultTemplateId)).id
+        DocumentTemplateRegistry.normalizeId(prefs.getString(KEY_DEFAULT_TEMPLATE, DocumentTemplateRegistry.defaultTemplateId))
 
     fun setDefaultTemplateId(templateId: String) {
-        prefs.edit().putString(KEY_DEFAULT_TEMPLATE, DocumentTemplateRegistry.requireTemplate(templateId).id).apply()
+        prefs.edit().putString(KEY_DEFAULT_TEMPLATE, DocumentTemplateRegistry.normalizeId(templateId)).apply()
     }
 
     private companion object {

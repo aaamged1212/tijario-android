@@ -43,6 +43,8 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.shape.CircleShape
@@ -76,7 +78,15 @@ import app.tijario.config.LocalLanguage
 import app.tijario.config.Localization
 import app.tijario.config.t
 import app.tijario.domain.Validation
+import app.tijario.data.model.DocumentType
+import app.tijario.data.model.BusinessSettings
 import app.tijario.features.documents.template.DocumentTemplateRegistry
+import app.tijario.features.documents.model.DocumentPartyInfo
+import app.tijario.features.documents.model.DocumentRenderItem
+import app.tijario.features.documents.model.DocumentRenderModel
+import app.tijario.features.documents.model.DocumentRenderStatus
+import app.tijario.features.documents.model.DocumentTotals
+import app.tijario.features.documents.preview.DocumentPreviewWebView
 import app.tijario.features.documents.ui.DocumentTemplatePicker
 import app.tijario.features.documents.ui.DocumentTemplatePreferences
 import app.tijario.ui.components.ModernDocumentPreview
@@ -552,7 +562,7 @@ fun BusinessSettingsScreen(
                     val result = app.tijario.config.Supabase.apiClient.uploadBusinessLogo(uploadRequest)
                     val uploadedUrl = result.data?.logoUrl
                     if (result.ok && !uploadedUrl.isNullOrBlank()) {
-                        dataViewModel.cacheBusinessSettings(settings.copy(logoUrl = uploadedUrl))
+                        dataViewModel.saveBusinessSettings(settings.copy(logoUrl = uploadedUrl))
                         dataViewModel.refreshAll()
                     } else {
                         errorMessage = result.displayMessage
@@ -1236,47 +1246,11 @@ fun InvoiceInfoDialog(
                             )
 
                             var showTermsDropdown by remember { mutableStateOf(false) }
-                            Box(modifier = Modifier.fillMaxWidth()) {
-                                TijarioTextField(
-                                    label = t("due_terms"),
-                                    value = dueTerms,
-                                    onValueChange = {},
-                                    readOnly = true,
-                                    trailingIcon = {
-                                        IconButton(onClick = { showTermsDropdown = true }) {
-                                            Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
-                                        }
-                                    },
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                                DropdownMenu(
-                                    expanded = showTermsDropdown,
-                                    onDismissRequest = { showTermsDropdown = false },
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    val termsOptions = listOf("None", "Net 7", "Net 15", "Net 30")
-                                    termsOptions.forEach { option ->
-                                        DropdownMenuItem(
-                                            text = { Text(option) },
-                                            onClick = {
-                                                dueTerms = option
-                                                showTermsDropdown = false
-                                            }
-                                        )
-                                    }
-                                }
-                            }
 
                             TijarioTextField(
                                 label = t("due_date"),
                                 value = dueDate,
                                 onValueChange = { dueDate = it }
-                            )
-
-                            TijarioTextField(
-                                label = t("po_number"),
-                                value = poNumber,
-                                onValueChange = { poNumber = it }
                             )
 
                             TijarioTextField(
@@ -1299,7 +1273,48 @@ fun SelectTemplateDialog(
     onDismiss: () -> Unit,
     onSave: (String) -> Unit
 ) {
+    val templates = remember { DocumentTemplateRegistry.templates.take(6) }
     var selectedId by remember { mutableStateOf(selectedTemplateId) }
+    val sampleModel = remember {
+        DocumentRenderModel(
+            documentType = DocumentType.Invoice,
+            documentNumber = "INV-0007",
+            issueDate = "2026-06-21",
+            status = DocumentRenderStatus(paymentStatus = "partial"),
+            business = DocumentPartyInfo(
+                name = "Tijario Store",
+                contactNumber = "77440099",
+                country = "Yemen",
+                city = "Sana'a",
+            ),
+            customer = DocumentPartyInfo(
+                name = "Ahmad Ali",
+                contactNumber = "777000111",
+                city = "Aden",
+            ),
+            items = listOf(
+                DocumentRenderItem(
+                    id = "1",
+                    name = "Sample Item",
+                    description = "Default preview content",
+                    quantity = 2,
+                    unitPrice = java.math.BigDecimal("150.00"),
+                    lineTotal = java.math.BigDecimal("300.00"),
+                ),
+            ),
+            totals = DocumentTotals(
+                subtotal = java.math.BigDecimal("300.00"),
+                discount = java.math.BigDecimal.ZERO,
+                extraFees = java.math.BigDecimal.ZERO,
+                total = java.math.BigDecimal("300.00"),
+                amountPaid = java.math.BigDecimal("100.00"),
+                amountRemaining = java.math.BigDecimal("200.00"),
+                currency = "SAR",
+            ),
+            invoiceNote = "Sample invoice note",
+            termsAndConditions = "Sample terms",
+        )
+    }
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -1334,56 +1349,37 @@ fun SelectTemplateDialog(
                     )
                 }
             ) { paddingValues ->
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(2),
+                Column(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(paddingValues)
                         .padding(12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    items(DocumentTemplateRegistry.templates) { template ->
-                        val selected = template.id == selectedId
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    selectedId = template.id
-                                    onSave(template.id)
-                                },
-                            shape = RoundedCornerShape(12.dp),
-                            border = if (selected) BorderStroke(3.dp, MaterialTheme.colorScheme.primary) else null,
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(12.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(2),
+                        modifier = Modifier.weight(1f).fillMaxWidth(),
+                        contentPadding = PaddingValues(4.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(templates) { template ->
+                            val templateModel = remember(template.id) { sampleModel.copy(templateId = template.id) }
+                            val isSelected = template.id == selectedId
+                            Card(
+                                onClick = { selectedId = template.id },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(260.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                border = if (isSelected) BorderStroke(3.dp, MaterialTheme.colorScheme.primary) else BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                             ) {
-                                Box(
+                                Column(
                                     modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(130.dp)
-                                        .background(Color(0xFFF1F5F9), RoundedCornerShape(8.dp))
-                                        .padding(8.dp)
-                                ) {
-                                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .height(12.dp)
-                                                .background(Color(android.graphics.Color.parseColor(template.accentColor)))
-                                        )
-                                        Box(modifier = Modifier.width(50.dp).height(6.dp).background(Color.LightGray))
-                                        Box(modifier = Modifier.width(30.dp).height(4.dp).background(Color.LightGray))
-                                        Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color.LightGray))
-                                        Box(modifier = Modifier.fillMaxWidth().height(20.dp).background(Color(0xFFE2E8F0)))
-                                    }
-                                }
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
+                                        .fillMaxSize()
+                                        .padding(8.dp),
+                                    verticalArrangement = Arrangement.spacedBy(6.dp)
                                 ) {
                                     Text(
                                         text = template.name.removePrefix("Tijario "),
@@ -1391,20 +1387,34 @@ fun SelectTemplateDialog(
                                         fontSize = 12.sp,
                                         maxLines = 1
                                     )
-                                    if (template.id.contains("elegant") || template.id.contains("bold") || template.id.contains("premium")) {
-                                        Text(
-                                            text = "VIP",
-                                            color = Color(0xFFD97706),
-                                            fontWeight = FontWeight.ExtraBold,
-                                            fontSize = 10.sp,
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(8.dp))
+                                    ) {
+                                        DocumentPreviewWebView(
+                                            model = templateModel,
+                                            modifier = Modifier.fillMaxSize()
+                                        )
+                                        Box(
                                             modifier = Modifier
-                                                .background(Color(0xFFFEF3C7), RoundedCornerShape(4.dp))
-                                                .padding(horizontal = 4.dp, vertical = 2.dp)
+                                                .fillMaxSize()
+                                                .clickable { selectedId = template.id }
                                         )
                                     }
                                 }
                             }
                         }
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        OutlinedButton(onClick = onDismiss) { Text(t("btn_cancel")) }
+                        Button(onClick = {
+                            onSave(selectedId)
+                        }) { Text(t("btn_save")) }
                     }
                 }
             }
@@ -1512,28 +1522,28 @@ fun EditItemDialog(
                             modifier = Modifier.padding(16.dp),
                             verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            Box(
+                                modifier = Modifier.fillMaxWidth()
                             ) {
                                 TijarioTextField(
                                     label = t("item_name_label") + " *",
                                     value = name,
-                                    onValueChange = { name = it },
-                                    modifier = Modifier.weight(1f)
-                                )
-                                IconButton(
-                                    onClick = onChooseProduct,
-                                    modifier = Modifier
-                                        .size(48.dp)
-                                        .background(
-                                            MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
-                                            RoundedCornerShape(8.dp)
+                                    onValueChange = {},
+                                    readOnly = true,
+                                    trailingIcon = {
+                                        Icon(
+                                            imageVector = Icons.Filled.ArrowDropDown,
+                                            contentDescription = "اختر منتج",
+                                            tint = MaterialTheme.colorScheme.primary
                                         )
-                                ) {
-                                    Icon(Icons.Filled.Description, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                                }
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .matchParentSize()
+                                        .clickable { onChooseProduct() }
+                                )
                             }
 
                             TijarioTextField(
@@ -1616,7 +1626,7 @@ fun EditItemDialog(
                                 fontSize = 16.sp
                             )
                             Text(
-                                text = String.format("$%.2f", totalAmount),
+                                text = String.format("%.2f", totalAmount),
                                 color = Color.White,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 18.sp
@@ -1744,7 +1754,12 @@ fun DocumentFormScreen(
             val result = dataViewModel.fetchCompleteDocument(editDocumentId)
             val existing = result.getOrNull()
             if (existing != null) {
-                form = existing.toFormState()
+                val metadata = dataViewModel.getDocumentMetadata(editDocumentId)
+                form = existing.toFormState().copy(
+                    currency = metadata?.currency ?: existing.currency.ifBlank { null } ?: form.currency,
+                    signatureData = metadata?.signatureData.orEmpty(),
+                    paymentMethod = metadata?.paymentMethod.orEmpty(),
+                )
             } else {
                 submitError = result.exceptionOrNull()?.message ?: "تعذر تحميل المستند للتعديل."
             }
@@ -1753,22 +1768,34 @@ fun DocumentFormScreen(
     }
 
     // Sync selected product to specific row
-    LaunchedEffect(selectedProduct) {
+    LaunchedEffect(selectedProduct, selectedProductRowIndex) {
         selectedProduct?.let { prod ->
             val idx = selectedProductRowIndex
-            if (idx != null && idx in form.items.indices) {
-                form = form.copy(
-                    items = form.items.mapIndexed { i, item ->
-                        if (i == idx) {
-                            item.copy(
-                                productId = prod.id,
-                                name = prod.name,
-                                unitPrice = Validation.normalizedMoneyString(prod.price.toString())
-                            )
-                        } else item
-                    }
-                )
-                editingItemIndex = idx
+            if (idx != null) {
+                if (idx in form.items.indices) {
+                    form = form.copy(
+                        items = form.items.mapIndexed { i, item ->
+                            if (i == idx) {
+                                item.copy(
+                                    productId = prod.id,
+                                    name = prod.name,
+                                    unitPrice = Validation.normalizedMoneyString(prod.price.toString())
+                                )
+                            } else item
+                        }
+                    )
+                    editingItemIndex = idx
+                } else if (idx >= form.items.size) {
+                    val newItem = app.tijario.ui.state.DocumentItemState(
+                        productId = prod.id,
+                        name = prod.name,
+                        unitPrice = Validation.normalizedMoneyString(prod.price.toString()),
+                        quantity = "1"
+                    )
+                    val newList = form.items + newItem
+                    form = form.copy(items = newList)
+                    editingItemIndex = newList.size - 1
+                }
                 onSelectedProductConsumed()
             }
         }
@@ -1881,7 +1908,8 @@ fun DocumentFormScreen(
                                             discount = Validation.parseNonNegativeMoney(form.discount) ?: 0.0,
                                             extraFees = Validation.parseNonNegativeMoney(form.extraFees) ?: 0.0,
                                             notes = form.notes.ifBlank { null },
-                                            termsText = form.terms.ifBlank { null }
+                                            termsText = form.terms.ifBlank { null },
+                                            currency = form.currency
                                         )
                                         val result = if (editDocumentId != null) {
                                             dataViewModel.updateDocument(editDocumentId, req)
@@ -1893,6 +1921,14 @@ fun DocumentFormScreen(
                                             if (savedDocumentId.isNullOrBlank()) {
                                                 onBack()
                                             } else {
+                                                dataViewModel.upsertDocumentMetadata(
+                                                    app.tijario.data.local.LocalDocumentMetadataEntity(
+                                                        documentId = savedDocumentId,
+                                                        currency = form.currency,
+                                                        signatureData = form.signatureData.takeIf { it.isNotEmpty() },
+                                                        paymentMethod = form.paymentMethod.takeIf { it.isNotEmpty() }
+                                                    )
+                                                )
                                                 onDocumentSaved(savedDocumentId)
                                             }
                                         } else {
@@ -2184,7 +2220,7 @@ fun DocumentFormScreen(
                                             maxLines = 1
                                         )
                                         Text(
-                                            text = "${item.quantity.ifBlank { "0" }} x $${item.unitPrice.ifBlank { "0.00" }}",
+                                            text = "${item.quantity.ifBlank { "0" }} x ${item.unitPrice.ifBlank { "0.00" }}",
                                             fontSize = 12.sp,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
@@ -2201,7 +2237,7 @@ fun DocumentFormScreen(
                                     val itemTotal = sub - disc + tax
 
                                     Text(
-                                        text = String.format("$%.2f", itemTotal),
+                                        text = String.format("%.2f", itemTotal),
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 14.sp
                                     )
@@ -2212,7 +2248,7 @@ fun DocumentFormScreen(
                         val isArabic = LocalLanguage.current == app.tijario.config.AppLanguage.AR
                         OutlinedButton(
                             onClick = {
-                                form = form.copy(items = form.items + app.tijario.ui.state.DocumentItemState())
+                                onNavigateToSelectProduct(form.items.size)
                             },
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -2591,28 +2627,56 @@ fun DocumentFormScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text(
-                    text = "معاينة أولية",
-                    color = MaterialTheme.colorScheme.onBackground,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.fillMaxWidth(),
-                    textAlign = TextAlign.Start,
+                val templates = remember { DocumentTemplateRegistry.templates.take(6) }
+                val pagerState = rememberPagerState(
+                    initialPage = templates.indexOfFirst { it.id == selectedTemplateId }.coerceAtLeast(0),
+                    pageCount = { templates.size }
                 )
+
+                // Sync pager state changes back to selectedTemplateId
+                LaunchedEffect(pagerState.currentPage) {
+                    val templateId = templates[pagerState.currentPage].id
+                    if (templateId != selectedTemplateId) {
+                        selectedTemplateId = templateId
+                        templatePreferences.setDefaultTemplateId(templateId)
+                    }
+                }
+
+                // Sync selectedTemplateId changes (from select dialog/grid) back to pager state
+                LaunchedEffect(selectedTemplateId) {
+                    val targetPage = templates.indexOfFirst { it.id == selectedTemplateId }.coerceAtLeast(0)
+                    if (pagerState.currentPage != targetPage) {
+                        pagerState.animateScrollToPage(targetPage)
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    val activeTemplateName = templates.find { it.id == selectedTemplateId }?.name?.removePrefix("Tijario ") ?: ""
+                    Text(
+                        text = if (LocalLanguage.current == app.tijario.config.AppLanguage.AR) "القالب: $activeTemplateName" else "Template: $activeTemplateName",
+                        color = MaterialTheme.colorScheme.onBackground,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    TextButton(
+                        onClick = { showTemplatePickerDialog = true }
+                    ) {
+                        Text(if (LocalLanguage.current == app.tijario.config.AppLanguage.AR) "تغيير القالب" else "Change Template", fontWeight = FontWeight.Bold)
+                    }
+                }
+
                 Text(
-                    text = "هذه المعاينة محلية وتستخدم نفس القالب الذي سيُستخدم في ملف PDF.",
+                    text = if (LocalLanguage.current == app.tijario.config.AppLanguage.AR) "اسحب لليمين أو اليسار للتغيير بين القوالب مباشرة بالبيانات الحالية." else "Swipe left or right to switch templates directly with the current data.",
                     color = Color(0xFF64748B),
                     fontSize = 12.sp,
                     modifier = Modifier.fillMaxWidth(),
                     textAlign = TextAlign.Start,
                 )
-                DocumentTemplatePicker(
-                    selectedTemplateId = selectedTemplateId,
-                    onTemplateSelected = {
-                        selectedTemplateId = DocumentTemplateRegistry.requireTemplate(it).id
-                        templatePreferences.setDefaultTemplateId(selectedTemplateId)
-                    },
-                )
+
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -2621,14 +2685,21 @@ fun DocumentFormScreen(
                         .padding(12.dp),
                     contentAlignment = Alignment.Center,
                 ) {
-                    ModernDocumentPreview(
-                        documentType = type,
-                        form = form,
-                        businessSettings = businessSettings,
-                        customerCity = form.customerCity,
-                        templateId = selectedTemplateId,
+                    HorizontalPager(
+                        state = pagerState,
                         modifier = Modifier.fillMaxSize(),
-                    )
+                        pageSpacing = 16.dp
+                    ) { page ->
+                        val template = templates[page]
+                        ModernDocumentPreview(
+                            documentType = type,
+                            form = form,
+                            businessSettings = businessSettings,
+                            customerCity = form.customerCity,
+                            templateId = template.id,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
                 }
             }
         }

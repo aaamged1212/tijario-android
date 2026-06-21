@@ -40,6 +40,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.ui.platform.LocalContext
 import android.net.Uri
@@ -212,14 +213,17 @@ fun SettingsHomeScreen(
 fun AccountSettingsScreen(
     onBack: () -> Unit,
     onLogout: () -> Unit,
+    onDeleteAccount: suspend () -> Result<Unit> = { Result.success(Unit) },
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     val noEmailMsg = t("no_email_associated")
+    val unexpectedErrorMsg = t("unexpected_error")
     val scope = rememberCoroutineScope()
     var email by remember { mutableStateOf("") }
     val context = LocalContext.current
     val profilePicFile = remember { File(context.filesDir, "personal_profile_pic.jpg") }
     var profilePicBitmap by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         email = Supabase.client.auth.currentUserOrNull()?.email.orEmpty()
@@ -255,6 +259,33 @@ fun AccountSettingsScreen(
         val domain = parts[1]
         if (local.length <= 2) return "$local••••@$domain"
         return "${local.take(1)}••••••${local.takeLast(4)}@$domain"
+    }
+
+
+    if (showDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            title = { Text(t("delete_account"), fontWeight = FontWeight.Bold) },
+            text = { Text(t("delete_account_desc")) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        scope.launch {
+                            val result = onDeleteAccount()
+                            if (result.isSuccess) {
+                                showDeleteConfirm = false
+                                onLogout()
+                            } else {
+                                snackbarHostState.showSnackbar(result.exceptionOrNull()?.message ?: unexpectedErrorMsg)
+                            }
+                        }
+                    }
+                ) { Text(t("delete_account")) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = false }) { Text(t("btn_cancel")) }
+            }
+        )
     }
 
     Scaffold(
@@ -511,6 +542,40 @@ fun AccountSettingsScreen(
                         Column {
                             Text(t("logout"), fontWeight = FontWeight.Bold, color = Color(0xFFC5221F), fontSize = 14.sp)
                             Text(t("logout_desc"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
+                        }
+                    }
+                }
+            }
+
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { showDeleteConfirm = true },
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Surface(
+                            color = Color(0xFFFEE2E2),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(Icons.Filled.DeleteForever, contentDescription = null, tint = Color(0xFFB91C1C), modifier = Modifier.size(18.dp))
+                            }
+                        }
+                        Column {
+                            Text(t("delete_account"), fontWeight = FontWeight.Bold, color = Color(0xFFB91C1C), fontSize = 14.sp)
+                            Text(t("delete_account_desc"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
                         }
                     }
                 }

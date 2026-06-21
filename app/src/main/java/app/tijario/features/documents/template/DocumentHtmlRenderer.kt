@@ -74,9 +74,20 @@ class DocumentHtmlRenderer(
             note(labels.documentNote, model.documentNote)?.let { append(it) }
             note(labels.invoiceNote, model.invoiceNote)?.let { append(it) }
             note(labels.terms, model.termsAndConditions)?.let { append(it) }
+            val pmLabel = if (model.language == AppLanguage.AR) "طريقة الدفع" else "Payment Method"
+            note(pmLabel, model.paymentMethod)?.let { append(it) }
             append("</div>")
             append(totals(model, labels))
             append("</section>")
+            if (!model.signatureData.isNullOrBlank()) {
+                val align = if (model.isRtl) "left" else "right"
+                val signatureLabel = if (model.language == AppLanguage.AR) "التوقيع" else "Signature"
+                append("<div class=\"signature-block\" style=\"float: $align; text-align: center; margin: 20px 40px;\">")
+                append("<div style=\"font-size: 11px; font-weight: bold; color: #64748B; margin-bottom: 4px;\">$signatureLabel</div>")
+                append("<img src=\"data:image/png;base64,${model.signatureData}\" style=\"max-height: 60px; max-width: 150px; display: block;\" />")
+                append("</div>")
+                append("<div style=\"clear: both;\"></div>")
+            }
             append("<footer class=\"footer\">${labels.footer}</footer>")
             append("</main>")
         }
@@ -163,7 +174,7 @@ class DocumentHtmlRenderer(
     }
 
     private fun title(model: DocumentRenderModel): String =
-        when (model.documentType) {
+        model.documentTitle?.takeIf { it.isNotBlank() } ?: when (model.documentType) {
             DocumentType.Invoice -> if (model.language == AppLanguage.AR) "فاتورة" else "Invoice"
             DocumentType.Quote -> if (model.language == AppLanguage.AR) "عرض سعر" else "Quotation"
         }
@@ -234,6 +245,7 @@ class DocumentHtmlRenderer(
         if (trimmed.isBlank()) return null
         return when {
             trimmed.startsWith("https://", ignoreCase = true) -> trimmed
+            trimmed.startsWith("data:image/", ignoreCase = true) -> trimmed
             else -> null
         }
     }

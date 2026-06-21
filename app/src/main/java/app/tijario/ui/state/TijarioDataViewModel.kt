@@ -203,6 +203,9 @@ class TijarioDataViewModel(
     fun observeLocalTerms(): kotlinx.coroutines.flow.Flow<List<app.tijario.data.local.LocalTermsEntity>> = repository.observeLocalTerms()
     suspend fun upsertLocalTerms(terms: app.tijario.data.local.LocalTermsEntity) = repository.upsertLocalTerms(terms)
     suspend fun deleteLocalTerms(id: String) = repository.deleteLocalTerms(id)
+
+    suspend fun getDocumentMetadata(documentId: String): app.tijario.data.local.LocalDocumentMetadataEntity? = repository.getDocumentMetadata(documentId)
+    suspend fun upsertDocumentMetadata(metadata: app.tijario.data.local.LocalDocumentMetadataEntity) = repository.upsertDocumentMetadata(metadata)
 }
 
 class TijarioDataViewModelFactory(

@@ -670,7 +670,11 @@ fun TijarioApp() {
                     DocumentDetailScreen(
                         dataViewModel = dataViewModel,
                         documentId = documentId,
-                        onBack = { navController.popBackStack() }
+                        onBack = { navController.popBackStack() },
+                        onEditClick = { id, type ->
+                            val route = if (type == app.tijario.data.model.DocumentType.Invoice) "edit-invoice?documentId=$id" else "edit-quote?documentId=$id"
+                            navController.navigate(route)
+                        }
                     )
                 }
                 composable("account") {

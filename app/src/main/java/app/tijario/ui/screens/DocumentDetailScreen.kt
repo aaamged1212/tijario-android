@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
 import androidx.compose.material3.DropdownMenu
@@ -80,6 +81,7 @@ fun DocumentDetailScreen(
     dataViewModel: TijarioDataViewModel,
     documentId: String,
     onBack: () -> Unit,
+    onEditClick: (String, DocumentType) -> Unit,
 ) {
     val language = LocalLanguage.current
     val context = LocalContext.current
@@ -90,6 +92,7 @@ fun DocumentDetailScreen(
     val templatePreferences = remember(context) { DocumentTemplatePreferences(context) }
 
     var document by remember { mutableStateOf<CompleteDocument?>(null) }
+    var documentMetadata by remember { mutableStateOf<app.tijario.data.local.LocalDocumentMetadataEntity?>(null) }
     var isLoading by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var isBusy by remember { mutableStateOf(false) }
@@ -103,6 +106,9 @@ fun DocumentDetailScreen(
             errorMessage = null
             val result = dataViewModel.fetchCompleteDocument(documentId)
             document = result.getOrNull()
+            if (document != null) {
+                documentMetadata = dataViewModel.getDocumentMetadata(documentId)
+            }
             errorMessage = result.exceptionOrNull()?.message ?: if (document == null) {
                 "تعذر تحميل تفاصيل المستند."
             } else {
@@ -173,14 +179,14 @@ fun DocumentDetailScreen(
                 document != null -> {
                     val doc = document!!
                     var documentLanguage by remember { mutableStateOf("AR") }
-                    var showLanguageDropdown by remember { mutableStateOf(false) }
-                    val renderModel = remember(doc, businessSettings, selectedTemplateId, documentLanguage) {
+                    val renderModel = remember(doc, businessSettings, selectedTemplateId, documentLanguage, documentMetadata) {
                         val mappedLang = if (documentLanguage == "EN") AppLanguage.EN else AppLanguage.AR
                         TijarioDocumentMapper.fromSaved(
                             document = doc,
                             businessSettings = businessSettings,
                             language = mappedLang,
                             templateId = selectedTemplateId,
+                            metadata = documentMetadata,
                         )
                     }
 
@@ -219,58 +225,7 @@ fun DocumentDetailScreen(
                             color = MaterialTheme.colorScheme.onBackground,
                         )
 
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                            border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-                        ) {
-                            Box {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable { showLanguageDropdown = true }
-                                        .padding(14.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Row(
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Icon(Icons.Filled.Public, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                                        Text(t("invoice_language"), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                                    }
-                                    Row(
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        val currentLangStr = if (documentLanguage == "AR") "العربية" else "English"
-                                        Text(currentLangStr, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
-                                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    }
-                                }
-                                DropdownMenu(
-                                    expanded = showLanguageDropdown,
-                                    onDismissRequest = { showLanguageDropdown = false }
-                                ) {
-                                    DropdownMenuItem(
-                                        text = { Text("العربية") },
-                                        onClick = {
-                                            documentLanguage = "AR"
-                                            showLanguageDropdown = false
-                                        }
-                                    )
-                                    DropdownMenuItem(
-                                        text = { Text("English") },
-                                        onClick = {
-                                            documentLanguage = "EN"
-                                            showLanguageDropdown = false
-                                        }
-                                    )
-                                }
-                            }
-                        }
+
 
                         DocumentTemplatePicker(
                             selectedTemplateId = selectedTemplateId,
@@ -278,6 +233,7 @@ fun DocumentDetailScreen(
                                 selectedTemplateId = DocumentTemplateRegistry.requireTemplate(it).id
                                 templatePreferences.setDefaultTemplateId(selectedTemplateId)
                             },
+                            renderModel = renderModel,
                         )
 
                         Box(
@@ -289,26 +245,36 @@ fun DocumentDetailScreen(
                                 model = renderModel,
                                 modifier = Modifier.fillMaxSize(),
                             )
-                            IconButton(
-                                onClick = { showFullScreenPreview = true },
-                                modifier = Modifier
-                                    .align(Alignment.TopEnd)
-                                    .padding(8.dp)
-                                    .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)),
-                            ) {
-                                Icon(Icons.Filled.Fullscreen, contentDescription = "تكبير المعاينة")
-                            }
                         }
 
-                        Button(
-                            onClick = { showExportSheet = true },
+                        Row(
                             modifier = Modifier.fillMaxWidth(),
-                            enabled = !isBusy,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(Icons.Filled.Share, contentDescription = null)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(if (isBusy) "جاري تجهيز المستند..." else "فتح خيارات التصدير")
+                            Button(
+                                onClick = { onEditClick(doc.id, doc.type) },
+                                modifier = Modifier.weight(0.35f),
+                                enabled = !isBusy,
+                                colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                            ) {
+                                Icon(Icons.Filled.Edit, contentDescription = null)
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("تعديل")
+                            }
+
+                            Button(
+                                onClick = { showExportSheet = true },
+                                modifier = Modifier.weight(0.65f),
+                                enabled = !isBusy,
+                            ) {
+                                Icon(Icons.Filled.Share, contentDescription = null)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(if (isBusy) "جاري تجهيز المستند..." else "فتح خيارات التصدير")
+                            }
                         }
                     }
 

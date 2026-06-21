@@ -209,22 +209,27 @@ class LocalPdfGenerator(
             val mediaSize = attrs.mediaSize ?: error("Missing PDF media size")
             val pageWidthPx = (mediaSize.widthMils / 1000f * density.horizontalDpi).roundToInt()
             val pageHeightPx = (mediaSize.heightMils / 1000f * density.verticalDpi).roundToInt()
+            
             val contentWidthPx = webView.width.toFloat()
             val contentHeightPx = webView.height.toFloat()
-            val fitScale = min(pageWidthPx / contentWidthPx, pageHeightPx / contentHeightPx)
-            val dx = (pageWidthPx - contentWidthPx * fitScale) / 2f
-            val dy = (pageHeightPx - contentHeightPx * fitScale) / 2f
-
-            webView.scrollTo(0, 0)
-            val page = document.startPage(PdfDocument.PageInfo.Builder(pageWidthPx, pageHeightPx, 1).create())
-            val canvas = page.canvas
-            canvas.drawColor(Color.WHITE)
-            canvas.save()
-            canvas.translate(dx.coerceAtLeast(0f), dy.coerceAtLeast(0f))
-            canvas.scale(fitScale, fitScale)
-            webView.draw(canvas)
-            canvas.restore()
-            document.finishPage(page)
+            
+            val scale = pageWidthPx.toFloat() / contentWidthPx
+            val pageHeightInContentPx = pageHeightPx / scale
+            val totalPages = Math.max(1, Math.ceil((contentHeightPx / pageHeightInContentPx).toDouble()).toInt())
+            
+            for (i in 0 until totalPages) {
+                val pageInfo = PdfDocument.PageInfo.Builder(pageWidthPx, pageHeightPx, i + 1).create()
+                val page = document.startPage(pageInfo)
+                val canvas = page.canvas
+                canvas.drawColor(Color.WHITE)
+                canvas.save()
+                canvas.scale(scale, scale)
+                canvas.translate(0f, -i * pageHeightInContentPx)
+                webView.draw(canvas)
+                canvas.restore()
+                document.finishPage(page)
+            }
+            
             FileOutputStream(outputFile).use { output -> document.writeTo(output) }
         } finally {
             document.close()
