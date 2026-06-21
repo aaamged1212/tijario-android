@@ -262,6 +262,11 @@ data class LocalDocumentMetadataEntity(
     @ColumnInfo(name = "signature_data")
     val signatureData: String?,
     @ColumnInfo(name = "payment_method")
-    val paymentMethod: String?
+    val paymentMethod: String?,
+    @ColumnInfo(name = "tax_rate", defaultValue = "0.0")
+    val taxRate: Double = 0.0,
+    @ColumnInfo(name = "tax_name", defaultValue = "Tax")
+    val taxName: String = "Tax"
 )
+
 

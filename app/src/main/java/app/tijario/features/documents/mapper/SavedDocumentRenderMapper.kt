@@ -70,10 +70,28 @@ object SavedDocumentRenderMapper {
                 subtotal = BigDecimal.valueOf(document.subtotal),
                 discount = BigDecimal.valueOf(document.discount),
                 extraFees = BigDecimal.valueOf(document.extraFees),
-                total = BigDecimal.valueOf(document.total),
+                total = run {
+                    val sub = BigDecimal.valueOf(document.subtotal)
+                    val disc = BigDecimal.valueOf(document.discount)
+                    val fees = BigDecimal.valueOf(document.extraFees)
+                    val baseTotal = sub.subtract(disc).add(fees)
+                    val rate = BigDecimal.valueOf(metadata?.taxRate ?: 0.0)
+                    val tax = baseTotal.multiply(rate.divide(BigDecimal("100"), 4, java.math.RoundingMode.HALF_UP))
+                    baseTotal.add(tax)
+                },
                 amountPaid = paymentAmounts.paid,
                 amountRemaining = paymentAmounts.remaining,
                 currency = metadata?.currency ?: document.currency.ifBlank { null } ?: businessSettings?.currency ?: "SAR",
+                finalTaxName = metadata?.taxName ?: "Tax",
+                finalTaxRate = BigDecimal.valueOf(metadata?.taxRate ?: 0.0),
+                finalTaxAmount = run {
+                    val sub = BigDecimal.valueOf(document.subtotal)
+                    val disc = BigDecimal.valueOf(document.discount)
+                    val fees = BigDecimal.valueOf(document.extraFees)
+                    val baseTotal = sub.subtract(disc).add(fees)
+                    val rate = BigDecimal.valueOf(metadata?.taxRate ?: 0.0)
+                    baseTotal.multiply(rate.divide(BigDecimal("100"), 4, java.math.RoundingMode.HALF_UP))
+                }
             ),
             invoiceNote = businessSettings?.invoiceNote,
             documentNote = document.notes,

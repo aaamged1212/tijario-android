@@ -17,7 +17,7 @@ import androidx.room.RoomDatabase
         LocalTermsEntity::class,
         LocalDocumentMetadataEntity::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = false,
 )
 abstract class TijarioDatabase : RoomDatabase() {

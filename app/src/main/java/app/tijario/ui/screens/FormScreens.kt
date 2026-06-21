@@ -1759,6 +1759,8 @@ fun DocumentFormScreen(
                     currency = metadata?.currency ?: existing.currency.ifBlank { null } ?: form.currency,
                     signatureData = metadata?.signatureData.orEmpty(),
                     paymentMethod = metadata?.paymentMethod.orEmpty(),
+                    finalTaxRate = metadata?.taxRate?.toString() ?: form.finalTaxRate,
+                    finalTaxName = metadata?.taxName ?: form.finalTaxName,
                 )
             } else {
                 submitError = result.exceptionOrNull()?.message ?: "تعذر تحميل المستند للتعديل."
@@ -1926,7 +1928,9 @@ fun DocumentFormScreen(
                                                         documentId = savedDocumentId,
                                                         currency = form.currency,
                                                         signatureData = form.signatureData.takeIf { it.isNotEmpty() },
-                                                        paymentMethod = form.paymentMethod.takeIf { it.isNotEmpty() }
+                                                        paymentMethod = form.paymentMethod.takeIf { it.isNotEmpty() },
+                                                        taxRate = Validation.parseNonNegativeMoney(form.finalTaxRate) ?: 0.0,
+                                                        taxName = form.finalTaxName.ifBlank { "Tax" }
                                                     )
                                                 )
                                                 onDocumentSaved(savedDocumentId)
