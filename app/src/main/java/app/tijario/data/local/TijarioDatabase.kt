@@ -11,8 +11,12 @@ import androidx.room.RoomDatabase
         CustomerEntity::class,
         ProductEntity::class,
         DocumentEntity::class,
+        LocalTaxEntity::class,
+        LocalPaymentMethodEntity::class,
+        LocalSignatureEntity::class,
+        LocalTermsEntity::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = false,
 )
 abstract class TijarioDatabase : RoomDatabase() {

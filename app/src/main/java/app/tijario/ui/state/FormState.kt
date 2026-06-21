@@ -89,6 +89,9 @@ data class DocumentFormState(
     val finalTaxRate: String = "",
     val finalTaxName: String = "الضريبة",
     val documentLanguage: String = "AR", // "AR" or "EN"
+    val currency: String = "SAR",
+    val signatureData: String = "",
+    val paymentMethod: String = "",
 ) {
     val customerNameError: String? get() = Validation.required(customerName, "اسم العميل")
     val discountError: String? get() = Validation.nonNegativeMoney(discount, "الخصم")

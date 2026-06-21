@@ -82,7 +82,7 @@ object DraftDocumentRenderMapper {
                 total = totalWithTax,
                 amountPaid = paymentAmounts.paid,
                 amountRemaining = paymentAmounts.remaining,
-                currency = businessSettings?.currency ?: "SAR",
+                currency = form.currency,
                 finalTaxName = form.finalTaxName,
                 finalTaxRate = parsedFormTax,
                 finalTaxAmount = taxAmount

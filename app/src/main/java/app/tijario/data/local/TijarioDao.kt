@@ -64,4 +64,40 @@ interface TijarioDao {
 
     @Query("SELECT COUNT(*) FROM documents_cache WHERE user_id = :userId AND issue_date LIKE :monthPrefix || '%'")
     suspend fun countDocumentsForMonth(userId: String, monthPrefix: String): Int
+
+    @Query("SELECT * FROM local_taxes ORDER BY name COLLATE NOCASE ASC")
+    fun observeLocalTaxes(): Flow<List<LocalTaxEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertLocalTax(tax: LocalTaxEntity)
+
+    @Query("DELETE FROM local_taxes WHERE id = :id")
+    suspend fun deleteLocalTax(id: String)
+
+    @Query("SELECT * FROM local_payment_methods ORDER BY name COLLATE NOCASE ASC")
+    fun observeLocalPaymentMethods(): Flow<List<LocalPaymentMethodEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertLocalPaymentMethod(method: LocalPaymentMethodEntity)
+
+    @Query("DELETE FROM local_payment_methods WHERE id = :id")
+    suspend fun deleteLocalPaymentMethod(id: String)
+
+    @Query("SELECT * FROM local_signatures ORDER BY name COLLATE NOCASE ASC")
+    fun observeLocalSignatures(): Flow<List<LocalSignatureEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertLocalSignature(signature: LocalSignatureEntity)
+
+    @Query("DELETE FROM local_signatures WHERE id = :id")
+    suspend fun deleteLocalSignature(id: String)
+
+    @Query("SELECT * FROM local_terms ORDER BY title COLLATE NOCASE ASC")
+    fun observeLocalTerms(): Flow<List<LocalTermsEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertLocalTerms(terms: LocalTermsEntity)
+
+    @Query("DELETE FROM local_terms WHERE id = :id")
+    suspend fun deleteLocalTerms(id: String)
 }

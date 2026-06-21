@@ -187,6 +187,22 @@ class TijarioDataViewModel(
                 }
             }.collect {}
         }
+
+    fun observeLocalTaxes(): kotlinx.coroutines.flow.Flow<List<app.tijario.data.local.LocalTaxEntity>> = repository.observeLocalTaxes()
+    suspend fun upsertLocalTax(tax: app.tijario.data.local.LocalTaxEntity) = repository.upsertLocalTax(tax)
+    suspend fun deleteLocalTax(id: String) = repository.deleteLocalTax(id)
+
+    fun observeLocalPaymentMethods(): kotlinx.coroutines.flow.Flow<List<app.tijario.data.local.LocalPaymentMethodEntity>> = repository.observeLocalPaymentMethods()
+    suspend fun upsertLocalPaymentMethod(method: app.tijario.data.local.LocalPaymentMethodEntity) = repository.upsertLocalPaymentMethod(method)
+    suspend fun deleteLocalPaymentMethod(id: String) = repository.deleteLocalPaymentMethod(id)
+
+    fun observeLocalSignatures(): kotlinx.coroutines.flow.Flow<List<app.tijario.data.local.LocalSignatureEntity>> = repository.observeLocalSignatures()
+    suspend fun upsertLocalSignature(sig: app.tijario.data.local.LocalSignatureEntity) = repository.upsertLocalSignature(sig)
+    suspend fun deleteLocalSignature(id: String) = repository.deleteLocalSignature(id)
+
+    fun observeLocalTerms(): kotlinx.coroutines.flow.Flow<List<app.tijario.data.local.LocalTermsEntity>> = repository.observeLocalTerms()
+    suspend fun upsertLocalTerms(terms: app.tijario.data.local.LocalTermsEntity) = repository.upsertLocalTerms(terms)
+    suspend fun deleteLocalTerms(id: String) = repository.deleteLocalTerms(id)
 }
 
 class TijarioDataViewModelFactory(

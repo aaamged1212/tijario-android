@@ -220,3 +220,36 @@ private fun DocumentType.toCacheValue(): String =
 
 private fun String.toDocumentType(): DocumentType =
     if (equals("invoice", ignoreCase = true)) DocumentType.Invoice else DocumentType.Quote
+
+@Entity(tableName = "local_taxes")
+data class LocalTaxEntity(
+    @PrimaryKey
+    val id: String,
+    val name: String,
+    val rate: Double
+)
+
+@Entity(tableName = "local_payment_methods")
+data class LocalPaymentMethodEntity(
+    @PrimaryKey
+    val id: String,
+    val name: String,
+    val details: String? = null
+)
+
+@Entity(tableName = "local_signatures")
+data class LocalSignatureEntity(
+    @PrimaryKey
+    val id: String,
+    val name: String,
+    @ColumnInfo(name = "signature_data")
+    val signatureData: String
+)
+
+@Entity(tableName = "local_terms")
+data class LocalTermsEntity(
+    @PrimaryKey
+    val id: String,
+    val title: String,
+    val content: String
+)

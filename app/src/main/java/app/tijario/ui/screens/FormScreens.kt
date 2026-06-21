@@ -60,6 +60,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.graphics.drawscope.Stroke
+import android.graphics.Bitmap
+import android.graphics.Canvas as AndroidCanvas
+import android.graphics.Paint as AndroidPaint
+import android.graphics.Path as AndroidPath
+import java.io.ByteArrayOutputStream
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.tijario.config.LocalLanguage
 import app.tijario.config.Localization
@@ -1043,7 +1054,10 @@ val DocumentFormStateSaver = listSaver<DocumentFormState, Any>(
             state.documentTitle,
             state.finalTaxRate,
             state.finalTaxName,
-            state.documentLanguage
+            state.documentLanguage,
+            state.currency,
+            state.signatureData,
+            state.paymentMethod
         )
         state.items.forEach { item ->
             list.add(item.id)
@@ -1080,9 +1094,12 @@ val DocumentFormStateSaver = listSaver<DocumentFormState, Any>(
         val finalTaxRate = list[17] as String
         val finalTaxName = list[18] as String
         val documentLanguage = list[19] as String
+        val currency = list[20] as String
+        val signatureData = list[21] as String
+        val paymentMethod = list[22] as String
         
         val itemsList = mutableListOf<app.tijario.ui.state.DocumentItemState>()
-        val itemsData = list.subList(20, list.size)
+        val itemsData = list.subList(23, list.size)
         for (i in itemsData.indices step 10) {
             if (i + 9 < itemsData.size) {
                 itemsList.add(
@@ -1123,7 +1140,10 @@ val DocumentFormStateSaver = listSaver<DocumentFormState, Any>(
             documentTitle = documentTitle,
             finalTaxRate = finalTaxRate,
             finalTaxName = finalTaxName,
-            documentLanguage = documentLanguage
+            documentLanguage = documentLanguage,
+            currency = currency,
+            signatureData = signatureData,
+            paymentMethod = paymentMethod
         )
     }
 )
@@ -1658,6 +1678,11 @@ fun DocumentFormScreen(
     var editingItemIndex by remember { mutableStateOf<Int?>(null) }
     var showInvoiceInfoDialog by remember { mutableStateOf(false) }
     var showTemplatePickerDialog by remember { mutableStateOf(false) }
+    var showCurrencyDialog by remember { mutableStateOf(false) }
+    var showLocalTaxesDialog by remember { mutableStateOf(false) }
+    var showLocalPaymentDialog by remember { mutableStateOf(false) }
+    var showLocalSignaturesDialog by remember { mutableStateOf(false) }
+    var showLocalTermsDialog by remember { mutableStateOf(false) }
 
     val nextDocNumber = remember(uiState.documents, type) {
         val prefix = if (type == app.tijario.data.model.DocumentType.Invoice) "INV-" else "QT-"
@@ -1910,7 +1935,7 @@ fun DocumentFormScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color(0xFFF8FAFC))
+                    .background(MaterialTheme.colorScheme.background)
                     .padding(paddingValues)
                     .verticalScroll(rememberScrollState())
                     .padding(16.dp),
@@ -2107,7 +2132,7 @@ fun DocumentFormScreen(
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .background(Color(0xFFF8FAFC), RoundedCornerShape(12.dp))
+                                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
                                         .clickable { editingItemIndex = index }
                                         .padding(12.dp),
                                     verticalAlignment = Alignment.CenterVertically,
@@ -2269,6 +2294,15 @@ fun DocumentFormScreen(
                             )
                         }
 
+                        TextButton(
+                            onClick = { showLocalTaxesDialog = true },
+                            modifier = Modifier.align(Alignment.End)
+                        ) {
+                            Icon(Icons.Filled.Settings, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(if (LocalLanguage.current == app.tijario.config.AppLanguage.AR) "إدارة واختيار الضرائب المخزنة" else "Manage Stored Taxes", fontSize = 12.sp)
+                        }
+
                         HorizontalDivider(color = Color(0xFFF1F5F9))
 
                         // Subtotal and Final Total Calculations
@@ -2413,12 +2447,141 @@ fun DocumentFormScreen(
                         }
                     }
                 }
+
+                // Additional settings card (Currency, Payment Method, Signature, Terms)
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    shape = RoundedCornerShape(16.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            text = if (LocalLanguage.current == app.tijario.config.AppLanguage.AR) "خيارات الفاتورة الإضافية" else "Additional Invoice Options",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+
+                        // Currency Selector Row
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { showCurrencyDialog = true }
+                                .padding(vertical = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Filled.AttachMoney, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                Text(if (LocalLanguage.current == app.tijario.config.AppLanguage.AR) "العملة" else "Currency", fontSize = 14.sp)
+                            }
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(form.currency, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+                                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+
+                        HorizontalDivider(color = Color(0xFFF1F5F9))
+
+                        // Payment Method Row
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { showLocalPaymentDialog = true }
+                                .padding(vertical = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Filled.PriceChange, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                Text(if (LocalLanguage.current == app.tijario.config.AppLanguage.AR) "طريقة الدفع" else "Payment Method", fontSize = 14.sp)
+                            }
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                val pmText = form.paymentMethod.ifBlank { if (LocalLanguage.current == app.tijario.config.AppLanguage.AR) "لم تحدد" else "None" }
+                                Text(pmText, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+                                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+
+                        HorizontalDivider(color = Color(0xFFF1F5F9))
+
+                        // Terms and Conditions Row
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { showLocalTermsDialog = true }
+                                .padding(vertical = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Filled.Description, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                Text(if (LocalLanguage.current == app.tijario.config.AppLanguage.AR) "الشروط والأحكام" else "Terms & Conditions", fontSize = 14.sp)
+                            }
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                val termsText = if (form.terms.isNotBlank()) (if (LocalLanguage.current == app.tijario.config.AppLanguage.AR) "محددة" else "Selected") else (if (LocalLanguage.current == app.tijario.config.AppLanguage.AR) "لم تحدد" else "None")
+                                Text(termsText, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+                                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+
+                        HorizontalDivider(color = Color(0xFFF1F5F9))
+
+                        // Signature Row
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { showLocalSignaturesDialog = true }
+                                .padding(vertical = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Filled.Edit, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                Text(if (LocalLanguage.current == app.tijario.config.AppLanguage.AR) "توقيع الفاتورة" else "Invoice Signature", fontSize = 14.sp)
+                            }
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                val sigText = if (form.signatureData.isNotBlank()) (if (LocalLanguage.current == app.tijario.config.AppLanguage.AR) "محدد" else "Signed") else (if (LocalLanguage.current == app.tijario.config.AppLanguage.AR) "لم يوقع" else "None")
+                                Text(sigText, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+                                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                }
             }
         } else {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color(0xFFF1F5F9))
+                    .background(MaterialTheme.colorScheme.background)
                     .padding(paddingValues)
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -2426,7 +2589,7 @@ fun DocumentFormScreen(
             ) {
                 Text(
                     text = "معاينة أولية",
-                    color = Color(0xFF0F172A),
+                    color = MaterialTheme.colorScheme.onBackground,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.fillMaxWidth(),
@@ -2523,5 +2686,636 @@ fun DocumentFormScreen(
                 showTemplatePickerDialog = false
             }
         )
+    }
+
+    if (showCurrencyDialog) {
+        CurrencyPickerDialog(
+            currentCurrency = form.currency,
+            onDismiss = { showCurrencyDialog = false },
+            onSelect = {
+                form = form.copy(currency = it)
+                showCurrencyDialog = false
+            }
+        )
+    }
+
+    if (showLocalTaxesDialog) {
+        LocalTaxesManagerDialog(
+            dataViewModel = dataViewModel,
+            onDismiss = { showLocalTaxesDialog = false },
+            onApplyTax = { name, rate ->
+                form = form.copy(finalTaxName = name, finalTaxRate = rate)
+                showLocalTaxesDialog = false
+            }
+        )
+    }
+
+    if (showLocalPaymentDialog) {
+        LocalPaymentMethodsManagerDialog(
+            dataViewModel = dataViewModel,
+            onDismiss = { showLocalPaymentDialog = false },
+            onSelect = { pm ->
+                form = form.copy(paymentMethod = pm)
+                showLocalPaymentDialog = false
+            }
+        )
+    }
+
+    if (showLocalSignaturesDialog) {
+        LocalSignaturesManagerDialog(
+            dataViewModel = dataViewModel,
+            onDismiss = { showLocalSignaturesDialog = false },
+            onSelect = { base64 ->
+                form = form.copy(signatureData = base64)
+                showLocalSignaturesDialog = false
+            }
+        )
+    }
+
+    if (showLocalTermsDialog) {
+        LocalTermsManagerDialog(
+            dataViewModel = dataViewModel,
+            onDismiss = { showLocalTermsDialog = false },
+            onSelect = { content ->
+                form = form.copy(terms = content)
+                showLocalTermsDialog = false
+            }
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CurrencyPickerDialog(
+    currentCurrency: String,
+    onDismiss: () -> Unit,
+    onSelect: (String) -> Unit
+) {
+    val currencies = listOf("SAR", "AED", "USD", "QAR", "KWD", "BHD", "OMR", "YER", "EGP")
+    val isArabic = LocalLanguage.current == app.tijario.config.AppLanguage.AR
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = if (isArabic) "اختر العملة" else "Select Currency",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp
+                )
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(3),
+                    modifier = Modifier.height(180.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(currencies) { curr ->
+                        val isSelected = curr == currentCurrency
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(44.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant)
+                                .clickable { onSelect(curr) },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = curr,
+                                color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp
+                            )
+                        }
+                    }
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text(if (isArabic) "إلغاء" else "Cancel")
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun LocalTaxesManagerDialog(
+    dataViewModel: TijarioDataViewModel,
+    onDismiss: () -> Unit,
+    onApplyTax: (String, String) -> Unit
+) {
+    val isArabic = LocalLanguage.current == app.tijario.config.AppLanguage.AR
+    val scope = rememberCoroutineScope()
+    val taxes by dataViewModel.observeLocalTaxes().collectAsState(initial = emptyList())
+    var newTaxName by remember { mutableStateOf("") }
+    var newTaxRate by remember { mutableStateOf("") }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = if (isArabic) "الضرائب المخزنة محلياً" else "Local Stored Taxes",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp
+                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = newTaxName,
+                        onValueChange = { newTaxName = it },
+                        label = { Text(if (isArabic) "اسم الضريبة" else "Tax Name") },
+                        modifier = Modifier.weight(1.2f),
+                        singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = newTaxRate,
+                        onValueChange = { newTaxRate = it },
+                        label = { Text(if (isArabic) "النسبة %" else "Rate %") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true
+                    )
+                }
+                Button(
+                    onClick = {
+                        val rate = newTaxRate.toDoubleOrNull()
+                        if (newTaxName.isNotBlank() && rate != null) {
+                            scope.launch {
+                                dataViewModel.upsertLocalTax(
+                                    app.tijario.data.local.LocalTaxEntity(
+                                        id = java.util.UUID.randomUUID().toString(),
+                                        name = newTaxName,
+                                        rate = rate
+                                    )
+                                )
+                                newTaxName = ""
+                                newTaxRate = ""
+                            }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(if (isArabic) "حفظ كجديد" else "Save New")
+                }
+                HorizontalDivider()
+                Column(
+                    modifier = Modifier.height(180.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    if (taxes.isEmpty()) {
+                        Text(
+                            text = if (isArabic) "لا توجد ضرائب مخزنة" else "No taxes stored",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                    taxes.forEach { tax ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                                .clickable { onApplyTax(tax.name, tax.rate.toString()) }
+                                .padding(12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text(tax.name, fontWeight = FontWeight.Bold)
+                                Text("${tax.rate}%", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            IconButton(onClick = {
+                                scope.launch { dataViewModel.deleteLocalTax(tax.id) }
+                            }) {
+                                Icon(Icons.Filled.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                            }
+                        }
+                    }
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text(if (isArabic) "إغلاق" else "Close")
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun LocalPaymentMethodsManagerDialog(
+    dataViewModel: TijarioDataViewModel,
+    onDismiss: () -> Unit,
+    onSelect: (String) -> Unit
+) {
+    val isArabic = LocalLanguage.current == app.tijario.config.AppLanguage.AR
+    val scope = rememberCoroutineScope()
+    val methods by dataViewModel.observeLocalPaymentMethods().collectAsState(initial = emptyList())
+    var newMethodName by remember { mutableStateOf("") }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = if (isArabic) "طرق الدفع المخزنة" else "Stored Payment Methods",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp
+                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = newMethodName,
+                        onValueChange = { newMethodName = it },
+                        label = { Text(if (isArabic) "طريقة دفع جديدة" else "New Method Name") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true
+                    )
+                    Button(
+                        onClick = {
+                            if (newMethodName.isNotBlank()) {
+                                scope.launch {
+                                    dataViewModel.upsertLocalPaymentMethod(
+                                        app.tijario.data.local.LocalPaymentMethodEntity(
+                                            id = java.util.UUID.randomUUID().toString(),
+                                            name = newMethodName
+                                        )
+                                    )
+                                    newMethodName = ""
+                                }
+                            }
+                        }
+                    ) {
+                        Text(if (isArabic) "حفظ" else "Save")
+                    }
+                }
+                HorizontalDivider()
+                Column(
+                    modifier = Modifier.height(180.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    val defaultMethods = if (isArabic) listOf("نقدي", "مدى", "تحويل بنكي") else listOf("Cash", "Mada", "Bank Transfer")
+                    val activeList = if (methods.isEmpty()) {
+                        defaultMethods.map { app.tijario.data.local.LocalPaymentMethodEntity(it, it) }
+                    } else methods
+
+                    activeList.forEach { method ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                                .clickable { onSelect(method.name) }
+                                .padding(12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(method.name, fontWeight = FontWeight.Bold)
+                            if (methods.isNotEmpty()) {
+                                IconButton(onClick = {
+                                    scope.launch { dataViewModel.deleteLocalPaymentMethod(method.id) }
+                                }) {
+                                    Icon(Icons.Filled.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                                }
+                            }
+                        }
+                    }
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text(if (isArabic) "إغلاق" else "Close")
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun LocalTermsManagerDialog(
+    dataViewModel: TijarioDataViewModel,
+    onDismiss: () -> Unit,
+    onSelect: (String) -> Unit
+) {
+    val isArabic = LocalLanguage.current == app.tijario.config.AppLanguage.AR
+    val scope = rememberCoroutineScope()
+    val termsList by dataViewModel.observeLocalTerms().collectAsState(initial = emptyList())
+    var termTitle by remember { mutableStateOf("") }
+    var termContent by remember { mutableStateOf("") }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = if (isArabic) "الشروط والأحكام المخزنة" else "Stored Terms & Conditions",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp
+                )
+                OutlinedTextField(
+                    value = termTitle,
+                    onValueChange = { termTitle = it },
+                    label = { Text(if (isArabic) "العنوان" else "Title") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = termContent,
+                    onValueChange = { termContent = it },
+                    label = { Text(if (isArabic) "شروط العقد" else "Terms Content") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 2
+                )
+                Button(
+                    onClick = {
+                        if (termTitle.isNotBlank() && termContent.isNotBlank()) {
+                            scope.launch {
+                                dataViewModel.upsertLocalTerms(
+                                    app.tijario.data.local.LocalTermsEntity(
+                                        id = java.util.UUID.randomUUID().toString(),
+                                        title = termTitle,
+                                        content = termContent
+                                    )
+                                )
+                                termTitle = ""
+                                termContent = ""
+                            }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(if (isArabic) "إضافة شرط جديد" else "Save New Terms")
+                }
+                HorizontalDivider()
+                Column(
+                    modifier = Modifier.height(160.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    if (termsList.isEmpty()) {
+                        Text(
+                            text = if (isArabic) "لا توجد بنود شروط مخزنة" else "No terms templates stored",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                    termsList.forEach { term ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                                .clickable { onSelect(term.content) }
+                                .padding(12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(term.title, fontWeight = FontWeight.Bold)
+                                Text(term.content, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                            }
+                            IconButton(onClick = {
+                                scope.launch { dataViewModel.deleteLocalTerms(term.id) }
+                            }) {
+                                Icon(Icons.Filled.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                            }
+                        }
+                    }
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text(if (isArabic) "إغلاق" else "Close")
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun LocalSignaturesManagerDialog(
+    dataViewModel: TijarioDataViewModel,
+    onDismiss: () -> Unit,
+    onSelect: (String) -> Unit
+) {
+    val isArabic = LocalLanguage.current == app.tijario.config.AppLanguage.AR
+    val scope = rememberCoroutineScope()
+    val signatures by dataViewModel.observeLocalSignatures().collectAsState(initial = emptyList())
+    var sigName by remember { mutableStateOf("") }
+    var drawMode by remember { mutableStateOf(false) }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = if (isArabic) "التوقيعات المحلية" else "Local Signatures",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp
+                )
+
+                if (drawMode) {
+                    OutlinedTextField(
+                        value = sigName,
+                        onValueChange = { sigName = it },
+                        label = { Text(if (isArabic) "اسم صاحب التوقيع" else "Signature Owner Name") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                    
+                    val lines = remember { mutableStateListOf<List<Offset>>() }
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(180.dp)
+                            .background(Color.White, RoundedCornerShape(8.dp))
+                            .pointerInput(Unit) {
+                                detectDragGestures(
+                                    onDragStart = { offset ->
+                                        lines.add(listOf(offset))
+                                    },
+                                    onDrag = { change, dragAmount ->
+                                        change.consume()
+                                        val line = lines.lastOrNull() ?: emptyList()
+                                        if (lines.isNotEmpty()) {
+                                            lines[lines.size - 1] = line + change.position
+                                        }
+                                    }
+                                )
+                            }
+                    ) {
+                        Canvas(modifier = Modifier.fillMaxSize()) {
+                            lines.forEach { path ->
+                                if (path.size > 1) {
+                                    for (i in 0 until path.size - 1) {
+                                        drawLine(
+                                            color = Color.Black,
+                                            start = path[i],
+                                            end = path[i + 1],
+                                            strokeWidth = 6f,
+                                            cap = StrokeCap.Round
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = {
+                                if (sigName.isNotBlank() && lines.isNotEmpty()) {
+                                    val bitmap = Bitmap.createBitmap(800, 400, Bitmap.Config.ARGB_8888)
+                                    val canvas = AndroidCanvas(bitmap)
+                                    canvas.drawColor(android.graphics.Color.WHITE)
+                                    val paint = AndroidPaint().apply {
+                                        color = android.graphics.Color.BLACK
+                                        strokeWidth = 6f
+                                        style = AndroidPaint.Style.STROKE
+                                        strokeJoin = AndroidPaint.Join.ROUND
+                                        strokeCap = AndroidPaint.Cap.ROUND
+                                    }
+                                    lines.forEach { path ->
+                                        if (path.size > 1) {
+                                            val p = AndroidPath()
+                                            p.moveTo(path[0].x, path[0].y)
+                                            for (i in 1 until path.size) {
+                                                p.lineTo(path[i].x, path[i].y)
+                                            }
+                                            canvas.drawPath(p, paint)
+                                        }
+                                    }
+                                    val stream = ByteArrayOutputStream()
+                                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
+                                    val base64 = Base64.encodeToString(stream.toByteArray(), Base64.DEFAULT)
+                                    scope.launch {
+                                        dataViewModel.upsertLocalSignature(
+                                            app.tijario.data.local.LocalSignatureEntity(
+                                                id = java.util.UUID.randomUUID().toString(),
+                                                name = sigName,
+                                                signatureData = base64
+                                            )
+                                        )
+                                        drawMode = false
+                                        sigName = ""
+                                    }
+                                }
+                            },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(if (isArabic) "حفظ التوقيع" else "Save Signature")
+                        }
+                        OutlinedButton(
+                            onClick = { drawMode = false },
+                            modifier = Modifier.weight(0.8f)
+                        ) {
+                            Text(if (isArabic) "إلغاء" else "Cancel")
+                        }
+                    }
+                } else {
+                    Button(
+                        onClick = { drawMode = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(if (isArabic) "إضافة توقيع جديد ورسمه" else "Draw New Signature")
+                    }
+                    HorizontalDivider()
+                    Column(
+                        modifier = Modifier.height(160.dp).verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        if (signatures.isEmpty()) {
+                            Text(
+                                text = if (isArabic) "لا توجد توقيعات مخزنة" else "No signatures stored",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                        signatures.forEach { sig ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                                    .clickable { onSelect(sig.signatureData) }
+                                    .padding(12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(sig.name, fontWeight = FontWeight.Bold)
+                                IconButton(onClick = {
+                                    scope.launch { dataViewModel.deleteLocalSignature(sig.id) }
+                                }) {
+                                    Icon(Icons.Filled.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                                }
+                            }
+                        }
+                    }
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text(if (isArabic) "إغلاق" else "Close")
+                    }
+                }
+            }
+        }
     }
 }
