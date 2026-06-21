@@ -353,4 +353,11 @@ fun CompleteDocument.toFormState(): app.tijario.ui.state.DocumentFormState =
         amountPaid = amountPaid?.toString().orEmpty(),
         notes = notes.orEmpty(),
         terms = termsText.orEmpty(),
+        documentNumber = documentNumber,
+        issueDate = issueDate,
+        creationDate = issueDate,
+        dueTerms = "None",
+        dueDate = "",
+        poNumber = "",
+        documentTitle = if (type == app.tijario.data.model.DocumentType.Invoice) "Online Orders" else "عرض سعر",
     )

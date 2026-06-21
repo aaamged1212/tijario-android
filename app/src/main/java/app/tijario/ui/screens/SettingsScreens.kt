@@ -790,8 +790,10 @@ private fun UsageLine(title: String, used: Int, limit: Int, icon: ImageVector, c
                 }
                 Text(title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
             }
+            val remaining = (limit - used).coerceAtLeast(0)
+            val remainingText = if (limit <= 0) "" else " (" + t("remaining").replace("%s", remaining.toString()) + ")"
             Text(
-                text = if (limit <= 0) "$used" else "$used / $limit",
+                text = (if (limit <= 0) "$used" else "$used / $limit") + remainingText,
                 color = Color.White,
                 fontWeight = FontWeight.Bold,
                 fontSize = 14.sp

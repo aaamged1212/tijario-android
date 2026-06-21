@@ -61,4 +61,7 @@ interface TijarioDao {
 
     @Query("SELECT COUNT(*) FROM documents_cache WHERE customer_id = :customerId")
     suspend fun countDocumentsForCustomer(customerId: String): Int
+
+    @Query("SELECT COUNT(*) FROM documents_cache WHERE user_id = :userId AND issue_date LIKE :monthPrefix || '%'")
+    suspend fun countDocumentsForMonth(userId: String, monthPrefix: String): Int
 }

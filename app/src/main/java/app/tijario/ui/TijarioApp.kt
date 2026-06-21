@@ -554,7 +554,8 @@ fun TijarioApp() {
                         onSelectedProductConsumed = {
                             activeSelectedProduct = null
                             activeSelectedProductRowIndex = null
-                        }
+                        },
+                        onNavigateToBusinessSettings = { navController.navigate("business-settings") }
                     )
                 }
                 composable("new-invoice") {
@@ -578,7 +579,8 @@ fun TijarioApp() {
                         onSelectedProductConsumed = {
                             activeSelectedProduct = null
                             activeSelectedProductRowIndex = null
-                        }
+                        },
+                        onNavigateToBusinessSettings = { navController.navigate("business-settings") }
                     )
                 }
                 composable(
@@ -612,7 +614,8 @@ fun TijarioApp() {
                         onSelectedProductConsumed = {
                             activeSelectedProduct = null
                             activeSelectedProductRowIndex = null
-                        }
+                        },
+                        onNavigateToBusinessSettings = { navController.navigate("business-settings") }
                     )
                 }
                 composable(
@@ -646,7 +649,8 @@ fun TijarioApp() {
                         onSelectedProductConsumed = {
                             activeSelectedProduct = null
                             activeSelectedProductRowIndex = null
-                        }
+                        },
+                        onNavigateToBusinessSettings = { navController.navigate("business-settings") }
                     )
                 }
                 composable(

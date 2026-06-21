@@ -29,13 +29,25 @@ import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.DragHandle
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.material3.*
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.*
 import androidx.compose.ui.graphics.vector.ImageVector
 import app.tijario.config.AppLanguage
@@ -1009,6 +1021,601 @@ private suspend fun buildLogoUploadRequest(
         )
     }
 
+val DocumentFormStateSaver = listSaver<DocumentFormState, Any>(
+    save = { state ->
+        val list = mutableListOf<Any>(
+            state.customerId ?: "",
+            state.customerName,
+            state.customerWhatsapp,
+            state.customerCity ?: "",
+            state.discount,
+            state.extraFees,
+            state.paymentStatus,
+            state.amountPaid,
+            state.notes,
+            state.terms,
+            state.documentNumber,
+            state.issueDate,
+            state.creationDate,
+            state.dueTerms,
+            state.dueDate,
+            state.poNumber,
+            state.documentTitle
+        )
+        state.items.forEach { item ->
+            list.add(item.id)
+            list.add(item.productId ?: "")
+            list.add(item.name)
+            list.add(item.quantity)
+            list.add(item.unitPrice)
+            list.add(item.description)
+            list.add(item.unitOfMeasure)
+            list.add(item.discount)
+            list.add(item.discountType)
+            list.add(item.taxRate)
+        }
+        list
+    },
+    restore = { list ->
+        val customerId = list[0] as String
+        val customerName = list[1] as String
+        val customerWhatsapp = list[2] as String
+        val customerCity = list[3] as String
+        val discount = list[4] as String
+        val extraFees = list[5] as String
+        val paymentStatus = list[6] as String
+        val amountPaid = list[7] as String
+        val notes = list[8] as String
+        val terms = list[9] as String
+        val documentNumber = list[10] as String
+        val issueDate = list[11] as String
+        val creationDate = list[12] as String
+        val dueTerms = list[13] as String
+        val dueDate = list[14] as String
+        val poNumber = list[15] as String
+        val documentTitle = list[16] as String
+        
+        val itemsList = mutableListOf<app.tijario.ui.state.DocumentItemState>()
+        val itemsData = list.subList(17, list.size)
+        for (i in itemsData.indices step 10) {
+            if (i + 9 < itemsData.size) {
+                itemsList.add(
+                    app.tijario.ui.state.DocumentItemState(
+                        id = itemsData[i] as String,
+                        productId = (itemsData[i+1] as String).takeIf { it.isNotEmpty() },
+                        name = itemsData[i+2] as String,
+                        quantity = itemsData[i+3] as String,
+                        unitPrice = itemsData[i+4] as String,
+                        description = itemsData[i+5] as String,
+                        unitOfMeasure = itemsData[i+6] as String,
+                        discount = itemsData[i+7] as String,
+                        discountType = itemsData[i+8] as String,
+                        taxRate = itemsData[i+9] as String,
+                    )
+                )
+            }
+        }
+        
+        DocumentFormState(
+            customerId = customerId.takeIf { it.isNotEmpty() },
+            customerName = customerName,
+            customerWhatsapp = customerWhatsapp,
+            customerCity = customerCity.takeIf { it.isNotEmpty() },
+items = if (itemsList.isEmpty()) listOf(app.tijario.ui.state.DocumentItemState()) else itemsList,
+            discount = discount,
+            extraFees = extraFees,
+            paymentStatus = paymentStatus,
+            amountPaid = amountPaid,
+            notes = notes,
+            terms = terms,
+            documentNumber = documentNumber,
+            issueDate = issueDate,
+            creationDate = creationDate,
+            dueTerms = dueTerms,
+            dueDate = dueDate,
+            poNumber = poNumber,
+            documentTitle = documentTitle
+        )
+    }
+)
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun InvoiceInfoDialog(
+    form: app.tijario.ui.state.DocumentFormState,
+    onDismiss: () -> Unit,
+    onSave: (
+        documentNumber: String,
+        creationDate: String,
+        dueTerms: String,
+        dueDate: String,
+        poNumber: String,
+        documentTitle: String
+    ) -> Unit
+) {
+    var invoiceNumber by remember { mutableStateOf(form.documentNumber) }
+    var creationDate by remember { mutableStateOf(form.creationDate.ifBlank { "21-06-2026" }) }
+    var dueTerms by remember { mutableStateOf(form.dueTerms) }
+    var dueDate by remember { mutableStateOf(form.dueDate) }
+    var poNumber by remember { mutableStateOf(form.poNumber) }
+    var invoiceTitle by remember { mutableStateOf(form.documentTitle) }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = MaterialTheme.colorScheme.background
+        ) {
+            Scaffold(
+                topBar = {
+                    TopAppBar(
+                        title = { Text(t("invoice_info_title"), fontWeight = FontWeight.Bold) },
+                        navigationIcon = {
+                            IconButton(onClick = onDismiss) {
+                                Icon(Icons.Filled.ArrowBack, contentDescription = t("btn_back"))
+                            }
+                        },
+                        actions = {
+                            IconButton(
+                                onClick = {
+                                    onSave(invoiceNumber, creationDate, dueTerms, dueDate, poNumber, invoiceTitle)
+                                },
+                                enabled = invoiceNumber.isNotBlank() && creationDate.isNotBlank()
+                            ) {
+                                Icon(Icons.Filled.Check, contentDescription = "Save")
+                            }
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            titleContentColor = Color.White,
+                            navigationIconContentColor = Color.White,
+                            actionIconContentColor = Color.White
+                        )
+                    )
+                }
+            ) { paddingValues ->
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues)
+                        .verticalScroll(rememberScrollState())
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            TijarioTextField(
+                                label = t("invoice_number") + " *",
+                                value = invoiceNumber,
+                                onValueChange = { invoiceNumber = it }
+                            )
+
+                            TijarioTextField(
+                                label = t("creation_date") + " *",
+                                value = creationDate,
+                                onValueChange = { creationDate = it }
+                            )
+
+                            var showTermsDropdown by remember { mutableStateOf(false) }
+                            Box(modifier = Modifier.fillMaxWidth()) {
+                                TijarioTextField(
+                                    label = t("due_terms"),
+                                    value = dueTerms,
+                                    onValueChange = {},
+                                    readOnly = true,
+                                    trailingIcon = {
+                                        IconButton(onClick = { showTermsDropdown = true }) {
+                                            Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                DropdownMenu(
+                                    expanded = showTermsDropdown,
+                                    onDismissRequest = { showTermsDropdown = false },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    val termsOptions = listOf("None", "Net 7", "Net 15", "Net 30")
+                                    termsOptions.forEach { option ->
+                                        DropdownMenuItem(
+                                            text = { Text(option) },
+                                            onClick = {
+                                                dueTerms = option
+                                                showTermsDropdown = false
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+
+                            TijarioTextField(
+                                label = t("due_date"),
+                                value = dueDate,
+                                onValueChange = { dueDate = it }
+                            )
+
+                            TijarioTextField(
+                                label = t("po_number"),
+                                value = poNumber,
+                                onValueChange = { poNumber = it }
+                            )
+
+                            TijarioTextField(
+                                label = t("invoice_title_name"),
+                                value = invoiceTitle,
+                                onValueChange = { invoiceTitle = it }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SelectTemplateDialog(
+    selectedTemplateId: String,
+    onDismiss: () -> Unit,
+    onSave: (String) -> Unit
+) {
+    var selectedId by remember { mutableStateOf(selectedTemplateId) }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = MaterialTheme.colorScheme.background
+        ) {
+            Scaffold(
+                topBar = {
+                    TopAppBar(
+                        title = { Text(t("select_template"), fontWeight = FontWeight.Bold) },
+                        navigationIcon = {
+                            IconButton(onClick = onDismiss) {
+                                Icon(Icons.Filled.ArrowBack, contentDescription = t("btn_back"))
+                            }
+                        },
+                        actions = {
+                            IconButton(
+                                onClick = { onSave(selectedId) }
+                            ) {
+                                Icon(Icons.Filled.Check, contentDescription = "Save")
+                            }
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            titleContentColor = Color.White,
+                            navigationIconContentColor = Color.White,
+                            actionIconContentColor = Color.White
+                        )
+                    )
+                }
+            ) { paddingValues ->
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues)
+                        .padding(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(DocumentTemplateRegistry.templates) { template ->
+                        val selected = template.id == selectedId
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    selectedId = template.id
+                                    onSave(template.id)
+                                },
+                            shape = RoundedCornerShape(12.dp),
+                            border = if (selected) BorderStroke(3.dp, MaterialTheme.colorScheme.primary) else null,
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(130.dp)
+                                        .background(Color(0xFFF1F5F9), RoundedCornerShape(8.dp))
+                                        .padding(8.dp)
+                                ) {
+                                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(12.dp)
+                                                .background(Color(android.graphics.Color.parseColor(template.accentColor)))
+                                        )
+                                        Box(modifier = Modifier.width(50.dp).height(6.dp).background(Color.LightGray))
+                                        Box(modifier = Modifier.width(30.dp).height(4.dp).background(Color.LightGray))
+                                        Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color.LightGray))
+                                        Box(modifier = Modifier.fillMaxWidth().height(20.dp).background(Color(0xFFE2E8F0)))
+                                    }
+                                }
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = template.name.removePrefix("Tijario "),
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 12.sp,
+                                        maxLines = 1
+                                    )
+                                    if (template.id.contains("elegant") || template.id.contains("bold") || template.id.contains("premium")) {
+                                        Text(
+                                            text = "VIP",
+                                            color = Color(0xFFD97706),
+                                            fontWeight = FontWeight.ExtraBold,
+                                            fontSize = 10.sp,
+                                            modifier = Modifier
+                                                .background(Color(0xFFFEF3C7), RoundedCornerShape(4.dp))
+                                                .padding(horizontal = 4.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun EditItemDialog(
+    item: app.tijario.ui.state.DocumentItemState,
+    onDismiss: () -> Unit,
+    onSave: (app.tijario.ui.state.DocumentItemState) -> Unit,
+    onDelete: () -> Unit,
+    onChooseProduct: () -> Unit,
+) {
+    var name by remember { mutableStateOf(item.name) }
+    var price by remember { mutableStateOf(item.unitPrice) }
+    var quantity by remember { mutableStateOf(item.quantity) }
+    var unitOfMeasure by remember { mutableStateOf(item.unitOfMeasure) }
+    var discount by remember { mutableStateOf(item.discount) }
+    var discountType by remember { mutableStateOf(item.discountType) }
+    var taxRate by remember { mutableStateOf(item.taxRate) }
+    var description by remember { mutableStateOf(item.description) }
+
+    val parsedPrice = Validation.parseNonNegativeMoney(price) ?: 0.0
+    val parsedQty = Validation.parsePositiveInt(quantity) ?: 1
+    val parsedDiscount = Validation.parseNonNegativeMoney(discount) ?: 0.0
+    val parsedTax = Validation.parseNonNegativeMoney(taxRate) ?: 0.0
+
+    val subtotal = parsedPrice * parsedQty
+    val discountAmt = if (discountType == "Percentage") {
+        subtotal * (parsedDiscount / 100.0)
+    } else {
+        parsedDiscount
+    }
+    val taxAmt = (subtotal - discountAmt) * (parsedTax / 100.0)
+    val totalAmount = subtotal - discountAmt + taxAmt
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = MaterialTheme.colorScheme.background
+        ) {
+            Scaffold(
+                topBar = {
+                    TopAppBar(
+                        title = { Text(t("edit_item_title"), fontWeight = FontWeight.Bold) },
+                        navigationIcon = {
+                            IconButton(onClick = onDismiss) {
+                                Icon(Icons.Filled.ArrowBack, contentDescription = t("btn_back"))
+                            }
+                        },
+                        actions = {
+                            IconButton(onClick = onDelete) {
+                                Icon(Icons.Filled.Delete, contentDescription = "Delete")
+                            }
+                            IconButton(
+                                onClick = {
+                                    onSave(
+                                        item.copy(
+                                            name = name,
+                                            unitPrice = price,
+                                            quantity = quantity,
+                                            description = description,
+                                            unitOfMeasure = unitOfMeasure,
+                                            discount = discount,
+                                            discountType = discountType,
+                                            taxRate = taxRate
+                                        )
+                                    )
+                                },
+                                enabled = name.isNotBlank() && price.isNotBlank() && quantity.isNotBlank()
+                            ) {
+                                Icon(Icons.Filled.Check, contentDescription = "Save")
+                            }
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            titleContentColor = Color.White,
+                            navigationIconContentColor = Color.White,
+                            actionIconContentColor = Color.White
+                        )
+                    )
+                }
+            ) { paddingValues ->
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues)
+                        .verticalScroll(rememberScrollState())
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                TijarioTextField(
+                                    label = t("item_name_label") + " *",
+                                    value = name,
+                                    onValueChange = { name = it },
+                                    modifier = Modifier.weight(1f)
+                                )
+                                IconButton(
+                                    onClick = onChooseProduct,
+                                    modifier = Modifier
+                                        .size(48.dp)
+                                        .background(
+                                            MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                                            RoundedCornerShape(8.dp)
+                                        )
+                                ) {
+                                    Icon(Icons.Filled.Description, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                }
+                            }
+
+                            TijarioTextField(
+                                label = t("item_price_label"),
+                                value = price,
+                                onValueChange = { price = it }
+                            )
+
+                            TijarioTextField(
+                                label = t("item_qty_label"),
+                                value = quantity,
+                                onValueChange = { quantity = it }
+                            )
+
+                            TijarioTextField(
+                                label = t("unit_measure_label"),
+                                value = unitOfMeasure,
+                                onValueChange = { unitOfMeasure = it }
+                            )
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                TijarioTextField(
+                                    label = t("item_discount"),
+                                    value = discount,
+                                    onValueChange = { discount = it },
+                                    modifier = Modifier.weight(1f)
+                                )
+                                var showMenu by remember { mutableStateOf(false) }
+                                Box {
+                                    OutlinedButton(onClick = { showMenu = true }) {
+                                        Text(if (discountType == "Percentage") "%" else "$")
+                                    }
+                                    DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                                        DropdownMenuItem(
+                                            text = { Text("Percentage") },
+                                            onClick = {
+                                                discountType = "Percentage"
+                                                showMenu = false
+                                            }
+                                        )
+                                        DropdownMenuItem(
+                                            text = { Text("Fixed") },
+                                            onClick = {
+                                                discountType = "Fixed"
+                                                showMenu = false
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+
+                            TijarioTextField(
+                                label = t("item_tax_rate"),
+                                value = taxRate,
+                                onValueChange = { taxRate = it }
+                            )
+                        }
+                    }
+
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = t("amount_label"),
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp
+                            )
+                            Text(
+                                text = String.format("$%.2f", totalAmount),
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 18.sp
+                            )
+                        }
+                    }
+
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            TijarioTextField(
+                                label = t("item_desc_label"),
+                                value = description,
+                                onValueChange = { description = it },
+                                singleLine = false
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DocumentFormScreen(
@@ -1023,8 +1630,9 @@ fun DocumentFormScreen(
     selectedProduct: app.tijario.data.model.Product? = null,
     selectedProductRowIndex: Int? = null,
     onSelectedProductConsumed: () -> Unit = {},
+    onNavigateToBusinessSettings: () -> Unit = {},
 ) {
-    var form by remember { mutableStateOf(DocumentFormState()) }
+    var form by rememberSaveable(stateSaver = DocumentFormStateSaver) { mutableStateOf(DocumentFormState()) }
     var isLoadingDocument by remember { mutableStateOf(documentId != null) }
     var selectedTab by remember { mutableStateOf(0) } // 0 = edit, 1 = preview
     var isLoading by remember { mutableStateOf(false) }
@@ -1037,6 +1645,51 @@ fun DocumentFormScreen(
     val scope = rememberCoroutineScope()
     val editDocumentId = documentId?.takeIf { it.isNotBlank() }
     val isEditMode = editDocumentId != null
+
+    var editingItemIndex by remember { mutableStateOf<Int?>(null) }
+    var showInvoiceInfoDialog by remember { mutableStateOf(false) }
+    var showTemplatePickerDialog by remember { mutableStateOf(false) }
+
+    val nextDocNumber = remember(uiState.documents, type) {
+        val prefix = if (type == app.tijario.data.model.DocumentType.Invoice) "INV-" else "QT-"
+        val typedDocs = uiState.documents.filter { it.type == type }
+        val maxNum = typedDocs.mapNotNull { doc ->
+            val clean = doc.documentNumber.uppercase()
+                .removePrefix("INV-")
+                .removePrefix("QT-")
+                .removePrefix("INV_")
+                .removePrefix("QT_")
+                .trim()
+            clean.toIntOrNull()
+        }.maxOrNull() ?: 284 // Default sequence helper starting after last invoice like INV-285 if no matches
+        "$prefix${maxNum + 1}"
+    }
+
+    LaunchedEffect(nextDocNumber, isEditMode) {
+        if (!isEditMode && form.documentNumber.isBlank()) {
+            form = form.copy(documentNumber = nextDocNumber)
+        }
+    }
+
+    fun moveItemUp(index: Int) {
+        if (index > 0) {
+            val list = form.items.toMutableList()
+            val temp = list[index]
+            list[index] = list[index - 1]
+            list[index - 1] = temp
+            form = form.copy(items = list)
+        }
+    }
+
+    fun moveItemDown(index: Int) {
+        if (index < form.items.size - 1) {
+            val list = form.items.toMutableList()
+            val temp = list[index]
+            list[index] = list[index + 1]
+            list[index + 1] = temp
+            form = form.copy(items = list)
+        }
+    }
 
     // Sync selected customer
     LaunchedEffect(selectedCustomer) {
@@ -1092,43 +1745,132 @@ fun DocumentFormScreen(
 
     Scaffold(
         topBar = {
-            Column {
-                TopAppBar(
-                    title = {
-                        Text(
-                            if (isEditMode) {
-                                if (type == app.tijario.data.model.DocumentType.Invoice) "تعديل الفاتورة" else "تعديل عرض السعر"
-                            } else if (type == app.tijario.data.model.DocumentType.Invoice) t("btn_new_invoice") else t("btn_new_quote"),
-                            fontWeight = FontWeight.Bold
-                        )
-                    },
-                    navigationIcon = {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.Filled.ArrowBack, contentDescription = t("btn_back"))
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.surface,
-                        titleContentColor = MaterialTheme.colorScheme.onSurface
+            TopAppBar(
+                title = {
+                    Text(
+                        if (isEditMode) {
+                            if (type == app.tijario.data.model.DocumentType.Invoice) "تعديل الفاتورة" else "تعديل عرض السعر"
+                        } else if (type == app.tijario.data.model.DocumentType.Invoice) t("btn_new_invoice") else t("btn_new_quote"),
+                        fontWeight = FontWeight.Bold
                     )
-                )
-
-                // Tabs: edit and preview
-                TabRow(
-                    selectedTabIndex = selectedTab,
+                },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.Filled.ArrowBack, contentDescription = t("btn_back"))
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
-                    contentColor = MaterialTheme.colorScheme.primary
+                    titleContentColor = MaterialTheme.colorScheme.onSurface
+                )
+            )
+        },
+        bottomBar = {
+            if (!isLoadingDocument) {
+                Surface(
+                    tonalElevation = 8.dp,
+                    shadowElevation = 8.dp,
+                    color = MaterialTheme.colorScheme.surface,
+                    modifier = Modifier.navigationBarsPadding()
                 ) {
-                    Tab(
-                        selected = selectedTab == 0,
-                        onClick = { selectedTab = 0 },
-                        text = { Text("التعديل", fontWeight = FontWeight.Bold, fontSize = 14.sp) }
-                    )
-                    Tab(
-                        selected = selectedTab == 1,
-                        onClick = { selectedTab = 1 },
-                        text = { Text("المعاينة", fontWeight = FontWeight.Bold, fontSize = 14.sp) }
-                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        OutlinedButton(
+                            onClick = { selectedTab = 1 },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
+                        ) {
+                            Text(t("btn_preview"), fontWeight = FontWeight.Bold)
+                        }
+
+                         Button(
+                            onClick = {
+                                if (isLoading) return@Button
+                                if (form.customerId == null) {
+                                    android.widget.Toast.makeText(context, "يرجى اختيار العميل أولاً", android.widget.Toast.LENGTH_LONG).show()
+                                    return@Button
+                                }
+                                if (form.items.isEmpty()) {
+                                    android.widget.Toast.makeText(context, "يرجى إضافة بند واحد على الأقل", android.widget.Toast.LENGTH_LONG).show()
+                                    return@Button
+                                }
+                                if (!form.items.all { it.isValid }) {
+                                    android.widget.Toast.makeText(context, "يرجى إدخال اسم البند والكمية والسعر بشكل صحيح", android.widget.Toast.LENGTH_LONG).show()
+                                    return@Button
+                                }
+
+                                scope.launch {
+                                    try {
+                                        isLoading = true
+                                        submitError = null
+                                        val req = app.tijario.data.remote.CreateDocumentRequest(
+                                            type = type,
+                                            paymentStatus = if (type == app.tijario.data.model.DocumentType.Invoice) form.paymentStatus else null,
+                                            amountPaid = if (type == app.tijario.data.model.DocumentType.Invoice && form.paymentStatus == "partial") Validation.parseNonNegativeMoney(form.amountPaid) else null,
+                                            customer = app.tijario.data.remote.DocumentCustomerInput(
+                                                name = form.customerName,
+                                                whatsappNumber = form.customerWhatsapp,
+                                                city = form.customerCity,
+                                            ),
+                                            items = form.items.map { itm ->
+                                                app.tijario.data.remote.DocumentItemInput(
+                                                    name = itm.name,
+                                                    productId = itm.productId,
+                                                    description = itm.description.ifBlank { null },
+                                                    quantity = Validation.parsePositiveInt(itm.quantity) ?: throw IllegalArgumentException("invalid quantity"),
+                                                    unitPrice = Validation.parseNonNegativeMoney(itm.unitPrice) ?: throw IllegalArgumentException("invalid price")
+                                                )
+                                            },
+                                            discount = Validation.parseNonNegativeMoney(form.discount) ?: 0.0,
+                                            extraFees = Validation.parseNonNegativeMoney(form.extraFees) ?: 0.0,
+                                            notes = form.notes.ifBlank { null },
+                                            termsText = form.terms.ifBlank { null }
+                                        )
+                                        val result = if (editDocumentId != null) {
+                                            dataViewModel.updateDocument(editDocumentId, req)
+                                        } else {
+                                            dataViewModel.createDocument(req)
+                                        }
+                                        if (result.ok) {
+                                            val savedDocumentId = result.data?.documentId
+                                            if (savedDocumentId.isNullOrBlank()) {
+                                                onBack()
+                                            } else {
+                                                onDocumentSaved(savedDocumentId)
+                                            }
+                                        } else {
+                                            submitError = result.displayMessage
+                                        }
+                                    } catch (e: Exception) {
+                                        submitError = e.message ?: "تعذر حفظ المستند الآن. تحقق من الاتصال وحاول مرة أخرى."
+                                    } finally {
+                                        isLoading = false
+                                    }
+                                }
+                            },
+                            enabled = !isLoading,
+                            modifier = Modifier
+                                .weight(2.5f)
+                                .height(48.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                        ) {
+                            if (isLoading) {
+                                CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
+                            } else {
+                                Text(t("btn_save"), fontWeight = FontWeight.Bold, color = Color.White)
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -1143,187 +1885,301 @@ fun DocumentFormScreen(
                 CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
             }
         } else if (selectedTab == 0) {
-            // Edit Mode Form
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.background)
+                    .background(Color(0xFFF8FAFC))
                     .padding(paddingValues)
                     .verticalScroll(rememberScrollState())
-                    .padding(20.dp),
+                    .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                // Info Top Card (e.g. INV-1132 / Created on 21-06-2026)
                 Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(20.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { showInvoiceInfoDialog = true },
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    shape = RoundedCornerShape(16.dp),
                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                 ) {
-                    Column(
-                        modifier = Modifier.padding(20.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            t("form_client_info"),
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-
-                        // Customer Selector Button
-                        Button(
-                            onClick = onNavigateToSelectCustomer,
-                            modifier = Modifier.fillMaxWidth().height(52.dp),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
-                                contentColor = MaterialTheme.colorScheme.primary
+                        Column {
+                            Text(
+                                text = form.documentNumber.ifBlank {
+                                    if (type == app.tijario.data.model.DocumentType.Invoice) "INV-XXXX" else "QT-XXXX"
+                                },
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 24.sp,
+                                color = MaterialTheme.colorScheme.onSurface
                             )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = String.format(t("created_on"), form.creationDate.ifBlank { "21-06-2026" }),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 12.sp
+                            )
+                        }
+                        Icon(
+                            Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                // Language selection & Templates row
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    shape = RoundedCornerShape(16.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                ) {
+                    Column {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { /* No action needed */ }
+                                .padding(16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
                             Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Icon(Icons.Filled.Person, contentDescription = null)
-                                    Text(
-                                        text = if (form.customerName.isNotEmpty()) form.customerName else "اختر العميل",
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 14.sp
-                                    )
-                                }
-                                if (form.customerWhatsapp.isNotEmpty()) {
-                                    Text(
-                                        text = form.customerWhatsapp,
-                                        fontSize = 12.sp,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
+                                Icon(Icons.Filled.Public, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                Text(t("invoice_language"), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                            }
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("English", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+                                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
 
                         HorizontalDivider(color = Color(0xFFF1F5F9))
 
-                        // Header with Add Item button
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { showTemplatePickerDialog = true }
+                                .padding(16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Filled.GridView, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                Text(t("templates"), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                            }
+                            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+
+                // Store From and Client Bill To Cards
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    shape = RoundedCornerShape(16.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                ) {
+                    Column {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onNavigateToBusinessSettings() }
+                                .padding(16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.Top
+                        ) {
+                            Icon(Icons.Filled.Storefront, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 2.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(t("from"), fontWeight = FontWeight.Bold, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                val storeName = businessSettings?.businessName?.takeIf { it.isNotBlank() } ?: "TAWFIR - توفير"
+                                val storeCity = businessSettings?.city?.takeIf { it.isNotBlank() } ?: "Sana'a"
+                                val storeNotes = businessSettings?.invoiceNote?.takeIf { it.isNotBlank() } ?: "Hada city / Zero st"
+                                Text(storeName, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                                Text(storeCity, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(storeNotes, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+
+                        HorizontalDivider(color = Color(0xFFF1F5F9))
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onNavigateToSelectCustomer() }
+                                .padding(16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Filled.Person, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(t("bill_to"), fontWeight = FontWeight.Bold, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(
+                                    text = if (form.customerName.isNotEmpty()) form.customerName else t("add_client"),
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 14.sp
+                                )
+                            }
+                            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+
+                // Items list section
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    shape = RoundedCornerShape(16.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            text = String.format(t("items_count"), form.items.size),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+
+                        form.items.forEachIndexed { index, item ->
+                            key(item.id) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(Color(0xFFF8FAFC), RoundedCornerShape(12.dp))
+                                        .clickable { editingItemIndex = index }
+                                        .padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    // Reordering controls
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        Icon(
+                                            Icons.Filled.DragHandle,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                        Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                                            IconButton(
+                                                onClick = { moveItemUp(index) },
+                                                modifier = Modifier.size(24.dp),
+                                                enabled = index > 0
+                                            ) {
+                                                Icon(Icons.Filled.KeyboardArrowUp, contentDescription = "Move Up", modifier = Modifier.size(16.dp))
+                                            }
+                                            IconButton(
+                                                onClick = { moveItemDown(index) },
+                                                modifier = Modifier.size(24.dp),
+                                                enabled = index < form.items.size - 1
+                                            ) {
+                                                Icon(Icons.Filled.KeyboardArrowDown, contentDescription = "Move Down", modifier = Modifier.size(16.dp))
+                                            }
+                                        }
+                                    }
+
+                                    // Item details (compact layout)
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = item.name.ifBlank { "اسم البند" },
+                                            fontWeight = FontWeight.SemiBold,
+                                            fontSize = 14.sp,
+                                            maxLines = 1
+                                        )
+                                        Text(
+                                            text = "${item.quantity.ifBlank { "0" }} x $${item.unitPrice.ifBlank { "0.00" }}",
+                                            fontSize = 12.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+
+                                    // Total amount
+                                    val parsedPrice = Validation.parseNonNegativeMoney(item.unitPrice) ?: 0.0
+                                    val parsedQty = Validation.parsePositiveInt(item.quantity) ?: 1
+                                    val parsedDiscount = Validation.parseNonNegativeMoney(item.discount) ?: 0.0
+                                    val parsedTax = Validation.parseNonNegativeMoney(item.taxRate) ?: 0.0
+                                    val sub = parsedPrice * parsedQty
+                                    val disc = if (item.discountType == "Percentage") sub * (parsedDiscount / 100.0) else parsedDiscount
+                                    val tax = (sub - disc) * (parsedTax / 100.0)
+                                    val itemTotal = sub - disc + tax
+
+                                    Text(
+                                        text = String.format("$%.2f", itemTotal),
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 14.sp
+                                    )
+                                }
+                            }
+                        }
+
+                        val isArabic = LocalLanguage.current == app.tijario.config.AppLanguage.AR
+                        OutlinedButton(
+                            onClick = {
+                                form = form.copy(items = form.items + app.tijario.ui.state.DocumentItemState())
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(48.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
+                        ) {
+                            Icon(Icons.Filled.Add, contentDescription = null)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(if (isArabic) "إضافة بند" else "Add Item", fontWeight = FontWeight.Bold)
+                        }
+
+                        HorizontalDivider(color = Color(0xFFF1F5F9))
+
+                        // Subtotal summary
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                t("form_items_info"),
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            IconButton(onClick = {
-                                form = form.copy(items = form.items + app.tijario.ui.state.DocumentItemState())
-                            }) {
-                                Icon(Icons.Filled.Add, contentDescription = "إضافة بند", tint = MaterialTheme.colorScheme.primary)
+                            Text(t("subtotal"), fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            val subtotalVal = form.items.sumOf { item ->
+                                val parsedPrice = Validation.parseNonNegativeMoney(item.unitPrice) ?: 0.0
+                                val parsedQty = Validation.parsePositiveInt(item.quantity) ?: 1
+                                parsedPrice * parsedQty
                             }
+                            Text(text = String.format("$%.2f", subtotalVal), fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
                         }
+                    }
+                }
 
-                        form.items.forEachIndexed { index, item ->
-                            key(item.id) {
-                                Card(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
-                                    shape = RoundedCornerShape(12.dp)
-                                ) {
-                                    Column(
-                                        modifier = Modifier.padding(12.dp),
-                                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Text(
-                                                "البند ${index + 1}",
-                                                fontWeight = FontWeight.Bold,
-                                                fontSize = 13.sp,
-                                                color = MaterialTheme.colorScheme.primary
-                                            )
-                                            if (form.items.size > 1) {
-                                                IconButton(onClick = {
-                                                    form = form.copy(items = form.items.filter { it.id != item.id })
-                                                }) {
-                                                    Icon(Icons.Filled.Delete, contentDescription = "حذف البند", tint = MaterialTheme.colorScheme.error)
-                                                }
-                                            }
-                                        }
-
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            TijarioTextField(
-                                                label = "اسم البند",
-                                                value = item.name,
-                                                onValueChange = { newName ->
-                                                    form = form.copy(
-                                                        items = form.items.map {
-                                                            if (it.id == item.id) it.copy(name = newName) else it
-                                                        }
-                                                    )
-                                                },
-                                                error = if (item.name.isNotEmpty()) item.nameError else null,
-                                                modifier = Modifier.weight(1f)
-                                            )
-                                            IconButton(
-                                                onClick = {
-                                                    onNavigateToSelectProduct(index)
-                                                },
-                                                modifier = Modifier.size(48.dp)
-                                            ) {
-                                                Icon(Icons.Filled.Description, contentDescription = "اختر منتجاً", tint = MaterialTheme.colorScheme.primary)
-                                            }
-                                        }
-
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                        ) {
-                                            TijarioTextField(
-                                                label = t("form_quantity"),
-                                                value = item.quantity,
-                                                onValueChange = { qty ->
-                                                    form = form.copy(
-                                                        items = form.items.map {
-                                                            if (it.id == item.id) it.copy(quantity = qty) else it
-                                                        }
-                                                    )
-                                                },
-                                                error = if (item.quantity.isNotEmpty()) item.quantityError else null,
-                                                leadingIcon = { Icon(Icons.Filled.Numbers, contentDescription = null, tint = Color(0xFF64748B)) },
-                                                modifier = Modifier.weight(1f)
-                                            )
-                                            TijarioTextField(
-                                                label = t("form_unit_price"),
-                                                value = item.unitPrice,
-                                                onValueChange = { price ->
-                                                    form = form.copy(
-                                                        items = form.items.map {
-                                                            if (it.id == item.id) it.copy(unitPrice = price) else it
-                                                        }
-                                                    )
-                                                },
-                                                error = if (item.unitPrice.isNotEmpty()) item.unitPriceError else null,
-                                                leadingIcon = { Icon(Icons.Filled.PriceChange, contentDescription = null, tint = Color(0xFF64748B)) },
-                                                modifier = Modifier.weight(1.2f)
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
+                // Discount, tax, payments, notes section
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    shape = RoundedCornerShape(16.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -1378,7 +2234,6 @@ fun DocumentFormScreen(
                             }
 
                             if (form.paymentStatus == "partial") {
-                                Spacer(modifier = Modifier.height(8.dp))
                                 TijarioTextField(
                                     label = "المبلغ المدفوع",
                                     value = form.amountPaid,
@@ -1399,64 +2254,6 @@ fun DocumentFormScreen(
                             onValueChange = { form = form.copy(notes = it) },
                             singleLine = false,
                             leadingIcon = { Icon(Icons.Filled.Note, contentDescription = null, tint = Color(0xFF64748B)) }
-                        )
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        TijarioButton(
-                            text = t("btn_save_doc"),
-                            onClick = {
-                                scope.launch {
-                                    try {
-                                        isLoading = true
-                                        submitError = null
-                                        val req = app.tijario.data.remote.CreateDocumentRequest(
-                                            type = type,
-                                            paymentStatus = if (type == app.tijario.data.model.DocumentType.Invoice) form.paymentStatus else null,
-                                            amountPaid = if (type == app.tijario.data.model.DocumentType.Invoice && form.paymentStatus == "partial") Validation.parseNonNegativeMoney(form.amountPaid) else null,
-                                            customer = app.tijario.data.remote.DocumentCustomerInput(
-                                                name = form.customerName,
-                                                whatsappNumber = form.customerWhatsapp,
-                                                city = form.customerCity,
-                                            ),
-                                            items = form.items.map { itm ->
-                                                app.tijario.data.remote.DocumentItemInput(
-                                                    name = itm.name,
-                                                    productId = itm.productId,
-                                                    description = null,
-                                                    quantity = Validation.parsePositiveInt(itm.quantity) ?: throw IllegalArgumentException("invalid quantity"),
-                                                    unitPrice = Validation.parseNonNegativeMoney(itm.unitPrice) ?: throw IllegalArgumentException("invalid price")
-                                                )
-                                            },
-                                            discount = Validation.parseNonNegativeMoney(form.discount) ?: 0.0,
-                                            extraFees = Validation.parseNonNegativeMoney(form.extraFees) ?: 0.0,
-                                            notes = form.notes.ifBlank { null },
-                                            termsText = form.terms.ifBlank { null }
-                                        )
-                                        val result = if (editDocumentId != null) {
-                                            dataViewModel.updateDocument(editDocumentId, req)
-                                        } else {
-                                            dataViewModel.createDocument(req)
-                                        }
-                                        if (result.ok) {
-                                            val savedDocumentId = result.data?.documentId
-                                            if (savedDocumentId.isNullOrBlank()) {
-                                                onBack()
-                                            } else {
-                                                onDocumentSaved(savedDocumentId)
-                                            }
-                                        } else {
-                                            submitError = result.displayMessage
-                                        }
-                                    } catch (e: Exception) {
-                                        submitError = e.message ?: "تعذر حفظ المستند الآن. تحقق من الاتصال وحاول مرة أخرى."
-                                    } finally {
-                                        isLoading = false
-                                    }
-                                }
-                            },
-                            enabled = form.canSubmit,
-                            isLoading = isLoading
                         )
 
                         submitError?.let {
@@ -1516,5 +2313,63 @@ fun DocumentFormScreen(
                 }
             }
         }
+    }
+
+    // Launch Edit Item Dialog when requested
+    editingItemIndex?.let { index ->
+        if (index in form.items.indices) {
+            EditItemDialog(
+                item = form.items[index],
+                onDismiss = { editingItemIndex = null },
+                onSave = { updated ->
+                    form = form.copy(
+                        items = form.items.mapIndexed { idx, itm ->
+                            if (idx == index) updated else itm
+                        }
+                    )
+                    editingItemIndex = null
+                },
+                onDelete = {
+                    form = form.copy(
+                        items = form.items.filterIndexed { idx, _ -> idx != index }
+                    )
+                    editingItemIndex = null
+                },
+                onChooseProduct = {
+                    editingItemIndex = null
+                    onNavigateToSelectProduct(index)
+                }
+            )
+        }
+    }
+
+    if (showInvoiceInfoDialog) {
+        InvoiceInfoDialog(
+            form = form,
+            onDismiss = { showInvoiceInfoDialog = false },
+            onSave = { docNum, date, terms, due, po, title ->
+                form = form.copy(
+                    documentNumber = docNum,
+                    creationDate = date,
+                    dueTerms = terms,
+                    dueDate = due,
+                    poNumber = po,
+                    documentTitle = title
+                )
+                showInvoiceInfoDialog = false
+            }
+        )
+    }
+
+    if (showTemplatePickerDialog) {
+        SelectTemplateDialog(
+            selectedTemplateId = selectedTemplateId,
+            onDismiss = { showTemplatePickerDialog = false },
+            onSave = { templateId ->
+                selectedTemplateId = DocumentTemplateRegistry.requireTemplate(templateId).id
+                templatePreferences.setDefaultTemplateId(selectedTemplateId)
+                showTemplatePickerDialog = false
+            }
+        )
     }
 }

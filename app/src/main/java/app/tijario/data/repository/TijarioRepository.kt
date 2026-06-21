@@ -292,8 +292,9 @@ class TijarioRepository(
         runCatching {
             val userId = requireUserId()
             val currentMonthStr = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM"))
+            val monthDateStr = "$currentMonthStr-01"
             withContext(Dispatchers.IO) {
-                val usage = supabaseClient.from("period_month")
+                var usageList = supabaseClient.from("period_month")
                     .select {
                         filter {
                             eq("user_id", userId)
@@ -301,13 +302,25 @@ class TijarioRepository(
                         }
                     }
                     .decodeList<app.tijario.data.model.PeriodMonth>()
-                    .firstOrNull() ?: app.tijario.data.model.PeriodMonth(
-                        userId = userId,
-                        month = currentMonthStr,
-                        documentsUsed = 0,
-                        aiUsed = 0,
-                        planCode = "free"
-                    )
+
+                if (usageList.isEmpty()) {
+                    usageList = supabaseClient.from("period_month")
+                        .select {
+                            filter {
+                                eq("user_id", userId)
+                                eq("month", monthDateStr)
+                            }
+                        }
+                        .decodeList<app.tijario.data.model.PeriodMonth>()
+                }
+
+                val usage = usageList.firstOrNull() ?: app.tijario.data.model.PeriodMonth(
+                    userId = userId,
+                    month = currentMonthStr,
+                    documentsUsed = 0,
+                    aiUsed = 0,
+                    planCode = "free"
+                )
 
                 val plan = supabaseClient.from("plans")
                     .select {
@@ -323,9 +336,12 @@ class TijarioRepository(
                         monthlyAiLimit = 10
                     )
 
+                val cachedDocsCount = dao.countDocumentsForMonth(userId, currentMonthStr)
+                val finalDocsUsed = maxOf(usage.documentsUsed, cachedDocsCount)
+
                 app.tijario.data.model.UserPlanUsage(
                     planName = plan.name,
-                    documentsUsed = usage.documentsUsed,
+                    documentsUsed = finalDocsUsed,
                     documentsLimit = plan.monthlyDocumentLimit,
                     aiUsed = usage.aiUsed,
                     aiLimit = plan.monthlyAiLimit

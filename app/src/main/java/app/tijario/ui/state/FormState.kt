@@ -54,7 +54,12 @@ data class DocumentItemState(
     val productId: String? = null,
     val name: String = "",
     val quantity: String = "",
-    val unitPrice: String = ""
+    val unitPrice: String = "",
+    val description: String = "",
+    val unitOfMeasure: String = "",
+    val discount: String = "",
+    val discountType: String = "Percentage", // Percentage or Fixed
+    val taxRate: String = "",
 ) {
     val nameError: String? get() = Validation.required(name, "اسم البند")
     val quantityError: String? get() = Validation.positiveInt(quantity, "الكمية")
@@ -74,6 +79,13 @@ data class DocumentFormState(
     val amountPaid: String = "",
     val notes: String = "",
     val terms: String = "",
+    val documentNumber: String = "",
+    val issueDate: String = "",
+    val creationDate: String = "",
+    val dueTerms: String = "None",
+    val dueDate: String = "",
+    val poNumber: String = "",
+    val documentTitle: String = "Online Orders",
 ) {
     val customerNameError: String? get() = Validation.required(customerName, "اسم العميل")
     val discountError: String? get() = Validation.nonNegativeMoney(discount, "الخصم")
