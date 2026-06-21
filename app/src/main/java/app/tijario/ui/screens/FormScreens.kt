@@ -1040,7 +1040,10 @@ val DocumentFormStateSaver = listSaver<DocumentFormState, Any>(
             state.dueTerms,
             state.dueDate,
             state.poNumber,
-            state.documentTitle
+            state.documentTitle,
+            state.finalTaxRate,
+            state.finalTaxName,
+            state.documentLanguage
         )
         state.items.forEach { item ->
             list.add(item.id)
@@ -1074,9 +1077,12 @@ val DocumentFormStateSaver = listSaver<DocumentFormState, Any>(
         val dueDate = list[14] as String
         val poNumber = list[15] as String
         val documentTitle = list[16] as String
+        val finalTaxRate = list[17] as String
+        val finalTaxName = list[18] as String
+        val documentLanguage = list[19] as String
         
         val itemsList = mutableListOf<app.tijario.ui.state.DocumentItemState>()
-        val itemsData = list.subList(17, list.size)
+        val itemsData = list.subList(20, list.size)
         for (i in itemsData.indices step 10) {
             if (i + 9 < itemsData.size) {
                 itemsList.add(
@@ -1101,7 +1107,7 @@ val DocumentFormStateSaver = listSaver<DocumentFormState, Any>(
             customerName = customerName,
             customerWhatsapp = customerWhatsapp,
             customerCity = customerCity.takeIf { it.isNotEmpty() },
-items = if (itemsList.isEmpty()) listOf(app.tijario.ui.state.DocumentItemState()) else itemsList,
+            items = if (itemsList.isEmpty()) listOf(app.tijario.ui.state.DocumentItemState()) else itemsList,
             discount = discount,
             extraFees = extraFees,
             paymentStatus = paymentStatus,
@@ -1114,7 +1120,10 @@ items = if (itemsList.isEmpty()) listOf(app.tijario.ui.state.DocumentItemState()
             dueTerms = dueTerms,
             dueDate = dueDate,
             poNumber = poNumber,
-            documentTitle = documentTitle
+            documentTitle = documentTitle,
+            finalTaxRate = finalTaxRate,
+            finalTaxName = finalTaxName,
+            documentLanguage = documentLanguage
         )
     }
 )
@@ -1755,7 +1764,13 @@ fun DocumentFormScreen(
                     )
                 },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = {
+                        if (selectedTab == 1) {
+                            selectedTab = 0
+                        } else {
+                            onBack()
+                        }
+                    }) {
                         Icon(Icons.Filled.ArrowBack, contentDescription = t("btn_back"))
                     }
                 },
@@ -1781,7 +1796,13 @@ fun DocumentFormScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         OutlinedButton(
-                            onClick = { selectedTab = 1 },
+                            onClick = {
+                                if (selectedTab == 1) {
+                                    selectedTab = 0
+                                } else {
+                                    selectedTab = 1
+                                }
+                            },
                             modifier = Modifier
                                 .weight(1f)
                                 .height(48.dp),
@@ -1789,7 +1810,8 @@ fun DocumentFormScreen(
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
                         ) {
-                            Text(t("btn_preview"), fontWeight = FontWeight.Bold)
+                            val btnText = if (selectedTab == 1) (if (LocalLanguage.current == app.tijario.config.AppLanguage.AR) "تعديل" else "Edit") else t("btn_preview")
+                            Text(btnText, fontWeight = FontWeight.Bold)
                         }
 
                          Button(
@@ -1942,10 +1964,11 @@ fun DocumentFormScreen(
                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                 ) {
                     Column {
+                        var showLanguageDropdown by remember { mutableStateOf(false) }
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { /* No action needed */ }
+                                .clickable { showLanguageDropdown = true }
                                 .padding(16.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
@@ -1961,8 +1984,28 @@ fun DocumentFormScreen(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text("English", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+                                val currentLangStr = if (form.documentLanguage == "AR") "العربية" else "English"
+                                Text(currentLangStr, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
                                 Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            DropdownMenu(
+                                expanded = showLanguageDropdown,
+                                onDismissRequest = { showLanguageDropdown = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("العربية") },
+                                    onClick = {
+                                        form = form.copy(documentLanguage = "AR")
+                                        showLanguageDropdown = false
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("English") },
+                                    onClick = {
+                                        form = form.copy(documentLanguage = "EN")
+                                        showLanguageDropdown = false
+                                    }
+                                )
                             }
                         }
 
@@ -2169,7 +2212,7 @@ fun DocumentFormScreen(
                     }
                 }
 
-                // Discount, tax, payments, notes section
+                // Discount, tax, and final total summary card
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -2202,30 +2245,139 @@ fun DocumentFormScreen(
                             )
                         }
 
+                        // Final Tax Fields (Name and Percentage Rate)
+                        val taxLabel = if (LocalLanguage.current == app.tijario.config.AppLanguage.AR) "الضريبة النهائية (%)" else "Final Tax (%)"
+                        val taxNameLabel = if (LocalLanguage.current == app.tijario.config.AppLanguage.AR) "اسم الضريبة" else "Tax Name"
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            TijarioTextField(
+                                label = taxNameLabel,
+                                value = form.finalTaxName,
+                                onValueChange = { form = form.copy(finalTaxName = it) },
+                                leadingIcon = { Icon(Icons.Filled.Description, contentDescription = null, tint = Color(0xFF64748B)) },
+                                modifier = Modifier.weight(1.2f)
+                            )
+                            TijarioTextField(
+                                label = taxLabel,
+                                value = form.finalTaxRate,
+                                onValueChange = { form = form.copy(finalTaxRate = it) },
+                                error = if (form.finalTaxRate.isNotEmpty()) form.finalTaxRateError else null,
+                                leadingIcon = { Icon(Icons.Filled.Percent, contentDescription = null, tint = Color(0xFF64748B)) },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+
+                        HorizontalDivider(color = Color(0xFFF1F5F9))
+
+                        // Subtotal and Final Total Calculations
+                        val subtotalVal = form.items.sumOf { item ->
+                            val parsedPrice = Validation.parseNonNegativeMoney(item.unitPrice) ?: 0.0
+                            val parsedQty = Validation.parsePositiveInt(item.quantity) ?: 1
+                            parsedPrice * parsedQty
+                        }
+                        val parsedFormDiscount = Validation.parseNonNegativeMoney(form.discount) ?: 0.0
+                        val parsedFormExtra = Validation.parseNonNegativeMoney(form.extraFees) ?: 0.0
+                        val parsedFormTax = Validation.parseNonNegativeMoney(form.finalTaxRate) ?: 0.0
+
+                        val discountAmount = parsedFormDiscount // Flat discount
+                        val totalAfterDiscountAndExtra = subtotalVal - discountAmount + parsedFormExtra
+                        val taxAmount = totalAfterDiscountAndExtra * (parsedFormTax / 100.0)
+                        val finalTotalVal = totalAfterDiscountAndExtra + taxAmount
+
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = if (LocalLanguage.current == app.tijario.config.AppLanguage.AR) "الإجمالي الفرعي" else "Subtotal",
+                                    fontSize = 14.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(text = String.format("$%.2f", subtotalVal), fontSize = 14.sp)
+                            }
+                            if (parsedFormTax > 0.0) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "${form.finalTaxName} ($parsedFormTax%)",
+                                        fontSize = 14.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Text(text = String.format("$%.2f", taxAmount), fontSize = 14.sp)
+                                }
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = if (LocalLanguage.current == app.tijario.config.AppLanguage.AR) "الإجمالي النهائي" else "Final Total",
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = 16.sp,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = String.format("$%.2f", finalTotalVal),
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = 18.sp,
+                                    color = Color(0xFF0D9488) // Accent Green
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Payment Status and Notes Card
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    shape = RoundedCornerShape(16.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
                         if (type == app.tijario.data.model.DocumentType.Invoice) {
                             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Text(
-                                    text = "حالة الدفع",
+                                    text = if (LocalLanguage.current == app.tijario.config.AppLanguage.AR) "حالة الدفع" else "Payment Status",
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 13.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                                 SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                                     val options = listOf(
-                                        "unpaid" to "غير مدفوعة",
-                                        "paid" to "مدفوعة",
-                                        "partial" to "دفع جزئي",
+                                        "unpaid" to (if (LocalLanguage.current == app.tijario.config.AppLanguage.AR) "غير مدفوعة" else "Unpaid"),
+                                        "paid" to (if (LocalLanguage.current == app.tijario.config.AppLanguage.AR) "مدفوعة" else "Paid"),
+                                        "partial" to (if (LocalLanguage.current == app.tijario.config.AppLanguage.AR) "دفع جزئي" else "Partial"),
                                     )
                                     options.forEachIndexed { index, option ->
+                                        val isSelected = form.paymentStatus == option.first
                                         SegmentedButton(
-                                            selected = form.paymentStatus == option.first,
+                                            selected = isSelected,
                                             onClick = { form = form.copy(paymentStatus = option.first) },
                                             shape = SegmentedButtonDefaults.itemShape(index, options.size),
+                                            colors = SegmentedButtonDefaults.colors(
+                                                activeContainerColor = Color(0xFF0D9488),
+                                                activeContentColor = Color.White,
+                                                inactiveContainerColor = MaterialTheme.colorScheme.surface,
+                                                inactiveContentColor = MaterialTheme.colorScheme.onSurface
+                                            ),
                                             label = {
                                                 Text(
                                                     option.second,
                                                     fontSize = 12.sp,
                                                     maxLines = 1,
+                                                    color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface
                                                 )
                                             },
                                         )
@@ -2235,7 +2387,7 @@ fun DocumentFormScreen(
 
                             if (form.paymentStatus == "partial") {
                                 TijarioTextField(
-                                    label = "المبلغ المدفوع",
+                                    label = if (LocalLanguage.current == app.tijario.config.AppLanguage.AR) "المبلغ المدفوع" else "Amount Paid",
                                     value = form.amountPaid,
                                     onValueChange = { form = form.copy(amountPaid = it) },
                                     keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(

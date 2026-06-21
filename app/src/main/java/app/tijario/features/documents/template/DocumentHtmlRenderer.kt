@@ -282,6 +282,10 @@ class DocumentHtmlRenderer(
             append(totalsRow(labels.subtotal, model.totals.subtotal, model))
             if (model.totals.discount > BigDecimal.ZERO) append(totalsRow(labels.discount, model.totals.discount, model))
             if (model.totals.extraFees > BigDecimal.ZERO) append(totalsRow(labels.extraFees, model.totals.extraFees, model))
+            if (model.totals.finalTaxAmount > BigDecimal.ZERO) {
+                val taxLabel = "${model.totals.finalTaxName} (${model.totals.finalTaxRate}%)"
+                append(totalsRow(taxLabel, model.totals.finalTaxAmount, model))
+            }
             append("<div class=\"totals-row final\"><span>${labels.total}</span><strong>${DocumentFormatting.money(model.totals.total, model.totals.currency, model.language)}</strong></div>")
             if (model.documentType == DocumentType.Invoice) {
                 if (model.totals.amountPaid > BigDecimal.ZERO) {

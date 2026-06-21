@@ -86,10 +86,14 @@ data class DocumentFormState(
     val dueDate: String = "",
     val poNumber: String = "",
     val documentTitle: String = "Online Orders",
+    val finalTaxRate: String = "",
+    val finalTaxName: String = "الضريبة",
+    val documentLanguage: String = "AR", // "AR" or "EN"
 ) {
     val customerNameError: String? get() = Validation.required(customerName, "اسم العميل")
     val discountError: String? get() = Validation.nonNegativeMoney(discount, "الخصم")
     val extraFeesError: String? get() = Validation.nonNegativeMoney(extraFees, "الرسوم الإضافية")
+    val finalTaxRateError: String? get() = Validation.nonNegativeMoney(finalTaxRate, "الضريبة النهائية")
     val amountPaidError: String? get() = if (paymentStatus == "partial") Validation.nonNegativeMoney(amountPaid, "المبلغ المدفوع") else null
     val canSubmit: Boolean get() =
         customerId != null &&
@@ -98,6 +102,7 @@ data class DocumentFormState(
             items.all { it.isValid } &&
             discountError == null &&
             extraFeesError == null &&
+            finalTaxRateError == null &&
             amountPaidError == null
 }
 

@@ -29,6 +29,9 @@ data class DocumentTotals(
     val amountPaid: BigDecimal = BigDecimal.ZERO,
     val amountRemaining: BigDecimal = BigDecimal.ZERO,
     val currency: String,
+    val finalTaxName: String = "Tax",
+    val finalTaxRate: BigDecimal = BigDecimal.ZERO,
+    val finalTaxAmount: BigDecimal = BigDecimal.ZERO,
 )
 
 data class DocumentRenderStatus(

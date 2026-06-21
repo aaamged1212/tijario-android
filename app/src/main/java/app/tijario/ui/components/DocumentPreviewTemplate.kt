@@ -42,12 +42,13 @@ fun ModernDocumentPreview(
     modifier: Modifier = Modifier,
 ) {
     val model = remember(documentType, form, businessSettings, customerCity, templateId) {
+        val mappedLang = if (form.documentLanguage == "EN") AppLanguage.EN else AppLanguage.AR
         TijarioDocumentMapper.fromDraft(
             documentType = documentType,
             form = form,
             businessSettings = businessSettings,
             customerCity = customerCity,
-            language = AppLanguage.AR,
+            language = mappedLang,
             templateId = templateId,
         )
     }

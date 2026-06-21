@@ -44,9 +44,13 @@ object DraftDocumentRenderMapper {
                 lineTotal = unitPrice.multiply(BigDecimal(quantity)),
             )
         }
+        val parsedFormTax = BigDecimal.valueOf(Validation.parseNonNegativeMoney(form.finalTaxRate) ?: 0.0)
+        val taxAmount = calculation.total.multiply(parsedFormTax.divide(BigDecimal("100"), 4, java.math.RoundingMode.HALF_UP))
+        val totalWithTax = calculation.total.add(taxAmount)
+
         val paymentAmounts = PaymentAmountCalculator.calculate(
             paymentStatus = if (documentType == DocumentType.Invoice) form.paymentStatus else null,
-            total = calculation.total,
+            total = totalWithTax,
             amountPaid = Validation.parseNonNegativeMoney(form.amountPaid)?.let(BigDecimal::valueOf),
         )
         return DocumentRenderModel(
@@ -75,10 +79,13 @@ object DraftDocumentRenderMapper {
                 subtotal = calculation.subtotal,
                 discount = calculation.discount,
                 extraFees = calculation.extraFees,
-                total = calculation.total,
+                total = totalWithTax,
                 amountPaid = paymentAmounts.paid,
                 amountRemaining = paymentAmounts.remaining,
                 currency = businessSettings?.currency ?: "SAR",
+                finalTaxName = form.finalTaxName,
+                finalTaxRate = parsedFormTax,
+                finalTaxAmount = taxAmount
             ),
             invoiceNote = businessSettings?.invoiceNote,
             documentNote = form.notes.ifBlank { null },

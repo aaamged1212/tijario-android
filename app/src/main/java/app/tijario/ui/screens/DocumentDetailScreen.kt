@@ -20,6 +20,13 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Row
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Public
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -165,11 +172,14 @@ fun DocumentDetailScreen(
 
                 document != null -> {
                     val doc = document!!
-                    val renderModel = remember(doc, businessSettings, selectedTemplateId) {
+                    var documentLanguage by remember { mutableStateOf("AR") }
+                    var showLanguageDropdown by remember { mutableStateOf(false) }
+                    val renderModel = remember(doc, businessSettings, selectedTemplateId, documentLanguage) {
+                        val mappedLang = if (documentLanguage == "EN") AppLanguage.EN else AppLanguage.AR
                         TijarioDocumentMapper.fromSaved(
                             document = doc,
                             businessSettings = businessSettings,
-                            language = AppLanguage.AR,
+                            language = mappedLang,
                             templateId = selectedTemplateId,
                         )
                     }
@@ -208,6 +218,59 @@ fun DocumentDetailScreen(
                             fontSize = 16.sp,
                             color = MaterialTheme.colorScheme.onBackground,
                         )
+
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                            border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                        ) {
+                            Box {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { showLanguageDropdown = true }
+                                        .padding(14.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(Icons.Filled.Public, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                        Text(t("invoice_language"), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                                    }
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        val currentLangStr = if (documentLanguage == "AR") "العربية" else "English"
+                                        Text(currentLangStr, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+                                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+                                DropdownMenu(
+                                    expanded = showLanguageDropdown,
+                                    onDismissRequest = { showLanguageDropdown = false }
+                                ) {
+                                    DropdownMenuItem(
+                                        text = { Text("العربية") },
+                                        onClick = {
+                                            documentLanguage = "AR"
+                                            showLanguageDropdown = false
+                                        }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("English") },
+                                        onClick = {
+                                            documentLanguage = "EN"
+                                            showLanguageDropdown = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
 
                         DocumentTemplatePicker(
                             selectedTemplateId = selectedTemplateId,
