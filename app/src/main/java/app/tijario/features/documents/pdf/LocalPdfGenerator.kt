@@ -53,9 +53,6 @@ class LocalPdfGenerator(
             try {
                 configure(webView)
                 awaitPageLoad(webView, html)
-                prepareA4Viewport(webView)
-                awaitVisualState(webView)
-                expandToRenderedContent(webView)
                 awaitVisualState(webView)
                 writeWebViewToPdf(webView, outputFile)
                 require(cacheManager.isValid(outputFile)) { "Generated PDF is invalid" }
@@ -155,32 +152,6 @@ class LocalPdfGenerator(
         }
     }
 
-    private fun prepareA4Viewport(webView: WebView) {
-        val density = webView.resources.displayMetrics.density
-        val widthPx = (A4_WIDTH_CSS_PX * density).roundToInt()
-        val heightPx = (A4_HEIGHT_CSS_PX * density).roundToInt()
-        webView.measure(
-            View.MeasureSpec.makeMeasureSpec(widthPx, View.MeasureSpec.EXACTLY),
-            View.MeasureSpec.makeMeasureSpec(heightPx, View.MeasureSpec.EXACTLY),
-        )
-        webView.layout(0, 0, widthPx, heightPx)
-        webView.scrollTo(0, 0)
-    }
-
-    private fun expandToRenderedContent(webView: WebView) {
-        val density = webView.resources.displayMetrics.density
-        val widthPx = (A4_WIDTH_CSS_PX * density).roundToInt()
-        val minHeightPx = (A4_HEIGHT_CSS_PX * density).roundToInt()
-        val contentHeightPx = (webView.contentHeight * density).roundToInt()
-        val heightPx = maxOf(webView.measuredHeight, webView.height, contentHeightPx, minHeightPx)
-        webView.measure(
-            View.MeasureSpec.makeMeasureSpec(widthPx, View.MeasureSpec.EXACTLY),
-            View.MeasureSpec.makeMeasureSpec(heightPx, View.MeasureSpec.EXACTLY),
-        )
-        webView.layout(0, 0, widthPx, heightPx)
-        webView.scrollTo(0, 0)
-    }
-
     private suspend fun awaitVisualState(webView: WebView) {
         suspendCancellableCoroutine<Unit> { cont ->
             webView.postVisualStateCallback(
@@ -194,45 +165,37 @@ class LocalPdfGenerator(
         }
     }
 
-    private fun writeWebViewToPdf(webView: WebView, outputFile: File) {
+    private suspend fun writeWebViewToPdf(webView: WebView, outputFile: File): Unit = suspendCancellableCoroutine { cont ->
         outputFile.parentFile?.mkdirs()
         if (outputFile.exists()) outputFile.delete()
+        val adapter = webView.createPrintDocumentAdapter("Document")
         val attrs = PrintAttributes.Builder()
             .setMediaSize(PrintAttributes.MediaSize.ISO_A4.asPortrait())
             .setMinMargins(PrintAttributes.Margins.NO_MARGINS)
             .setResolution(PrintAttributes.Resolution("pdf", "pdf", 300, 300))
             .setColorMode(PrintAttributes.COLOR_MODE_COLOR)
             .build()
-        val document: PdfDocument = PrintedPdfDocument(context, attrs)
         try {
-            val density = attrs.resolution ?: error("Missing PDF resolution")
-            val mediaSize = attrs.mediaSize ?: error("Missing PDF media size")
-            val pageWidthPx = (mediaSize.widthMils / 1000f * density.horizontalDpi).roundToInt()
-            val pageHeightPx = (mediaSize.heightMils / 1000f * density.verticalDpi).roundToInt()
-            
-            val contentWidthPx = webView.width.toFloat()
-            val contentHeightPx = webView.height.toFloat()
-            
-            val scale = pageWidthPx.toFloat() / contentWidthPx
-            val pageHeightInContentPx = pageHeightPx / scale
-            val totalPages = Math.max(1, Math.ceil((contentHeightPx / pageHeightInContentPx).toDouble()).toInt())
-            
-            for (i in 0 until totalPages) {
-                val pageInfo = PdfDocument.PageInfo.Builder(pageWidthPx, pageHeightPx, i + 1).create()
-                val page = document.startPage(pageInfo)
-                val canvas = page.canvas
-                canvas.drawColor(Color.WHITE)
-                canvas.save()
-                canvas.scale(scale, scale)
-                canvas.translate(0f, -i * pageHeightInContentPx)
-                webView.draw(canvas)
-                canvas.restore()
-                document.finishPage(page)
-            }
-            
-            FileOutputStream(outputFile).use { output -> document.writeTo(output) }
-        } finally {
-            document.close()
+            val pfd = ParcelFileDescriptor.open(outputFile, ParcelFileDescriptor.MODE_READ_WRITE or ParcelFileDescriptor.MODE_CREATE)
+            android.print.PrintHelper.runWrite(
+                adapter = adapter,
+                attributes = attrs,
+                pfd = pfd,
+                onComplete = {
+                    try {
+                        pfd.close()
+                    } catch (_: Exception) {}
+                    if (cont.isActive) cont.resume(Unit)
+                },
+                onFailed = { err ->
+                    try {
+                        pfd.close()
+                    } catch (_: Exception) {}
+                    if (cont.isActive) cont.resumeWithException(IllegalStateException(err ?: "Failed to write PDF"))
+                }
+            )
+        } catch (e: Exception) {
+            if (cont.isActive) cont.resumeWithException(e)
         }
     }
 }

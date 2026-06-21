@@ -316,7 +316,8 @@ fun DocumentDetailScreen(
                                         }
                                     } catch (_: ActivityNotFoundException) {
                                         Toast.makeText(context, "لا يوجد تطبيق مناسب لتنفيذ هذا الإجراء", Toast.LENGTH_LONG).show()
-                                    } catch (_: Exception) {
+                                    } catch (e: Exception) {
+                                        android.util.Log.e("TijarioExport", "Error executing export action: ${action.name}", e)
                                         Toast.makeText(context, "تعذر تنفيذ الإجراء الآن", Toast.LENGTH_LONG).show()
                                     } finally {
                                         isBusy = false
