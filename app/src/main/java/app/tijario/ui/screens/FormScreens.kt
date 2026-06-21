@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Note
 import androidx.compose.material.icons.filled.Numbers
 import androidx.compose.material.icons.filled.Percent
+import androidx.compose.material.icons.filled.LocalOffer
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.PriceChange
@@ -2305,7 +2306,7 @@ fun DocumentFormScreen(
                                 value = form.discount,
                                 onValueChange = { form = form.copy(discount = it) },
                                 error = if (form.discount.isNotEmpty()) form.discountError else null,
-                                leadingIcon = { Icon(Icons.Filled.Percent, contentDescription = null, tint = Color(0xFF64748B)) },
+                                leadingIcon = { Icon(Icons.Filled.LocalOffer, contentDescription = null, tint = Color(0xFF64748B)) },
                                 modifier = Modifier.weight(1f)
                             )
                             TijarioTextField(
