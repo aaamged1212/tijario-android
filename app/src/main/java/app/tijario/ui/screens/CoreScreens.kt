@@ -74,6 +74,7 @@ import androidx.compose.foundation.border
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.tijario.MainActivity
 import app.tijario.config.AppLanguage
+import app.tijario.config.AppPreferences
 import app.tijario.config.LocalLanguage
 import app.tijario.config.Localization
 import app.tijario.config.t
@@ -2936,6 +2937,7 @@ fun AccountScreen(
                 shape = RoundedCornerShape(20.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
+                val context = LocalContext.current
                 Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     // Language
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -2944,10 +2946,16 @@ fun AccountScreen(
                             Text(t("settings_lang"), fontWeight = FontWeight.Bold)
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            TextButton(onClick = { MainActivity.currentLanguage = AppLanguage.AR }) {
+                            TextButton(onClick = {
+                                MainActivity.currentLanguage = AppLanguage.AR
+                                AppPreferences.setLanguage(context, AppLanguage.AR)
+                            }) {
                                 Text("العربية", color = if (MainActivity.currentLanguage == AppLanguage.AR) MaterialTheme.colorScheme.primary else Color.Gray)
                             }
-                            TextButton(onClick = { MainActivity.currentLanguage = AppLanguage.EN }) {
+                            TextButton(onClick = {
+                                MainActivity.currentLanguage = AppLanguage.EN
+                                AppPreferences.setLanguage(context, AppLanguage.EN)
+                            }) {
                                 Text("English", color = if (MainActivity.currentLanguage == AppLanguage.EN) MaterialTheme.colorScheme.primary else Color.Gray)
                             }
                         }
@@ -2959,7 +2967,13 @@ fun AccountScreen(
                             Icon(Icons.Filled.LightMode, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                             Text(t("settings_theme"), fontWeight = FontWeight.Bold)
                         }
-                        Switch(checked = MainActivity.isDarkMode, onCheckedChange = { MainActivity.isDarkMode = it })
+                        Switch(
+                            checked = MainActivity.isDarkMode,
+                            onCheckedChange = {
+                                MainActivity.isDarkMode = it
+                                AppPreferences.setDarkMode(context, it)
+                            }
+                        )
                     }
                 }
             }

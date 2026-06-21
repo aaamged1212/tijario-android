@@ -1768,6 +1768,7 @@ fun DocumentFormScreen(
                         } else item
                     }
                 )
+                editingItemIndex = idx
                 onSelectedProductConsumed()
             }
         }
@@ -2076,11 +2077,18 @@ fun DocumentFormScreen(
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(t("from"), fontWeight = FontWeight.Bold, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 val storeName = businessSettings?.businessName?.takeIf { it.isNotBlank() } ?: "TAWFIR - توفير"
-                                val storeCity = businessSettings?.city?.takeIf { it.isNotBlank() } ?: "Sana'a"
-                                val storeNotes = businessSettings?.invoiceNote?.takeIf { it.isNotBlank() } ?: "Hada city / Zero st"
+                                val location = listOfNotNull(
+                                    businessSettings?.country?.takeIf { it.isNotBlank() },
+                                    businessSettings?.city?.takeIf { it.isNotBlank() }
+                                ).joinToString(" - ")
+                                val storeContact = businessSettings?.whatsappNumber?.takeIf { it.isNotBlank() }
                                 Text(storeName, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                                Text(storeCity, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text(storeNotes, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                if (location.isNotBlank()) {
+                                    Text(location, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                storeContact?.let {
+                                    Text(it, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
                             }
                             Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
@@ -2232,7 +2240,7 @@ fun DocumentFormScreen(
                                 val parsedQty = Validation.parsePositiveInt(item.quantity) ?: 1
                                 parsedPrice * parsedQty
                             }
-                            Text(text = String.format("$%.2f", subtotalVal), fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
+                            Text(text = String.format("%.2f %s", subtotalVal, form.currency), fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
                         }
                     }
                 }
@@ -2269,38 +2277,34 @@ fun DocumentFormScreen(
                                 modifier = Modifier.weight(1.2f)
                             )
                         }
+                        
+                        HorizontalDivider(color = Color(0xFFF1F5F9))
 
-                        // Final Tax Fields (Name and Percentage Rate)
-                        val taxLabel = if (LocalLanguage.current == app.tijario.config.AppLanguage.AR) "الضريبة النهائية (%)" else "Final Tax (%)"
-                        val taxNameLabel = if (LocalLanguage.current == app.tijario.config.AppLanguage.AR) "اسم الضريبة" else "Tax Name"
+                        // Tax Selection Row (linked to LocalTaxesManagerDialog)
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { showLocalTaxesDialog = true }
+                                .padding(vertical = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            TijarioTextField(
-                                label = taxNameLabel,
-                                value = form.finalTaxName,
-                                onValueChange = { form = form.copy(finalTaxName = it) },
-                                leadingIcon = { Icon(Icons.Filled.Description, contentDescription = null, tint = Color(0xFF64748B)) },
-                                modifier = Modifier.weight(1.2f)
-                            )
-                            TijarioTextField(
-                                label = taxLabel,
-                                value = form.finalTaxRate,
-                                onValueChange = { form = form.copy(finalTaxRate = it) },
-                                error = if (form.finalTaxRate.isNotEmpty()) form.finalTaxRateError else null,
-                                leadingIcon = { Icon(Icons.Filled.Percent, contentDescription = null, tint = Color(0xFF64748B)) },
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-
-                        TextButton(
-                            onClick = { showLocalTaxesDialog = true },
-                            modifier = Modifier.align(Alignment.End)
-                        ) {
-                            Icon(Icons.Filled.Settings, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(if (LocalLanguage.current == app.tijario.config.AppLanguage.AR) "إدارة واختيار الضرائب المخزنة" else "Manage Stored Taxes", fontSize = 12.sp)
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Filled.Percent, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                Text(if (LocalLanguage.current == app.tijario.config.AppLanguage.AR) "الضريبة" else "Tax", fontSize = 14.sp)
+                            }
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                val parsedTax = Validation.parseNonNegativeMoney(form.finalTaxRate) ?: 0.0
+                                val taxText = if (parsedTax > 0.0) "${form.finalTaxName} ($parsedTax%)" else (if (LocalLanguage.current == app.tijario.config.AppLanguage.AR) "بدون ضريبة" else "No Tax")
+                                Text(taxText, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+                                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
                         }
 
                         HorizontalDivider(color = Color(0xFFF1F5F9))
@@ -2331,7 +2335,7 @@ fun DocumentFormScreen(
                                     fontSize = 14.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
-                                Text(text = String.format("$%.2f", subtotalVal), fontSize = 14.sp)
+                                Text(text = String.format("%.2f %s", subtotalVal, form.currency), fontSize = 14.sp)
                             }
                             if (parsedFormTax > 0.0) {
                                 Row(
@@ -2344,7 +2348,7 @@ fun DocumentFormScreen(
                                         fontSize = 14.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
-                                    Text(text = String.format("$%.2f", taxAmount), fontSize = 14.sp)
+                                    Text(text = String.format("%.2f %s", taxAmount, form.currency), fontSize = 14.sp)
                                 }
                             }
                             Row(
@@ -2359,7 +2363,7 @@ fun DocumentFormScreen(
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
-                                    text = String.format("$%.2f", finalTotalVal),
+                                    text = String.format("%.2f %s", finalTotalVal, form.currency),
                                     fontWeight = FontWeight.ExtraBold,
                                     fontSize = 18.sp,
                                     color = Color(0xFF0D9488) // Accent Green
@@ -3160,7 +3164,7 @@ fun LocalSignaturesManagerDialog(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Text(
-                    text = if (isArabic) "التوقيعات المحلية" else "Local Signatures",
+                    text = if (isArabic) "التوقيعات" else "Signatures",
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp
                 )
@@ -3174,11 +3178,19 @@ fun LocalSignaturesManagerDialog(
                         singleLine = true
                     )
                     
+                    Text(
+                        text = if (isArabic) "ارسم توقيعك هنا" else "Draw your signature here",
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center,
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    
                     val lines = remember { mutableStateListOf<List<Offset>>() }
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(180.dp)
+                            .height(260.dp)
                             .background(Color.White, RoundedCornerShape(8.dp))
                             .pointerInput(Unit) {
                                 detectDragGestures(
@@ -3219,7 +3231,7 @@ fun LocalSignaturesManagerDialog(
                         Button(
                             onClick = {
                                 if (sigName.isNotBlank() && lines.isNotEmpty()) {
-                                    val bitmap = Bitmap.createBitmap(800, 400, Bitmap.Config.ARGB_8888)
+                                    val bitmap = Bitmap.createBitmap(800, 520, Bitmap.Config.ARGB_8888)
                                     val canvas = AndroidCanvas(bitmap)
                                     canvas.drawColor(android.graphics.Color.WHITE)
                                     val paint = AndroidPaint().apply {

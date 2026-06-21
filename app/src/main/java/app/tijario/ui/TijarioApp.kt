@@ -133,6 +133,11 @@ fun TijarioApp() {
     val authState by authViewModel.authState.collectAsStateWithLifecycle()
     val dataUiState by dataViewModel.uiState.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
+    val showStartupSplash =
+        authState is CentralAuthState.Initializing ||
+            (authState is CentralAuthState.AuthenticatedReady &&
+                dataUiState.isInitialLoading &&
+                !dataUiState.hasCachedData)
 
     // Shared states for selection
     var activeSelectedCustomer by remember { mutableStateOf<app.tijario.data.model.Customer?>(null) }
@@ -146,10 +151,13 @@ fun TijarioApp() {
         }
     }
 
+    if (showStartupSplash) {
+        SplashScreen()
+        return
+    }
+
     when (val state = authState) {
-        is CentralAuthState.Initializing -> {
-            SplashScreen()
-        }
+        is CentralAuthState.Initializing -> Unit
         is CentralAuthState.Unauthenticated, is CentralAuthState.AwaitingEmailVerification -> {
             // Unauthenticated Graph
             val navController = rememberNavController()
@@ -233,10 +241,6 @@ fun TijarioApp() {
             )
         }
         is CentralAuthState.AuthenticatedReady -> {
-            if (dataUiState.isInitialLoading && !dataUiState.hasCachedData) {
-                SplashScreen()
-                return
-            }
             // Authenticated Graph
             val navController = rememberNavController()
             val pagerState = rememberPagerState(pageCount = { 5 })

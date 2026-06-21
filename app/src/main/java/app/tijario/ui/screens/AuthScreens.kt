@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -31,6 +32,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import app.tijario.MainActivity
 import app.tijario.config.AppLanguage
+import app.tijario.config.AppPreferences
 import app.tijario.config.LocalLanguage
 import app.tijario.config.t
 import app.tijario.ui.components.GoogleSignInButton
@@ -54,10 +56,12 @@ import androidx.compose.ui.res.painterResource
 @Composable
 private fun AuthLanguageToggle(modifier: Modifier = Modifier) {
     val language = LocalLanguage.current
+    val context = LocalContext.current
     IconButton(
         onClick = {
             MainActivity.currentLanguage =
                 if (language == AppLanguage.AR) AppLanguage.EN else AppLanguage.AR
+            AppPreferences.setLanguage(context, MainActivity.currentLanguage)
         },
         modifier = modifier
             .size(38.dp)

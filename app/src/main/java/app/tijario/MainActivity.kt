@@ -10,6 +10,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
 import app.tijario.config.AppLanguage
+import app.tijario.config.AppPreferences
 import app.tijario.config.LocalLanguage
 import app.tijario.ui.TijarioApp
 import app.tijario.ui.theme.TijarioTheme
@@ -22,6 +23,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        currentLanguage = AppPreferences.getLanguage(applicationContext)
+        isDarkMode = AppPreferences.getDarkMode(applicationContext)
         setContent {
             TijarioTheme(darkTheme = isDarkMode, language = currentLanguage) {
                 val layoutDirection = if (currentLanguage == AppLanguage.AR) {

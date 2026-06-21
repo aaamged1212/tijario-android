@@ -49,6 +49,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import app.tijario.config.AppPreferences
 import app.tijario.config.LocalLanguage
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.AlertDialog
@@ -89,8 +90,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import app.tijario.MainActivity
 import app.tijario.config.AppLanguage
+import app.tijario.MainActivity
 import app.tijario.config.Supabase
 import app.tijario.config.t
 import app.tijario.data.remote.ResetPasswordRequest
@@ -522,6 +523,7 @@ fun AccountSettingsScreen(
 @Composable
 fun AppSettingsScreen(onBack: () -> Unit) {
     val language = LocalLanguage.current
+    val context = LocalContext.current
     var showLangDialog by remember { mutableStateOf(false) }
 
     if (showLangDialog) {
@@ -533,6 +535,7 @@ fun AppSettingsScreen(onBack: () -> Unit) {
                     TextButton(
                         onClick = {
                             MainActivity.currentLanguage = AppLanguage.AR
+                            AppPreferences.setLanguage(context, AppLanguage.AR)
                             showLangDialog = false
                         },
                         modifier = Modifier.fillMaxWidth()
@@ -542,6 +545,7 @@ fun AppSettingsScreen(onBack: () -> Unit) {
                     TextButton(
                         onClick = {
                             MainActivity.currentLanguage = AppLanguage.EN
+                            AppPreferences.setLanguage(context, AppLanguage.EN)
                             showLangDialog = false
                         },
                         modifier = Modifier.fillMaxWidth()
@@ -667,7 +671,10 @@ fun AppSettingsScreen(onBack: () -> Unit) {
                         }
                         Switch(
                             checked = MainActivity.isDarkMode,
-                            onCheckedChange = { MainActivity.isDarkMode = it }
+                            onCheckedChange = {
+                                MainActivity.isDarkMode = it
+                                AppPreferences.setDarkMode(context, it)
+                            }
                         )
                     }
                 }
