@@ -30,4 +30,21 @@ class PdfCacheManager(
             runCatching { file.delete() }
         }
     }
+
+    fun invalidate(documentId: String) {
+        val sanitizedId = PdfFileNameSanitizer.sanitize(documentId)
+        cacheDir.listFiles { file ->
+            file.name.contains(sanitizedId)
+        }?.forEach { file ->
+            runCatching { file.delete() }
+        }
+        val namedDir = File(cacheDir, "named")
+        if (namedDir.exists()) {
+            namedDir.listFiles { file ->
+                file.name.contains(sanitizedId)
+            }?.forEach { file ->
+                runCatching { file.delete() }
+            }
+        }
+    }
 }

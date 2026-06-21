@@ -1924,6 +1924,7 @@ fun DocumentFormScreen(
                                             if (savedDocumentId.isNullOrBlank()) {
                                                 onBack()
                                             } else {
+                                                app.tijario.features.documents.pdf.PdfCacheManager(context).invalidate(savedDocumentId)
                                                 dataViewModel.upsertDocumentMetadata(
                                                     app.tijario.data.local.LocalDocumentMetadataEntity(
                                                         documentId = savedDocumentId,
