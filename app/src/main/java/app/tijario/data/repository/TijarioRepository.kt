@@ -24,6 +24,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
+import java.time.LocalDate
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
 
 data class CacheSyncState(
     val isRefreshing: Boolean = false,
@@ -305,59 +308,45 @@ class TijarioRepository(
     suspend fun fetchUserPlanUsage(): Result<app.tijario.data.model.UserPlanUsage> =
         runCatching {
             val userId = requireUserId()
-            val currentMonthStr = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM"))
-            val monthDateStr = "$currentMonthStr-01"
+            val periodMonth = currentUtcPeriodMonth()
             withContext(Dispatchers.IO) {
-                var usageList = supabaseClient.from("period_month")
+                val userPlan = supabaseClient.from("user_plan")
                     .select {
                         filter {
                             eq("user_id", userId)
-                            eq("month", currentMonthStr)
                         }
                     }
-                    .decodeList<app.tijario.data.model.PeriodMonth>()
-
-                if (usageList.isEmpty()) {
-                    usageList = supabaseClient.from("period_month")
-                        .select {
-                            filter {
-                                eq("user_id", userId)
-                                eq("month", monthDateStr)
-                            }
-                        }
-                        .decodeList<app.tijario.data.model.PeriodMonth>()
-                }
-
-                val usage = usageList.firstOrNull() ?: app.tijario.data.model.PeriodMonth(
-                    userId = userId,
-                    month = currentMonthStr,
-                    documentsUsed = 0,
-                    aiUsed = 0,
-                    planCode = "free"
-                )
+                    .decodeList<app.tijario.data.model.UserPlanRowDto>()
+                    .firstOrNull()
+                    ?: error("User plan not found.")
 
                 val plan = supabaseClient.from("plans")
                     .select {
                         filter {
-                            eq("code", usage.planCode)
+                            eq("id", userPlan.planId)
                         }
                     }
                     .decodeList<app.tijario.data.model.Plan>()
-                    .firstOrNull() ?: app.tijario.data.model.Plan(
-                        code = "free",
-                        name = "الباقة المجانية",
-                        monthlyDocumentLimit = 5,
-                        monthlyAiLimit = 10
-                    )
+                    .firstOrNull()
+                    ?: error("Plan not found.")
 
-                val cachedDocsCount = dao.countDocumentsForMonth(userId, currentMonthStr)
-                val finalDocsUsed = maxOf(usage.documentsUsed, cachedDocsCount)
+                val usage = supabaseClient.from("usage_counters")
+                    .select {
+                        filter {
+                            eq("user_id", userId)
+                            eq("period_month", periodMonth)
+                        }
+                    }
+                    .decodeList<app.tijario.data.model.UsageCounterRowDto>()
+                    .firstOrNull()
 
                 app.tijario.data.model.UserPlanUsage(
+                    planCode = plan.code,
                     planName = plan.name,
-                    documentsUsed = finalDocsUsed,
+                    periodMonth = periodMonth,
+                    documentsUsed = usage?.documentsUsed ?: 0,
                     documentsLimit = plan.monthlyDocumentLimit,
-                    aiUsed = usage.aiUsed,
+                    aiUsed = usage?.aiUsed ?: 0,
                     aiLimit = plan.monthlyAiLimit
                 )
             }
@@ -419,6 +408,9 @@ class TijarioRepository(
         lastFullRefreshAt = 0L
         syncStateMutable.value = CacheSyncState()
     }
+
+    internal fun currentUtcPeriodMonth(reference: LocalDate = LocalDate.now(ZoneOffset.UTC)): String =
+        reference.withDayOfMonth(1).format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
 
     private suspend fun fetchRemoteSnapshot(userId: String): RemoteSnapshot =
         coroutineScope {

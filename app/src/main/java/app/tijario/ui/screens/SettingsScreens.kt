@@ -97,6 +97,7 @@ import app.tijario.config.Supabase
 import app.tijario.config.t
 import app.tijario.data.remote.ResetPasswordRequest
 import app.tijario.ui.state.TijarioDataViewModel
+import app.tijario.ui.state.PlanUsageState
 import io.github.jan.supabase.auth.auth
 import kotlinx.coroutines.launch
 
@@ -112,8 +113,8 @@ fun SettingsHomeScreen(
     onLogout: () -> Unit,
 ) {
     val uiState by dataViewModel.uiState.collectAsStateWithLifecycle()
-    val usage = uiState.planUsage
-    LaunchedEffect(Unit) { dataViewModel.refreshAll() }
+    val planUsageState by dataViewModel.planUsageState.collectAsStateWithLifecycle()
+    LaunchedEffect(Unit) { dataViewModel.refreshPlanUsage() }
 
     Scaffold(
         topBar = {
@@ -149,40 +150,59 @@ fun SettingsHomeScreen(
                     .padding(20.dp)
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        val displayPlanName = when (usage?.planName) {
-                            "Free", "الخطة المجانية", null -> t("free_plan")
-                            "Pro", "الباقة الاحترافية" -> t("account_pro_badge")
-                            else -> usage.planName
+                    when (planUsageState) {
+                        is PlanUsageState.Loading, PlanUsageState.Idle -> {
+                            PlanUsageSkeleton()
                         }
-                        Column(horizontalAlignment = Alignment.Start) {
-                            Text(t("current_plan"), color = Color.White.copy(alpha = 0.72f), fontSize = 13.sp)
-                            Text(displayPlanName, color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Black)
-                        }
-                        Surface(
-                            color = Color.White.copy(alpha = 0.15f),
-                            shape = CircleShape,
-                            modifier = Modifier.size(54.dp)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    imageVector = Icons.Filled.AutoAwesome,
-                                    contentDescription = null,
-                                    tint = Color.White,
-                                    modifier = Modifier.size(28.dp)
-                                )
+                        is PlanUsageState.Error -> {
+                            val errorMessage = (planUsageState as PlanUsageState.Error).message
+                            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Text(t("current_plan"), color = Color.White.copy(alpha = 0.72f), fontSize = 13.sp)
+                                Text(errorMessage, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                                TextButton(onClick = { dataViewModel.refreshPlanUsage() }) {
+                                    Text(t("retry"))
+                                }
                             }
                         }
+                        is PlanUsageState.Success -> {
+                            val usage = (planUsageState as PlanUsageState.Success).value
+                            val displayPlanName = when (usage.planCode.lowercase()) {
+                                "free" -> t("free_plan")
+                                "starter" -> t("starter_plan")
+                                "pro" -> t("account_pro_badge")
+                                else -> usage.planName
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(horizontalAlignment = Alignment.Start) {
+                                    Text(t("current_plan"), color = Color.White.copy(alpha = 0.72f), fontSize = 13.sp)
+                                    Text(displayPlanName, color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Black)
+                                }
+                                Surface(
+                                    color = Color.White.copy(alpha = 0.15f),
+                                    shape = CircleShape,
+                                    modifier = Modifier.size(54.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            imageVector = Icons.Filled.AutoAwesome,
+                                            contentDescription = null,
+                                            tint = Color.White,
+                                            modifier = Modifier.size(28.dp)
+                                        )
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            UsageLine(t("documents"), usage.documentsUsed, usage.documentsLimit, Icons.Filled.Description, Color(0xFFCCFBF1))
+                            UsageLine(t("ai_uses"), usage.aiUsed, usage.aiLimit, Icons.Filled.AutoAwesome, Color(0xFFBAE6FD))
+                        }
                     }
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    UsageLine(t("documents"), usage?.documentsUsed ?: 0, usage?.documentsLimit ?: 0, Icons.Filled.Description, Color(0xFFCCFBF1))
-                    UsageLine(t("ai_uses"), usage?.aiUsed ?: 0, usage?.aiLimit ?: 0, Icons.Filled.AutoAwesome, Color(0xFFBAE6FD))
                 }
             }
 
@@ -205,6 +225,28 @@ fun SettingsHomeScreen(
                 Text(t("logout"), fontWeight = FontWeight.Bold)
             }
         }
+    }
+}
+
+@Composable
+private fun PlanUsageSkeleton() {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        repeat(3) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(18.dp)
+                    .clip(RoundedCornerShape(9.dp))
+                    .background(Color.White.copy(alpha = 0.18f))
+            )
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(0.62f)
+                .height(24.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(Color.White.copy(alpha = 0.22f))
+        )
     }
 }
 
@@ -862,10 +904,8 @@ private fun UsageLine(title: String, used: Int, limit: Int, icon: ImageVector, c
                 }
                 Text(title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
             }
-            val remaining = (limit - used).coerceAtLeast(0)
-            val remainingText = if (limit <= 0) "" else " (" + t("remaining").replace("%s", remaining.toString()) + ")"
             Text(
-                text = (if (limit <= 0) "$used" else "$used / $limit") + remainingText,
+                text = if (limit <= 0) "$used" else "$used من $limit",
                 color = Color.White,
                 fontWeight = FontWeight.Bold,
                 fontSize = 14.sp

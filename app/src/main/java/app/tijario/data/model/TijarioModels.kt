@@ -81,17 +81,22 @@ data class Plan(
 )
 
 @Serializable
-data class PeriodMonth(
+data class UserPlanRowDto(
     val id: String? = null,
     @SerialName("user_id") val userId: String,
-    val month: String,
+    @SerialName("plan_id") val planId: String,
+)
+
+@Serializable
+data class UsageCounterRowDto(
     @SerialName("documents_used") val documentsUsed: Int,
     @SerialName("ai_used") val aiUsed: Int,
-    @SerialName("plan_code") val planCode: String,
 )
 
 data class UserPlanUsage(
+    val planCode: String,
     val planName: String,
+    val periodMonth: String,
     val documentsUsed: Int,
     val documentsLimit: Int,
     val aiUsed: Int,

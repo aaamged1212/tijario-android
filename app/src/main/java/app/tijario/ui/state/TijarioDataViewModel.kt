@@ -41,15 +41,24 @@ data class TijarioDataUiState(
         get() = businessSettings != null || customers.isNotEmpty() || products.isNotEmpty() || documents.isNotEmpty()
 }
 
+sealed interface PlanUsageState {
+    data object Idle : PlanUsageState
+    data object Loading : PlanUsageState
+    data class Success(val value: app.tijario.data.model.UserPlanUsage) : PlanUsageState
+    data class Error(val message: String) : PlanUsageState
+}
+
 class TijarioDataViewModel(
     private val repository: TijarioRepository,
     private val aiRepository: app.tijario.data.repository.AiRepository,
 ) : ViewModel() {
     private val uiStateMutable = MutableStateFlow(TijarioDataUiState())
+    private val planUsageStateMutable = MutableStateFlow<PlanUsageState>(PlanUsageState.Idle)
     private var cacheCollectionJob: Job? = null
     private var refreshJob: Job? = null
 
     val uiState: StateFlow<TijarioDataUiState> = uiStateMutable.asStateFlow()
+    val planUsageState: StateFlow<PlanUsageState> = planUsageStateMutable.asStateFlow()
 
     fun startForCurrentUser(forceRefresh: Boolean = false) {
         viewModelScope.launch {
@@ -84,18 +93,19 @@ class TijarioDataViewModel(
         if (refreshJob?.isActive == true) return
         refreshJob = viewModelScope.launch {
             repository.refreshAll(force = force)
-            repository.fetchUserPlanUsage().onSuccess { usage ->
-                uiStateMutable.update { it.copy(planUsage = usage, isInitialLoading = false) }
-            }.onFailure {
-                uiStateMutable.update { it.copy(isInitialLoading = false) }
-            }
+            refreshPlanUsage()
+            uiStateMutable.update { it.copy(isInitialLoading = false) }
         }
     }
 
     fun refreshPlanUsage() {
         viewModelScope.launch {
+            planUsageStateMutable.value = PlanUsageState.Loading
             repository.fetchUserPlanUsage().onSuccess { usage ->
+                planUsageStateMutable.value = PlanUsageState.Success(usage)
                 uiStateMutable.update { it.copy(planUsage = usage) }
+            }.onFailure { error ->
+                planUsageStateMutable.value = PlanUsageState.Error(error.message ?: "تعذر تحميل بيانات الخطة.")
             }
         }
     }
