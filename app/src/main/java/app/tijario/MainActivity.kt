@@ -16,6 +16,9 @@ import app.tijario.config.LocalLanguage
 import app.tijario.ui.TijarioApp
 import app.tijario.ui.theme.TijarioTheme
 
+import android.webkit.WebView
+import app.tijario.BuildConfig
+
 class MainActivity : ComponentActivity() {
     companion object {
         var currentLanguage by mutableStateOf(AppLanguage.AR)
@@ -25,6 +28,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
+        WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
         currentLanguage = AppPreferences.getLanguage(applicationContext)
         isDarkMode = AppPreferences.getDarkMode(applicationContext)
         setContent {

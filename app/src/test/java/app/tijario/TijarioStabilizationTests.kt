@@ -8,6 +8,7 @@ import app.tijario.domain.DocumentStatusMapper
 import app.tijario.domain.ErrorMapper
 import app.tijario.domain.OtpValidator
 import app.tijario.domain.PaymentStatusMapper
+import app.tijario.config.AppLanguage
 import app.tijario.ui.state.CentralAuthState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -166,19 +167,19 @@ class TijarioStabilizationTests {
         val ioErr = IOException()
         val arbitraryErr = RuntimeException("rate limit exceeded")
 
-        assertTrue(ErrorMapper.map(networkErr).contains("الاتصال بالخادم"))
-        assertTrue(ErrorMapper.map(timeoutErr).contains("مهلة الاتصال"))
-        assertTrue(ErrorMapper.map(ioErr).contains("الشبكة"))
-        assertTrue(ErrorMapper.map(arbitraryErr).contains("حد إرسال الرموز") || ErrorMapper.map(arbitraryErr).contains("الحد الشهري"))
+        assertTrue(ErrorMapper.map(networkErr, AppLanguage.AR).contains("الاتصال بالخادم"))
+        assertTrue(ErrorMapper.map(timeoutErr, AppLanguage.AR).contains("مهلة الاتصال"))
+        assertTrue(ErrorMapper.map(ioErr, AppLanguage.AR).contains("الشبكة"))
+        assertTrue(ErrorMapper.map(arbitraryErr, AppLanguage.AR).contains("حد إرسال الرموز") || ErrorMapper.map(arbitraryErr, AppLanguage.AR).contains("الحد الشهري"))
     }
 
     @Test
     fun testErrorMapper_apiCodes() {
-        assertEquals("لقد تجاوزت الحد الشهري المسموح به للعمليات.", ErrorMapper.mapApiCode("LIMIT_EXCEEDED"))
-        assertEquals("انتهت صلاحية الجلسة. يرجى تسجيل الدخول مرة أخرى.", ErrorMapper.mapApiCode("SESSION_EXPIRED"))
-        assertEquals("البريد الإلكتروني أو كلمة المرور غير صحيحة.", ErrorMapper.mapApiCode("INVALID_CREDENTIALS"))
-        assertEquals("هذا العميل مضاف بالفعل.", ErrorMapper.mapApiCode("DUPLICATE_CUSTOMER"))
-        assertEquals("حدث خطأ في النظام (RANDOM_CODE).", ErrorMapper.mapApiCode("RANDOM_CODE"))
+        assertEquals("لقد تجاوزت الحد الشهري المسموح به للعمليات.", ErrorMapper.mapApiCode("LIMIT_EXCEEDED", AppLanguage.AR))
+        assertEquals("انتهت صلاحية الجلسة. يرجى تسجيل الدخول مرة أخرى.", ErrorMapper.mapApiCode("SESSION_EXPIRED", AppLanguage.AR))
+        assertEquals("البريد الإلكتروني أو كلمة المرور غير صحيحة.", ErrorMapper.mapApiCode("INVALID_CREDENTIALS", AppLanguage.AR))
+        assertEquals("هذا العميل مضاف بالفعل.", ErrorMapper.mapApiCode("DUPLICATE_CUSTOMER", AppLanguage.AR))
+        assertEquals("حدث خطأ في النظام (RANDOM_CODE).", ErrorMapper.mapApiCode("RANDOM_CODE", AppLanguage.AR))
     }
     private fun documentSummary(
         id: String,

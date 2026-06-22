@@ -22,7 +22,7 @@ class ValidationTest {
     @Test
     fun parseNonNegativeMoney_rejectsNegativeValues() {
         assertNull(Validation.parseNonNegativeMoney("-1"))
-        assertNotNull(Validation.nonNegativeMoney("-1", "السعر"))
+        assertNotNull(Validation.nonNegativeMoney("-1", "السعر", app.tijario.config.AppLanguage.AR))
     }
 
     @Test

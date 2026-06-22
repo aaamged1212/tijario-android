@@ -703,6 +703,14 @@ fun TijarioApp() {
                     AccountSettingsScreen(
                         onBack = { navController.popBackStack() },
                         onLogout = { authViewModel.logout() },
+                        onDeleteAccount = {
+                            val res = app.tijario.config.Supabase.apiClient.deleteAccount()
+                            if (res.ok) {
+                                Result.success(Unit)
+                            } else {
+                                Result.failure(Exception(res.message ?: "Failed to delete account"))
+                            }
+                        }
                     )
                 }
                 composable("app-settings") {
