@@ -99,6 +99,106 @@ data class AiCaptionResponse(
 )
 
 @Serializable
+data class AiV2ReplyRequest(
+    @SerialName("schema_version") val schemaVersion: Int = 2,
+    @SerialName("client_request_id") val clientRequestId: String,
+    @SerialName("customer_message") val customerMessage: String? = null,
+    @SerialName("quick_case") val quickCase: String? = null,
+    @SerialName("customer_id") val customerId: String? = null,
+    @SerialName("product_id") val productId: String? = null,
+    @SerialName("customer_name") val customerName: String? = null,
+    val goal: String = "auto",
+    val dialect: String = "auto",
+    val tone: String = "auto",
+    val length: String = "short",
+    @SerialName("extra_context") val extraContext: String? = null,
+    val language: String = "ar",
+)
+
+@Serializable
+data class AiV2CaptionRequest(
+    @SerialName("schema_version") val schemaVersion: Int = 2,
+    @SerialName("client_request_id") val clientRequestId: String,
+    @SerialName("product_or_service") val productOrService: String,
+    @SerialName("caption_type") val captionType: String,
+    val platform: String,
+    val dialect: String = "auto",
+    val tone: String = "auto",
+    val length: String = "short",
+    val offer: String? = null,
+    @SerialName("product_image") val productImage: AiImageInput? = null,
+    @SerialName("extra_context") val extraContext: String? = null,
+    val language: String = "ar",
+)
+
+@Serializable
+data class AiV2Variant(
+    val id: String,
+    val label: String,
+    val text: String,
+)
+
+@Serializable
+data class AiV2Usage(
+    val used: Int,
+    val limit: Int,
+    val remaining: Int,
+)
+
+@Serializable
+data class AiV2Detected(
+    val intent: String,
+    val mood: String,
+    @SerialName("recommended_tone") val recommendedTone: String,
+)
+
+@Serializable
+data class AiV2ResponseData(
+    @SerialName("generation_id") val generationId: String,
+    @SerialName("schema_version") val schemaVersion: Int,
+    val detected: AiV2Detected? = null,
+    @SerialName("missing_information") val missingInformation: List<String> = emptyList(),
+    val variants: List<AiV2Variant> = emptyList(),
+    val usage: AiV2Usage,
+)
+
+@Serializable
+data class AiV2Response(
+    val ok: Boolean,
+    val data: AiV2ResponseData? = null,
+    val code: String? = null,
+    val message: String? = null,
+)
+
+@Serializable
+data class AiV2ReportRequest(
+    @SerialName("schema_version") val schemaVersion: Int = 2,
+    @SerialName("client_request_id") val clientRequestId: String,
+    @SerialName("generation_id") val generationId: String,
+    @SerialName("issue_type") val issueType: String,
+    val note: String? = null,
+)
+
+@Serializable
+data class AiReportRequest(
+    @SerialName("generation_type") val generationType: String,
+    @SerialName("generation_id") val generationId: String? = null,
+    @SerialName("model_type") val modelType: String,
+    @SerialName("report_reason") val reportReason: String,
+    @SerialName("user_note") val userNote: String? = null,
+    @SerialName("variant_id") val variantId: String? = null,
+    @SerialName("content_snapshot") val contentSnapshot: String? = null,
+)
+
+@Serializable
+data class AiV2UsageResponse(
+    val ok: Boolean,
+    val data: AiV2Usage? = null,
+    val code: String? = null,
+    val message: String? = null,
+)
+
+@Serializable
 data class UploadLogoRequest(
     @SerialName("file_name") val fileName: String,
     @SerialName("mime_type") val mimeType: String,

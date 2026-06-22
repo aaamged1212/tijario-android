@@ -12,6 +12,10 @@ import app.tijario.data.model.Product
 import app.tijario.data.remote.ApiResult
 import app.tijario.data.remote.CreateDocumentRequest
 import app.tijario.data.remote.CreateDocumentResponse
+import app.tijario.data.remote.AiV2CaptionRequest
+import app.tijario.data.remote.AiV2ReplyRequest
+import app.tijario.data.remote.AiV2ReportRequest
+import app.tijario.data.remote.AiV2Response
 import app.tijario.data.repository.TijarioRepository
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -148,6 +152,9 @@ class TijarioDataViewModel(
         return result
     }
 
+    suspend fun generateAiReplyV2(request: AiV2ReplyRequest): AiV2Response =
+        aiRepository.generateReplyV2(request)
+
     suspend fun generateAiCaption(request: app.tijario.data.remote.AiCaptionRequest): ApiResult<app.tijario.data.remote.AiCaptionResponse> {
         val result = aiRepository.generateCaption(request)
         if (result.ok) {
@@ -155,6 +162,12 @@ class TijarioDataViewModel(
         }
         return result
     }
+
+    suspend fun generateAiCaptionV2(request: AiV2CaptionRequest): AiV2Response =
+        aiRepository.generateCaptionV2(request)
+
+    suspend fun reportAiGenerationV2(request: AiV2ReportRequest): ApiResult<Unit> =
+        aiRepository.reportV2(request)
 
     fun clearSessionCache() {
         viewModelScope.launch {
