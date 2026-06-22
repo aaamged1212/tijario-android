@@ -1,4 +1,4 @@
-package app.tijario.ui.screens
+﻿package app.tijario.ui.screens
 
 import android.content.Context
 import android.content.ActivityNotFoundException
@@ -2400,10 +2400,10 @@ fun AiToolsScreen(
             try {
                 val imageInput = buildAiImageInput(context, uri, language)
                 captionImage = imageInput
-                captionImageLabel = "تم اختيار صورة المنتج"
+                captionImageLabel = Localization.getString("ai_selected_image", language)
                 captionError = null
             } catch (e: Exception) {
-                captionError = e.message ?: "تعذر قراءة صورة المنتج."
+                captionError = e.message ?: Localization.getString("ai_image_read_error", language)
             }
         }
     }
@@ -2442,7 +2442,7 @@ fun AiToolsScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
-                    text = "لقد استهلكت كامل الحد المتاح لك من استعلامات الذكاء الاصطناعي لشهرك الحالي. يرجى الترقية للاستمرار.",
+                    text = t("ai_limit_reached"),
                     color = MaterialTheme.colorScheme.onErrorContainer,
                     modifier = Modifier.padding(16.dp),
                     fontSize = 13.sp,
@@ -2484,18 +2484,18 @@ fun AiToolsScreen(
                     Text(t("ai_case_type"), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
                         listOf(
-                            "price_request" to "طلب سعر",
-                            "price_objection" to "السعر غالي",
-                            "discount_request" to "يريد خصم",
-                            "delivery_question" to "سؤال عن التوصيل",
-                            "availability_question" to "سؤال عن التوفر",
-                            "customer_hesitant" to "عميل متردد",
-                            "customer_interested" to "عميل مهتم",
-                            "follow_up" to "متابعة عميل",
-                            "payment_reminder" to "تذكير بالدفع",
-                            "delayed_response_apology" to "اعتذار عن التأخر",
-                            "review_request" to "طلب تقييم",
-                            "general_inquiry" to "استفسار عام",
+                            "price_request" to t("ai_case_price_request"),
+                            "price_objection" to t("ai_case_price_objection"),
+                            "discount_request" to t("ai_case_discount_request"),
+                            "delivery_question" to t("ai_case_delivery_question"),
+                            "availability_question" to t("ai_case_availability_question"),
+                            "customer_hesitant" to t("ai_case_customer_hesitant"),
+                            "customer_interested" to t("ai_case_customer_interested"),
+                            "follow_up" to t("ai_case_follow_up"),
+                            "payment_reminder" to t("ai_case_payment_reminder"),
+                            "delayed_response_apology" to t("ai_case_delayed_apology"),
+                            "review_request" to t("ai_case_review_request"),
+                            "general_inquiry" to t("ai_case_general_inquiry"),
                         ).forEach { (code, label) ->
                             FilterChip(
                                 selected = quickCase == code,
@@ -2508,7 +2508,7 @@ fun AiToolsScreen(
                     // Dialect
                     Text(t("ai_dialect"), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        listOf("fusha_simple" to "فصحى بسيطة", "gulf" to t("ai_gulf"), "yemeni" to "يمني").forEach { (code, label) ->
+                        listOf("fusha_simple" to t("ai_fusha_simple"), "gulf" to t("ai_gulf"), "yemeni" to t("ai_yemeni")).forEach { (code, label) ->
                             FilterChip(
                                 selected = replyDialect == code,
                                 onClick = { replyDialect = code },
@@ -2567,7 +2567,7 @@ fun AiToolsScreen(
                                         tone = replyTone,
                                         length = replyLength,
                                         extraContext = replyExtraNote.ifBlank { null },
-                                        language = if (language == AppLanguage.AR) "ar" else "ar",
+                                        language = if (language == AppLanguage.AR) "ar" else "en",
                                     )
                                     val res = dataViewModel.generateAiReplyV2(req)
                                     if (res.ok) {
@@ -2636,7 +2636,7 @@ fun AiToolsScreen(
                                         }
                                     }
                                 }) {
-                                    Text("بلاغ")
+                                    Text(t("ai_report"))
                                 }
                             }
                         }
@@ -2668,7 +2668,7 @@ fun AiToolsScreen(
                     // Dialect
                     Text(t("ai_dialect"), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        listOf("fusha_simple" to "فصحى بسيطة", "gulf" to t("ai_gulf"), "yemeni" to "يمني").forEach { (code, label) ->
+                        listOf("fusha_simple" to t("ai_fusha_simple"), "gulf" to t("ai_gulf"), "yemeni" to t("ai_yemeni")).forEach { (code, label) ->
                             FilterChip(
                                 selected = captionDialect == code,
                                 onClick = { captionDialect = code },
@@ -2680,7 +2680,7 @@ fun AiToolsScreen(
                     // Tone
                     Text(t("ai_tone"), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        listOf("sales" to t("ai_tone_sales"), "friendly" to t("ai_tone_friendly"), "premium" to "فاخر").forEach { (code, label) ->
+                        listOf("sales" to t("ai_tone_sales"), "friendly" to t("ai_tone_friendly"), "premium" to t("ai_tone_premium")).forEach { (code, label) ->
                             FilterChip(
                                 selected = captionTone == code,
                                 onClick = { captionTone = code },
@@ -2746,7 +2746,7 @@ fun AiToolsScreen(
                                         offer = offer.ifBlank { null },
                                         productImage = captionImage,
                                         extraContext = captionExtraNote.ifBlank { null },
-                                        language = if (language == AppLanguage.AR) "ar" else "ar",
+                                        language = if (language == AppLanguage.AR) "ar" else "en",
                                     )
                                     val res = dataViewModel.generateAiCaptionV2(req)
                                     if (res.ok) {
@@ -2816,7 +2816,7 @@ fun AiToolsScreen(
                                         }
                                     }
                                 }) {
-                                    Text("بلاغ")
+                                    Text(t("ai_report"))
                                 }
                             }
                         }
@@ -3328,3 +3328,6 @@ private fun UsageIndicator(title: String, used: Int, total: Int, color: Color) {
         )
     }
 }
+
+
+

@@ -1866,7 +1866,7 @@ fun DocumentFormScreen(
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
                         ) {
-                            val btnText = if (selectedTab == 1) (if (LocalLanguage.current == app.tijario.config.AppLanguage.AR) "تعديل" else "Edit") else t("btn_preview")
+                            val btnText = if (selectedTab == 1) t("edit") else t("btn_preview")
                             Text(btnText, fontWeight = FontWeight.Bold)
                         }
 
@@ -2336,14 +2336,14 @@ fun DocumentFormScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Icon(Icons.Filled.Percent, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                                Text(if (LocalLanguage.current == app.tijario.config.AppLanguage.AR) "الضريبة" else "Tax", fontSize = 14.sp)
+                                 Text(t("tax"), fontSize = 14.sp)
                             }
                             Row(
                                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 val parsedTax = Validation.parseNonNegativeMoney(form.finalTaxRate) ?: 0.0
-                                val taxText = if (parsedTax > 0.0) "${form.finalTaxName} ($parsedTax%)" else (if (LocalLanguage.current == app.tijario.config.AppLanguage.AR) "بدون ضريبة" else "No Tax")
+                                val taxText = if (parsedTax > 0.0) "${form.finalTaxName} ($parsedTax%)" else t("no_tax")
                                 Text(taxText, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
                                 Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
@@ -2373,7 +2373,7 @@ fun DocumentFormScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = if (LocalLanguage.current == app.tijario.config.AppLanguage.AR) "الإجمالي الفرعي" else "Subtotal",
+                                    text = t("subtotal"),
                                     fontSize = 14.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -2399,7 +2399,7 @@ fun DocumentFormScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = if (LocalLanguage.current == app.tijario.config.AppLanguage.AR) "الإجمالي النهائي" else "Final Total",
+                                    text = t("final_total"),
                                     fontWeight = FontWeight.ExtraBold,
                                     fontSize = 16.sp,
                                     color = MaterialTheme.colorScheme.onSurface
@@ -2429,16 +2429,16 @@ fun DocumentFormScreen(
                         if (type == app.tijario.data.model.DocumentType.Invoice) {
                             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Text(
-                                    text = if (LocalLanguage.current == app.tijario.config.AppLanguage.AR) "حالة الدفع" else "Payment Status",
+                                    text = t("payment_status"),
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 13.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                                 SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                                     val options = listOf(
-                                        "unpaid" to (if (LocalLanguage.current == app.tijario.config.AppLanguage.AR) "غير مدفوعة" else "Unpaid"),
-                                        "paid" to (if (LocalLanguage.current == app.tijario.config.AppLanguage.AR) "مدفوعة" else "Paid"),
-                                        "partial" to (if (LocalLanguage.current == app.tijario.config.AppLanguage.AR) "دفع جزئي" else "Partial"),
+                                        "unpaid" to t("filter_unpaid"),
+                                        "paid" to t("filter_paid"),
+                                        "partial" to t("filter_partial"),
                                     )
                                     options.forEachIndexed { index, option ->
                                         val isSelected = form.paymentStatus == option.first
@@ -2467,7 +2467,7 @@ fun DocumentFormScreen(
 
                             if (form.paymentStatus == "partial") {
                                 TijarioTextField(
-                                    label = if (LocalLanguage.current == app.tijario.config.AppLanguage.AR) "المبلغ المدفوع" else "Amount Paid",
+                                    label = t("amount_paid"),
                                     value = form.amountPaid,
                                     onValueChange = { form = form.copy(amountPaid = it) },
                                     keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
@@ -2506,7 +2506,7 @@ fun DocumentFormScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Text(
-                            text = if (LocalLanguage.current == app.tijario.config.AppLanguage.AR) "خيارات الفاتورة الإضافية" else "Additional Invoice Options",
+                            text = t("additional_invoice_options"),
                             fontWeight = FontWeight.Bold,
                             fontSize = 14.sp,
                             color = MaterialTheme.colorScheme.onSurface
@@ -2526,7 +2526,7 @@ fun DocumentFormScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Icon(Icons.Filled.AttachMoney, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                                Text(if (LocalLanguage.current == app.tijario.config.AppLanguage.AR) "العملة" else "Currency", fontSize = 14.sp)
+                                Text(t("currency"), fontSize = 14.sp)
                             }
                             Row(
                                 horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -2553,13 +2553,13 @@ fun DocumentFormScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Icon(Icons.Filled.PriceChange, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                                Text(if (LocalLanguage.current == app.tijario.config.AppLanguage.AR) "طريقة الدفع" else "Payment Method", fontSize = 14.sp)
+                                Text(t("payment_method"), fontSize = 14.sp)
                             }
                             Row(
                                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                val pmText = form.paymentMethod.ifBlank { if (LocalLanguage.current == app.tijario.config.AppLanguage.AR) "لم تحدد" else "None" }
+                                val pmText = form.paymentMethod.ifBlank { t("not_specified") }
                                 Text(pmText, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
                                 Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
@@ -2581,13 +2581,13 @@ fun DocumentFormScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Icon(Icons.Filled.Description, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                                Text(if (LocalLanguage.current == app.tijario.config.AppLanguage.AR) "الشروط والأحكام" else "Terms & Conditions", fontSize = 14.sp)
+                                Text(t("terms_cond"), fontSize = 14.sp)
                             }
                             Row(
                                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                val termsText = if (form.terms.isNotBlank()) (if (LocalLanguage.current == app.tijario.config.AppLanguage.AR) "محددة" else "Selected") else (if (LocalLanguage.current == app.tijario.config.AppLanguage.AR) "لم تحدد" else "None")
+                                val termsText = if (form.terms.isNotBlank()) t("selected") else t("not_specified")
                                 Text(termsText, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
                                 Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
@@ -2609,13 +2609,13 @@ fun DocumentFormScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Icon(Icons.Filled.Edit, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                                Text(if (LocalLanguage.current == app.tijario.config.AppLanguage.AR) "توقيع الفاتورة" else "Invoice Signature", fontSize = 14.sp)
+                                Text(t("invoice_signature"), fontSize = 14.sp)
                             }
                             Row(
                                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                val sigText = if (form.signatureData.isNotBlank()) (if (LocalLanguage.current == app.tijario.config.AppLanguage.AR) "محدد" else "Signed") else (if (LocalLanguage.current == app.tijario.config.AppLanguage.AR) "لم يوقع" else "None")
+                                val sigText = if (form.signatureData.isNotBlank()) t("specified") else t("not_signed")
                                 Text(sigText, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
                                 Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
@@ -2663,7 +2663,7 @@ fun DocumentFormScreen(
                 ) {
                     val activeTemplateName = templates.find { it.id == selectedTemplateId }?.name?.removePrefix("Tijario ") ?: ""
                     Text(
-                        text = if (LocalLanguage.current == app.tijario.config.AppLanguage.AR) "القالب: $activeTemplateName" else "Template: $activeTemplateName",
+                        text = t("template_label").replace("%s", activeTemplateName),
                         color = MaterialTheme.colorScheme.onBackground,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold
@@ -2671,12 +2671,12 @@ fun DocumentFormScreen(
                     TextButton(
                         onClick = { showTemplatePickerDialog = true }
                     ) {
-                        Text(if (LocalLanguage.current == app.tijario.config.AppLanguage.AR) "تغيير القالب" else "Change Template", fontWeight = FontWeight.Bold)
+                        Text(t("change_template"), fontWeight = FontWeight.Bold)
                     }
                 }
 
                 Text(
-                    text = if (LocalLanguage.current == app.tijario.config.AppLanguage.AR) "اسحب لليمين أو اليسار للتغيير بين القوالب مباشرة بالبيانات الحالية." else "Swipe left or right to switch templates directly with the current data.",
+                    text = t("swipe_change_template"),
                     color = Color(0xFF64748B),
                     fontSize = 12.sp,
                     modifier = Modifier.fillMaxWidth(),

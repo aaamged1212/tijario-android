@@ -61,6 +61,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.tijario.config.AppLanguage
 import app.tijario.config.LocalLanguage
+import app.tijario.config.Localization
 import app.tijario.config.t
 import app.tijario.data.model.CompleteDocument
 import app.tijario.data.model.DocumentType
@@ -110,7 +111,7 @@ fun DocumentDetailScreen(
                 documentMetadata = dataViewModel.getDocumentMetadata(documentId)
             }
             errorMessage = result.exceptionOrNull()?.message ?: if (document == null) {
-                "تعذر تحميل تفاصيل المستند."
+                Localization.getString("error_load_doc_detail", language)
             } else {
                 null
             }
@@ -127,7 +128,7 @@ fun DocumentDetailScreen(
             TopAppBar(
                 title = {
                     Text(
-                        if (document?.type == DocumentType.Invoice) "تفاصيل الفاتورة" else "تفاصيل عرض السعر",
+                        if (document?.type == DocumentType.Invoice) t("doc_detail_invoice") else t("doc_detail_quote"),
                         fontWeight = FontWeight.Bold,
                     )
                 },
@@ -263,7 +264,7 @@ fun DocumentDetailScreen(
                             ) {
                                 Icon(Icons.Filled.Edit, contentDescription = null)
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("تعديل")
+                                Text(t("edit"))
                             }
 
                             Button(
@@ -273,7 +274,7 @@ fun DocumentDetailScreen(
                             ) {
                                 Icon(Icons.Filled.Share, contentDescription = null)
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text(if (isBusy) "جاري تجهيز المستند..." else "فتح خيارات التصدير")
+                                Text(if (isBusy) t("preparing_doc") else t("open_export_options"))
                             }
                         }
                     }
@@ -289,36 +290,36 @@ fun DocumentDetailScreen(
                                         when (action) {
                                             DocumentExportAction.ViewPdf -> {
                                                 val intent = exportManager.viewIntent(renderModel)
-                                                context.startActivity(Intent.createChooser(intent, "عرض PDF"))
+                                                context.startActivity(Intent.createChooser(intent, Localization.getString("export_view_pdf", language)))
                                             }
 
                                             DocumentExportAction.SaveToDevice -> {
                                                 exportManager.saveToDownloads(renderModel)
-                                                Toast.makeText(context, "تم حفظ الملف في التنزيلات", Toast.LENGTH_LONG).show()
+                                                Toast.makeText(context, Localization.getString("export_saved_downloads", language), Toast.LENGTH_LONG).show()
                                             }
 
                                             DocumentExportAction.Print -> exportManager.printPdf(renderModel)
 
                                             DocumentExportAction.Email -> {
                                                 val intent = exportManager.emailIntent(renderModel)
-                                                context.startActivity(Intent.createChooser(intent, "إرسال بالبريد"))
+                                                context.startActivity(Intent.createChooser(intent, Localization.getString("export_send_email", language)))
                                             }
 
                                             DocumentExportAction.SharePdf -> {
                                                 val intent = exportManager.shareIntent(renderModel)
-                                                context.startActivity(Intent.createChooser(intent, "مشاركة PDF"))
+                                                context.startActivity(Intent.createChooser(intent, Localization.getString("export_share_pdf", language)))
                                             }
 
                                             DocumentExportAction.ShareText -> {
                                                 val intent = exportManager.textShareIntent(renderModel)
-                                                context.startActivity(Intent.createChooser(intent, "مشاركة النص"))
+                                                context.startActivity(Intent.createChooser(intent, Localization.getString("export_share_text", language)))
                                             }
                                         }
                                     } catch (_: ActivityNotFoundException) {
-                                        Toast.makeText(context, "لا يوجد تطبيق مناسب لتنفيذ هذا الإجراء", Toast.LENGTH_LONG).show()
+                                        Toast.makeText(context, Localization.getString("export_no_app_found", language), Toast.LENGTH_LONG).show()
                                     } catch (e: Exception) {
                                         android.util.Log.e("TijarioExport", "Error executing export action: ${action.name}", e)
-                                        Toast.makeText(context, "تعذر تنفيذ الإجراء الآن", Toast.LENGTH_LONG).show()
+                                        Toast.makeText(context, Localization.getString("export_error_generic", language), Toast.LENGTH_LONG).show()
                                     } finally {
                                         isBusy = false
                                     }
@@ -351,7 +352,7 @@ fun DocumentDetailScreen(
                                         .clip(CircleShape)
                                         .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)),
                                 ) {
-                                    Icon(Icons.Filled.Close, contentDescription = "إغلاق")
+                                    Icon(Icons.Filled.Close, contentDescription = t("btn_close"))
                                 }
                             }
                         }

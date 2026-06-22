@@ -6,7 +6,7 @@
         android:icon="@drawable/logo_app"
         android:label="@string/app_name"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Tijario">
+        android:theme="@style/Theme.Tijario.Splash">
         <activity
             android:name=".MainActivity"
             android:exported="true">
