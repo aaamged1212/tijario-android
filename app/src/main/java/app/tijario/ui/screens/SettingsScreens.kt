@@ -905,7 +905,7 @@ private fun UsageLine(title: String, used: Int, limit: Int, icon: ImageVector, c
                 Text(title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
             }
             Text(
-                text = if (limit <= 0) "$used" else "$used من $limit",
+                text = if (limit <= 0) "$used" else "$used ${t("of")} $limit",
                 color = Color.White,
                 fontWeight = FontWeight.Bold,
                 fontSize = 14.sp

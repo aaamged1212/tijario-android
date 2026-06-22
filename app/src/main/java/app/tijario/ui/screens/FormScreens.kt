@@ -121,7 +121,7 @@ fun CustomerFormScreen(
     onBack: () -> Unit,
 ) {
     val language = LocalLanguage.current
-    var form by remember { mutableStateOf(CustomerFormState()) }
+    var form by remember(language) { mutableStateOf(CustomerFormState(lang = language)) }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
@@ -135,7 +135,8 @@ fun CustomerFormScreen(
                     name = existing.name,
                     whatsapp = existing.whatsappNumber,
                     city = existing.city.orEmpty(),
-                    notes = existing.notes.orEmpty()
+                    notes = existing.notes.orEmpty(),
+                    lang = language
                 )
             }
         }
@@ -342,7 +343,7 @@ fun ProductFormScreen(
     onBack: () -> Unit,
 ) {
     val language = LocalLanguage.current
-    var form by remember { mutableStateOf(app.tijario.ui.state.ProductFormState()) }
+    var form by remember(language) { mutableStateOf(app.tijario.ui.state.ProductFormState(lang = language)) }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
@@ -358,7 +359,8 @@ fun ProductFormScreen(
                     price = Validation.normalizedMoneyString(existing.price.toString()),
                     stockQuantity = existing.stockQuantity?.toString().orEmpty(),
                     kind = existing.kind,
-                    currency = existing.currency
+                    currency = existing.currency,
+                    lang = language
                 )
             }
         }
@@ -530,7 +532,7 @@ fun BusinessSettingsScreen(
 ) {
     val language = LocalLanguage.current
     val isArabic = language == AppLanguage.AR
-    var form by remember { mutableStateOf(BusinessSettingsFormState()) }
+    var form by remember(language) { mutableStateOf(BusinessSettingsFormState(lang = language)) }
     var existingSettings by remember { mutableStateOf<app.tijario.data.model.BusinessSettings?>(null) }
     var isLoading by remember { mutableStateOf(false) }
     var isLogoUploading by remember { mutableStateOf(false) }
@@ -594,7 +596,8 @@ fun BusinessSettingsScreen(
                 country = settings.country,
                 city = settings.city ?: "",
                 currency = settings.currency,
-                terms = settings.termsText ?: ""
+                terms = settings.termsText ?: "",
+                lang = language
             )
         }
     }
@@ -1068,7 +1071,8 @@ val DocumentFormStateSaver = listSaver<DocumentFormState, Any>(
             state.documentLanguage,
             state.currency,
             state.signatureData,
-            state.paymentMethod
+            state.paymentMethod,
+            state.lang.name
         )
         state.items.forEach { item ->
             list.add(item.id)
@@ -1108,9 +1112,10 @@ val DocumentFormStateSaver = listSaver<DocumentFormState, Any>(
         val currency = list[20] as String
         val signatureData = list[21] as String
         val paymentMethod = list[22] as String
+        val lang = app.tijario.config.AppLanguage.valueOf(list[23] as String)
         
         val itemsList = mutableListOf<app.tijario.ui.state.DocumentItemState>()
-        val itemsData = list.subList(23, list.size)
+        val itemsData = list.subList(24, list.size)
         for (i in itemsData.indices step 10) {
             if (i + 9 < itemsData.size) {
                 itemsList.add(
@@ -1125,6 +1130,7 @@ val DocumentFormStateSaver = listSaver<DocumentFormState, Any>(
                         discount = itemsData[i+7] as String,
                         discountType = itemsData[i+8] as String,
                         taxRate = itemsData[i+9] as String,
+                        lang = lang
                     )
                 )
             }
@@ -1135,7 +1141,7 @@ val DocumentFormStateSaver = listSaver<DocumentFormState, Any>(
             customerName = customerName,
             customerWhatsapp = customerWhatsapp,
             customerCity = customerCity.takeIf { it.isNotEmpty() },
-            items = if (itemsList.isEmpty()) listOf(app.tijario.ui.state.DocumentItemState()) else itemsList,
+            items = if (itemsList.isEmpty()) listOf(app.tijario.ui.state.DocumentItemState(lang = lang)) else itemsList,
             discount = discount,
             extraFees = extraFees,
             paymentStatus = paymentStatus,
@@ -1154,7 +1160,8 @@ val DocumentFormStateSaver = listSaver<DocumentFormState, Any>(
             documentLanguage = documentLanguage,
             currency = currency,
             signatureData = signatureData,
-            paymentMethod = paymentMethod
+            paymentMethod = paymentMethod,
+            lang = lang
         )
     }
 )
@@ -1672,7 +1679,8 @@ fun DocumentFormScreen(
     onSelectedProductConsumed: () -> Unit = {},
     onNavigateToBusinessSettings: () -> Unit = {},
 ) {
-    var form by rememberSaveable(stateSaver = DocumentFormStateSaver) { mutableStateOf(DocumentFormState()) }
+    val language = LocalLanguage.current
+    var form by rememberSaveable(stateSaver = DocumentFormStateSaver) { mutableStateOf(DocumentFormState(lang = language)) }
     var isLoadingDocument by remember { mutableStateOf(documentId != null) }
     var selectedTab by remember { mutableStateOf(0) } // 0 = edit, 1 = preview
     var isLoading by remember { mutableStateOf(false) }
@@ -1762,9 +1770,10 @@ fun DocumentFormScreen(
                     paymentMethod = metadata?.paymentMethod.orEmpty(),
                     finalTaxRate = metadata?.taxRate?.toString() ?: form.finalTaxRate,
                     finalTaxName = metadata?.taxName ?: form.finalTaxName,
+                    lang = language
                 )
             } else {
-                submitError = result.exceptionOrNull()?.message ?: "تعذر تحميل المستند للتعديل."
+                submitError = result.exceptionOrNull()?.message ?: Localization.getString("error_load_doc_detail", language)
             }
             isLoadingDocument = false
         }

@@ -1,4 +1,4 @@
-﻿package app.tijario.ui.screens
+package app.tijario.ui.screens
 
 import android.content.Context
 import android.content.ActivityNotFoundException
@@ -2392,6 +2392,13 @@ fun AiToolsScreen(
     var captionError by remember { mutableStateOf<String?>(null) }
     var isCaptionLoading by remember { mutableStateOf(false) }
 
+    val scrollState = rememberScrollState()
+    LaunchedEffect(replyVariants, captionVariants) {
+        if (replyVariants.isNotEmpty() || captionVariants.isNotEmpty()) {
+            scrollState.animateScrollTo(scrollState.maxValue)
+        }
+    }
+
     val captionImagePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri ->
@@ -2412,7 +2419,7 @@ fun AiToolsScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scrollState)
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
@@ -2609,14 +2616,32 @@ fun AiToolsScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(variant.label, fontWeight = FontWeight.Bold, color = Color(0xFF15803D), fontSize = 12.sp)
+                                val localizedLabel = when (variant.label.lowercase()) {
+                                    "formal" -> t("ai_tone_formal")
+                                    "sales" -> t("ai_tone_sales")
+                                    "friendly" -> t("ai_tone_friendly")
+                                    "funny" -> t("ai_tone_funny")
+                                    "premium" -> t("ai_tone_premium")
+                                    "short" -> if (language == AppLanguage.AR) "قصير" else "Short"
+                                    "medium" -> if (language == AppLanguage.AR) "متوسط" else "Medium"
+                                    "long" -> if (language == AppLanguage.AR) "طويل" else "Long"
+                                    "gulf" -> t("ai_gulf")
+                                    "yemeni" -> t("ai_yemeni")
+                                    "egypt" -> t("ai_egyptian")
+                                    "standard" -> t("ai_standard")
+                                    "instagram" -> t("ai_instagram")
+                                    "twitter" -> t("ai_twitter")
+                                    "facebook" -> t("ai_facebook")
+                                    else -> variant.label
+                                }
+                                Text(localizedLabel, fontWeight = FontWeight.Bold, color = Color(0xFF15803D), fontSize = 12.sp)
                                 IconButton(onClick = {
                                     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
                                     val clip = android.content.ClipData.newPlainText("Reply", variant.text)
                                     clipboard.setPrimaryClip(clip)
                                     android.widget.Toast.makeText(context, Localization.getString("reply_copied", language), android.widget.Toast.LENGTH_SHORT).show()
                                 }, modifier = Modifier.size(36.dp)) {
-                                    Icon(Icons.Filled.Share, contentDescription = Localization.getString("copy", language), tint = Color(0xFF15803D))
+                                    Icon(Icons.Filled.ContentCopy, contentDescription = Localization.getString("copy", language), tint = Color(0xFF15803D))
                                 }
                             }
                             Text(variant.text, color = Color(0xFF1E293B), fontSize = 14.sp)
@@ -2788,7 +2813,25 @@ fun AiToolsScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(variant.label, fontWeight = FontWeight.Bold, color = Color(0xFF15803D), fontSize = 12.sp)
+                                val localizedLabel = when (variant.label.lowercase()) {
+                                    "formal" -> t("ai_tone_formal")
+                                    "sales" -> t("ai_tone_sales")
+                                    "friendly" -> t("ai_tone_friendly")
+                                    "funny" -> t("ai_tone_funny")
+                                    "premium" -> t("ai_tone_premium")
+                                    "short" -> if (language == AppLanguage.AR) "قصير" else "Short"
+                                    "medium" -> if (language == AppLanguage.AR) "متوسط" else "Medium"
+                                    "long" -> if (language == AppLanguage.AR) "طويل" else "Long"
+                                    "gulf" -> t("ai_gulf")
+                                    "yemeni" -> t("ai_yemeni")
+                                    "egypt" -> t("ai_egyptian")
+                                    "standard" -> t("ai_standard")
+                                    "instagram" -> t("ai_instagram")
+                                    "twitter" -> t("ai_twitter")
+                                    "facebook" -> t("ai_facebook")
+                                    else -> variant.label
+                                }
+                                Text(localizedLabel, fontWeight = FontWeight.Bold, color = Color(0xFF15803D), fontSize = 12.sp)
                                 IconButton(onClick = {
                                     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
                                     val textToCopy = variant.text
@@ -2796,7 +2839,7 @@ fun AiToolsScreen(
                                     clipboard.setPrimaryClip(clip)
                                     android.widget.Toast.makeText(context, Localization.getString("caption_copied", language), android.widget.Toast.LENGTH_SHORT).show()
                                 }, modifier = Modifier.size(36.dp)) {
-                                    Icon(Icons.Filled.Share, contentDescription = Localization.getString("copy", language), tint = Color(0xFF15803D))
+                                    Icon(Icons.Filled.ContentCopy, contentDescription = Localization.getString("copy", language), tint = Color(0xFF15803D))
                                 }
                             }
                             Text(variant.text, color = Color(0xFF1E293B), fontSize = 14.sp)

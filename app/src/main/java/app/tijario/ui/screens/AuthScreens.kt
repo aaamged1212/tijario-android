@@ -83,7 +83,7 @@ fun LoginScreen(
     onForgotPassword: () -> Unit,
 ) {
     val language = LocalLanguage.current
-    var form by remember { mutableStateOf(LoginFormState()) }
+    var form by remember(language) { mutableStateOf(LoginFormState(lang = language)) }
     var isLoading by remember { mutableStateOf(false) }
     var isGoogleLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
@@ -228,7 +228,7 @@ fun LoginScreen(
                                     }
                                     onLoginReady()
                                 } catch (e: Exception) {
-                                    errorMessage = app.tijario.domain.ErrorMapper.map(e)
+                                    errorMessage = app.tijario.domain.ErrorMapper.map(e, language)
                                 } finally {
                                     isLoading = false
                                 }
@@ -319,7 +319,7 @@ fun RegisterScreen(
     onVerifyEmail: (String) -> Unit,
 ) {
     val language = LocalLanguage.current
-    var form by remember { mutableStateOf(RegisterFormState()) }
+    var form by remember(language) { mutableStateOf(RegisterFormState(lang = language)) }
     var isLoading by remember { mutableStateOf(false) }
     var isGoogleLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
@@ -434,7 +434,7 @@ fun RegisterScreen(
                                     }
                                     onVerifyEmail(form.email)
                                 } catch (e: Exception) {
-                                    errorMessage = app.tijario.domain.ErrorMapper.map(e)
+                                    errorMessage = app.tijario.domain.ErrorMapper.map(e, language)
                                 } finally {
                                     isLoading = false
                                 }
@@ -613,7 +613,7 @@ fun VerifyEmailScreen(
                                     )
                                     onVerified()
                                 } catch (e: Exception) {
-                                    errorMessage = app.tijario.domain.ErrorMapper.map(e)
+                                    errorMessage = app.tijario.domain.ErrorMapper.map(e, language)
                                 } finally {
                                     isLoading = false
                                 }
@@ -786,13 +786,14 @@ fun OnboardingScreen(
     val countries = if (language == AppLanguage.AR) listOf("السعودية", "اليمن", "مصر", "الإمارات", "الكويت", "قطر", "عمان", "البحرين", "الأردن", "لبنان", "المغرب", "تونس", "الجزائر", "ليبيا", "السودان", "العراق", "سوريا", "فلسطين") else listOf("Saudi Arabia", "Yemen", "Egypt", "United Arab Emirates", "Kuwait", "Qatar", "Oman", "Bahrain", "Jordan", "Lebanon", "Morocco", "Tunisia", "Algeria", "Libya", "Sudan", "Iraq", "Syria", "Palestine")
     val currencies = listOf("SAR", "YER", "EGP", "AED", "KWD", "QAR", "OMR", "BHD", "JOD", "LBP", "MAD", "TND", "DZD", "LYD", "SDG", "IQD", "SYP", "USD", "EUR")
 
-    var form by remember {
+    var form by remember(language) {
         mutableStateOf(
             BusinessSettingsFormState(
                 country = try {
                     val currentCountry = java.util.Locale.getDefault().displayCountry
                     if (countries.any { it in currentCountry }) countries.first { it in currentCountry } else if (language == AppLanguage.AR) "السعودية" else "Saudi Arabia"
-                } catch (e: Exception) { if (language == AppLanguage.AR) "السعودية" else "Saudi Arabia" }
+                } catch (e: Exception) { if (language == AppLanguage.AR) "السعودية" else "Saudi Arabia" },
+                lang = language
             )
         )
     }

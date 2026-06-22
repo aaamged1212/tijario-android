@@ -324,7 +324,7 @@ fun TijarioApp() {
                                     ) {
                                         Icon(
                                             imageVector = Icons.Filled.Settings,
-                                            contentDescription = "الإعدادات",
+                                            contentDescription = t("settings"),
                                             tint = MaterialTheme.colorScheme.primary
                                         )
                                     }
@@ -714,14 +714,19 @@ fun TijarioApp() {
             }
         }
         is CentralAuthState.Error -> {
+            val errorMessage = when (state.message) {
+                "فشل فحص حالة الجلسة" -> t("error_session_check_failed")
+                "حدث خطأ أثناء فحص البيانات بعد التحقق." -> t("error_after_verification_check")
+                else -> state.message
+            }
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    Text(text = state.message, color = MaterialTheme.colorScheme.error)
+                    Text(text = errorMessage, color = MaterialTheme.colorScheme.error)
                     Button(onClick = { authViewModel.checkCurrentSession() }) {
-                        Text("إعادة المحاولة")
+                        Text(t("retry"))
                     }
                 }
             }
@@ -757,7 +762,7 @@ fun SplashScreen() {
                 Box(contentAlignment = androidx.compose.ui.Alignment.Center) {
                     Image(
                         painter = painterResource(id = app.tijario.R.drawable.logo_app),
-                        contentDescription = "شعار التطبيق",
+                        contentDescription = t("app_logo_desc"),
                         modifier = Modifier
                             .size(76.dp)
                             .clip(RoundedCornerShape(18.dp))
@@ -765,14 +770,14 @@ fun SplashScreen() {
                 }
             }
             Text(
-                text = "تجاريو",
+                text = t("app_name"),
                 color = Color.White,
                 fontSize = 32.sp,
                 fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
                 letterSpacing = 1.5.sp
             )
             Text(
-                text = "مستنداتك وفواتيرك بلمح البصر",
+                text = t("app_slogan"),
                 color = Color.White.copy(alpha = 0.7f),
                 fontSize = 14.sp
             )

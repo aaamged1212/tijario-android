@@ -1,44 +1,59 @@
 package app.tijario.domain
 
 object Validation {
-    fun required(value: String, fieldName: String): String? =
-        if (value.trim().isEmpty()) "$fieldName مطلوب" else null
+    fun required(value: String, fieldNameKey: String, lang: app.tijario.config.AppLanguage): String? {
+        if (value.trim().isEmpty()) {
+            val fieldName = app.tijario.config.Localization.getString(fieldNameKey, lang)
+            val template = app.tijario.config.Localization.getString("validation_required", lang)
+            return String.format(template, fieldName)
+        }
+        return null
+    }
 
-    fun email(value: String): String? =
+    fun email(value: String, lang: app.tijario.config.AppLanguage): String? =
         when {
-            value.trim().isEmpty() -> "البريد الإلكتروني مطلوب"
-            !value.contains("@") || !value.contains(".") -> "أدخل بريدًا إلكترونيًا صحيحًا"
+            value.trim().isEmpty() -> app.tijario.config.Localization.getString("validation_email_required", lang)
+            !value.contains("@") || !value.contains(".") -> app.tijario.config.Localization.getString("validation_email_invalid", lang)
             else -> null
         }
 
-    fun password(value: String): String? =
+    fun password(value: String, lang: app.tijario.config.AppLanguage): String? =
         when {
-            value.isEmpty() -> "كلمة المرور مطلوبة"
-            value.length < 6 -> "كلمة المرور يجب ألا تقل عن 6 أحرف"
+            value.isEmpty() -> app.tijario.config.Localization.getString("validation_password_required", lang)
+            value.length < 6 -> app.tijario.config.Localization.getString("validation_password_min_length", lang)
             else -> null
         }
 
-    fun whatsapp(value: String): String? =
+    fun whatsapp(value: String, lang: app.tijario.config.AppLanguage): String? =
         when {
-            value.trim().isEmpty() -> "رقم واتساب مطلوب"
-            value.trim().length < 7 -> "أدخل رقم واتساب صحيح"
+            value.trim().isEmpty() -> app.tijario.config.Localization.getString("validation_whatsapp_required", lang)
+            value.trim().length < 7 -> app.tijario.config.Localization.getString("validation_whatsapp_invalid", lang)
             else -> null
         }
 
-    fun positiveInt(value: String, fieldName: String): String? =
-        if (value.trim().isEmpty()) null
-        else if (parsePositiveInt(value) != null) null
-        else "$fieldName يجب أن يكون رقمًا أكبر من صفر"
+    fun positiveInt(value: String, fieldNameKey: String, lang: app.tijario.config.AppLanguage): String? {
+        if (value.trim().isEmpty()) return null
+        if (parsePositiveInt(value) != null) return null
+        val fieldName = app.tijario.config.Localization.getString(fieldNameKey, lang)
+        val template = app.tijario.config.Localization.getString("validation_positive_int", lang)
+        return String.format(template, fieldName)
+    }
 
-    fun nonNegativeInt(value: String, fieldName: String): String? =
-        if (value.trim().isEmpty()) null
-        else if (parseNonNegativeInt(value) != null) null
-        else "$fieldName يجب أن يكون رقمًا صحيحًا غير سالب"
+    fun nonNegativeInt(value: String, fieldNameKey: String, lang: app.tijario.config.AppLanguage): String? {
+        if (value.trim().isEmpty()) return null
+        if (parseNonNegativeInt(value) != null) return null
+        val fieldName = app.tijario.config.Localization.getString(fieldNameKey, lang)
+        val template = app.tijario.config.Localization.getString("validation_non_negative_int", lang)
+        return String.format(template, fieldName)
+    }
 
-    fun nonNegativeMoney(value: String, fieldName: String): String? =
-        if (value.trim().isEmpty()) null
-        else if (parseNonNegativeMoney(value) != null) null
-        else "$fieldName يجب أن يكون رقمًا غير سالب"
+    fun nonNegativeMoney(value: String, fieldNameKey: String, lang: app.tijario.config.AppLanguage): String? {
+        if (value.trim().isEmpty()) return null
+        if (parseNonNegativeMoney(value) != null) return null
+        val fieldName = app.tijario.config.Localization.getString(fieldNameKey, lang)
+        val template = app.tijario.config.Localization.getString("validation_non_negative_money", lang)
+        return String.format(template, fieldName)
+    }
 
     fun parsePositiveInt(value: String): Int? {
         val number = parseNumber(value) ?: return null

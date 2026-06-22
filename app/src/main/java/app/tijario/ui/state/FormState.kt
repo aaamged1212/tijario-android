@@ -1,13 +1,15 @@
 package app.tijario.ui.state
 
 import app.tijario.domain.Validation
+import app.tijario.config.AppLanguage
 
 data class LoginFormState(
     val email: String = "",
     val password: String = "",
+    val lang: AppLanguage = AppLanguage.AR,
 ) {
-    val emailError: String? get() = Validation.email(email)
-    val passwordError: String? get() = Validation.password(password)
+    val emailError: String? get() = Validation.email(email, lang)
+    val passwordError: String? get() = Validation.password(password, lang)
     val canSubmit: Boolean get() = emailError == null && passwordError == null
 }
 
@@ -15,10 +17,11 @@ data class RegisterFormState(
     val fullName: String = "",
     val email: String = "",
     val password: String = "",
+    val lang: AppLanguage = AppLanguage.AR,
 ) {
-    val fullNameError: String? get() = Validation.required(fullName, "الاسم")
-    val emailError: String? get() = Validation.email(email)
-    val passwordError: String? get() = Validation.password(password)
+    val fullNameError: String? get() = Validation.required(fullName, "field_fullname", lang)
+    val emailError: String? get() = Validation.email(email, lang)
+    val passwordError: String? get() = Validation.password(password, lang)
     val canSubmit: Boolean get() = fullNameError == null && emailError == null && passwordError == null
 }
 
@@ -29,11 +32,12 @@ data class BusinessSettingsFormState(
     val city: String = "",
     val currency: String = "SAR",
     val terms: String = "",
+    val lang: AppLanguage = AppLanguage.AR,
 ) {
-    val businessNameError: String? get() = Validation.required(businessName, "اسم المتجر")
-    val whatsappError: String? get() = Validation.whatsapp(whatsapp)
-    val countryError: String? get() = Validation.required(country, "الدولة")
-    val currencyError: String? get() = Validation.required(currency, "العملة")
+    val businessNameError: String? get() = Validation.required(businessName, "field_store_name", lang)
+    val whatsappError: String? get() = Validation.whatsapp(whatsapp, lang)
+    val countryError: String? get() = Validation.required(country, "country", lang)
+    val currencyError: String? get() = Validation.required(currency, "currency", lang)
     val canSubmit: Boolean get() =
         businessNameError == null && whatsappError == null && countryError == null && currencyError == null
 }
@@ -43,9 +47,10 @@ data class CustomerFormState(
     val whatsapp: String = "",
     val city: String = "",
     val notes: String = "",
+    val lang: AppLanguage = AppLanguage.AR,
 ) {
-    val nameError: String? get() = Validation.required(name, "اسم العميل")
-    val whatsappError: String? get() = Validation.whatsapp(whatsapp)
+    val nameError: String? get() = Validation.required(name, "field_customer_name", lang)
+    val whatsappError: String? get() = Validation.whatsapp(whatsapp, lang)
     val canSubmit: Boolean get() = nameError == null && whatsappError == null
 }
 
@@ -60,10 +65,11 @@ data class DocumentItemState(
     val discount: String = "",
     val discountType: String = "Percentage", // Percentage or Fixed
     val taxRate: String = "",
+    val lang: AppLanguage = AppLanguage.AR,
 ) {
-    val nameError: String? get() = Validation.required(name, "اسم البند")
-    val quantityError: String? get() = Validation.positiveInt(quantity, "الكمية")
-    val unitPriceError: String? get() = Validation.nonNegativeMoney(unitPrice, "سعر الوحدة")
+    val nameError: String? get() = Validation.required(name, "field_item_name", lang)
+    val quantityError: String? get() = Validation.positiveInt(quantity, "form_quantity", lang)
+    val unitPriceError: String? get() = Validation.nonNegativeMoney(unitPrice, "form_unit_price", lang)
     val isValid: Boolean get() = name.isNotBlank() && quantity.isNotBlank() && unitPrice.isNotBlank() && nameError == null && quantityError == null && unitPriceError == null
 }
 
@@ -92,12 +98,13 @@ data class DocumentFormState(
     val currency: String = "SAR",
     val signatureData: String = "",
     val paymentMethod: String = "",
+    val lang: AppLanguage = AppLanguage.AR,
 ) {
-    val customerNameError: String? get() = Validation.required(customerName, "اسم العميل")
-    val discountError: String? get() = Validation.nonNegativeMoney(discount, "الخصم")
-    val extraFeesError: String? get() = Validation.nonNegativeMoney(extraFees, "الرسوم الإضافية")
-    val finalTaxRateError: String? get() = Validation.nonNegativeMoney(finalTaxRate, "الضريبة النهائية")
-    val amountPaidError: String? get() = if (paymentStatus == "partial") Validation.nonNegativeMoney(amountPaid, "المبلغ المدفوع") else null
+    val customerNameError: String? get() = Validation.required(customerName, "field_customer_name", lang)
+    val discountError: String? get() = Validation.nonNegativeMoney(discount, "form_discount", lang)
+    val extraFeesError: String? get() = Validation.nonNegativeMoney(extraFees, "form_extra_fees", lang)
+    val finalTaxRateError: String? get() = Validation.nonNegativeMoney(finalTaxRate, "field_final_tax", lang)
+    val amountPaidError: String? get() = if (paymentStatus == "partial") Validation.nonNegativeMoney(amountPaid, "amount_paid", lang) else null
     val canSubmit: Boolean get() =
         customerId != null &&
             customerName.isNotEmpty() &&
@@ -128,8 +135,9 @@ data class AiCaptionFormState(
     val productOrService: String = "",
     val offer: String = "",
     val extraNote: String = "",
+    val lang: AppLanguage = AppLanguage.AR,
 ) {
-    val productOrServiceError: String? get() = Validation.required(productOrService, "المنتج أو الخدمة")
+    val productOrServiceError: String? get() = Validation.required(productOrService, "ai_prod_srv_label", lang)
     val canSubmit: Boolean get() = productOrServiceError == null
 }
 
@@ -140,9 +148,10 @@ data class ProductFormState(
     val stockQuantity: String = "",
     val kind: app.tijario.data.model.ProductKind = app.tijario.data.model.ProductKind.Product,
     val currency: String = "SAR",
+    val lang: AppLanguage = AppLanguage.AR,
 ) {
-    val nameError: String? get() = Validation.required(name, "الاسم")
-    val priceError: String? get() = Validation.nonNegativeMoney(price, "السعر")
-    val stockQuantityError: String? get() = Validation.nonNegativeInt(stockQuantity, "الكمية")
+    val nameError: String? get() = Validation.required(name, "field_fullname", lang)
+    val priceError: String? get() = Validation.nonNegativeMoney(price, "product_price", lang)
+    val stockQuantityError: String? get() = Validation.nonNegativeInt(stockQuantity, "form_quantity", lang)
     val canSubmit: Boolean get() = nameError == null && price.isNotBlank() && priceError == null && stockQuantityError == null
 }
