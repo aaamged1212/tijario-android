@@ -408,6 +408,17 @@ fun RegisterScreen(
                         }
                     )
 
+                    TijarioTextField(
+                        label = t("confirm_password"),
+                        value = form.confirmPassword,
+                        onValueChange = { form = form.copy(confirmPassword = it) },
+                        error = if (form.confirmPassword.isNotEmpty()) form.confirmPasswordError else null,
+                        isPassword = true,
+                        leadingIcon = {
+                            Icon(Icons.Filled.Lock, contentDescription = null, tint = Color(0xFF64748B))
+                        }
+                    )
+
                     errorMessage?.let {
                         Text(it, color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
                     }

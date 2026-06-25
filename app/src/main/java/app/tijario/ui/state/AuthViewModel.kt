@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import app.tijario.MainActivity
+import app.tijario.config.Localization
 import app.tijario.data.AppContainer
 import app.tijario.data.repository.TijarioRepository
 import io.github.jan.supabase.SupabaseClient
@@ -11,6 +13,7 @@ import io.github.jan.supabase.auth.auth
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class AuthViewModel(
@@ -20,6 +23,13 @@ class AuthViewModel(
 
     private val _authState = MutableStateFlow<CentralAuthState>(CentralAuthState.Initializing)
     val authState: StateFlow<CentralAuthState> = _authState.asStateFlow()
+
+    var signUpEmail: String? = null
+    var signUpFullName: String? = null
+
+    suspend fun bootstrapUserAfterVerification(userId: String, fullName: String?): Result<Unit> {
+        return repository.bootstrapUserData(userId, fullName)
+    }
 
     init {
         checkCurrentSession()
@@ -33,8 +43,6 @@ class AuthViewModel(
                 val session = supabaseClient.auth.currentSessionOrNull()
                 if (session != null) {
                     val userId = session.user?.id
-                    // Email verification is required if user exists but has unconfirmed email.
-                    // If confirmedAt is null, user must verify.
                     val isEmailVerified = session.user?.emailConfirmedAt != null
                     val hasSettings = if (isEmailVerified && userId != null) {
                         resolveBusinessSettingsPresence(userId).getOrThrow()
@@ -51,9 +59,54 @@ class AuthViewModel(
                     _authState.value = CentralAuthState.Unauthenticated
                 }
             } catch (e: Exception) {
-                _authState.value = CentralAuthState.Error(e.message ?: "فشل فحص حالة الجلسة")
+                _authState.value = CentralAuthState.Error(
+                    e.message ?: Localization.getString("error_session_check_failed", MainActivity.currentLanguage)
+                )
             }
         }
+    }
+
+    fun handleGoogleSignInResult(result: io.github.jan.supabase.compose.auth.composable.NativeSignInResult) {
+        viewModelScope.launch {
+            when (result) {
+                is io.github.jan.supabase.compose.auth.composable.NativeSignInResult.Success -> {
+                    supabaseClient.auth.awaitInitialization()
+                    val sessionReady = awaitGoogleSession()
+                    if (sessionReady) {
+                        checkCurrentSession()
+                    } else {
+                        _authState.value = CentralAuthState.Error(
+                            Localization.getString("error_after_verification_check", MainActivity.currentLanguage)
+                        )
+                    }
+                }
+                is io.github.jan.supabase.compose.auth.composable.NativeSignInResult.Error -> {
+                    if (app.tijario.BuildConfig.DEBUG) {
+                        android.util.Log.d("AuthViewModel", "Google Sign-In Error: ${result.message}")
+                    }
+                    _authState.value = CentralAuthState.Error(
+                        Localization.getString("google_login_error", MainActivity.currentLanguage)
+                    )
+                }
+                is io.github.jan.supabase.compose.auth.composable.NativeSignInResult.ClosedByUser -> {
+                    _authState.value = CentralAuthState.Unauthenticated
+                }
+                is io.github.jan.supabase.compose.auth.composable.NativeSignInResult.NetworkError -> {
+                    _authState.value = CentralAuthState.Error(
+                        Localization.getString("error_network", MainActivity.currentLanguage)
+                    )
+                }
+            }
+        }
+    }
+
+    private suspend fun awaitGoogleSession(timeoutMs: Long = 5_000L): Boolean {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        while (System.currentTimeMillis() < deadline) {
+            if (supabaseClient.auth.currentSessionOrNull() != null) return true
+            delay(250)
+        }
+        return supabaseClient.auth.currentSessionOrNull() != null
     }
 
     fun setAwaitingVerification() {
@@ -63,7 +116,9 @@ class AuthViewModel(
     fun handleVerificationSuccess() {
         viewModelScope.launch {
             try {
-                val session = supabaseClient.auth.currentSessionOrNull()
+                supabaseClient.auth.awaitInitialization()
+                val sessionReady = awaitGoogleSession()
+                val session = if (sessionReady) supabaseClient.auth.currentSessionOrNull() else null
                 if (session != null) {
                     val userId = session.user?.id
                     val hasSettings = userId?.let { resolveBusinessSettingsPresence(it).getOrThrow() } ?: false
@@ -76,7 +131,9 @@ class AuthViewModel(
                     _authState.value = CentralAuthState.Unauthenticated
                 }
             } catch (e: Exception) {
-                _authState.value = CentralAuthState.Error(e.message ?: "حدث خطأ أثناء فحص البيانات بعد التحقق.")
+                _authState.value = CentralAuthState.Error(
+                    e.message ?: Localization.getString("error_after_verification_check", MainActivity.currentLanguage)
+                )
             }
         }
     }
@@ -99,8 +156,8 @@ class AuthViewModel(
         viewModelScope.launch {
             try {
                 supabaseClient.auth.signOut()
-            } catch (e: Exception) {
-                // Safe handling of signOut error - no-op/logged
+            } catch (_: Exception) {
+                // Ignore sign-out errors.
             }
             repository.clearLocalCache()
             _authState.value = CentralAuthState.Unauthenticated
