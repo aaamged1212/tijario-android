@@ -34,6 +34,7 @@ import app.tijario.MainActivity
 import app.tijario.config.AppLanguage
 import app.tijario.config.AppPreferences
 import app.tijario.config.LocalLanguage
+import app.tijario.config.Localization
 import app.tijario.config.t
 import app.tijario.ui.components.GoogleSignInButton
 import app.tijario.ui.components.TijarioButton
@@ -51,6 +52,7 @@ import io.github.jan.supabase.compose.auth.composable.rememberSignInWithGoogle
 import io.github.jan.supabase.compose.auth.composable.NativeSignInResult
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.Image
 import androidx.compose.ui.res.painterResource
@@ -88,6 +90,7 @@ fun LoginScreen(
     var form by remember(language) { mutableStateOf(LoginFormState(lang = language)) }
     var isLoading by remember { mutableStateOf(false) }
     var isGoogleLoading by remember { mutableStateOf(false) }
+    var googleAttemptId by remember { mutableIntStateOf(0) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     val googleSignInEnabled = remember { app.tijario.config.loadAppConfig().isGoogleSignInEnabled }
@@ -259,11 +262,25 @@ fun LoginScreen(
                             onResult = { result ->
                                 isGoogleLoading = false
                                 authViewModel.handleGoogleSignInResult(result)
+                            },
+                            fallback = {
+                                isGoogleLoading = false
+                                errorMessage = Localization.getString("google_login_error", language)
                             }
                         )
 
                         GoogleSignInButton(
                             onClick = {
+                                errorMessage = null
+                                isGoogleLoading = true
+                                val attemptId = ++googleAttemptId
+                                scope.launch {
+                                    delay(30_000)
+                                    if (isGoogleLoading && googleAttemptId == attemptId) {
+                                        isGoogleLoading = false
+                                        errorMessage = Localization.getString("google_login_timeout", language)
+                                    }
+                                }
                                 loginGoogleAction.startFlow()
                             },
                             enabled = !isLoading && !isGoogleLoading,
@@ -318,6 +335,7 @@ fun RegisterScreen(
     var form by remember(language) { mutableStateOf(RegisterFormState(lang = language)) }
     var isLoading by remember { mutableStateOf(false) }
     var isGoogleLoading by remember { mutableStateOf(false) }
+    var googleAttemptId by remember { mutableIntStateOf(0) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     val googleSignInEnabled = remember { app.tijario.config.loadAppConfig().isGoogleSignInEnabled }
@@ -472,11 +490,25 @@ fun RegisterScreen(
                             onResult = { result ->
                                 isGoogleLoading = false
                                 authViewModel.handleGoogleSignInResult(result)
+                            },
+                            fallback = {
+                                isGoogleLoading = false
+                                errorMessage = Localization.getString("google_login_error", language)
                             }
                         )
 
                         GoogleSignInButton(
                             onClick = {
+                                errorMessage = null
+                                isGoogleLoading = true
+                                val attemptId = ++googleAttemptId
+                                scope.launch {
+                                    delay(30_000)
+                                    if (isGoogleLoading && googleAttemptId == attemptId) {
+                                        isGoogleLoading = false
+                                        errorMessage = Localization.getString("google_login_timeout", language)
+                                    }
+                                }
                                 registerGoogleAction.startFlow()
                             },
                             enabled = !isLoading && !isGoogleLoading,
@@ -528,14 +560,29 @@ fun VerifyEmailScreen(
     onVerified: () -> Unit,
 ) {
     val language = LocalLanguage.current
-    var token by remember { mutableStateOf("") }
-    var isLoading by remember { mutableStateOf(false) }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
-    val scope = rememberCoroutineScope()
-
     val emailToUse = remember(email) {
         if (email.isNotEmpty()) email
         else (authViewModel.signUpEmail ?: app.tijario.config.Supabase.client.auth.currentSessionOrNull()?.user?.email ?: "")
+    }
+    var token by remember { mutableStateOf("") }
+    var isLoading by remember { mutableStateOf(false) }
+    var isResending by remember { mutableStateOf(false) }
+    var resendAttemptId by remember { mutableIntStateOf(0) }
+    var secondsLeft by remember(emailToUse) { mutableIntStateOf(60) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+
+    LaunchedEffect(emailToUse, resendAttemptId) {
+        if (emailToUse.isBlank()) {
+            secondsLeft = 0
+            return@LaunchedEffect
+        }
+
+        secondsLeft = 60
+        while (secondsLeft > 0) {
+            delay(1_000)
+            secondsLeft -= 1
+        }
     }
 
     Box(
@@ -585,6 +632,19 @@ fun VerifyEmailScreen(
                 textAlign = TextAlign.Center
             )
 
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = if (secondsLeft > 0) {
+                    Localization.getString("verification_code_expires_in", language).format(secondsLeft)
+                } else {
+                    Localization.getString("verification_code_expired", language)
+                },
+                color = Color.White.copy(alpha = 0.75f),
+                fontSize = 12.sp,
+                textAlign = TextAlign.Center
+            )
+
             Spacer(modifier = Modifier.height(32.dp))
 
             Card(
@@ -611,11 +671,16 @@ fun VerifyEmailScreen(
                         text = if (language == AppLanguage.AR) "تحقق" else "Verify",
                         onClick = {
                             scope.launch {
-                                val normalizedCode = token.trim().replace(" ", "")
-                                if (normalizedCode.length != 6 || !normalizedCode.all { it.isDigit() }) {
-                                    errorMessage = if (language == AppLanguage.AR) "رمز التحقق يجب أن يكون 6 أرقام" else "Verification code must be 6 digits"
+                                val normalizedCode = app.tijario.domain.OtpValidator.sanitize(token)
+                                if (!app.tijario.domain.OtpValidator.isValid(normalizedCode)) {
+                                    errorMessage = if (language == AppLanguage.AR) "رمز التحقق يجب أن يكون 8 أرقام" else "Verification code must be 8 digits"
                                     return@launch
                                 }
+                                if (secondsLeft <= 0) {
+                                    errorMessage = Localization.getString("verification_code_expired", language)
+                                    return@launch
+                                }
+
                                 try {
                                     isLoading = true
                                     errorMessage = null
@@ -623,7 +688,7 @@ fun VerifyEmailScreen(
                                     // 1. Verify OTP
                                     try {
                                         app.tijario.config.Supabase.client.auth.verifyEmailOtp(
-                                            type = OtpType.Email.SIGNUP,
+                                            type = OtpType.Email.EMAIL,
                                             email = emailToUse,
                                             token = normalizedCode,
                                         )
@@ -650,8 +715,14 @@ fun VerifyEmailScreen(
                                         return@launch
                                     }
 
-                                    // 2. Check Session
-                                    val session = app.tijario.config.Supabase.client.auth.currentSessionOrNull()
+                                    // 2. Wait briefly for the session to be available after verification
+                                    var session = app.tijario.config.Supabase.client.auth.currentSessionOrNull()
+                                    var attempts = 0
+                                    while (session == null && attempts < 20) {
+                                        delay(250)
+                                        session = app.tijario.config.Supabase.client.auth.currentSessionOrNull()
+                                        attempts += 1
+                                    }
                                     if (session == null) {
                                         errorMessage = if (language == AppLanguage.AR) "لم يتم العثور على جلسة صالحة بعد التحقق" else "No valid session found after verification"
                                         return@launch
@@ -678,14 +749,45 @@ fun VerifyEmailScreen(
 
                                     onVerified()
                                 } catch (e: Exception) {
-                                    errorMessage = if (language == AppLanguage.AR) "حدث خطأ غير متوقع، يرجى المحاولة لاحقًا" else "An unexpected error occurred, please try again later"
+                                    errorMessage = app.tijario.domain.ErrorMapper.map(e, language)
                                 } finally {
                                     isLoading = false
                                 }
                             }
                         },
-                        enabled = app.tijario.domain.OtpValidator.isValid(token) && !isLoading,
+                        enabled = app.tijario.domain.OtpValidator.isValid(token) && emailToUse.isNotBlank() && !isLoading && secondsLeft > 0,
                         isLoading = isLoading
+                    )
+
+                    TijarioButton(
+                        text = if (isResending) {
+                            if (language == AppLanguage.AR) "جارٍ الإرسال..." else "Sending..."
+                        } else if (secondsLeft > 0) {
+                            Localization.getString("resend_code_wait", language).format(secondsLeft)
+                        } else {
+                            Localization.getString("resend_code", language)
+                        },
+                        onClick = {
+                            scope.launch {
+                                try {
+                                    isResending = true
+                                    errorMessage = null
+                                    app.tijario.config.Supabase.client.auth.resendEmail(
+                                        OtpType.Email.SIGNUP,
+                                        emailToUse
+                                    )
+                                    token = ""
+                                    resendAttemptId += 1
+                                    errorMessage = Localization.getString("verification_code_resent", language)
+                                } catch (e: Exception) {
+                                    errorMessage = app.tijario.domain.ErrorMapper.map(e, language)
+                                } finally {
+                                    isResending = false
+                                }
+                            }
+                        },
+                        enabled = emailToUse.isNotBlank() && !isLoading && !isResending && secondsLeft <= 0,
+                        isLoading = isResending
                     )
 
                     OutlinedButton(

@@ -95,15 +95,16 @@ class AuthLogicTests {
 
     @Test
     fun testOtpValidator_sanitizationAndValidation() {
-        // Test sanitization (removes spaces, letters, trims, takes 6)
-        assertEquals("123456", app.tijario.domain.OtpValidator.sanitize(" 12 3 4567 "))
-        assertEquals("123456", app.tijario.domain.OtpValidator.sanitize("123-456abc"))
+        // Test sanitization (removes spaces, letters, trims, takes 8)
+        assertEquals("12345678", app.tijario.domain.OtpValidator.sanitize(" 12 3 4567 8 "))
+        assertEquals("12345678", app.tijario.domain.OtpValidator.sanitize("123-45678abc"))
 
         // Test isValid
-        assertTrue(app.tijario.domain.OtpValidator.isValid("123456"))
-        assertTrue(app.tijario.domain.OtpValidator.isValid(" 123 456 "))
-        org.junit.Assert.assertFalse(app.tijario.domain.OtpValidator.isValid("12345"))
+        assertTrue(app.tijario.domain.OtpValidator.isValid("12345678"))
+        assertTrue(app.tijario.domain.OtpValidator.isValid(" 123 456 78 "))
         org.junit.Assert.assertFalse(app.tijario.domain.OtpValidator.isValid("1234567"))
+        org.junit.Assert.assertFalse(app.tijario.domain.OtpValidator.isValid("12345"))
+        org.junit.Assert.assertFalse(app.tijario.domain.OtpValidator.isValid("123456"))
         org.junit.Assert.assertFalse(app.tijario.domain.OtpValidator.isValid("123a56"))
         org.junit.Assert.assertFalse(app.tijario.domain.OtpValidator.isValid(""))
     }
@@ -123,8 +124,8 @@ class AuthLogicTests {
             isButtonEnabled = false
 
             val normalizedCode = code.trim().replace(" ", "")
-            if (normalizedCode.length != 6 || !normalizedCode.all { it.isDigit() }) {
-                displayedError = "Verification code must be 6 digits"
+            if (normalizedCode.length != 8 || !normalizedCode.all { it.isDigit() }) {
+                displayedError = "Verification code must be 8 digits"
                 isLoading = false
                 isButtonEnabled = true
                 return
@@ -156,25 +157,25 @@ class AuthLogicTests {
 
         // Test Case 1: Incorrect/Expired code
         onVerifyClicked("12345", "test@example.com", simulateOtpSuccess = false, simulateBootstrapSuccess = false)
-        assertEquals("Verification code must be 6 digits", displayedError)
+        assertEquals("Verification code must be 8 digits", displayedError)
         org.junit.Assert.assertFalse(otpVerified)
 
         // Test Case 2: Expired or Incorrect OTP
         displayedError = null
-        onVerifyClicked("111222", "test@example.com", simulateOtpSuccess = false, simulateBootstrapSuccess = false)
+        onVerifyClicked("11122233", "test@example.com", simulateOtpSuccess = false, simulateBootstrapSuccess = false)
         assertEquals("Invalid or expired code", displayedError)
         org.junit.Assert.assertFalse(otpVerified)
 
         // Test Case 3: Empty/Lost email
         displayedError = null
-        onVerifyClicked("111222", "", simulateOtpSuccess = true, simulateBootstrapSuccess = true)
+        onVerifyClicked("11122233", "", simulateOtpSuccess = true, simulateBootstrapSuccess = true)
         assertEquals("Email not found", displayedError)
         org.junit.Assert.assertFalse(otpVerified)
 
         // Test Case 4: Correct OTP but Bootstrap fails
         displayedError = null
         otpVerified = false
-        onVerifyClicked(" 123 456 ", "test@example.com", simulateOtpSuccess = true, simulateBootstrapSuccess = false)
+        onVerifyClicked(" 123 456 78 ", "test@example.com", simulateOtpSuccess = true, simulateBootstrapSuccess = false)
         assertTrue(otpVerified)
         org.junit.Assert.assertFalse(bootstrapSucceeded)
         assertEquals("Verification succeeded but account setup failed", displayedError)
@@ -183,7 +184,7 @@ class AuthLogicTests {
         displayedError = null
         otpVerified = false
         bootstrapSucceeded = false
-        onVerifyClicked(" 123 456 ", "test@example.com", simulateOtpSuccess = true, simulateBootstrapSuccess = true)
+        onVerifyClicked(" 123 456 78 ", "test@example.com", simulateOtpSuccess = true, simulateBootstrapSuccess = true)
         assertTrue(otpVerified)
         assertTrue(bootstrapSucceeded)
         org.junit.Assert.assertNull(displayedError)
