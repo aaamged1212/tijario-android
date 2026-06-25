@@ -176,15 +176,14 @@ fun TijarioApp() {
                 }
                 composable("login") {
                     LoginScreen(
-                        onLoginReady = {
-                            authViewModel.handleLoginSuccess()
-                        },
+                        authViewModel = authViewModel,
                         onRegister = { navController.navigate("register") },
                         onForgotPassword = { navController.navigate("forgot-password") }
                     )
                 }
                 composable("register") {
                     RegisterScreen(
+                        authViewModel = authViewModel,
                         onBackToLogin = { navController.popBackStack() },
                         onVerifyEmail = { email ->
                             authViewModel.setAwaitingVerification()
@@ -204,6 +203,7 @@ fun TijarioApp() {
                     val email = backStackEntry.arguments?.getString("email").orEmpty()
                     VerifyEmailScreen(
                         email = email,
+                        authViewModel = authViewModel,
                         onBackToLogin = {
                             authViewModel.logout()
                         },
@@ -215,6 +215,7 @@ fun TijarioApp() {
                 composable("verify-email") {
                     VerifyEmailScreen(
                         email = "",
+                        authViewModel = authViewModel,
                         onBackToLogin = {
                             authViewModel.logout()
                         },

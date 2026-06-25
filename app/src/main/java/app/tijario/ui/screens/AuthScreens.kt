@@ -42,6 +42,8 @@ import app.tijario.ui.state.BusinessSettingsFormState
 import app.tijario.ui.state.TijarioDataViewModel
 import app.tijario.ui.state.LoginFormState
 import app.tijario.ui.state.RegisterFormState
+import app.tijario.ui.state.AuthViewModel
+import app.tijario.ui.state.CentralAuthState
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.OtpType
 import io.github.jan.supabase.compose.auth.composeAuth
@@ -78,7 +80,7 @@ private fun AuthLanguageToggle(modifier: Modifier = Modifier) {
 
 @Composable
 fun LoginScreen(
-    onLoginReady: () -> Unit,
+    authViewModel: AuthViewModel,
     onRegister: () -> Unit,
     onForgotPassword: () -> Unit,
 ) {
@@ -226,7 +228,7 @@ fun LoginScreen(
                                         email = form.email
                                         password = form.password
                                     }
-                                    onLoginReady()
+                                    authViewModel.handleLoginSuccess()
                                 } catch (e: Exception) {
                                     errorMessage = app.tijario.domain.ErrorMapper.map(e, language)
                                 } finally {
@@ -255,15 +257,8 @@ fun LoginScreen(
 
                         val loginGoogleAction = app.tijario.config.Supabase.client.composeAuth.rememberSignInWithGoogle(
                             onResult = { result ->
-                                when (result) {
-                                    is NativeSignInResult.Success -> {
-                                        onLoginReady()
-                                    }
-                                    is NativeSignInResult.Error -> {
-                                        errorMessage = result.message
-                                    }
-                                    else -> {}
-                                }
+                                isGoogleLoading = false
+                                authViewModel.handleGoogleSignInResult(result)
                             }
                         )
 
@@ -315,6 +310,7 @@ fun LoginScreen(
 
 @Composable
 fun RegisterScreen(
+    authViewModel: AuthViewModel,
     onBackToLogin: () -> Unit,
     onVerifyEmail: (String) -> Unit,
 ) {
@@ -432,6 +428,8 @@ fun RegisterScreen(
                                             put("full_name", form.fullName)
                                         }
                                     }
+                                    authViewModel.signUpEmail = form.email
+                                    authViewModel.signUpFullName = form.fullName
                                     onVerifyEmail(form.email)
                                 } catch (e: Exception) {
                                     errorMessage = app.tijario.domain.ErrorMapper.map(e, language)
@@ -461,15 +459,8 @@ fun RegisterScreen(
 
                         val registerGoogleAction = app.tijario.config.Supabase.client.composeAuth.rememberSignInWithGoogle(
                             onResult = { result ->
-                                when (result) {
-                                    is NativeSignInResult.Success -> {
-                                        onBackToLogin()
-                                    }
-                                    is NativeSignInResult.Error -> {
-                                        errorMessage = result.message
-                                    }
-                                    else -> {}
-                                }
+                                isGoogleLoading = false
+                                authViewModel.handleGoogleSignInResult(result)
                             }
                         )
 
@@ -521,6 +512,7 @@ fun RegisterScreen(
 @Composable
 fun VerifyEmailScreen(
     email: String,
+    authViewModel: AuthViewModel,
     onBackToLogin: () -> Unit,
     onVerified: () -> Unit,
 ) {
@@ -529,6 +521,11 @@ fun VerifyEmailScreen(
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+
+    val emailToUse = remember(email) {
+        if (email.isNotEmpty()) email
+        else (authViewModel.signUpEmail ?: app.tijario.config.Supabase.client.auth.currentSessionOrNull()?.user?.email ?: "")
+    }
 
     Box(
         modifier = Modifier
@@ -568,9 +565,9 @@ fun VerifyEmailScreen(
             )
             Text(
                 text = if (language == AppLanguage.AR) {
-                    "أدخل رمز التأكيد الذي أرسل للبريد: $email"
+                    "أدخل رمز التأكيد الذي أرسل للبريد: $emailToUse"
                 } else {
-                    "Enter the verification code sent to: $email"
+                    "Enter the verification code sent to: $emailToUse"
                 },
                 color = Color.White.copy(alpha = 0.8f),
                 fontSize = 14.sp,
@@ -603,23 +600,80 @@ fun VerifyEmailScreen(
                         text = if (language == AppLanguage.AR) "تحقق" else "Verify",
                         onClick = {
                             scope.launch {
+                                val normalizedCode = token.trim().replace(" ", "")
+                                if (normalizedCode.length != 6 || !normalizedCode.all { it.isDigit() }) {
+                                    errorMessage = if (language == AppLanguage.AR) "رمز التحقق يجب أن يكون 6 أرقام" else "Verification code must be 6 digits"
+                                    return@launch
+                                }
                                 try {
                                     isLoading = true
                                     errorMessage = null
-                                    app.tijario.config.Supabase.client.auth.verifyEmailOtp(
-                                        type = OtpType.Email.SIGNUP,
-                                        email = email,
-                                        token = token,
-                                    )
+
+                                    // 1. Verify OTP
+                                    try {
+                                        app.tijario.config.Supabase.client.auth.verifyEmailOtp(
+                                            type = OtpType.Email.SIGNUP,
+                                            email = emailToUse,
+                                            token = normalizedCode,
+                                        )
+                                    } catch (otpEx: Exception) {
+                                        if (app.tijario.BuildConfig.DEBUG) {
+                                            android.util.Log.e("VerifyEmailScreen", "OTP Verification failed: ${otpEx.javaClass.simpleName}", otpEx)
+                                        }
+                                        val rawMsg = otpEx.message.orEmpty()
+                                        errorMessage = when {
+                                            rawMsg.contains("network", ignoreCase = true) || otpEx is java.io.IOException -> {
+                                                if (language == AppLanguage.AR) "خطأ في الاتصال بالشبكة، يرجى المحاولة مرة أخرى" else "Network error, please try again"
+                                            }
+                                            rawMsg.contains("invalid flow state", ignoreCase = true) ||
+                                            rawMsg.contains("otp expired", ignoreCase = true) ||
+                                            rawMsg.contains("code expired", ignoreCase = true) ||
+                                            rawMsg.contains("token expired", ignoreCase = true) ||
+                                            rawMsg.contains("invalid grant", ignoreCase = true) -> {
+                                                if (language == AppLanguage.AR) "رمز التحقق غير صحيح أو منتهي الصلاحية" else "Invalid or expired code"
+                                            }
+                                            else -> {
+                                                if (language == AppLanguage.AR) "حدث خطأ غير متوقع، يرجى المحاولة لاحقًا" else "An unexpected error occurred, please try again later"
+                                            }
+                                        }
+                                        return@launch
+                                    }
+
+                                    // 2. Check Session
+                                    val session = app.tijario.config.Supabase.client.auth.currentSessionOrNull()
+                                    if (session == null) {
+                                        errorMessage = if (language == AppLanguage.AR) "لم يتم العثور على جلسة صالحة بعد التحقق" else "No valid session found after verification"
+                                        return@launch
+                                    }
+
+                                    // 3. User Bootstrap
+                                    try {
+                                        val userId = session.user?.id ?: error("User ID not found in session")
+                                        val resolvedName = authViewModel.signUpFullName ?: runCatching {
+                                            session.user?.userMetadata?.get("full_name")?.toString()?.replace("\"", "")
+                                        }.getOrNull()
+
+                                        val bootstrapResult = authViewModel.bootstrapUserAfterVerification(userId, resolvedName)
+                                        if (bootstrapResult.isFailure) {
+                                            throw bootstrapResult.exceptionOrNull() ?: Exception("Bootstrap failed")
+                                        }
+                                    } catch (bootEx: Exception) {
+                                        if (app.tijario.BuildConfig.DEBUG) {
+                                            android.util.Log.e("VerifyEmailScreen", "User bootstrap failed: ${bootEx.javaClass.simpleName}", bootEx)
+                                        }
+                                        errorMessage = if (language == AppLanguage.AR) "نجح التحقق ولكن فشل إعداد الحساب، يرجى المحاولة لاحقًا" else "Verification succeeded but account setup failed"
+                                        return@launch
+                                    }
+
                                     onVerified()
                                 } catch (e: Exception) {
-                                    errorMessage = app.tijario.domain.ErrorMapper.map(e, language)
+                                    errorMessage = if (language == AppLanguage.AR) "حدث خطأ غير متوقع، يرجى المحاولة لاحقًا" else "An unexpected error occurred, please try again later"
                                 } finally {
                                     isLoading = false
                                 }
                             }
                         },
-                        enabled = app.tijario.domain.OtpValidator.isValid(token),
+                        enabled = app.tijario.domain.OtpValidator.isValid(token) && !isLoading,
                         isLoading = isLoading
                     )
 

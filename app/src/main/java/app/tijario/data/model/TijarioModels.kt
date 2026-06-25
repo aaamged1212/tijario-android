@@ -74,6 +74,7 @@ data class UsageCounter(
 
 @Serializable
 data class Plan(
+    val id: String? = null,
     val code: String,
     val name: String,
     @SerialName("monthly_document_limit") val monthlyDocumentLimit: Int,

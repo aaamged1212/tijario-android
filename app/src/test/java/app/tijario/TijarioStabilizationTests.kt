@@ -77,17 +77,17 @@ class TijarioStabilizationTests {
     // --- 2. OTP Validator Tests ---
     @Test
     fun testOtpValidator_sanitizationAndLimits() {
-        assertEquals("12345678", OtpValidator.sanitize("123456789"))
+        assertEquals("123456", OtpValidator.sanitize("123456789"))
         assertEquals("123", OtpValidator.sanitize("123abc#"))
-        assertEquals("12345678", OtpValidator.sanitize("1234-5678"))
+        assertEquals("123456", OtpValidator.sanitize("123 456"))
     }
 
     @Test
     fun testOtpValidator_validity() {
+        assertFalse(OtpValidator.isValid("12345"))
+        assertFalse(OtpValidator.isValid("12345a"))
+        assertTrue(OtpValidator.isValid("123456"))
         assertFalse(OtpValidator.isValid("1234567"))
-        assertFalse(OtpValidator.isValid("1234567a"))
-        assertTrue(OtpValidator.isValid("12345678"))
-        assertFalse(OtpValidator.isValid("123456789"))
     }
 
     // --- 3. Dashboard Stats Calculator Tests ---
