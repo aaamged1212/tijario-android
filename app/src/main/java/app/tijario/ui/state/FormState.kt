@@ -17,12 +17,26 @@ data class RegisterFormState(
     val fullName: String = "",
     val email: String = "",
     val password: String = "",
+    val confirmPassword: String = "",
     val lang: AppLanguage = AppLanguage.AR,
 ) {
     val fullNameError: String? get() = Validation.required(fullName, "field_fullname", lang)
     val emailError: String? get() = Validation.email(email, lang)
     val passwordError: String? get() = Validation.password(password, lang)
-    val canSubmit: Boolean get() = fullNameError == null && emailError == null && passwordError == null
+    val confirmPasswordError: String? get() {
+        if (confirmPassword.isBlank()) {
+            return app.tijario.config.Localization.getString("validation_confirm_password_required", lang)
+        }
+        if (password.isNotBlank() && confirmPassword != password) {
+            return app.tijario.config.Localization.getString("validation_password_mismatch", lang)
+        }
+        return null
+    }
+    val canSubmit: Boolean get() =
+        fullNameError == null &&
+            emailError == null &&
+            passwordError == null &&
+            confirmPasswordError == null
 }
 
 data class BusinessSettingsFormState(

@@ -774,13 +774,48 @@ fun DashboardScreen(
                 shape = RoundedCornerShape(20.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
-                Box(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(32.dp),
-                    contentAlignment = Alignment.Center
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Text(t("no_docs_yet"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+                    Surface(
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                        shape = CircleShape,
+                        modifier = Modifier.size(56.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Filled.Description,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(28.dp)
+                            )
+                        }
+                    }
+                    Text(
+                        t("no_docs_yet"),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 14.sp,
+                        textAlign = TextAlign.Center
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        TijarioButton(
+                            text = t("btn_create_invoice"),
+                            onClick = { if (isDocLimitReached) showLimitAlert = true else onNewInvoice() },
+                            modifier = Modifier.weight(1f)
+                        )
+                        TijarioButton(
+                            text = t("btn_create_quote"),
+                            onClick = { if (isDocLimitReached) showLimitAlert = true else onNewQuote() },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
                 }
             }
         } else {
@@ -1398,26 +1433,25 @@ fun CustomersScreen(
                                                 fontSize = 15.sp
                                             )
                                             
-                                            // Active status badge
-                                            val badgeBg = if (isCustomerActive) Color(0xFFE6F4EA) else Color(0xFFF1F3F4)
-                                            val badgeText = if (isCustomerActive) Color(0xFF137333) else Color(0xFF5F6368)
-                                            Surface(
-                                                color = badgeBg,
-                                                shape = RoundedCornerShape(4.dp),
-                                                modifier = Modifier.padding(horizontal = 2.dp)
-                                            ) {
-                                                Row(
-                                                    verticalAlignment = Alignment.CenterVertically,
-                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                            if (isCustomerActive) {
+                                                Surface(
+                                                    color = Color(0xFFE6F4EA),
+                                                    shape = RoundedCornerShape(4.dp),
+                                                    modifier = Modifier.padding(horizontal = 2.dp)
                                                 ) {
-                                                    Box(modifier = Modifier.size(5.dp).background(badgeText, CircleShape))
-                                                    Text(
-                                                        text = if (isCustomerActive) t("customer_active") else t("theme_light"), // Active / Normal
-                                                        color = badgeText,
-                                                        fontSize = 10.sp,
-                                                        fontWeight = FontWeight.Bold
-                                                    )
+                                                    Row(
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                                    ) {
+                                                        Box(modifier = Modifier.size(5.dp).background(Color(0xFF137333), CircleShape))
+                                                        Text(
+                                                            text = t("customer_active"),
+                                                            color = Color(0xFF137333),
+                                                            fontSize = 10.sp,
+                                                            fontWeight = FontWeight.Bold
+                                                        )
+                                                    }
                                                 }
                                             }
                                         }
@@ -2085,6 +2119,57 @@ fun DocumentsScreen(
             if (isLoading) {
                 Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                }
+            } else if (sortedDocs.isEmpty()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth().weight(1f),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(24.dp)
+                            .verticalScroll(rememberScrollState()),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Surface(
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                            shape = CircleShape,
+                            modifier = Modifier.size(56.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Filled.Description,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(28.dp)
+                                )
+                            }
+                        }
+                        Text(
+                            t("no_docs_yet"),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 14.sp,
+                            textAlign = TextAlign.Center
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            TijarioButton(
+                                text = t("btn_create_invoice"),
+                                onClick = onNewInvoice,
+                                modifier = Modifier.weight(1f)
+                            )
+                            TijarioButton(
+                                text = t("btn_create_quote"),
+                                onClick = onNewQuote,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
                 }
             } else {
                 // Document list

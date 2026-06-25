@@ -37,6 +37,9 @@ object Localization {
         "register_title" to mapOf(AppLanguage.AR to "إنشاء حساب جديد", AppLanguage.EN to "Register"),
         "register_subtitle" to mapOf(AppLanguage.AR to "انضم إلى تجاريو وابدأ في تنظيم أعمالك اليوم", AppLanguage.EN to "Join Tijario and organize your business today"),
         "fullname" to mapOf(AppLanguage.AR to "الاسم الكامل", AppLanguage.EN to "Full Name"),
+        "confirm_password" to mapOf(AppLanguage.AR to "تأكيد كلمة المرور", AppLanguage.EN to "Confirm Password"),
+        "validation_confirm_password_required" to mapOf(AppLanguage.AR to "تأكيد كلمة المرور مطلوب", AppLanguage.EN to "Confirm password is required"),
+        "validation_password_mismatch" to mapOf(AppLanguage.AR to "كلمتا المرور غير متطابقتين", AppLanguage.EN to "Passwords do not match"),
         "already_have_account" to mapOf(AppLanguage.AR to "لديك حساب بالفعل؟ ", AppLanguage.EN to "Already have an account? "),
 
         // Forgot Password
@@ -432,10 +435,18 @@ object Localization {
         "error_timeout" to mapOf(AppLanguage.AR to "انتهت مهلة الاتصال بالخادم. يرجى المحاولة مرة أخرى.", AppLanguage.EN to "Connection timeout. Please try again."),
         "error_network" to mapOf(AppLanguage.AR to "حدث خطأ في الاتصال بالشبكة.", AppLanguage.EN to "A network error occurred."),
         "error_invalid_credentials" to mapOf(AppLanguage.AR to "البريد الإلكتروني أو كلمة المرور غير صحيحة.", AppLanguage.EN to "Invalid email or password."),
+        "error_email_not_registered" to mapOf(AppLanguage.AR to "هذا البريد غير مسجل مسبقًا. يرجى إنشاء حساب أولًا.", AppLanguage.EN to "This email is not registered. Please sign up first."),
         "error_email_not_confirmed" to mapOf(AppLanguage.AR to "الرجاء تأكيد البريد الإلكتروني أولاً.", AppLanguage.EN to "Please confirm your email first."),
-        "error_email_already_registered" to mapOf(AppLanguage.AR to "البريد الإلكتروني مسجل بالفعل.", AppLanguage.EN to "Email is already registered."),
+        "error_email_already_registered" to mapOf(AppLanguage.AR to "البريد الإلكتروني مسجل بالفعل. يرجى تسجيل الدخول.", AppLanguage.EN to "This email is already registered. Please sign in."),
         "error_rate_limit" to mapOf(AppLanguage.AR to "تم تجاوز حد إرسال الرموز. يرجى المحاولة بعد قليل.", AppLanguage.EN to "Rate limit exceeded. Please try again in a few moments."),
         "error_invalid_flow_state" to mapOf(AppLanguage.AR to "رمز التحقق غير صحيح أو انتهت صلاحيته.", AppLanguage.EN to "Verification code is invalid or expired."),
+        "google_login_error" to mapOf(AppLanguage.AR to "حدث خطأ أثناء تسجيل الدخول عبر جوجل. حاول مرة أخرى.", AppLanguage.EN to "Google sign-in failed. Please try again."),
+        "google_login_timeout" to mapOf(AppLanguage.AR to "تعذر إكمال تسجيل الدخول عبر جوجل. حاول مرة أخرى.", AppLanguage.EN to "Google sign-in took too long. Please try again."),
+        "verification_code_expires_in" to mapOf(AppLanguage.AR to "رمز التحقق صالح لمدة %d ثانية.", AppLanguage.EN to "The verification code is valid for %d seconds."),
+        "verification_code_expired" to mapOf(AppLanguage.AR to "انتهت صلاحية رمز التحقق. اطلب رمزًا جديدًا.", AppLanguage.EN to "The verification code has expired. Request a new one."),
+        "verification_code_resent" to mapOf(AppLanguage.AR to "تم إرسال رمز تحقق جديد.", AppLanguage.EN to "A new verification code has been sent."),
+        "resend_code" to mapOf(AppLanguage.AR to "إعادة إرسال الرمز", AppLanguage.EN to "Resend code"),
+        "resend_code_wait" to mapOf(AppLanguage.AR to "أعد الإرسال بعد %d ثانية", AppLanguage.EN to "Resend in %d seconds"),
         "error_limit_exceeded" to mapOf(AppLanguage.AR to "لقد تجاوزت الحد الشهري المسموح به للعمليات.", AppLanguage.EN to "You have exceeded the monthly limit for operations."),
         "error_generic" to mapOf(AppLanguage.AR to "حدث خطأ غير متوقع. يرجى المحاولة لاحقاً.", AppLanguage.EN to "An unexpected error occurred. Please try again later."),
         "error_session_expired" to mapOf(AppLanguage.AR to "انتهت صلاحية الجلسة. يرجى تسجيل الدخول مرة أخرى.", AppLanguage.EN to "Session expired. Please log in again."),
@@ -458,3 +469,4 @@ fun t(key: String): String {
     val lang = LocalLanguage.current
     return Localization.getString(key, lang)
 }
+

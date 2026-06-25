@@ -28,13 +28,16 @@ object ErrorMapper {
                     message.contains("Email not confirmed", ignoreCase = true) -> {
                         Localization.getString("error_email_not_confirmed", lang)
                     }
+                    message.contains("email not found", ignoreCase = true) || message.contains("user not found", ignoreCase = true) || message.contains("not registered", ignoreCase = true) -> {
+                        Localization.getString("error_email_not_registered", lang)
+                    }
                     message.contains("already registered", ignoreCase = true) || message.contains("user_already_exists", ignoreCase = true) -> {
                         Localization.getString("error_email_already_registered", lang)
                     }
                     message.contains("rate limit", ignoreCase = true) -> {
                         Localization.getString("error_rate_limit", lang)
                     }
-                    message.contains("invalid flow state", ignoreCase = true) || message.contains("invalid grant", ignoreCase = true) -> {
+                    message.contains("invalid flow state", ignoreCase = true) || message.contains("invalid grant", ignoreCase = true) || message.contains("otp expired", ignoreCase = true) || message.contains("code expired", ignoreCase = true) -> {
                         Localization.getString("error_invalid_flow_state", lang)
                     }
                     message.contains("limit", ignoreCase = true) || message.contains("threshold", ignoreCase = true) || message.contains("exceeded", ignoreCase = true) -> {
@@ -54,6 +57,7 @@ object ErrorMapper {
             "LIMIT_EXCEEDED", "USAGE_LIMIT" -> Localization.getString("error_limit_exceeded", lang)
             "UNAUTHORIZED", "SESSION_EXPIRED" -> Localization.getString("error_session_expired", lang)
             "INVALID_CREDENTIALS" -> Localization.getString("error_invalid_credentials", lang)
+            "EMAIL_NOT_REGISTERED", "USER_NOT_FOUND", "EMAIL_NOT_FOUND" -> Localization.getString("error_email_not_registered", lang)
             "DUPLICATE_CUSTOMER" -> Localization.getString("error_duplicate_customer", lang)
             "DUPLICATE_PRODUCT" -> Localization.getString("error_duplicate_product", lang)
             "EMAIL_NOT_CONFIRMED" -> Localization.getString("error_email_not_confirmed", lang)

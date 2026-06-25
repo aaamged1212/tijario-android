@@ -24,8 +24,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.put
 import java.time.LocalDate
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
@@ -409,44 +407,6 @@ class TijarioRepository(
         lastFullRefreshUserId = null
         lastFullRefreshAt = 0L
         syncStateMutable.value = CacheSyncState()
-    }
-
-    suspend fun bootstrapUserData(userId: String, fullName: String?): Result<Unit> = runCatching {
-        withContext(Dispatchers.IO) {
-            // 1. profile
-            supabaseClient.from("profiles").upsert(buildJsonObject {
-                put("id", userId)
-                put("full_name", fullName ?: "")
-            })
-
-            // 2. find free plan
-            val plans = supabaseClient.from("plans")
-                .select {
-                    filter {
-                        eq("code", "free")
-                        eq("is_active", true)
-                    }
-                }
-                .decodeList<app.tijario.data.model.Plan>()
-            val freePlanId = plans.firstOrNull()?.id
-
-            // 3. user_plan
-            if (freePlanId != null) {
-                supabaseClient.from("user_plan").upsert(buildJsonObject {
-                    put("user_id", userId)
-                    put("plan_id", freePlanId)
-                })
-            }
-
-            // 4. usage_counters
-            val periodMonth = currentUtcPeriodMonth()
-            supabaseClient.from("usage_counters").upsert(buildJsonObject {
-                put("user_id", userId)
-                put("period_month", periodMonth)
-                put("documents_used", 0)
-                put("ai_used", 0)
-            })
-        }
     }
 
     internal fun currentUtcPeriodMonth(reference: LocalDate = LocalDate.now(ZoneOffset.UTC)): String =
