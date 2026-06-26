@@ -12,12 +12,14 @@ import app.tijario.data.remote.ApiResult
 import app.tijario.data.remote.BackendApiClient
 import app.tijario.data.remote.CreateDocumentRequest
 import app.tijario.data.remote.CreateDocumentResponse
+import app.tijario.BuildConfig
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.postgrest.from
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -413,39 +415,51 @@ class TijarioRepository(
 
     suspend fun bootstrapUserData(userId: String, fullName: String?): Result<Unit> = runCatching {
         withContext(Dispatchers.IO) {
-            // 1. profile
-            supabaseClient.from("profiles").upsert(buildJsonObject {
-                put("id", userId)
-                put("full_name", fullName ?: "")
-            })
-
-            // 2. find free plan
-            val plans = supabaseClient.from("plans")
-                .select {
-                    filter {
-                        eq("code", "free")
-                        eq("is_active", true)
+            val deadline = System.currentTimeMillis() + 5_000L
+            while (true) {
+                val profileExists = supabaseClient.from("profiles")
+                    .select {
+                        filter { eq("id", userId) }
                     }
+                    .decodeList<app.tijario.data.model.ProfileRowDto>()
+                    .isNotEmpty()
+
+                val userPlanExists = supabaseClient.from("user_plan")
+                    .select {
+                        filter { eq("user_id", userId) }
+                    }
+                    .decodeList<app.tijario.data.model.UserPlanRowDto>()
+                    .isNotEmpty()
+
+                val usageExists = supabaseClient.from("usage_counters")
+                    .select {
+                        filter {
+                            eq("user_id", userId)
+                            eq("period_month", currentUtcPeriodMonth())
+                        }
+                    }
+                    .decodeList<app.tijario.data.model.UsageCounterRowDto>()
+                    .isNotEmpty()
+
+                if (profileExists && userPlanExists && usageExists) return@withContext
+
+                if (System.currentTimeMillis() >= deadline) {
+                    val missing = buildList {
+                        if (!profileExists) add("profiles")
+                        if (!userPlanExists) add("user_plan")
+                        if (!usageExists) add("usage_counters")
+                    }.joinToString(",")
+                    if (BuildConfig.DEBUG) {
+                        android.util.Log.e(
+                            "TijarioRepository",
+                            "BOOTSTRAP_CHECK_FAILED step=verify_seed_data missing=$missing"
+                        )
+                    }
+                    error("BOOTSTRAP_CHECK:$missing")
                 }
-                .decodeList<app.tijario.data.model.Plan>()
-            val freePlanId = plans.firstOrNull()?.id
 
-            // 3. user_plan
-            if (freePlanId != null) {
-                supabaseClient.from("user_plan").upsert(buildJsonObject {
-                    put("user_id", userId)
-                    put("plan_id", freePlanId)
-                })
+                delay(250)
             }
-
-            // 4. usage_counters
-            val periodMonth = currentUtcPeriodMonth()
-            supabaseClient.from("usage_counters").upsert(buildJsonObject {
-                put("user_id", userId)
-                put("period_month", periodMonth)
-                put("documents_used", 0)
-                put("ai_used", 0)
-            })
         }
     }
 

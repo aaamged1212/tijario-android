@@ -73,6 +73,12 @@ data class UsageCounter(
 )
 
 @Serializable
+data class ProfileRowDto(
+    @SerialName("id") val id: String,
+    @SerialName("full_name") val fullName: String? = null,
+)
+
+@Serializable
 data class Plan(
     val id: String? = null,
     val code: String,

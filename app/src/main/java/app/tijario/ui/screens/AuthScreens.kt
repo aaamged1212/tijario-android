@@ -30,6 +30,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import android.util.Log
 import app.tijario.MainActivity
 import app.tijario.config.AppLanguage
 import app.tijario.config.AppPreferences
@@ -569,6 +570,7 @@ fun VerifyEmailScreen(
     var isResending by remember { mutableStateOf(false) }
     var resendAttemptId by remember { mutableIntStateOf(0) }
     var secondsLeft by remember(emailToUse) { mutableIntStateOf(60) }
+    var awaitingBootstrapRetry by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
 
@@ -583,6 +585,54 @@ fun VerifyEmailScreen(
             delay(1_000)
             secondsLeft -= 1
         }
+    }
+
+    suspend fun waitForAuthContext(timeoutMs: Long = 5_000L): Boolean {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        while (System.currentTimeMillis() < deadline) {
+            val session = app.tijario.config.Supabase.client.auth.currentSessionOrNull()
+            val currentUser = app.tijario.config.Supabase.client.auth.currentUserOrNull()
+            if (session != null && currentUser != null) return true
+            delay(250)
+        }
+        return app.tijario.config.Supabase.client.auth.currentSessionOrNull() != null &&
+            app.tijario.config.Supabase.client.auth.currentUserOrNull() != null
+    }
+
+    suspend fun bootstrapCurrentSession(): Boolean {
+        if (!waitForAuthContext()) {
+            if (app.tijario.BuildConfig.DEBUG) {
+                Log.w("VerifyEmailScreen", "Session unavailable after OTP")
+            }
+            errorMessage = if (language == AppLanguage.AR) "لم يتم العثور على جلسة صالحة بعد التحقق" else "No valid session found after verification"
+            return false
+        }
+
+        val currentUser = app.tijario.config.Supabase.client.auth.currentUserOrNull()
+        if (currentUser == null) {
+            if (app.tijario.BuildConfig.DEBUG) {
+                Log.w("VerifyEmailScreen", "Current user unavailable after OTP")
+            }
+            errorMessage = if (language == AppLanguage.AR) "تعذر تحديد المستخدم الحالي بعد التحقق" else "Unable to resolve the current user after verification"
+            return false
+        }
+
+        val resolvedName = authViewModel.signUpFullName ?: runCatching {
+            currentUser.userMetadata?.get("full_name")?.toString()?.replace("\"", "")
+        }.getOrNull()
+
+        val bootstrapResult = authViewModel.bootstrapUserAfterVerification(currentUser.id, resolvedName)
+        if (bootstrapResult.isFailure) {
+            if (app.tijario.BuildConfig.DEBUG) {
+                Log.e("VerifyEmailScreen", "Bootstrap failed", bootstrapResult.exceptionOrNull())
+            }
+            errorMessage = if (language == AppLanguage.AR) "نجح التحقق ولكن فشل إعداد الحساب، يرجى المحاولة لاحقًا" else "Verification succeeded but account setup failed"
+            awaitingBootstrapRetry = true
+            return false
+        }
+
+        awaitingBootstrapRetry = false
+        return true
     }
 
     Box(
@@ -668,82 +718,42 @@ fun VerifyEmailScreen(
                     }
 
                     TijarioButton(
-                        text = if (language == AppLanguage.AR) "تحقق" else "Verify",
+                        text = if (awaitingBootstrapRetry) {
+                            if (language == AppLanguage.AR) "إعادة محاولة إعداد الحساب" else "Retry account setup"
+                        } else if (language == AppLanguage.AR) "تحقق" else "Verify",
                         onClick = {
                             scope.launch {
-                                val normalizedCode = app.tijario.domain.OtpValidator.sanitize(token)
-                                if (!app.tijario.domain.OtpValidator.isValid(normalizedCode)) {
-                                    errorMessage = if (language == AppLanguage.AR) "رمز التحقق يجب أن يكون 8 أرقام" else "Verification code must be 8 digits"
-                                    return@launch
-                                }
-                                if (secondsLeft <= 0) {
-                                    errorMessage = Localization.getString("verification_code_expired", language)
-                                    return@launch
-                                }
-
                                 try {
                                     isLoading = true
                                     errorMessage = null
 
-                                    // 1. Verify OTP
-                                    try {
-                                        app.tijario.config.Supabase.client.auth.verifyEmailOtp(
-                                            type = OtpType.Email.EMAIL,
-                                            email = emailToUse,
-                                            token = normalizedCode,
-                                        )
-                                    } catch (otpEx: Exception) {
-                                        if (app.tijario.BuildConfig.DEBUG) {
-                                            android.util.Log.e("VerifyEmailScreen", "OTP Verification failed: ${otpEx.javaClass.simpleName}", otpEx)
+                                    if (!awaitingBootstrapRetry) {
+                                        val normalizedCode = app.tijario.domain.OtpValidator.sanitize(token)
+                                        if (!app.tijario.domain.OtpValidator.isValid(normalizedCode)) {
+                                            errorMessage = if (language == AppLanguage.AR) "رمز التحقق يجب أن يكون 8 أرقام" else "Verification code must be 8 digits"
+                                            return@launch
                                         }
-                                        val rawMsg = otpEx.message.orEmpty()
-                                        errorMessage = when {
-                                            rawMsg.contains("network", ignoreCase = true) || otpEx is java.io.IOException -> {
-                                                if (language == AppLanguage.AR) "خطأ في الاتصال بالشبكة، يرجى المحاولة مرة أخرى" else "Network error, please try again"
-                                            }
-                                            rawMsg.contains("invalid flow state", ignoreCase = true) ||
-                                            rawMsg.contains("otp expired", ignoreCase = true) ||
-                                            rawMsg.contains("code expired", ignoreCase = true) ||
-                                            rawMsg.contains("token expired", ignoreCase = true) ||
-                                            rawMsg.contains("invalid grant", ignoreCase = true) -> {
-                                                if (language == AppLanguage.AR) "رمز التحقق غير صحيح أو منتهي الصلاحية" else "Invalid or expired code"
-                                            }
-                                            else -> {
-                                                if (language == AppLanguage.AR) "حدث خطأ غير متوقع، يرجى المحاولة لاحقًا" else "An unexpected error occurred, please try again later"
-                                            }
+                                        if (secondsLeft <= 0) {
+                                            errorMessage = Localization.getString("verification_code_expired", language)
+                                            return@launch
                                         }
-                                        return@launch
+
+                                        try {
+                                            app.tijario.config.Supabase.client.auth.verifyEmailOtp(
+                                                type = OtpType.Email.EMAIL,
+                                                email = emailToUse,
+                                                token = normalizedCode,
+                                            )
+                                        } catch (otpEx: Exception) {
+                                            if (app.tijario.BuildConfig.DEBUG) {
+                                                Log.e("VerifyEmailScreen", "OTP verification failed", otpEx)
+                                            }
+                                            errorMessage = app.tijario.domain.ErrorMapper.map(otpEx, language)
+                                            return@launch
+                                        }
                                     }
 
-                                    // 2. Wait briefly for the session to be available after verification
-                                    var session = app.tijario.config.Supabase.client.auth.currentSessionOrNull()
-                                    var attempts = 0
-                                    while (session == null && attempts < 20) {
-                                        delay(250)
-                                        session = app.tijario.config.Supabase.client.auth.currentSessionOrNull()
-                                        attempts += 1
-                                    }
-                                    if (session == null) {
-                                        errorMessage = if (language == AppLanguage.AR) "لم يتم العثور على جلسة صالحة بعد التحقق" else "No valid session found after verification"
-                                        return@launch
-                                    }
-
-                                    // 3. User Bootstrap
-                                    try {
-                                        val userId = session.user?.id ?: error("User ID not found in session")
-                                        val resolvedName = authViewModel.signUpFullName ?: runCatching {
-                                            session.user?.userMetadata?.get("full_name")?.toString()?.replace("\"", "")
-                                        }.getOrNull()
-
-                                        val bootstrapResult = authViewModel.bootstrapUserAfterVerification(userId, resolvedName)
-                                        if (bootstrapResult.isFailure) {
-                                            throw bootstrapResult.exceptionOrNull() ?: Exception("Bootstrap failed")
-                                        }
-                                    } catch (bootEx: Exception) {
-                                        if (app.tijario.BuildConfig.DEBUG) {
-                                            android.util.Log.e("VerifyEmailScreen", "User bootstrap failed: ${bootEx.javaClass.simpleName}", bootEx)
-                                        }
-                                        errorMessage = if (language == AppLanguage.AR) "نجح التحقق ولكن فشل إعداد الحساب، يرجى المحاولة لاحقًا" else "Verification succeeded but account setup failed"
+                                    if (!bootstrapCurrentSession()) {
                                         return@launch
                                     }
 
@@ -755,40 +765,47 @@ fun VerifyEmailScreen(
                                 }
                             }
                         },
-                        enabled = app.tijario.domain.OtpValidator.isValid(token) && emailToUse.isNotBlank() && !isLoading && secondsLeft > 0,
+                        enabled = emailToUse.isNotBlank() && !isLoading && (
+                            if (awaitingBootstrapRetry) true else app.tijario.domain.OtpValidator.isValid(token) && secondsLeft > 0
+                        ),
                         isLoading = isLoading
                     )
 
-                    TijarioButton(
-                        text = if (isResending) {
-                            if (language == AppLanguage.AR) "جارٍ الإرسال..." else "Sending..."
-                        } else if (secondsLeft > 0) {
-                            Localization.getString("resend_code_wait", language).format(secondsLeft)
-                        } else {
-                            Localization.getString("resend_code", language)
-                        },
-                        onClick = {
-                            scope.launch {
-                                try {
-                                    isResending = true
-                                    errorMessage = null
-                                    app.tijario.config.Supabase.client.auth.resendEmail(
-                                        OtpType.Email.SIGNUP,
-                                        emailToUse
-                                    )
-                                    token = ""
-                                    resendAttemptId += 1
-                                    errorMessage = Localization.getString("verification_code_resent", language)
-                                } catch (e: Exception) {
-                                    errorMessage = app.tijario.domain.ErrorMapper.map(e, language)
-                                } finally {
-                                    isResending = false
+                    if (!awaitingBootstrapRetry) {
+                        TijarioButton(
+                            text = if (isResending) {
+                                if (language == AppLanguage.AR) "جارٍ الإرسال..." else "Sending..."
+                            } else if (secondsLeft > 0) {
+                                Localization.getString("resend_code_wait", language).format(secondsLeft)
+                            } else {
+                                Localization.getString("resend_code", language)
+                            },
+                            onClick = {
+                                scope.launch {
+                                    try {
+                                        isResending = true
+                                        errorMessage = null
+                                        app.tijario.config.Supabase.client.auth.resendEmail(
+                                            OtpType.Email.SIGNUP,
+                                            emailToUse
+                                        )
+                                        token = ""
+                                        resendAttemptId += 1
+                                        errorMessage = Localization.getString("verification_code_resent", language)
+                                    } catch (e: Exception) {
+                                        if (app.tijario.BuildConfig.DEBUG) {
+                                            Log.e("VerifyEmailScreen", "Resend failed", e)
+                                        }
+                                        errorMessage = app.tijario.domain.ErrorMapper.map(e, language)
+                                    } finally {
+                                        isResending = false
+                                    }
                                 }
-                            }
-                        },
-                        enabled = emailToUse.isNotBlank() && !isLoading && !isResending && secondsLeft <= 0,
-                        isLoading = isResending
-                    )
+                            },
+                            enabled = emailToUse.isNotBlank() && !isLoading && !isResending && secondsLeft <= 0,
+                            isLoading = isResending
+                        )
+                    }
 
                     OutlinedButton(
                         onClick = onBackToLogin,
