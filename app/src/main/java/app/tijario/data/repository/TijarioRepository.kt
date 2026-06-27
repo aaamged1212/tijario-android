@@ -36,6 +36,12 @@ import java.math.BigDecimal
 import java.time.LocalDate
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
+import java.util.Date
+import app.tijario.data.remote.*
+import kotlinx.serialization.json.putJsonArray
+import kotlinx.serialization.json.addJsonObject
+import io.ktor.client.statement.bodyAsText
+import io.ktor.http.isSuccess
 
 data class CacheSyncState(
     val isRefreshing: Boolean = false,
@@ -1227,6 +1233,378 @@ open class TijarioRepository(
 
     suspend fun upsertDocumentMetadata(metadata: app.tijario.data.local.LocalDocumentMetadataEntity) = withContext(Dispatchers.IO) {
         dao.upsertDocumentMetadata(metadata)
+    }
+
+    open suspend fun sync(userId: String): Result<Unit> = runCatching {
+        val currentToken = supabaseClient.auth.currentSessionOrNull()?.accessToken
+            ?: throw IllegalStateException("SESSION_EXPIRED")
+            
+        withContext(Dispatchers.IO) {
+            val staleTime = System.currentTimeMillis() - (5 * 60 * 1000) // 5 minutes
+            val staleItems = dao.getPendingOutbox(userId).filter { 
+                it.status == "PROCESSING" && (it.createdAt < staleTime) 
+            }
+            staleItems.forEach {
+                dao.upsertOutbox(it.copy(status = "PENDING", attempts = it.attempts + 1))
+            }
+
+            val pending = dao.getPendingOutbox(userId).filter { it.status == "PENDING" }
+                .sortedBy { it.createdAt }
+
+            if (pending.isNotEmpty()) {
+                val operationsDto = pending.map { op ->
+                    val payloadJson: kotlinx.serialization.json.JsonElement = when (op.entityType) {
+                        "customer" -> {
+                            val cust = dao.getCustomer(userId, op.entityId)
+                            if (cust != null) {
+                                buildJsonObject {
+                                    put("name", cust.name)
+                                    put("whatsapp_number", cust.whatsappNumber)
+                                    put("city", cust.city)
+                                    put("notes", cust.notes)
+                                }
+                            } else {
+                                buildJsonObject {}
+                            }
+                        }
+                        "product" -> {
+                            val prod = dao.getProduct(userId, op.entityId)
+                            if (prod != null) {
+                                buildJsonObject {
+                                    put("kind", prod.kind)
+                                    put("name", prod.name)
+                                    put("description", prod.description)
+                                    put("price", prod.price.toDouble())
+                                    put("currency", prod.currency)
+                                    put("stock_quantity", prod.stockQuantity)
+                                }
+                            } else {
+                                buildJsonObject {}
+                            }
+                        }
+                        "document" -> {
+                            val doc = dao.getDocument(userId, op.entityId)
+                            val items = dao.getDocumentItems(userId, op.entityId)
+                            if (doc != null) {
+                                buildJsonObject {
+                                    put("customer_id", doc.customerId)
+                                    put("type", doc.type)
+                                    put("document_number", doc.documentNumber)
+                                    put("status", doc.status)
+                                    put("payment_status", doc.paymentStatus)
+                                    put("issue_date", doc.issueDate)
+                                    put("subtotal", doc.subtotal.toDouble())
+                                    put("discount", doc.discount.toDouble())
+                                    put("extra_fees", doc.extraFees.toDouble())
+                                    put("total", doc.total.toDouble())
+                                    put("currency", doc.currency)
+                                    put("notes", doc.notes)
+                                    put("terms_text", doc.termsText)
+                                    putJsonArray("items") {
+                                        items.forEach { itm ->
+                                            addJsonObject {
+                                                put("id", itm.id)
+                                                put("name", itm.name)
+                                                put("description", itm.description)
+                                                put("quantity", itm.quantity)
+                                                put("unit_price", itm.unitPrice.toDouble())
+                                                put("line_total", itm.lineTotal.toDouble())
+                                                put("sort_order", itm.sortOrder)
+                                            }
+                                        }
+                                    }
+                                }
+                            } else {
+                                buildJsonObject {}
+                            }
+                        }
+                        "business_settings" -> {
+                            val bs = dao.getBusinessSettings(userId)
+                            if (bs != null) {
+                                buildJsonObject {
+                                    put("business_name", bs.businessName)
+                                    put("whatsapp_number", bs.whatsappNumber)
+                                    put("country", bs.country)
+                                    put("city", bs.city)
+                                    put("currency", bs.currency)
+                                    put("instagram_url", bs.instagramUrl)
+                                    put("invoice_note", bs.invoiceNote)
+                                    put("terms_text", bs.termsText)
+                                }
+                            } else {
+                                buildJsonObject {}
+                            }
+                        }
+                        else -> buildJsonObject {}
+                    }
+
+                    dao.upsertOutbox(op.copy(status = "PROCESSING"))
+
+                    SyncOperationDto(
+                        operation_id = op.id,
+                        entity_type = op.entityType,
+                        entity_id = op.entityId,
+                        operation = op.operation,
+                        base_server_revision = op.baseServerRevision,
+                        payload = payloadJson
+                    )
+                }
+
+                val pushResponse = backendApiClient.pushSync(PushSyncRequest(operationsDto))
+                if (pushResponse.status.value == 401) throw IllegalStateException("SESSION_EXPIRED")
+                if (!pushResponse.status.isSuccess()) throw IllegalStateException("RETRYABLE_NETWORK_ERROR")
+
+                val pushResult = kotlinx.serialization.json.Json.decodeFromString<PushSyncResponse>(pushResponse.bodyAsText())
+                pushResult.results.forEach { res ->
+                    val outboxItem = pending.find { it.id == res.operation_id } ?: return@forEach
+                    database.withTransaction {
+                        if (res.status == "APPLIED" || res.status == "ALREADY_PROCESSED") {
+                            dao.deleteOutbox(res.operation_id)
+                            
+                            when (outboxItem.entityType) {
+                                "customer" -> {
+                                    val cust = dao.getCustomer(userId, outboxItem.entityId)
+                                    if (cust != null) {
+                                        dao.upsertCustomer(cust.copy(
+                                            syncStatus = "SYNCED",
+                                            serverRevision = res.server_revision,
+                                            syncedAt = System.currentTimeMillis()
+                                        ))
+                                    }
+                                }
+                                "product" -> {
+                                    val prod = dao.getProduct(userId, outboxItem.entityId)
+                                    if (prod != null) {
+                                        dao.upsertProduct(prod.copy(
+                                            syncStatus = "SYNCED",
+                                            serverRevision = res.server_revision,
+                                            syncedAt = System.currentTimeMillis()
+                                        ))
+                                    }
+                                }
+                                "document" -> {
+                                    val doc = dao.getDocument(userId, outboxItem.entityId)
+                                    if (doc != null) {
+                                        dao.upsertDocument(doc.copy(
+                                            syncStatus = "SYNCED",
+                                            serverRevision = res.server_revision,
+                                            syncedAt = System.currentTimeMillis()
+                                        ))
+                                    }
+                                }
+                                "business_settings" -> {
+                                    val bs = dao.getBusinessSettings(userId)
+                                    if (bs != null) {
+                                        dao.upsertBusinessSettings(bs.copy(
+                                            syncStatus = "SYNCED",
+                                            serverRevision = res.server_revision,
+                                            syncedAt = System.currentTimeMillis()
+                                        ))
+                                    }
+                                }
+                            }
+                        } else if (res.status == "CONFLICT") {
+                            dao.upsertOutbox(outboxItem.copy(status = "CONFLICT"))
+                            when (outboxItem.entityType) {
+                                "customer" -> {
+                                    dao.getCustomer(userId, outboxItem.entityId)?.let {
+                                        dao.upsertCustomer(it.copy(syncStatus = "CONFLICT"))
+                                    }
+                                }
+                                "product" -> {
+                                    dao.getProduct(userId, outboxItem.entityId)?.let {
+                                        dao.upsertProduct(it.copy(syncStatus = "CONFLICT"))
+                                    }
+                                }
+                                "document" -> {
+                                    dao.getDocument(userId, outboxItem.entityId)?.let { doc ->
+                                        dao.upsertDocument(doc.copy(syncStatus = "CONFLICT"))
+                                        
+                                        val newId = java.util.UUID.randomUUID().toString()
+                                        val newDoc = doc.copy(
+                                            id = newId,
+                                            documentNumber = doc.documentNumber + "-تعارض",
+                                            status = "draft",
+                                            syncStatus = "LOCAL_ONLY",
+                                            localRevision = 1,
+                                            serverRevision = null
+                                        )
+                                        dao.upsertDocument(newDoc)
+                                        val items = dao.getDocumentItems(userId, doc.id)
+                                        items.forEach { itm ->
+                                            dao.insertDocumentItems(listOf(itm.copy(
+                                                id = java.util.UUID.randomUUID().toString(),
+                                                documentId = newId
+                                            )))
+                                        }
+                                    }
+                                }
+                            }
+                        } else if (res.status == "BLOCKED_BY_PLAN") {
+                            dao.upsertOutbox(outboxItem.copy(status = "BLOCKED_BY_PLAN"))
+                            if (outboxItem.entityType == "document") {
+                                dao.getDocument(userId, outboxItem.entityId)?.let {
+                                    dao.upsertDocument(it.copy(syncStatus = "BLOCKED_BY_PLAN"))
+                                }
+                            }
+                        } else {
+                            dao.upsertOutbox(outboxItem.copy(status = "PENDING", attempts = outboxItem.attempts + 1))
+                        }
+                    }
+                }
+            }
+
+            val lastSyncedTimeStr = try {
+                val defaultTime = Date(0)
+                val custMax = dao.observeCustomers(userId).first().mapNotNull { it.serverRevision?.let { r -> java.time.Instant.parse(r) } }.maxOrNull()
+                val prodMax = dao.observeProducts(userId).first().mapNotNull { it.serverRevision?.let { r -> java.time.Instant.parse(r) } }.maxOrNull()
+                val docMax = dao.observeDocuments(userId).first().mapNotNull { it.serverRevision?.let { r -> java.time.Instant.parse(r) } }.maxOrNull()
+                
+                val maxInstant = listOfNotNull(custMax, prodMax, docMax).maxOrNull() ?: defaultTime.toInstant()
+                maxInstant.toString()
+            } catch (e: Exception) {
+                Date(0).toInstant().toString()
+            }
+
+            val pullResponse = backendApiClient.pullSync(PullSyncRequest(lastSyncedTimeStr))
+            if (pullResponse.status.isSuccess()) {
+                val pullResult = kotlinx.serialization.json.Json.decodeFromString<PullSyncResponse>(pullResponse.bodyAsText())
+                database.withTransaction {
+                    pullResult.changes.customers.forEach { item ->
+                        val local = dao.getCustomer(userId, item.id)
+                        if (local == null || local.syncStatus == "SYNCED") {
+                            dao.upsertCustomer(app.tijario.data.local.CustomerEntity(
+                                id = item.id,
+                                userId = userId,
+                                name = item.name,
+                                whatsappNumber = item.whatsapp_number,
+                                city = item.city,
+                                notes = item.notes,
+                                syncStatus = "SYNCED",
+                                serverRevision = item.updated_at,
+                                syncedAt = System.currentTimeMillis()
+                            ))
+                        }
+                    }
+
+                    pullResult.changes.products.forEach { item ->
+                        val local = dao.getProduct(userId, item.id)
+                        if (local == null || local.syncStatus == "SYNCED") {
+                            dao.upsertProduct(app.tijario.data.local.ProductEntity(
+                                id = item.id,
+                                userId = userId,
+                                kind = item.kind,
+                                name = item.name,
+                                description = item.description,
+                                price = BigDecimal.valueOf(item.price),
+                                currency = item.currency,
+                                stockQuantity = item.stock_quantity,
+                                syncStatus = "SYNCED",
+                                serverRevision = item.updated_at,
+                                syncedAt = System.currentTimeMillis()
+                            ))
+                        }
+                    }
+
+                    pullResult.changes.business_settings.forEach { item ->
+                        val local = dao.getBusinessSettings(userId)
+                        if (local == null || local.syncStatus == "SYNCED") {
+                            dao.upsertBusinessSettings(app.tijario.data.local.BusinessSettingsEntity(
+                                userId = userId,
+                                remoteId = null,
+                                businessName = item.business_name,
+                                whatsappNumber = item.whatsapp_number,
+                                country = item.country,
+                                city = item.city,
+                                currency = item.currency,
+                                logoUrl = null,
+                                instagramUrl = item.instagram_url,
+                                invoiceNote = item.invoice_note,
+                                termsText = item.terms_text,
+                                syncStatus = "SYNCED",
+                                serverRevision = item.updated_at,
+                                syncedAt = System.currentTimeMillis()
+                            ))
+                        }
+                    }
+
+                    pullResult.changes.documents.forEach { item ->
+                        val local = dao.getDocument(userId, item.id)
+                        if (local == null || local.syncStatus == "SYNCED") {
+                            dao.upsertDocument(app.tijario.data.local.DocumentEntity(
+                                id = item.id,
+                                userId = userId,
+                                customerId = item.customer_id,
+                                type = item.type,
+                                documentNumber = item.document_number,
+                                status = item.status,
+                                paymentStatus = item.payment_status,
+                                amountPaid = null,
+                                issueDate = item.issue_date,
+                                subtotal = BigDecimal.valueOf(item.subtotal),
+                                discount = BigDecimal.valueOf(item.discount),
+                                extraFees = BigDecimal.valueOf(item.extra_fees),
+                                total = BigDecimal.valueOf(item.total),
+                                currency = item.currency,
+                                notes = item.notes,
+                                termsText = item.terms_text,
+                                syncStatus = "SYNCED",
+                                serverRevision = item.updated_at,
+                                syncedAt = System.currentTimeMillis()
+                            ))
+                        }
+                    }
+
+                    pullResult.changes.document_items.forEach { item ->
+                        dao.insertDocumentItems(listOf(app.tijario.data.local.DocumentItemEntity(
+                            id = item.id,
+                            documentId = item.document_id,
+                            userId = userId,
+                            productId = null,
+                            name = item.name,
+                            description = item.description,
+                            quantity = item.quantity,
+                            unitPrice = BigDecimal.valueOf(item.unit_price),
+                            lineTotal = BigDecimal.valueOf(item.line_total),
+                            sortOrder = item.sort_order
+                        )))
+                    }
+
+                    pullResult.changes.tombstones.forEach { tomb ->
+                        when (tomb.entity_type) {
+                            "customer" -> {
+                                dao.deleteCustomer(userId, tomb.entity_id)
+                            }
+                            "product" -> {
+                                dao.deleteProduct(userId, tomb.entity_id)
+                            }
+                            "document" -> {
+                                dao.deleteDocumentItems(userId, tomb.entity_id)
+                                dao.deleteDocument(userId, tomb.entity_id)
+                            }
+                        }
+                    }
+                }
+            }
+
+            val deviceId = android.os.Build.MODEL + "_" + android.os.Build.ID
+            val leaseResponse = backendApiClient.requestOfflineLease(OfflineLeaseRequest(deviceId))
+            if (leaseResponse.status.isSuccess()) {
+                val leaseResult = kotlinx.serialization.json.Json.decodeFromString<OfflineLeaseResponse>(leaseResponse.bodyAsText())
+                val periodMonth = Date().toInstant().toString().substring(0, 7) + "-01"
+                dao.upsertLease(app.tijario.data.local.OfflineQuotaLeaseEntity(
+                    id = leaseResult.lease_id,
+                    userId = userId,
+                    deviceId = deviceId,
+                    planCode = "free",
+                    periodMonth = periodMonth,
+                    allowedLimit = leaseResult.quota_granted,
+                    consumedCount = 0,
+                    expiresAt = java.time.Instant.parse(leaseResult.expires_at).toEpochMilli(),
+                    status = "ACTIVE"
+                ))
+            }
+        }
     }
 
     private companion object {

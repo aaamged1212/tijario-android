@@ -21,6 +21,7 @@ import io.ktor.http.isSuccess
 import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 
@@ -75,6 +76,18 @@ class BackendApiClient(
 
     suspend fun fetchDocumentPdf(documentId: String): ByteArray =
         authorizedGet("api/mobile/documents/$documentId/pdf").body()
+
+    suspend fun pushSync(request: PushSyncRequest): HttpResponse =
+        authorizedPost("api/mobile/sync/push", request)
+
+    suspend fun pullSync(request: PullSyncRequest): HttpResponse =
+        authorizedPost("api/mobile/sync/pull", request)
+
+    suspend fun bootstrapSync(request: BootstrapSyncRequest): HttpResponse =
+        authorizedPost("api/mobile/sync/bootstrap", request)
+
+    suspend fun requestOfflineLease(request: OfflineLeaseRequest): HttpResponse =
+        authorizedPost("api/mobile/account/offline-lease", request)
 
     private suspend inline fun <reified T : Any> authorizedPost(path: String, body: T): HttpResponse =
         httpClient.post(url(path)) {
@@ -333,3 +346,157 @@ fun defaultHttpClient(): HttpClient =
             json(apiJson)
         }
     }
+
+@Serializable
+data class SyncOperationDto(
+    val operation_id: String,
+    val entity_type: String,
+    val entity_id: String,
+    val operation: String,
+    val base_server_revision: String? = null,
+    val payload: kotlinx.serialization.json.JsonElement
+)
+
+@Serializable
+data class PushSyncRequest(
+    val operations: List<SyncOperationDto>
+)
+
+@Serializable
+data class SyncOperationResultDto(
+    val operation_id: String,
+    val status: String,
+    val server_revision: String? = null,
+    val message: String? = null
+)
+
+@Serializable
+data class PushSyncResponse(
+    val ok: Boolean,
+    val results: List<SyncOperationResultDto> = emptyList()
+)
+
+@Serializable
+data class PullSyncRequest(
+    val last_synced_at: String?
+)
+
+@Serializable
+data class BootstrapSyncRequest(
+    val last_synced_at: String? = null
+)
+
+@Serializable
+data class CustomerServerDto(
+    val id: String,
+    val name: String,
+    val whatsapp_number: String,
+    val city: String?,
+    val notes: String?,
+    val updated_at: String
+)
+
+@Serializable
+data class ProductServerDto(
+    val id: String,
+    val kind: String,
+    val name: String,
+    val description: String?,
+    val price: Double,
+    val currency: String,
+    val stock_quantity: Int?,
+    val updated_at: String
+)
+
+@Serializable
+data class DocumentServerDto(
+    val id: String,
+    val customer_id: String,
+    val type: String,
+    val document_number: String,
+    val status: String,
+    val payment_status: String?,
+    val issue_date: String,
+    val subtotal: Double,
+    val discount: Double,
+    val extra_fees: Double,
+    val total: Double,
+    val currency: String,
+    val notes: String?,
+    val terms_text: String?,
+    val updated_at: String
+)
+
+@Serializable
+data class DocumentItemServerDto(
+    val id: String,
+    val document_id: String,
+    val name: String,
+    val description: String?,
+    val quantity: Int,
+    val unit_price: Double,
+    val line_total: Double,
+    val sort_order: Int,
+    val updated_at: String
+)
+
+@Serializable
+data class BusinessSettingsServerDto(
+    val user_id: String,
+    val business_name: String,
+    val whatsapp_number: String,
+    val country: String,
+    val city: String?,
+    val currency: String,
+    val instagram_url: String?,
+    val invoice_note: String?,
+    val terms_text: String?,
+    val updated_at: String
+)
+
+@Serializable
+data class TombstoneServerDto(
+    val id: String,
+    val entity_type: String,
+    val entity_id: String,
+    val deleted_at: String
+)
+
+@Serializable
+data class SyncChangesDto(
+    val customers: List<CustomerServerDto> = emptyList(),
+    val products: List<ProductServerDto> = emptyList(),
+    val documents: List<DocumentServerDto> = emptyList(),
+    val document_items: List<DocumentItemServerDto> = emptyList(),
+    val business_settings: List<BusinessSettingsServerDto> = emptyList(),
+    val tombstones: List<TombstoneServerDto> = emptyList()
+)
+
+@Serializable
+data class PlanUsageDto(
+    val plan_code: String,
+    val monthly_document_limit: Int,
+    val documents_used: Int
+)
+
+@Serializable
+data class PullSyncResponse(
+    val ok: Boolean,
+    val changes: SyncChangesDto,
+    val plan_usage: PlanUsageDto,
+    val next_cursor: String
+)
+
+@Serializable
+data class OfflineLeaseRequest(
+    val device_id: String
+)
+
+@Serializable
+data class OfflineLeaseResponse(
+    val ok: Boolean,
+    val lease_id: String,
+    val quota_granted: Int,
+    val expires_at: String
+)
+
