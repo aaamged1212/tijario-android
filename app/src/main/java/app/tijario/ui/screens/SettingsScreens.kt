@@ -1,4 +1,4 @@
-package app.tijario.ui.screens
+﻿package app.tijario.ui.screens
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -59,6 +59,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -66,6 +67,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -253,6 +255,7 @@ private fun PlanUsageSkeleton() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AccountSettingsScreen(
+    dataViewModel: TijarioDataViewModel,
     onBack: () -> Unit,
     onLogout: () -> Unit,
     onDeleteAccount: suspend () -> Result<Unit> = { Result.success(Unit) },
@@ -260,8 +263,23 @@ fun AccountSettingsScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val noEmailMsg = t("no_email_associated")
     val unexpectedErrorMsg = t("unexpected_error")
+    val unknownUserMsg = t("unknown_user")
+    val editNameInvalidMsg = t("edit_name_invalid")
+    val nameUpdatedMsg = t("name_updated")
+    val nameUpdateFailedMsg = t("name_update_failed")
+    val savingMsg = t("saving")
+    val btnSaveMsg = t("btn_save")
+    val sendingPasswordLinkMsg = t("sending_password_link")
+    val passwordResetSentMsg = t("password_reset_link_sent")
+    val passwordResetFailedMsg = t("password_reset_link_failed")
     val scope = rememberCoroutineScope()
     var email by remember { mutableStateOf("") }
+    var profileFullName by remember { mutableStateOf("") }
+    var showEditNameDialog by remember { mutableStateOf(false) }
+    var editNameValue by remember { mutableStateOf("") }
+    var editNameError by remember { mutableStateOf<String?>(null) }
+    var isSavingName by remember { mutableStateOf(false) }
+    var isPasswordResetLoading by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val profilePicFile = remember { File(context.filesDir, "personal_profile_pic.jpg") }
     var profilePicBitmap by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
@@ -269,6 +287,7 @@ fun AccountSettingsScreen(
 
     LaunchedEffect(Unit) {
         email = Supabase.client.auth.currentUserOrNull()?.email.orEmpty()
+        profileFullName = dataViewModel.fetchCurrentProfileFullName().orEmpty()
         if (profilePicFile.exists()) {
             profilePicBitmap = android.graphics.BitmapFactory.decodeFile(profilePicFile.absolutePath)
         }
@@ -288,10 +307,9 @@ fun AccountSettingsScreen(
         }
     }
 
-    val userEmail = email.ifBlank { "a••••••d1212@gmail.com" }
-    val displayName = remember(email) {
-        if (email.contains("aaamged") || email.contains("bboy")) "BBOY AMG"
-        else email.substringBefore("@").uppercase().ifBlank { "BBOY AMG" }
+    val userEmail = email.ifBlank { noEmailMsg }
+    val displayName = remember(profileFullName, unknownUserMsg) {
+        profileFullName.trim().ifBlank { unknownUserMsg }
     }
 
     fun maskEmail(mail: String): String {
@@ -299,9 +317,10 @@ fun AccountSettingsScreen(
         val parts = mail.split("@")
         val local = parts[0]
         val domain = parts[1]
-        if (local.length <= 2) return "$local••••@$domain"
-        return "${local.take(1)}••••••${local.takeLast(4)}@$domain"
+        if (local.length <= 2) return "$local****@$domain"
+        return "${local.take(1)}******${local.takeLast(4)}@$domain"
     }
+
 
 
     if (showDeleteConfirm) {
@@ -326,6 +345,78 @@ fun AccountSettingsScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteConfirm = false }) { Text(t("btn_cancel")) }
+            }
+        )
+    }
+
+    if (showEditNameDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                if (!isSavingName) {
+                    showEditNameDialog = false
+                    editNameError = null
+                }
+            },
+            title = { Text(t("edit_name"), fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(t("edit_name_desc"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                    OutlinedTextField(
+                        value = editNameValue,
+                        onValueChange = {
+                            editNameValue = it
+                            editNameError = null
+                        },
+                        label = { Text(t("edit_name_label")) },
+                        singleLine = true,
+                        enabled = !isSavingName,
+                        isError = editNameError != null,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    editNameError?.let {
+                        Text(it, color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        if (isSavingName) return@TextButton
+                        val normalized = editNameValue.trim()
+                        if (normalized.length !in 2..80) {
+                            editNameError = editNameInvalidMsg
+                            return@TextButton
+                        }
+                        scope.launch {
+                            isSavingName = true
+                            val result = dataViewModel.updateCurrentProfileFullName(normalized)
+                            isSavingName = false
+                            if (result.isSuccess) {
+                                profileFullName = normalized
+                                editNameValue = normalized
+                                editNameError = null
+                                showEditNameDialog = false
+                                snackbarHostState.showSnackbar(nameUpdatedMsg)
+                            } else {
+                                snackbarHostState.showSnackbar(nameUpdateFailedMsg)
+                            }
+                        }
+                    },
+                    enabled = !isSavingName
+                ) {
+                    Text(if (isSavingName) savingMsg else btnSaveMsg)
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        if (!isSavingName) {
+                            showEditNameDialog = false
+                            editNameError = null
+                        }
+                    },
+                    enabled = !isSavingName
+                ) { Text(t("btn_cancel")) }
             }
         )
     }
@@ -489,6 +580,17 @@ fun AccountSettingsScreen(
                         }
                     }
 
+                    OutlinedButton(
+                        onClick = {
+                            editNameValue = profileFullName
+                            editNameError = null
+                            showEditNameDialog = true
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(t("edit_name"), fontWeight = FontWeight.Bold)
+                    }
+
                     // Email Row
                     Row(
                         modifier = Modifier
@@ -514,13 +616,18 @@ fun AccountSettingsScreen(
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable {
+                    .clickable(enabled = !isPasswordResetLoading) {
                         scope.launch {
                             if (email.isBlank()) {
                                 snackbarHostState.showSnackbar(noEmailMsg)
                             } else {
-                                val result = Supabase.apiClient.requestPasswordReset(ResetPasswordRequest(email))
-                                snackbarHostState.showSnackbar(if (result.ok) "تم إرسال رابط إعادة تعيين كلمة المرور" else result.displayMessage)
+                                isPasswordResetLoading = true
+                                try {
+                                    val result = Supabase.apiClient.requestPasswordReset(ResetPasswordRequest(email))
+                                    snackbarHostState.showSnackbar(if (result.ok) passwordResetSentMsg else passwordResetFailedMsg)
+                                } finally {
+                                    isPasswordResetLoading = false
+                                }
                             }
                         }
                     },
@@ -546,14 +653,23 @@ fun AccountSettingsScreen(
                                 Icon(Icons.Filled.Lock, contentDescription = null, tint = Color(0xFF137333), modifier = Modifier.size(18.dp))
                             }
                         }
-                        Column {
-                            Text(t("change_password"), fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                if (isPasswordResetLoading) sendingPasswordLinkMsg else t("change_password"),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp,
+                            )
                             Text(t("update_password_desc"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
+                        }
+                        if (isPasswordResetLoading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                strokeWidth = 2.dp
+                            )
                         }
                     }
                 }
             }
-
             // Log Out Row
             Card(
                 modifier = Modifier
@@ -623,46 +739,6 @@ fun AccountSettingsScreen(
                 }
             }
 
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable {
-                        try {
-                            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://tijario.site/delete-account"))
-                            context.startActivity(intent)
-                        } catch (e: Exception) {
-                            // Fallback
-                        }
-                    },
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-            ) {
-                Row(
-                    modifier = Modifier.padding(16.dp).fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Surface(
-                            color = Color(0xFFF3F4F6),
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.size(36.dp)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(Icons.Filled.Language, contentDescription = null, tint = Color(0xFF4B5563), modifier = Modifier.size(18.dp))
-                            }
-                        }
-                        Column {
-                            Text(t("delete_account_web"), fontWeight = FontWeight.Bold, color = Color(0xFF4B5563), fontSize = 14.sp)
-                            Text("tijario.site/delete-account", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
-                        }
-                    }
-                }
-            }
         }
     }
 }
@@ -688,7 +764,7 @@ fun AppSettingsScreen(onBack: () -> Unit) {
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("العربية", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Text("Ã˜Â§Ã™â€žÃ˜Â¹Ã˜Â±Ã˜Â¨Ã™Å Ã˜Â©", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                     }
                     TextButton(
                         onClick = {
@@ -775,7 +851,7 @@ fun AppSettingsScreen(onBack: () -> Unit) {
                             Column {
                                 Text(t("settings_lang"), fontWeight = FontWeight.Bold, fontSize = 14.sp)
                                 Text(
-                                    text = if (language == AppLanguage.AR) "العربية" else "English",
+                                    text = if (language == AppLanguage.AR) "Ã˜Â§Ã™â€žÃ˜Â¹Ã˜Â±Ã˜Â¨Ã™Å Ã˜Â©" else "English",
                                     color = Color(0xFF0D9488),
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Medium

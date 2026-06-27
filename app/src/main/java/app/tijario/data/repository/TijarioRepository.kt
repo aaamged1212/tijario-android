@@ -8,6 +8,7 @@ import app.tijario.data.model.BusinessSettings
 import app.tijario.data.model.Customer
 import app.tijario.data.model.DocumentSummary
 import app.tijario.data.model.Product
+import app.tijario.data.model.ProfileFullNameUpdateDto
 import app.tijario.data.remote.ApiResult
 import app.tijario.data.remote.BackendApiClient
 import app.tijario.data.remote.CreateDocumentRequest
@@ -78,6 +79,58 @@ class TijarioRepository(
 
     suspend fun currentUserId(): String? =
         supabaseClient.auth.currentUserOrNull()?.id
+
+    suspend fun fetchCurrentProfileFullName(): Result<String?> = runCatching {
+        val userId = requireUserId()
+        withContext(Dispatchers.IO) {
+            supabaseClient.from("profiles")
+                .select {
+                    filter { eq("id", userId) }
+                }
+                .decodeList<app.tijario.data.model.ProfileRowDto>()
+                .firstOrNull()
+                ?.fullName
+                ?.trim()
+                ?.takeIf { it.isNotBlank() }
+        }
+    }
+
+    suspend fun updateCurrentProfileFullName(fullName: String): Result<Unit> = runCatching {
+        val normalizedName = fullName.trim()
+        require(normalizedName.length in 2..80) {
+            "Invalid display name"
+        }
+
+        val user = supabaseClient.auth.currentUserOrNull() ?: error("No authenticated user")
+        withContext(Dispatchers.IO) {
+            supabaseClient.from("profiles").update(ProfileFullNameUpdateDto(normalizedName)) {
+                filter { eq("id", user.id) }
+            }
+        }
+
+        supabaseClient.auth.updateUser {
+            data = buildJsonObject {
+                put("full_name", normalizedName)
+            }
+        }
+    }
+
+    suspend fun syncCurrentProfileFullNameFromMetadata(): Result<Unit> = runCatching {
+        val user = supabaseClient.auth.currentUserOrNull() ?: error("No authenticated user")
+        val currentProfileName = fetchCurrentProfileFullName().getOrNull().orEmpty()
+        if (currentProfileName.isNotBlank()) return@runCatching
+
+        val resolvedName = listOfNotNull(
+            user.userMetadata?.get("full_name")?.toString(),
+            user.userMetadata?.get("name")?.toString(),
+            user.userMetadata?.get("preferred_username")?.toString(),
+        )
+            .map { it.replace("\"", "").trim() }
+            .firstOrNull { it.isNotBlank() }
+            ?: return@runCatching
+
+        updateCurrentProfileFullName(resolvedName).getOrThrow()
+    }
 
     suspend fun hasCachedBusinessSettings(userId: String): Boolean =
         withContext(Dispatchers.IO) {

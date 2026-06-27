@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import app.tijario.MainActivity
+import app.tijario.BuildConfig
 import app.tijario.config.Localization
 import app.tijario.data.AppContainer
 import app.tijario.data.repository.TijarioRepository
@@ -43,6 +44,12 @@ class AuthViewModel(
                 val session = supabaseClient.auth.currentSessionOrNull()
                 if (session != null) {
                     val userId = session.user?.id
+                    runCatching { repository.syncCurrentProfileFullNameFromMetadata() }
+                        .onFailure {
+                            if (BuildConfig.DEBUG) {
+                                android.util.Log.w("AuthViewModel", "Profile name sync skipped", it)
+                            }
+                        }
                     val isEmailVerified = session.user?.emailConfirmedAt != null
                     val hasSettings = if (isEmailVerified && userId != null) {
                         resolveBusinessSettingsPresence(userId).getOrThrow()
@@ -121,6 +128,12 @@ class AuthViewModel(
                 val session = if (sessionReady) supabaseClient.auth.currentSessionOrNull() else null
                 if (session != null) {
                     val userId = session.user?.id
+                    runCatching { repository.syncCurrentProfileFullNameFromMetadata() }
+                        .onFailure {
+                            if (BuildConfig.DEBUG) {
+                                android.util.Log.w("AuthViewModel", "Profile name sync skipped after verification", it)
+                            }
+                        }
                     val hasSettings = userId?.let { resolveBusinessSettingsPresence(it).getOrThrow() } ?: false
                     _authState.value = AuthStateResolver.resolve(
                         sessionExists = true,

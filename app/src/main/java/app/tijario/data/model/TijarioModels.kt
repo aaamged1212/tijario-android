@@ -79,6 +79,11 @@ data class ProfileRowDto(
 )
 
 @Serializable
+data class ProfileFullNameUpdateDto(
+    @SerialName("full_name") val fullName: String,
+)
+
+@Serializable
 data class Plan(
     val id: String? = null,
     val code: String,

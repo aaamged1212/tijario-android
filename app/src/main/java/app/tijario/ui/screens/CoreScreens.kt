@@ -2981,7 +2981,9 @@ fun AccountScreen(
                 val user = app.tijario.config.Supabase.client.auth.currentUserOrNull()
                 if (user != null) {
                     currentUserEmail = user.email ?: ""
-                    currentUserName = user.userMetadata?.get("full_name")?.toString() ?: ""
+                    currentUserName = dataViewModel.fetchCurrentProfileFullName().orEmpty().ifBlank {
+                        user.userMetadata?.get("full_name")?.toString().orEmpty()
+                    }
                 }
             } catch (e: Exception) {
             }

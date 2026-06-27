@@ -702,6 +702,7 @@ fun TijarioApp() {
                 }
                 composable("account-settings") {
                     AccountSettingsScreen(
+                        dataViewModel = dataViewModel,
                         onBack = { navController.popBackStack() },
                         onLogout = { authViewModel.logout() },
                         onDeleteAccount = {

@@ -85,6 +85,12 @@ class TijarioDataViewModel(
         return repository.hasCachedBusinessSettings(userId)
     }
 
+    suspend fun fetchCurrentProfileFullName(): String? =
+        repository.fetchCurrentProfileFullName().getOrNull()
+
+    suspend fun updateCurrentProfileFullName(fullName: String): Result<Unit> =
+        repository.updateCurrentProfileFullName(fullName)
+
     suspend fun refreshBusinessSettings() {
         repository.refreshBusinessSettings()
     }
