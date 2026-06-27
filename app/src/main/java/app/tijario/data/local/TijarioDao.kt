@@ -26,6 +26,15 @@ interface TijarioDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertCustomers(customers: List<CustomerEntity>)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertCustomer(customer: CustomerEntity)
+
+    @Query("SELECT * FROM customers_cache WHERE id = :id AND user_id = :userId LIMIT 1")
+    suspend fun getCustomer(userId: String, id: String): CustomerEntity?
+
+    @Query("DELETE FROM customers_cache WHERE id = :id AND user_id = :userId")
+    suspend fun deleteCustomer(userId: String, id: String)
+
     @Query("DELETE FROM customers_cache WHERE user_id = :userId")
     suspend fun deleteCustomers(userId: String)
 
@@ -34,6 +43,15 @@ interface TijarioDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertProducts(products: List<ProductEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertProduct(product: ProductEntity)
+
+    @Query("SELECT * FROM products_cache WHERE id = :id AND user_id = :userId LIMIT 1")
+    suspend fun getProduct(userId: String, id: String): ProductEntity?
+
+    @Query("DELETE FROM products_cache WHERE id = :id AND user_id = :userId")
+    suspend fun deleteProduct(userId: String, id: String)
 
     @Query("DELETE FROM products_cache WHERE user_id = :userId")
     suspend fun deleteProducts(userId: String)
@@ -44,8 +62,20 @@ interface TijarioDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertDocuments(documents: List<DocumentEntity>)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertDocument(document: DocumentEntity)
+
+    @Query("SELECT * FROM documents_cache WHERE id = :id AND user_id = :userId LIMIT 1")
+    suspend fun getDocument(userId: String, id: String): DocumentEntity?
+
+    @Query("DELETE FROM documents_cache WHERE id = :id AND user_id = :userId")
+    suspend fun deleteDocument(userId: String, id: String)
+
     @Query("DELETE FROM documents_cache WHERE user_id = :userId")
     suspend fun deleteDocuments(userId: String)
+
+    @Query("SELECT COUNT(*) FROM document_items_cache WHERE product_id = :productId")
+    suspend fun countDocumentItemsForProduct(productId: String): Int
 
     @Query("DELETE FROM business_settings_cache")
     suspend fun clearBusinessSettings()
@@ -165,4 +195,10 @@ interface TijarioDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertLedger(ledger: LocalUsageLedgerEntity)
+
+    @Query("SELECT * FROM customers_cache WHERE user_id = :userId AND whatsapp_number = :whatsappNumber LIMIT 1")
+    suspend fun getCustomerByWhatsapp(userId: String, whatsappNumber: String): CustomerEntity?
+
+    @Query("SELECT * FROM documents_cache WHERE user_id = :userId AND id = :documentId LIMIT 1")
+    fun observeDocument(userId: String, documentId: String): Flow<DocumentEntity?>
 }
