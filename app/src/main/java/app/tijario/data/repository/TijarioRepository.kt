@@ -1235,6 +1235,49 @@ open class TijarioRepository(
         dao.upsertDocumentMetadata(metadata)
     }
 
+    suspend fun finalizeOrVerifyQuota(documentId: String): Result<Unit> = runCatching {
+        val userId = requireUserId()
+        withContext(Dispatchers.IO) {
+            val doc = dao.getDocument(userId, documentId) ?: error("Document not found")
+            if (doc.syncStatus == "SYNCED" || doc.localPdfRelativePath != null) {
+                return@withContext
+            }
+            val existingLedger = dao.getLedgerByDocId(userId, documentId)
+            if (existingLedger != null) {
+                return@withContext
+            }
+            val periodMonth = Date().toInstant().toString().substring(0, 7) + "-01"
+            val deviceId = android.os.Build.MODEL + "_" + android.os.Build.ID
+            val lease = dao.getLease(userId, deviceId, periodMonth)
+                ?: throw IllegalStateException("QUOTA_LIMIT_EXCEEDED")
+            if (lease.expiresAt < System.currentTimeMillis()) {
+                throw IllegalStateException("QUOTA_LIMIT_EXCEEDED")
+            }
+            val pendingLedgers = dao.getPendingLedger(userId).size
+            val available = lease.allowedLimit - lease.consumedCount - pendingLedgers
+            if (available <= 0) {
+                throw IllegalStateException("QUOTA_LIMIT_EXCEEDED")
+            }
+            val opId = java.util.UUID.randomUUID().toString()
+            dao.upsertLedger(app.tijario.data.local.LocalUsageLedgerEntity(
+                usageEventId = java.util.UUID.randomUUID().toString(),
+                userId = userId,
+                documentId = documentId,
+                operationId = opId,
+                leaseId = lease.id,
+                periodMonth = periodMonth,
+                status = "PENDING",
+                createdAt = System.currentTimeMillis(),
+                syncedAt = null
+            ))
+            dao.upsertDocument(doc.copy(
+                status = "sent",
+                syncStatus = "LOCAL_ONLY"
+            ))
+            enqueueOutbox(userId, "document", documentId, "CREATE")
+        }
+    }
+
     open suspend fun sync(userId: String): Result<Unit> = runCatching {
         val currentToken = supabaseClient.auth.currentSessionOrNull()?.accessToken
             ?: throw IllegalStateException("SESSION_EXPIRED")
