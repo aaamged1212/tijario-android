@@ -860,10 +860,13 @@ open class TijarioRepository(
         return try {
             val userId = requireUserId()
             val existing = dao.getDocument(userId, documentId) ?: error("Document not found locally")
+            val hasLedger = dao.getLedgerByDocId(userId, documentId) != null
+            val hasPdf = existing.localPdfRelativePath != null
+            val mustSoftDelete = hasLedger || hasPdf
 
             withContext(Dispatchers.IO) {
                 database.withTransaction {
-                    if (existing.syncStatus == "LOCAL_ONLY") {
+                    if (existing.syncStatus == "LOCAL_ONLY" && !mustSoftDelete) {
                         dao.deleteDocumentItems(userId, documentId)
                         dao.deleteDocument(userId, documentId)
                         enqueueOutbox(userId, "document", documentId, "DELETE")
