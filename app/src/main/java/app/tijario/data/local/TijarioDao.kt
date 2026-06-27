@@ -109,4 +109,60 @@ interface TijarioDao {
 
     @Query("SELECT * FROM local_document_metadata")
     fun observeAllDocumentMetadata(): Flow<List<LocalDocumentMetadataEntity>>
+
+    // V7 Sync state queries
+    @Query("SELECT * FROM sync_state WHERE user_id = :userId LIMIT 1")
+    suspend fun getSyncState(userId: String): SyncStateEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertSyncState(state: SyncStateEntity)
+
+    // V7 Sync outbox queries
+    @Query("SELECT * FROM sync_outbox WHERE user_id = :userId ORDER BY created_at ASC")
+    suspend fun getPendingOutbox(userId: String): List<SyncOutboxEntity>
+
+    @Query("SELECT * FROM sync_outbox WHERE id = :id LIMIT 1")
+    suspend fun getOutboxById(id: String): SyncOutboxEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertOutbox(outbox: SyncOutboxEntity)
+
+    @Query("DELETE FROM sync_outbox WHERE id = :id")
+    suspend fun deleteOutbox(id: String)
+
+    @Query("DELETE FROM sync_outbox WHERE user_id = :userId AND status = 'COMPLETED'")
+    suspend fun clearCompletedOutbox(userId: String)
+
+    // V7 Document item queries
+    @Query("SELECT * FROM document_items_cache WHERE user_id = :userId AND document_id = :documentId ORDER BY sort_order ASC")
+    fun observeDocumentItems(userId: String, documentId: String): Flow<List<DocumentItemEntity>>
+
+    @Query("SELECT * FROM document_items_cache WHERE user_id = :userId AND document_id = :documentId ORDER BY sort_order ASC")
+    suspend fun getDocumentItems(userId: String, documentId: String): List<DocumentItemEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertDocumentItems(items: List<DocumentItemEntity>)
+
+    @Query("DELETE FROM document_items_cache WHERE user_id = :userId AND document_id = :documentId")
+    suspend fun deleteDocumentItems(userId: String, documentId: String)
+
+    // V7 Offline lease queries
+    @Query("SELECT * FROM offline_quota_lease WHERE user_id = :userId AND device_id = :deviceId AND period_month = :periodMonth LIMIT 1")
+    suspend fun getLease(userId: String, deviceId: String, periodMonth: String): OfflineQuotaLeaseEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertLease(lease: OfflineQuotaLeaseEntity)
+
+    // V7 Local usage ledger queries
+    @Query("SELECT * FROM local_usage_ledger WHERE user_id = :userId AND status = 'PENDING'")
+    suspend fun getPendingLedger(userId: String): List<LocalUsageLedgerEntity>
+
+    @Query("SELECT * FROM local_usage_ledger WHERE user_id = :userId AND document_id = :documentId LIMIT 1")
+    suspend fun getLedgerByDocId(userId: String, documentId: String): LocalUsageLedgerEntity?
+
+    @Query("SELECT * FROM local_usage_ledger WHERE user_id = :userId AND operation_id = :operationId LIMIT 1")
+    suspend fun getLedgerByOpId(userId: String, operationId: String): LocalUsageLedgerEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertLedger(ledger: LocalUsageLedgerEntity)
 }
