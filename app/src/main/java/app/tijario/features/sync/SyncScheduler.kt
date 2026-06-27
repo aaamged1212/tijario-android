@@ -26,10 +26,12 @@ class SyncScheduler(private val context: Context) {
             )
             .build()
 
-        WorkManager.getInstance(context).enqueueUniqueWork(
-            "TijarioSync:$userId",
-            ExistingWorkPolicy.REPLACE,
-            workRequest
-        )
+        runCatching {
+            WorkManager.getInstance(context).enqueueUniqueWork(
+                "TijarioSync:$userId",
+                ExistingWorkPolicy.REPLACE,
+                workRequest
+            )
+        }
     }
 }

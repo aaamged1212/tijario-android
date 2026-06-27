@@ -1,5 +1,6 @@
 package app.tijario.data.repository
 
+import android.content.Context
 import app.tijario.data.local.TijarioDao
 import app.tijario.data.local.TijarioDatabase
 import app.tijario.data.local.CustomerEntity
@@ -25,6 +26,7 @@ import java.math.BigDecimal
 
 class TijarioRepositoryOfflineTests {
 
+    private val context = mockk<Context>(relaxed = true)
     private val database = mockk<TijarioDatabase>(relaxed = true)
     private val dao = mockk<TijarioDao>(relaxed = true)
     private val supabaseClient = mockk<SupabaseClient>(relaxed = true)
@@ -35,12 +37,13 @@ class TijarioRepositoryOfflineTests {
 
     // Subclass of repository under test to stub out active Supabase Auth & Remote Fetch connections
     private open class TestableTijarioRepository(
+        context: Context,
         database: TijarioDatabase,
         supabaseClient: SupabaseClient,
         backendApiClient: BackendApiClient,
         private val stubUserId: String,
         private val fakeProductsList: List<Product> = emptyList()
-    ) : TijarioRepository(database, supabaseClient, backendApiClient) {
+    ) : TijarioRepository(context, database, supabaseClient, backendApiClient) {
         
         override suspend fun currentUserId(): String? {
             return stubUserId
@@ -59,7 +62,7 @@ class TijarioRepositoryOfflineTests {
             runBlocking { block() }
         }
         every { database.tijarioDao() } returns dao
-        repository = TestableTijarioRepository(database, supabaseClient, backendApiClient, userId)
+        repository = TestableTijarioRepository(context, database, supabaseClient, backendApiClient, userId)
     }
 
     @Test
@@ -302,7 +305,7 @@ class TijarioRepositoryOfflineTests {
             Product(id = "prod_pending", userId = userId, kind = ProductKind.Product, name = "Remote Name", price = 100.0, currency = "SAR", stockQuantity = null)
         )
 
-        val ingestionRepo = TestableTijarioRepository(database, supabaseClient, backendApiClient, userId, remoteProducts)
+        val ingestionRepo = TestableTijarioRepository(context, database, supabaseClient, backendApiClient, userId, remoteProducts)
 
         ingestionRepo.refreshProducts()
 

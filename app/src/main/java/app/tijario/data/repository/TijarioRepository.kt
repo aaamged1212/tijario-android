@@ -1,5 +1,7 @@
 package app.tijario.data.repository
 
+import android.content.Context
+import app.tijario.features.sync.SyncScheduler
 import androidx.room.withTransaction
 import app.tijario.data.local.TijarioDatabase
 import app.tijario.data.local.toEntity
@@ -50,6 +52,7 @@ data class CacheSyncState(
 )
 
 open class TijarioRepository(
+    protected val context: Context,
     private val database: TijarioDatabase,
     private val supabaseClient: SupabaseClient,
     private val backendApiClient: BackendApiClient,
@@ -278,6 +281,7 @@ open class TijarioRepository(
                 dao.upsertOutbox(entry)
             }
         }
+        SyncScheduler(context).triggerSync(userId)
     }
 
     // Remote Cache Ingestion Policy
@@ -452,6 +456,7 @@ open class TijarioRepository(
             lastFullRefreshUserId = userId
             lastFullRefreshAt = syncedAt
             syncStateMutable.value = CacheSyncState(isRefreshing = false, lastSyncedAt = syncedAt)
+            SyncScheduler(context).triggerSync(userId)
         }.onFailure { error ->
             setRefreshing(false, error.message ?: "تعذر تحديث البيانات الآن.")
         }
@@ -1138,6 +1143,7 @@ open class TijarioRepository(
                 delay(250)
             }
         }
+        SyncScheduler(context).triggerSync(userId)
     }
 
     internal fun currentUtcPeriodMonth(reference: LocalDate = LocalDate.now(ZoneOffset.UTC)): String =
