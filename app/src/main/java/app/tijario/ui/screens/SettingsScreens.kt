@@ -764,7 +764,7 @@ fun AppSettingsScreen(onBack: () -> Unit) {
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("Ã˜Â§Ã™â€žÃ˜Â¹Ã˜Â±Ã˜Â¨Ã™Å Ã˜Â©", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Text("العربية", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                     }
                     TextButton(
                         onClick = {
@@ -851,7 +851,7 @@ fun AppSettingsScreen(onBack: () -> Unit) {
                             Column {
                                 Text(t("settings_lang"), fontWeight = FontWeight.Bold, fontSize = 14.sp)
                                 Text(
-                                    text = if (language == AppLanguage.AR) "Ã˜Â§Ã™â€žÃ˜Â¹Ã˜Â±Ã˜Â¨Ã™Å Ã˜Â©" else "English",
+                                    text = if (language == AppLanguage.AR) "العربية" else "English",
                                     color = Color(0xFF0D9488),
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Medium

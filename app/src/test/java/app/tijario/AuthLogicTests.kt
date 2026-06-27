@@ -90,7 +90,7 @@ class AuthLogicTests {
     @Test
     fun testErrorMapper_emailNotRegistered() {
         val mapped = ErrorMapper.map(RuntimeException("User not found"), AppLanguage.EN)
-        assertEquals("This email is not registered. Please sign up first.", mapped)
+        assertEquals("This email is not registered.", mapped)
     }
 
     @Test
