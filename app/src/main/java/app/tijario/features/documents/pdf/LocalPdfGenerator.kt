@@ -15,6 +15,10 @@ import android.view.View
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.util.Base64
+import java.net.URL
+import java.security.MessageDigest
+import io.github.jan.supabase.auth.auth
 import app.tijario.features.documents.model.DocumentRenderModel
 import app.tijario.features.documents.template.AndroidAssetDocumentTemplateLoader
 import app.tijario.features.documents.template.DocumentHtmlRenderer
@@ -39,12 +43,65 @@ class LocalPdfGenerator(
     private val cacheManager: PdfCacheManager = PdfCacheManager(context),
 ) {
     suspend fun ensurePdf(model: DocumentRenderModel): PdfGenerationResult {
-        val file = cacheManager.resolve(model)
+        val resolvedModel = resolveModelLogo(model)
+        val file = cacheManager.resolve(resolvedModel)
         if (cacheManager.isValid(file)) {
             return PdfGenerationResult(file, reusedCache = true)
         }
-        return PdfGenerationResult(renderPdf(model, file), reusedCache = false)
+        return PdfGenerationResult(renderPdf(resolvedModel, file), reusedCache = false)
     }
+
+    private suspend fun resolveModelLogo(model: DocumentRenderModel): DocumentRenderModel {
+        val logoUrl = model.business.logoUrl ?: return model
+        if (!logoUrl.startsWith("http")) return model
+
+        val base64 = getCachedLogoBase64(logoUrl) ?: return model
+        return model.copy(
+            business = model.business.copy(logoUrl = base64)
+        )
+    }
+
+    private suspend fun getCachedLogoBase64(logoUrl: String): String? = withContext(Dispatchers.IO) {
+        runCatching {
+            val userId = app.tijario.config.Supabase.client.auth.currentUserOrNull()?.id
+            var logoFile: File? = null
+            if (userId != null) {
+                logoFile = app.tijario.features.business.logo.LogoAssetManager(context).getLocalLogoFile(userId)
+            }
+
+            if (logoFile == null || !logoFile.exists()) {
+                val cacheDir = File(context.filesDir, "business-logo-cache").apply { mkdirs() }
+                val cacheFile = File(cacheDir, "${logoUrl.sha256()}.img")
+                if (!cacheFile.exists() || cacheFile.length() == 0L) {
+                    val bytes = URL(logoUrl).openStream().use { it.readBytes() }
+                    if (bytes.isNotEmpty()) {
+                        cacheFile.writeBytes(bytes)
+                    }
+                }
+                if (cacheFile.exists() && cacheFile.length() > 0L) {
+                    logoFile = cacheFile
+                }
+            }
+
+            if (logoFile != null && logoFile.exists() && logoFile.length() > 0L) {
+                val bytes = logoFile.readBytes()
+                val base64String = Base64.encodeToString(bytes, Base64.NO_WRAP)
+                val mimeType = when {
+                    logoUrl.endsWith(".png", ignoreCase = true) -> "image/png"
+                    logoUrl.endsWith(".webp", ignoreCase = true) -> "image/webp"
+                    else -> "image/jpeg"
+                }
+                "data:$mimeType;base64,$base64String"
+            } else {
+                null
+            }
+        }.getOrNull()
+    }
+
+    private fun String.sha256(): String =
+        MessageDigest.getInstance("SHA-256")
+            .digest(toByteArray())
+            .joinToString("") { "%02x".format(it) }
 
     suspend fun renderPdf(model: DocumentRenderModel, outputFile: File): File =
         withContext(Dispatchers.Main) {

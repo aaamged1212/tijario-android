@@ -28,6 +28,7 @@ import android.content.Context
 import android.util.Base64
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
+import io.github.jan.supabase.auth.auth
 import app.tijario.features.documents.model.DocumentRenderModel
 import app.tijario.features.documents.template.AndroidAssetDocumentTemplateLoader
 import app.tijario.features.documents.template.DocumentHtmlRenderer
@@ -151,19 +152,28 @@ fun DocumentPreviewWebView(
 private suspend fun getCachedLogoBase64(context: Context, logoUrl: String): String? =
     withContext(Dispatchers.IO) {
         runCatching {
-            val cacheDir = File(context.filesDir, "business-logo-cache").apply { mkdirs() }
-            val cacheFile = File(cacheDir, "${logoUrl.sha256()}.img")
-            
-            // If it doesn't exist, try loading/downloading it first
-            if (!cacheFile.exists() || cacheFile.length() == 0L) {
-                val bytes = URL(logoUrl).openStream().use { it.readBytes() }
-                if (bytes.isNotEmpty()) {
-                    cacheFile.writeBytes(bytes)
+            val userId = app.tijario.config.Supabase.client.auth.currentUserOrNull()?.id
+            var logoFile: File? = null
+            if (userId != null) {
+                logoFile = app.tijario.features.business.logo.LogoAssetManager(context).getLocalLogoFile(userId)
+            }
+
+            if (logoFile == null || !logoFile.exists()) {
+                val cacheDir = File(context.filesDir, "business-logo-cache").apply { mkdirs() }
+                val cacheFile = File(cacheDir, "${logoUrl.sha256()}.img")
+                if (!cacheFile.exists() || cacheFile.length() == 0L) {
+                    val bytes = URL(logoUrl).openStream().use { it.readBytes() }
+                    if (bytes.isNotEmpty()) {
+                        cacheFile.writeBytes(bytes)
+                    }
+                }
+                if (cacheFile.exists() && cacheFile.length() > 0L) {
+                    logoFile = cacheFile
                 }
             }
-            
-            if (cacheFile.exists() && cacheFile.length() > 0L) {
-                val bytes = cacheFile.readBytes()
+
+            if (logoFile != null && logoFile.exists() && logoFile.length() > 0L) {
+                val bytes = logoFile.readBytes()
                 val base64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
                 val mimeType = when {
                     logoUrl.endsWith(".png", ignoreCase = true) -> "image/png"
@@ -179,6 +189,6 @@ private suspend fun getCachedLogoBase64(context: Context, logoUrl: String): Stri
 
 private fun String.sha256(): String =
     MessageDigest.getInstance("SHA-256")
-        .digest(toByteArray(Charsets.UTF_8))
-        .joinToString("") { byte -> "%02x".format(byte) }
+        .digest(toByteArray())
+        .joinToString("") { "%02x".format(it) }
 
