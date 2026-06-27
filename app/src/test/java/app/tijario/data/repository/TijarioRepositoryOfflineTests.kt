@@ -18,6 +18,7 @@ import io.mockk.mockk
 import io.mockk.slot
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import java.math.BigDecimal
@@ -307,5 +308,90 @@ class TijarioRepositoryOfflineTests {
 
         // Verify that products cache update was never called because it is marked as PENDING_SYNC
         coVerify(exactly = 0) { dao.upsertProducts(any()) }
+    }
+
+    @Test
+    fun finalizeOrVerifyQuota_succeedsIfQuotaAvailable() = runBlocking {
+        val documentId = "doc_test_123"
+        val existingDoc = app.tijario.data.local.DocumentEntity(
+            id = documentId,
+            userId = userId,
+            customerId = "cust_123",
+            type = "invoice",
+            documentNumber = "INV-001",
+            status = "draft",
+            paymentStatus = "unpaid",
+            amountPaid = null,
+            issueDate = "2026-06-27",
+            total = BigDecimal("100.00"),
+            currency = "SAR",
+            syncedAt = 0L
+        )
+
+        coEvery { dao.getDocument(userId, documentId) } returns existingDoc
+        coEvery { dao.getLedgerByDocId(userId, documentId) } returns null
+        
+        val lease = app.tijario.data.local.OfflineQuotaLeaseEntity(
+            id = "lease_1",
+            userId = userId,
+            deviceId = android.os.Build.MODEL + "_" + android.os.Build.ID,
+            planCode = "free",
+            periodMonth = java.util.Date().toInstant().toString().substring(0, 7) + "-01",
+            allowedLimit = 5,
+            consumedCount = 1,
+            expiresAt = System.currentTimeMillis() + 100_000,
+            status = "ACTIVE"
+        )
+        
+        coEvery { dao.getLease(userId, any(), any()) } returns lease
+        coEvery { dao.getPendingLedger(userId) } returns emptyList()
+        coEvery { dao.upsertLedger(any()) } returns Unit
+        coEvery { dao.upsertDocument(any()) } returns Unit
+        coEvery { dao.getPendingOutbox(userId) } returns emptyList()
+        coEvery { dao.upsertOutbox(any()) } returns Unit
+
+        val result = repository.finalizeOrVerifyQuota(documentId)
+        assertTrue(result.isSuccess)
+    }
+
+    @Test
+    fun finalizeOrVerifyQuota_throwsExceptionIfQuotaExceeded() = runBlocking {
+        val documentId = "doc_test_456"
+        val existingDoc = app.tijario.data.local.DocumentEntity(
+            id = documentId,
+            userId = userId,
+            customerId = "cust_123",
+            type = "invoice",
+            documentNumber = "INV-002",
+            status = "draft",
+            paymentStatus = "unpaid",
+            amountPaid = null,
+            issueDate = "2026-06-27",
+            total = BigDecimal("100.00"),
+            currency = "SAR",
+            syncedAt = 0L
+        )
+
+        coEvery { dao.getDocument(userId, documentId) } returns existingDoc
+        coEvery { dao.getLedgerByDocId(userId, documentId) } returns null
+        
+        val lease = app.tijario.data.local.OfflineQuotaLeaseEntity(
+            id = "lease_2",
+            userId = userId,
+            deviceId = android.os.Build.MODEL + "_" + android.os.Build.ID,
+            planCode = "free",
+            periodMonth = java.util.Date().toInstant().toString().substring(0, 7) + "-01",
+            allowedLimit = 5,
+            consumedCount = 5,
+            expiresAt = System.currentTimeMillis() + 100_000,
+            status = "ACTIVE"
+        )
+        
+        coEvery { dao.getLease(userId, any(), any()) } returns lease
+        coEvery { dao.getPendingLedger(userId) } returns emptyList()
+
+        val result = repository.finalizeOrVerifyQuota(documentId)
+        assertTrue(result.isFailure)
+        assertEquals("QUOTA_LIMIT_EXCEEDED", result.exceptionOrNull()?.message)
     }
 }
