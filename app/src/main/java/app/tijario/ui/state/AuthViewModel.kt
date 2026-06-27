@@ -66,9 +66,25 @@ class AuthViewModel(
                     _authState.value = CentralAuthState.Unauthenticated
                 }
             } catch (e: Exception) {
-                _authState.value = CentralAuthState.Error(
-                    e.message ?: Localization.getString("error_session_check_failed", MainActivity.currentLanguage)
-                )
+                val cachedSession = runCatching { supabaseClient.auth.currentSessionOrNull() }.getOrNull()
+                if (cachedSession != null) {
+                    val userId = cachedSession.user?.id
+                    val isEmailVerified = cachedSession.user?.emailConfirmedAt != null
+                    val hasSettings = if (isEmailVerified && userId != null) {
+                        runCatching { resolveBusinessSettingsPresence(userId).getOrThrow() }.getOrDefault(true)
+                    } else {
+                        false
+                    }
+                    _authState.value = AuthStateResolver.resolve(
+                        sessionExists = true,
+                        isEmailVerified = isEmailVerified,
+                        hasBusinessSettings = hasSettings
+                    )
+                } else {
+                    _authState.value = CentralAuthState.Error(
+                        e.message ?: Localization.getString("error_session_check_failed", MainActivity.currentLanguage)
+                    )
+                }
             }
         }
     }

@@ -706,8 +706,13 @@ fun TijarioApp() {
                         onBack = { navController.popBackStack() },
                         onLogout = { authViewModel.logout() },
                         onDeleteAccount = {
+                            val userId = dataViewModel.currentUserId() ?: ""
                             val res = app.tijario.config.Supabase.apiClient.deleteAccount()
                             if (res.ok) {
+                                if (userId.isNotBlank()) {
+                                    dataViewModel.deleteAccountLocal(userId)
+                                }
+                                authViewModel.logout()
                                 Result.success(Unit)
                             } else {
                                 Result.failure(Exception(res.message ?: "Failed to delete account"))

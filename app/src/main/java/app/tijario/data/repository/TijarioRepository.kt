@@ -1,6 +1,7 @@
 package app.tijario.data.repository
 
 import android.content.Context
+import java.io.File
 import app.tijario.features.sync.SyncScheduler
 import androidx.room.withTransaction
 import app.tijario.data.local.TijarioDatabase
@@ -1652,6 +1653,26 @@ open class TijarioRepository(
                     expiresAt = java.time.Instant.parse(leaseResult.expires_at).toEpochMilli(),
                     status = "ACTIVE"
                 ))
+            }
+        }
+    }
+
+    suspend fun deleteAccountLocal(userId: String): Result<Unit> = runCatching {
+        withContext(Dispatchers.IO) {
+            database.withTransaction {
+                dao.deleteBusinessSettings(userId)
+                dao.deleteCustomers(userId)
+                dao.deleteProducts(userId)
+                dao.deleteDocuments(userId)
+                dao.deleteOutboxForUser(userId)
+                dao.deleteLeasesForUser(userId)
+                dao.deleteLedgerForUser(userId)
+            }
+            
+            app.tijario.features.business.logo.LogoAssetManager(context).getLocalLogoFile(userId)?.delete()
+            val userPdfDir = File(context.filesDir, "documents/pdfs/$userId")
+            if (userPdfDir.exists()) {
+                userPdfDir.deleteRecursively()
             }
         }
     }

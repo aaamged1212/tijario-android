@@ -201,4 +201,13 @@ interface TijarioDao {
 
     @Query("SELECT * FROM documents_cache WHERE user_id = :userId AND id = :documentId LIMIT 1")
     fun observeDocument(userId: String, documentId: String): Flow<DocumentEntity?>
+
+    @Query("DELETE FROM sync_outbox WHERE user_id = :userId")
+    suspend fun deleteOutboxForUser(userId: String)
+
+    @Query("DELETE FROM offline_quota_lease WHERE user_id = :userId")
+    suspend fun deleteLeasesForUser(userId: String)
+
+    @Query("DELETE FROM local_usage_ledger WHERE user_id = :userId")
+    suspend fun deleteLedgerForUser(userId: String)
 }

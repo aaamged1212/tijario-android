@@ -397,4 +397,18 @@ class TijarioRepositoryOfflineTests {
         assertTrue(result.isFailure)
         assertEquals("QUOTA_LIMIT_EXCEEDED", result.exceptionOrNull()?.message)
     }
+
+    @Test
+    fun deleteAccountLocal_purgesUserData() = runBlocking {
+        repository.deleteAccountLocal(userId)
+        coVerify(exactly = 1) {
+            dao.deleteBusinessSettings(userId)
+            dao.deleteCustomers(userId)
+            dao.deleteProducts(userId)
+            dao.deleteDocuments(userId)
+            dao.deleteOutboxForUser(userId)
+            dao.deleteLeasesForUser(userId)
+            dao.deleteLedgerForUser(userId)
+        }
+    }
 }

@@ -154,6 +154,12 @@ class TijarioDataViewModel(
     suspend fun deleteDocument(documentId: String): ApiResult<CreateDocumentResponse> =
         repository.deleteDocument(documentId)
 
+    suspend fun deleteAccountLocal(userId: String): Result<Unit> =
+        repository.deleteAccountLocal(userId)
+
+    suspend fun currentUserId(): String? =
+        repository.currentUserId()
+
     suspend fun fetchCompleteDocument(documentId: String): Result<app.tijario.data.model.CompleteDocument> =
         repository.fetchCompleteDocument(documentId)
 
