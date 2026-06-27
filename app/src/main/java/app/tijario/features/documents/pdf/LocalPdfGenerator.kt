@@ -48,14 +48,6 @@ class LocalPdfGenerator(
         if (cacheManager.isValid(file)) {
             return PdfGenerationResult(file, reusedCache = true)
         }
-        val docId = model.documentId ?: ""
-        val quotaResult = app.tijario.data.AppContainer.repository(context).finalizeOrVerifyQuota(docId)
-        if (quotaResult.isFailure) {
-            val exception = quotaResult.exceptionOrNull()
-            if (exception?.message == "QUOTA_LIMIT_EXCEEDED") {
-                throw IllegalStateException("QUOTA_LIMIT_EXCEEDED")
-            }
-        }
         return PdfGenerationResult(renderPdf(resolvedModel, file), reusedCache = false)
     }
 

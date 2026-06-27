@@ -20,8 +20,21 @@ class DocumentExportManager(
     private val cacheManager = PdfCacheManager(context)
     private val namedExportDir = File(context.cacheDir, "documents/named").apply { mkdirs() }
 
-    suspend fun ensurePdf(model: DocumentRenderModel): PdfGenerationResult =
-        pdfGenerator.ensurePdf(model)
+    suspend fun ensurePdf(model: DocumentRenderModel): PdfGenerationResult {
+        val file = cacheManager.resolve(model)
+        if (!cacheManager.isValid(file)) {
+            val docId = model.documentId ?: ""
+            val quotaResult = app.tijario.features.documents.policy.DocumentQuotaPolicy(context)
+                .checkQuotaAndFinalize(docId)
+            if (quotaResult.isFailure) {
+                val exception = quotaResult.exceptionOrNull()
+                if (exception?.message == "QUOTA_LIMIT_EXCEEDED") {
+                    throw IllegalStateException("QUOTA_LIMIT_EXCEEDED")
+                }
+            }
+        }
+        return pdfGenerator.ensurePdf(model)
+    }
 
     suspend fun viewIntent(model: DocumentRenderModel): Intent =
         shareFactory.viewPdf(namedPdf(model))
