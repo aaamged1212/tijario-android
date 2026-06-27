@@ -1118,7 +1118,6 @@ open class TijarioRepository(
                     .select {
                         filter {
                             eq("user_id", userId)
-                            eq("period_month", currentUtcPeriodMonth())
                         }
                     }
                     .decodeList<app.tijario.data.model.UsageCounterRowDto>()
