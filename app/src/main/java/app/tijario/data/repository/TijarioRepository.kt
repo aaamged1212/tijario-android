@@ -4,6 +4,7 @@ import android.content.Context
 import java.io.File
 import app.tijario.features.sync.SyncScheduler
 import androidx.room.withTransaction
+import app.tijario.config.AppPreferences
 import app.tijario.data.local.TijarioDatabase
 import app.tijario.data.local.toEntity
 import app.tijario.data.local.toModel
@@ -13,6 +14,7 @@ import app.tijario.data.model.DocumentSummary
 import app.tijario.data.model.DocumentType
 import app.tijario.data.model.Product
 import app.tijario.data.model.ProfileFullNameUpdateDto
+import app.tijario.domain.DocumentNumbering
 import app.tijario.data.remote.ApiResult
 import app.tijario.data.remote.BackendApiClient
 import app.tijario.data.remote.CreateDocumentRequest
@@ -719,6 +721,7 @@ open class TijarioRepository(
             val userId = requireUserId()
             val docId = java.util.UUID.randomUUID().toString()
             val dateStr = LocalDate.now(ZoneOffset.UTC).format(DateTimeFormatter.ISO_LOCAL_DATE)
+            val existingDocs = dao.observeDocuments(userId).first()
 
             // Resolve or Create Customer inline
             val customerEntity = dao.getCustomerByWhatsapp(userId, request.customer.whatsappNumber) ?: run {
@@ -767,7 +770,10 @@ open class TijarioRepository(
             val extraFeesBig = BigDecimal.valueOf(request.extraFees)
             val total = subtotal.subtract(discountBig).add(extraFeesBig)
 
-            val docNum = "DRAFT-${java.util.UUID.randomUUID().toString().take(8).uppercase()}"
+            val docNum = DocumentNumbering.nextDocumentNumber(
+                existingDocs.map { it.documentNumber },
+                request.type
+            )
 
             val docEntity = app.tijario.data.local.DocumentEntity(
                 id = docId,
@@ -1052,9 +1058,12 @@ open class TijarioRepository(
                     documentsLimit = plan.monthlyDocumentLimit,
                     aiUsed = usage?.aiUsed ?: 0,
                     aiLimit = plan.monthlyAiLimit
-                )
+                ).also { AppPreferences.setPlanUsage(context, userId, it) }
             }
         }
+
+    fun getCachedPlanUsage(userId: String): app.tijario.data.model.UserPlanUsage? =
+        AppPreferences.getPlanUsage(context, userId)
 
     suspend fun fetchCompleteDocument(documentId: String): Result<app.tijario.data.model.CompleteDocument> =
         runCatching {

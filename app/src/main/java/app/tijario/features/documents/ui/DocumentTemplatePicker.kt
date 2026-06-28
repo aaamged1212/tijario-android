@@ -1,5 +1,6 @@
 package app.tijario.features.documents.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -11,7 +12,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
@@ -25,14 +25,15 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.tijario.config.t
 import app.tijario.data.model.DocumentType
 import app.tijario.features.documents.model.DocumentPartyInfo
 import app.tijario.features.documents.model.DocumentRenderItem
 import app.tijario.features.documents.model.DocumentRenderModel
 import app.tijario.features.documents.model.DocumentRenderStatus
 import app.tijario.features.documents.model.DocumentTotals
-import app.tijario.features.documents.template.DocumentTemplateRegistry
 import app.tijario.features.documents.preview.DocumentPreviewWebView
+import app.tijario.features.documents.template.DocumentTemplateRegistry
 import java.math.BigDecimal
 
 @Composable
@@ -54,7 +55,7 @@ fun DocumentTemplatePicker(
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Text(
-            text = "القوالب",
+            text = t("templates"),
             fontWeight = FontWeight.Bold,
             fontSize = 14.sp,
             color = MaterialTheme.colorScheme.onSurface,

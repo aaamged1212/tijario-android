@@ -93,7 +93,7 @@ data class DocumentFormState(
     val customerName: String = "",
     val customerWhatsapp: String = "",
     val customerCity: String? = null,
-    val items: List<DocumentItemState> = listOf(DocumentItemState()),
+    val items: List<DocumentItemState> = emptyList(),
     val discount: String = "",
     val extraFees: String = "",
     val paymentStatus: String = "unpaid",

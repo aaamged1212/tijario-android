@@ -104,7 +104,7 @@ class DocumentHtmlRenderer(
 
     private fun templateStyleVars(template: DocumentTemplateDefinition): String {
         val visual = template.visual
-        val logoBackground = visual.logoBackgroundColor ?: template.accentColor
+        val logoBackground = "transparent"
         val pageAccent = visual.pageAccentColor ?: "transparent"
         return listOf(
             "--accent:${template.accentColor}",

@@ -4,6 +4,7 @@ import app.tijario.config.AppLanguage
 import app.tijario.data.model.BusinessSettings
 import app.tijario.data.model.DocumentType
 import app.tijario.domain.DocumentCalculator
+import app.tijario.domain.DocumentNumbering
 import app.tijario.domain.PaymentAmountCalculator
 import app.tijario.domain.Validation
 import app.tijario.features.documents.model.DocumentPartyInfo
@@ -55,7 +56,7 @@ object DraftDocumentRenderMapper {
         )
         return DocumentRenderModel(
             documentType = documentType,
-            documentNumber = form.documentNumber.takeIf { it.isNotBlank() } ?: if (documentType == DocumentType.Invoice) "INV-DRAFT" else "QT-DRAFT",
+            documentNumber = form.documentNumber.takeIf { it.isNotBlank() } ?: DocumentNumbering.firstDocumentNumber(documentType),
             issueDate = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date()),
             updatedAt = "draft",
             status = DocumentRenderStatus(

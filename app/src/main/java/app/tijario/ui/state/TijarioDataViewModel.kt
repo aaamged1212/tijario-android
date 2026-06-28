@@ -1,4 +1,4 @@
-package app.tijario.ui.state
+﻿package app.tijario.ui.state
 
 import android.content.Context
 import androidx.lifecycle.ViewModel
@@ -75,6 +75,11 @@ class TijarioDataViewModel(
                 cacheCollectionJob = collectCache(userId)
             }
 
+            repository.getCachedPlanUsage(userId)?.let { cached ->
+                planUsageStateMutable.value = PlanUsageState.Success(cached)
+                uiStateMutable.update { it.copy(planUsage = cached) }
+            }
+
             refreshAll(force = forceRefresh)
             refreshPlanUsage()
         }
@@ -107,20 +112,28 @@ class TijarioDataViewModel(
     fun refreshPlanUsage() {
         viewModelScope.launch {
             val currentState = planUsageStateMutable.value
+            val userId = repository.currentUserId()
+            val cachedUsage = userId?.let { repository.getCachedPlanUsage(it) }
+
             if (currentState !is PlanUsageState.Success) {
-                planUsageStateMutable.value = PlanUsageState.Loading
+                planUsageStateMutable.value = cachedUsage?.let { PlanUsageState.Success(it) }
+                    ?: PlanUsageState.Loading
+                cachedUsage?.let { usage ->
+                    uiStateMutable.update { it.copy(planUsage = usage) }
+                }
             }
+
             repository.fetchUserPlanUsage().onSuccess { usage ->
                 planUsageStateMutable.value = PlanUsageState.Success(usage)
                 uiStateMutable.update { it.copy(planUsage = usage) }
-            }.onFailure { error ->
-                if (currentState !is PlanUsageState.Success) {
-                    planUsageStateMutable.value = PlanUsageState.Error(error.message ?: "تعذر تحميل بيانات الخطة.")
+            }.onFailure {
+                if (currentState !is PlanUsageState.Success && cachedUsage != null) {
+                    planUsageStateMutable.value = PlanUsageState.Success(cachedUsage)
+                    uiStateMutable.update { state -> state.copy(planUsage = cachedUsage) }
                 }
             }
         }
     }
-
     suspend fun createCustomer(customer: Customer): Result<Unit> =
         repository.createCustomer(customer)
 
@@ -261,3 +274,5 @@ class TijarioDataViewModelFactory(
         error("Unknown ViewModel class: ${modelClass.name}")
     }
 }
+
+

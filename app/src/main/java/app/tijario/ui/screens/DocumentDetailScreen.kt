@@ -166,13 +166,13 @@ fun DocumentDetailScreen(
                         verticalArrangement = Arrangement.Center,
                     ) {
                         Text(
-                            errorMessage ?: "تعذر تحميل تفاصيل المستند.",
+                            errorMessage ?: Localization.getString("error_load_doc_detail", language),
                             color = MaterialTheme.colorScheme.error,
                             textAlign = TextAlign.Center,
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                         Button(onClick = { reloadDocument() }) {
-                            Text("إعادة المحاولة")
+                            Text(t("retry"))
                         }
                     }
                 }
@@ -363,10 +363,11 @@ fun DocumentDetailScreen(
     }
 }
 
-fun CompleteDocument.toFormState(): app.tijario.ui.state.DocumentFormState =
-    app.tijario.ui.state.DocumentFormState(
+fun CompleteDocument.toFormState(lang: AppLanguage): app.tijario.ui.state.DocumentFormState {
+    val isArabic = lang == AppLanguage.AR
+    return app.tijario.ui.state.DocumentFormState(
         customerId = customerId,
-        customerName = customer?.name ?: "عميل غير معروف",
+        customerName = customer?.name ?: if (isArabic) "عميل غير معروف" else "Unknown customer",
         customerWhatsapp = customer?.whatsappNumber.orEmpty(),
         customerCity = customer?.city,
         items = items.map {
@@ -390,5 +391,10 @@ fun CompleteDocument.toFormState(): app.tijario.ui.state.DocumentFormState =
         dueTerms = "None",
         dueDate = "",
         poNumber = "",
-        documentTitle = if (type == app.tijario.data.model.DocumentType.Invoice) "Online Orders" else "عرض سعر",
+        documentTitle = if (type == DocumentType.Invoice) {
+            if (isArabic) "فاتورة" else "Invoice"
+        } else {
+            if (isArabic) "عرض سعر" else "Quotation"
+        },
     )
+}

@@ -22,7 +22,7 @@
   --accent: var(--primary);
   --top-text: #2C2D2F;
   --title-text: var(--accent);
-  --logo-bg: var(--accent);
+  --logo-bg: transparent;
   --logo-text: #FFFFFF;
   --table-shade: #F1F5F9;
   --table-head-text: #FFFFFF;
@@ -91,7 +91,7 @@ html[dir="ltr"] body {
 }
 
 .logo-image {
-  padding: 6px;
+  padding: 0;
 }
 
 .logo-image img {

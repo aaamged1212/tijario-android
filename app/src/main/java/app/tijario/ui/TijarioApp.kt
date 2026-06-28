@@ -337,7 +337,7 @@ fun TijarioApp() {
                                     .height(72.dp)
                                     .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
                                     .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f), RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)),
-                                containerColor = MaterialTheme.colorScheme.background,
+                                containerColor = MaterialTheme.colorScheme.surface,
                                 tonalElevation = 0.dp
                             ) {
                                 rootTabs.forEachIndexed { index, tab ->
@@ -380,8 +380,8 @@ fun TijarioApp() {
                                         colors = NavigationBarItemDefaults.colors(
                                             selectedIconColor = MaterialTheme.colorScheme.primary,
                                             selectedTextColor = MaterialTheme.colorScheme.primary,
-                                            unselectedIconColor = if (androidx.compose.foundation.isSystemInDarkTheme()) Color.White else Color.Black,
-                                            unselectedTextColor = if (androidx.compose.foundation.isSystemInDarkTheme()) Color.White else Color.Black,
+                                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
                                             indicatorColor = Color.Transparent
                                         )
                                     )

@@ -1,4 +1,4 @@
-package app.tijario.config
+﻿package app.tijario.config
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.compositionLocalOf
@@ -322,6 +322,7 @@ object Localization {
         "invoice_num" to mapOf(AppLanguage.AR to "فاتورة %s", AppLanguage.EN to "Invoice %s"),
         "quote_num" to mapOf(AppLanguage.AR to "عرض سعر %s", AppLanguage.EN to "Quote %s"),
         "customer_label" to mapOf(AppLanguage.AR to "العميل: %s", AppLanguage.EN to "Customer: %s"),
+        "latest_invoice" to mapOf(AppLanguage.AR to "\u0622\u062e\u0631 \u0641\u0627\u062a\u0648\u0631\u0629: %s", AppLanguage.EN to "Latest invoice: %s"),
         "total_label" to mapOf(AppLanguage.AR to "الإجمالي: %s %s", AppLanguage.EN to "Total: %s %s"),
         "payment_status_label" to mapOf(AppLanguage.AR to "حالة الدفع: %s", AppLanguage.EN to "Payment Status: %s"),
         "document_preview" to mapOf(AppLanguage.AR to "معاينة أولية", AppLanguage.EN to "Preview"),

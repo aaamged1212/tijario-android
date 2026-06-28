@@ -78,6 +78,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.tijario.config.LocalLanguage
 import app.tijario.config.Localization
 import app.tijario.config.t
+import app.tijario.domain.DocumentNumbering
 import app.tijario.domain.Validation
 import app.tijario.data.model.DocumentType
 import app.tijario.data.model.BusinessSettings
@@ -90,6 +91,7 @@ import app.tijario.features.documents.model.DocumentTotals
 import app.tijario.features.documents.preview.DocumentPreviewWebView
 import app.tijario.features.documents.ui.DocumentTemplatePicker
 import app.tijario.features.documents.ui.DocumentTemplatePreferences
+import app.tijario.features.documents.ui.DocumentInvoiceOptionPreferences
 import app.tijario.ui.components.ModernDocumentPreview
 import app.tijario.ui.components.TijarioButton
 import app.tijario.ui.components.TijarioTextField
@@ -145,7 +147,7 @@ fun CustomerFormScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(if (isEditMode) "تعديل عميل" else t("btn_add_customer"), fontWeight = FontWeight.Bold) },
+                title = { Text(if (isEditMode) t("edit_customer") else t("btn_add_customer"), fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Filled.ArrowBack, contentDescription = t("btn_back"))
@@ -302,26 +304,49 @@ private fun SettingsDropdownField(
     }
 }
 
-private fun countryOptions(): List<String> = listOf(
-    "السعودية",
-    "اليمن",
-    "الإمارات",
-    "مصر",
-    "الكويت",
-    "قطر",
-    "عمان",
-    "البحرين",
-    "الأردن",
-    "لبنان",
-    "المغرب",
-    "تونس",
-    "الجزائر",
-    "ليبيا",
-    "السودان",
-    "العراق",
-    "سوريا",
-    "فلسطين",
-)
+private fun countryOptions(language: AppLanguage): List<String> = if (language == AppLanguage.AR) {
+    listOf(
+        "السعودية",
+        "اليمن",
+        "الإمارات",
+        "مصر",
+        "الكويت",
+        "قطر",
+        "عمان",
+        "البحرين",
+        "الأردن",
+        "لبنان",
+        "المغرب",
+        "تونس",
+        "الجزائر",
+        "ليبيا",
+        "السودان",
+        "العراق",
+        "سوريا",
+        "فلسطين",
+    )
+} else {
+    listOf(
+        "Saudi Arabia",
+        "Yemen",
+        "United Arab Emirates",
+        "Egypt",
+        "Kuwait",
+        "Qatar",
+        "Oman",
+        "Bahrain",
+        "Jordan",
+        "Lebanon",
+        "Morocco",
+        "Tunisia",
+        "Algeria",
+        "Libya",
+        "Sudan",
+        "Iraq",
+        "Syria",
+        "Palestine",
+    )
+}
 
 private fun currencyOptions(): List<String> = listOf(
     "SAR",
@@ -369,7 +394,7 @@ fun ProductFormScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(if (isEditMode) "تعديل المنتج" else t("btn_add_product"), fontWeight = FontWeight.Bold) },
+                title = { Text(if (isEditMode) t("edit_product") else t("btn_add_product"), fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Filled.ArrowBack, contentDescription = t("btn_back"))
@@ -633,7 +658,7 @@ fun BusinessSettingsScreen(
                             SettingsDropdownField(
                                 label = t("country"),
                                 value = form.country,
-                                options = countryOptions(),
+                                options = countryOptions(language),
                                 onValueChange = { form = form.copy(country = it) },
                                 error = if (form.country.isNotEmpty()) form.countryError else null
                             )
@@ -778,7 +803,7 @@ fun BusinessSettingsScreen(
                                 horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
                                 Text(
-                                    text = form.businessName.ifBlank { "تجاريو" },
+                                    text = form.businessName.ifBlank { t("app_name") },
                                     color = Color.White,
                                     fontSize = 18.sp,
                                     fontWeight = FontWeight.Bold
@@ -844,7 +869,7 @@ fun BusinessSettingsScreen(
                     SettingsItemRow(
                         icon = Icons.Filled.Storefront,
                         title = t("shop_name"),
-                        value = form.businessName.ifBlank { "تجاريو" },
+                        value = form.businessName.ifBlank { t("app_name") },
                         onClick = { activeDialog = "name" }
                     )
 
@@ -866,7 +891,7 @@ fun BusinessSettingsScreen(
                     SettingsItemRow(
                         icon = Icons.Filled.Public,
                         title = t("country"),
-                        value = form.country.ifBlank { "اليمن" },
+                        value = form.country.ifBlank { if (language == AppLanguage.AR) "اليمن" else "Yemen" },
                         onClick = { activeDialog = "country" }
                     )
 
@@ -876,7 +901,7 @@ fun BusinessSettingsScreen(
                     SettingsItemRow(
                         icon = Icons.Filled.Domain,
                         title = t("city"),
-                        value = form.city.ifBlank { "صنعاء" },
+                        value = form.city.ifBlank { if (language == AppLanguage.AR) "صنعاء" else "Sana'a" },
                         onClick = { activeDialog = "city" }
                     )
 
@@ -884,9 +909,9 @@ fun BusinessSettingsScreen(
 
                     // Row 6: العملة
                     val displayCurrency = when (form.currency.uppercase()) {
-                        "YER" -> "ريال يمني - YER"
-                        "SAR" -> "الريال السعودي - SAR"
-                        "USD" -> "الدولار الأمريكي - USD"
+                        "YER" -> if (language == AppLanguage.AR) "ريال يمني - YER" else "Yemeni Rial - YER"
+                        "SAR" -> if (language == AppLanguage.AR) "الريال السعودي - SAR" else "Saudi Riyal - SAR"
+                        "USD" -> if (language == AppLanguage.AR) "الدولار الأمريكي - USD" else "US Dollar - USD"
                         else -> form.currency
                     }
                     SettingsItemRow(
@@ -1159,7 +1184,7 @@ val DocumentFormStateSaver = listSaver<DocumentFormState, Any>(
             customerName = customerName,
             customerWhatsapp = customerWhatsapp,
             customerCity = customerCity.takeIf { it.isNotEmpty() },
-            items = if (itemsList.isEmpty()) listOf(app.tijario.ui.state.DocumentItemState(lang = lang)) else itemsList,
+            items = itemsList,
             discount = discount,
             extraFees = extraFees,
             paymentStatus = paymentStatus,
@@ -1559,7 +1584,7 @@ fun EditItemDialog(
                                     trailingIcon = {
                                         Icon(
                                             imageVector = Icons.Filled.ArrowDropDown,
-                                            contentDescription = "اختر منتج",
+                                            contentDescription = t("select_product"),
                                             tint = MaterialTheme.colorScheme.primary
                                         )
                                     },
@@ -1705,6 +1730,7 @@ fun DocumentFormScreen(
     var submitError by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
     val templatePreferences = remember(context) { DocumentTemplatePreferences(context) }
+    val invoiceOptionPreferences = remember(context) { DocumentInvoiceOptionPreferences(context) }
     var selectedTemplateId by remember { mutableStateOf(templatePreferences.getDefaultTemplateId()) }
     val uiState by dataViewModel.uiState.collectAsStateWithLifecycle()
     val businessSettings = uiState.businessSettings
@@ -1722,18 +1748,8 @@ fun DocumentFormScreen(
     var showLocalTermsDialog by remember { mutableStateOf(false) }
 
     val nextDocNumber = remember(uiState.documents, type) {
-        val prefix = if (type == app.tijario.data.model.DocumentType.Invoice) "INV-" else "QT-"
         val typedDocs = uiState.documents.filter { it.type == type }
-        val maxNum = typedDocs.mapNotNull { doc ->
-            val clean = doc.documentNumber.uppercase()
-                .removePrefix("INV-")
-                .removePrefix("QT-")
-                .removePrefix("INV_")
-                .removePrefix("QT_")
-                .trim()
-            clean.toIntOrNull()
-        }.maxOrNull() ?: 284 // Default sequence helper starting after last invoice like INV-285 if no matches
-        "$prefix${maxNum + 1}"
+        DocumentNumbering.nextDocumentNumber(typedDocs.map { it.documentNumber }, type)
     }
 
     LaunchedEffect(nextDocNumber, isEditMode) {
@@ -1782,7 +1798,7 @@ fun DocumentFormScreen(
             val existing = result.getOrNull()
             if (existing != null) {
                 val metadata = dataViewModel.getDocumentMetadata(editDocumentId)
-                form = existing.toFormState().copy(
+                form = existing.toFormState(language).copy(
                     currency = metadata?.currency ?: existing.currency.ifBlank { null } ?: form.currency,
                     signatureData = metadata?.signatureData.orEmpty(),
                     paymentMethod = metadata?.paymentMethod.orEmpty(),
@@ -1794,6 +1810,17 @@ fun DocumentFormScreen(
                 submitError = result.exceptionOrNull()?.message ?: Localization.getString("error_load_doc_detail", language)
             }
             isLoadingDocument = false
+        }
+    }
+
+    LaunchedEffect(isEditMode, businessSettings) {
+        if (!isEditMode) {
+            val defaults = invoiceOptionPreferences.getDefaults()
+            form = form.copy(
+                paymentMethod = form.paymentMethod.ifBlank { defaults.paymentMethod },
+                terms = form.terms.ifBlank { defaults.termsContent.ifBlank { businessSettings?.termsText.orEmpty() } },
+                signatureData = form.signatureData.ifBlank { defaults.signatureData }
+            )
         }
     }
 
@@ -1841,7 +1868,7 @@ fun DocumentFormScreen(
                 title = {
                     Text(
                         if (isEditMode) {
-                            if (type == app.tijario.data.model.DocumentType.Invoice) "تعديل الفاتورة" else "تعديل عرض السعر"
+                            if (type == app.tijario.data.model.DocumentType.Invoice) t("edit_invoice_title") else t("edit_quote_title")
                         } else if (type == app.tijario.data.model.DocumentType.Invoice) t("btn_new_invoice") else t("btn_new_quote"),
                         fontWeight = FontWeight.Bold
                     )
@@ -1901,15 +1928,15 @@ fun DocumentFormScreen(
                             onClick = {
                                 if (isLoading) return@Button
                                 if (form.customerId == null) {
-                                    android.widget.Toast.makeText(context, "يرجى اختيار العميل أولاً", android.widget.Toast.LENGTH_LONG).show()
+                                    android.widget.Toast.makeText(context, Localization.getString("select_customer_first", language), android.widget.Toast.LENGTH_LONG).show()
                                     return@Button
                                 }
                                 if (form.items.isEmpty()) {
-                                    android.widget.Toast.makeText(context, "يرجى إضافة بند واحد على الأقل", android.widget.Toast.LENGTH_LONG).show()
+                                    android.widget.Toast.makeText(context, Localization.getString("add_one_item_min", language), android.widget.Toast.LENGTH_LONG).show()
                                     return@Button
                                 }
                                 if (!form.items.all { it.isValid }) {
-                                    android.widget.Toast.makeText(context, "يرجى إدخال اسم البند والكمية والسعر بشكل صحيح", android.widget.Toast.LENGTH_LONG).show()
+                                    android.widget.Toast.makeText(context, Localization.getString("enter_item_details_correctly", language), android.widget.Toast.LENGTH_LONG).show()
                                     return@Button
                                 }
 
@@ -1968,7 +1995,7 @@ fun DocumentFormScreen(
                                             submitError = result.displayMessage
                                         }
                                     } catch (e: Exception) {
-                                        submitError = e.message ?: "تعذر حفظ المستند الآن. تحقق من الاتصال وحاول مرة أخرى."
+                                        submitError = e.message ?: Localization.getString("error_save_doc_now", language)
                                     } finally {
                                         isLoading = false
                                     }
@@ -2030,7 +2057,7 @@ fun DocumentFormScreen(
                         Column {
                             Text(
                                 text = form.documentNumber.ifBlank {
-                                    if (type == app.tijario.data.model.DocumentType.Invoice) "INV-XXXX" else "QT-XXXX"
+                                    DocumentNumbering.firstDocumentNumber(type)
                                 },
                                 fontWeight = FontWeight.ExtraBold,
                                 fontSize = 24.sp,
@@ -2079,7 +2106,7 @@ fun DocumentFormScreen(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                val currentLangStr = if (form.documentLanguage == "AR") "العربية" else "English"
+                                val currentLangStr = if (form.documentLanguage == "AR") t("language_arabic") else t("language_english")
                                 Text(currentLangStr, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
                                 Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
@@ -2088,14 +2115,14 @@ fun DocumentFormScreen(
                                 onDismissRequest = { showLanguageDropdown = false }
                             ) {
                                 DropdownMenuItem(
-                                    text = { Text("العربية") },
+                                    text = { Text(t("language_arabic")) },
                                     onClick = {
                                         form = form.copy(documentLanguage = "AR")
                                         showLanguageDropdown = false
                                     }
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("English") },
+                                    text = { Text(t("language_english")) },
                                     onClick = {
                                         form = form.copy(documentLanguage = "EN")
                                         showLanguageDropdown = false
@@ -2247,7 +2274,7 @@ fun DocumentFormScreen(
                                     // Item details (compact layout)
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(
-                                            text = item.name.ifBlank { "اسم البند" },
+                                            text = item.name.ifBlank { t("item_name_label") },
                                             fontWeight = FontWeight.SemiBold,
                                             fontSize = 14.sp,
                                             maxLines = 1
@@ -2292,7 +2319,7 @@ fun DocumentFormScreen(
                         ) {
                             Icon(Icons.Filled.Add, contentDescription = null)
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text(if (isArabic) "إضافة بند" else "Add Item", fontWeight = FontWeight.Bold)
+                            Text(t("add_item"), fontWeight = FontWeight.Bold)
                         }
 
                         HorizontalDivider(color = Color(0xFFF1F5F9))
@@ -2614,7 +2641,12 @@ fun DocumentFormScreen(
                                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                val termsText = if (form.terms.isNotBlank()) t("selected") else t("not_specified")
+                                val defaults = invoiceOptionPreferences.getDefaults()
+                                val termsText = when {
+                                    form.terms.isBlank() -> t("not_specified")
+                                    defaults.termsContent.isNotBlank() && form.terms == defaults.termsContent -> defaults.termsTitle.ifBlank { t("terms_cond") }
+                                    else -> t("terms_cond")
+                                }
                                 Text(termsText, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
                                 Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
@@ -2642,7 +2674,12 @@ fun DocumentFormScreen(
                                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                val sigText = if (form.signatureData.isNotBlank()) t("specified") else t("not_signed")
+                                val defaults = invoiceOptionPreferences.getDefaults()
+                                val sigText = when {
+                                    form.signatureData.isBlank() -> t("not_signed")
+                                    defaults.signatureData.isNotBlank() && form.signatureData == defaults.signatureData -> defaults.signatureName.ifBlank { t("invoice_signature") }
+                                    else -> t("invoice_signature")
+                                }
                                 Text(sigText, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
                                 Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
@@ -2824,6 +2861,7 @@ fun DocumentFormScreen(
             onDismiss = { showLocalPaymentDialog = false },
             onSelect = { pm ->
                 form = form.copy(paymentMethod = pm)
+                invoiceOptionPreferences.setPaymentMethod(pm)
                 showLocalPaymentDialog = false
             }
         )
@@ -2833,8 +2871,9 @@ fun DocumentFormScreen(
         LocalSignaturesManagerDialog(
             dataViewModel = dataViewModel,
             onDismiss = { showLocalSignaturesDialog = false },
-            onSelect = { base64 ->
+            onSelect = { name, base64 ->
                 form = form.copy(signatureData = base64)
+                invoiceOptionPreferences.setSignature(name, base64)
                 showLocalSignaturesDialog = false
             }
         )
@@ -2844,8 +2883,9 @@ fun DocumentFormScreen(
         LocalTermsManagerDialog(
             dataViewModel = dataViewModel,
             onDismiss = { showLocalTermsDialog = false },
-            onSelect = { content ->
+            onSelect = { title, content ->
                 form = form.copy(terms = content)
+                invoiceOptionPreferences.setTerms(title, content)
                 showLocalTermsDialog = false
             }
         )
@@ -3138,7 +3178,7 @@ fun LocalPaymentMethodsManagerDialog(
 fun LocalTermsManagerDialog(
     dataViewModel: TijarioDataViewModel,
     onDismiss: () -> Unit,
-    onSelect: (String) -> Unit
+    onSelect: (String, String) -> Unit
 ) {
     val isArabic = LocalLanguage.current == app.tijario.config.AppLanguage.AR
     val scope = rememberCoroutineScope()
@@ -3214,7 +3254,7 @@ fun LocalTermsManagerDialog(
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(8.dp))
                                 .background(MaterialTheme.colorScheme.surfaceVariant)
-                                .clickable { onSelect(term.content) }
+                                .clickable { onSelect(term.title, term.content) }
                                 .padding(12.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
@@ -3249,7 +3289,7 @@ fun LocalTermsManagerDialog(
 fun LocalSignaturesManagerDialog(
     dataViewModel: TijarioDataViewModel,
     onDismiss: () -> Unit,
-    onSelect: (String) -> Unit
+    onSelect: (String, String) -> Unit
 ) {
     val isArabic = LocalLanguage.current == app.tijario.config.AppLanguage.AR
     val scope = rememberCoroutineScope()
@@ -3408,8 +3448,8 @@ fun LocalSignaturesManagerDialog(
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(8.dp))
                                     .background(MaterialTheme.colorScheme.surfaceVariant)
-                                    .clickable { onSelect(sig.signatureData) }
-                                    .padding(12.dp),
+                                .clickable { onSelect(sig.name, sig.signatureData) }
+                                .padding(12.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
