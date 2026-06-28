@@ -974,14 +974,7 @@ open class TijarioRepository(
         updateBusinessSettingsLocal(settings).getOrThrow()
         val userId = currentUserId()
         if (userId != null) {
-            withContext(Dispatchers.IO) {
-                val existing = dao.getBusinessSettings(userId)
-                val settingsToUpsert = settings.copy(
-                    id = existing?.remoteId ?: settings.id,
-                    userId = userId
-                )
-                supabaseClient.from("business_settings").upsert(settingsToUpsert)
-            }
+            sync(userId).getOrThrow()
         }
     }
 
