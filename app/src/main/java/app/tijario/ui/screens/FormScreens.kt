@@ -869,15 +869,6 @@ fun BusinessSettingsScreen(
                         onClick = { activeDialog = "currency" }
                     )
 
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = 4.dp))
-
-                    // Row 7: تفضيلات الفواتير والإشعارات
-                    SettingsItemRow(
-                        icon = Icons.Filled.Receipt,
-                        title = t("invoice_notifications_prefs"),
-                        value = t("billing_prefs_value"),
-                        onClick = { activeDialog = "terms" }
-                    )
                 }
             }
 

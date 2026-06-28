@@ -234,8 +234,6 @@ fun TijarioApp() {
                 dataViewModel = dataViewModel,
                 onDone = {
                     scope.launch {
-                        dataViewModel.startForCurrentUser(forceRefresh = true)
-                        dataViewModel.refreshBusinessSettings()
                         authViewModel.checkCurrentSession()
                     }
                 }

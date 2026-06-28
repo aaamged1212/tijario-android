@@ -418,7 +418,10 @@ open class TijarioRepository(
             withContext(Dispatchers.IO) {
                 database.withTransaction {
                     if (snapshot.businessSettings == null) {
-                        dao.deleteBusinessSettings(userId)
+                        val existing = dao.getBusinessSettings(userId)
+                        if (existing?.syncStatus == "SYNCED") {
+                            dao.deleteBusinessSettings(userId)
+                        }
                     } else {
                         val existing = dao.getBusinessSettings(userId)
                         if (existing == null || existing.syncStatus !in listOf("LOCAL_ONLY", "PENDING_SYNC", "PENDING_DELETE", "CONFLICT")) {
@@ -470,7 +473,10 @@ open class TijarioRepository(
             val syncedAt = System.currentTimeMillis()
             withContext(Dispatchers.IO) {
                 if (settings == null) {
-                    dao.deleteBusinessSettings(userId)
+                    val existing = dao.getBusinessSettings(userId)
+                    if (existing?.syncStatus == "SYNCED") {
+                        dao.deleteBusinessSettings(userId)
+                    }
                 } else {
                     val existing = dao.getBusinessSettings(userId)
                     if (existing == null || existing.syncStatus !in listOf("LOCAL_ONLY", "PENDING_SYNC", "PENDING_DELETE", "CONFLICT")) {
@@ -930,6 +936,9 @@ open class TijarioRepository(
                 enqueueOutbox(userId, "business_settings", userId, "UPDATE", existing?.serverId())
             }
         }
+        sync(userId).onFailure {
+            SyncScheduler(context).triggerSync(userId)
+        }
     }
 
     private fun app.tijario.data.local.BusinessSettingsEntity.serverId(): String? =
@@ -1109,7 +1118,7 @@ open class TijarioRepository(
 
                 val userPlanExists = supabaseClient.from("user_plan")
                     .select {
-                        filter { eq("id", userId) }
+                        filter { eq("user_id", userId) }
                     }
                     .decodeList<app.tijario.data.model.UserPlanRowDto>()
                     .isNotEmpty()
