@@ -1,4 +1,4 @@
-package app.tijario.ui.screens
+﻿package app.tijario.ui.screens
 
 import android.content.Context
 import android.content.ActivityNotFoundException
@@ -316,15 +316,15 @@ fun DashboardScreen(
 
     val businessCurrency = uiState.businessSettings?.currency ?: "SAR"
     val currencyName = when (businessCurrency.uppercase()) {
-        "SAR" -> "الريال السعودي"
-        "YER" -> "الريال اليمني"
-        "USD" -> "الدولار الأمريكي"
-        "AED" -> "الدرهم الإماراتي"
-        "EGP" -> "الجنيه المصري"
-        "KWD" -> "الدينار الكويتي"
-        "BHD" -> "الدينار البحريني"
-        "OMR" -> "الريال العماني"
-        "QAR" -> "الريال القطري"
+        "SAR" -> "Ø§Ù„Ø±ÙŠØ§Ù„ Ø§Ù„Ø³Ø¹ÙˆØ¯ÙŠ"
+        "YER" -> "Ø§Ù„Ø±ÙŠØ§Ù„ Ø§Ù„ÙŠÙ…Ù†ÙŠ"
+        "USD" -> "Ø§Ù„Ø¯ÙˆÙ„Ø§Ø± Ø§Ù„Ø£Ù…Ø±ÙŠÙƒÙŠ"
+        "AED" -> "Ø§Ù„Ø¯Ø±Ù‡Ù… Ø§Ù„Ø¥Ù…Ø§Ø±Ø§ØªÙŠ"
+        "EGP" -> "Ø§Ù„Ø¬Ù†ÙŠÙ‡ Ø§Ù„Ù…ØµØ±ÙŠ"
+        "KWD" -> "Ø§Ù„Ø¯ÙŠÙ†Ø§Ø± Ø§Ù„ÙƒÙˆÙŠØªÙŠ"
+        "BHD" -> "Ø§Ù„Ø¯ÙŠÙ†Ø§Ø± Ø§Ù„Ø¨Ø­Ø±ÙŠÙ†ÙŠ"
+        "OMR" -> "Ø§Ù„Ø±ÙŠØ§Ù„ Ø§Ù„Ø¹Ù…Ø§Ù†ÙŠ"
+        "QAR" -> "Ø§Ù„Ø±ÙŠØ§Ù„ Ø§Ù„Ù‚Ø·Ø±ÙŠ"
         else -> businessCurrency
     }
     val totalAmount = remember(uiState.documents, businessCurrency) {
@@ -402,7 +402,7 @@ fun DashboardScreen(
                             Text(t("all_amounts_in").replace("%s", currencyName), color = Color.White.copy(alpha = 0.6f), fontSize = 11.sp)
                         }
 
-                        // Button (هذا الشهر)
+                        // Button (Ù‡Ø°Ø§ Ø§Ù„Ø´Ù‡Ø±)
                         Button(
                             onClick = { /* Detail Action */ },
                             colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.1f)),
@@ -741,7 +741,7 @@ fun DashboardScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Text ("آخر المستندات") first so it renders on the right in RTL
+            // Text ("Ø¢Ø®Ø± Ø§Ù„Ù…Ø³ØªÙ†Ø¯Ø§Øª") first so it renders on the right in RTL
             Text(
                 text = t("latest_documents"),
                 style = MaterialTheme.typography.titleMedium,
@@ -749,7 +749,7 @@ fun DashboardScreen(
                 color = MaterialTheme.colorScheme.onBackground
             )
 
-            // TextButton ("عرض الكل") second so it renders on the left in RTL
+            // TextButton ("Ø¹Ø±Ø¶ Ø§Ù„ÙƒÙ„") second so it renders on the left in RTL
             TextButton(onClick = onViewAllDocuments) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -1108,7 +1108,7 @@ fun CustomersScreen(
                                     deleteErrorMessage = res.exceptionOrNull()?.message ?: Localization.getString("delete_customer_error", language)
                                 }
                             } catch (e: Exception) {
-                                deleteErrorMessage = e.message ?: "حدث خطأ غير متوقع."
+                                deleteErrorMessage = e.message ?: "Ø­Ø¯Ø« Ø®Ø·Ø£ ØºÙŠØ± Ù…ØªÙˆÙ‚Ø¹."
                             } finally {
                                 isDeleting = false
                             }
@@ -1218,7 +1218,7 @@ fun CustomersScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // الكل (All)
+                // Ø§Ù„ÙƒÙ„ (All)
                 TijarioFilterChip(
                     selected = selectedFilter == "all",
                     onClick = { selectedFilter = "all" },
@@ -1233,7 +1233,7 @@ fun CustomersScreen(
                     }
                 )
 
-                // نشط (Active)
+                // Ù†Ø´Ø· (Active)
                 TijarioFilterChip(
                     selected = selectedFilter == "active",
                     onClick = { selectedFilter = "active" },
@@ -1247,7 +1247,7 @@ fun CustomersScreen(
                     }
                 )
 
-                // عميل جديد (New Customer)
+                // Ø¹Ù…ÙŠÙ„ Ø¬Ø¯ÙŠØ¯ (New Customer)
                 TijarioFilterChip(
                     selected = selectedFilter == "new",
                     onClick = { selectedFilter = "new" },
@@ -1262,7 +1262,7 @@ fun CustomersScreen(
                     }
                 )
 
-                // أكثر تعاملاً (Top Customer)
+                // Ø£ÙƒØ«Ø± ØªØ¹Ø§Ù…Ù„Ø§Ù‹ (Top Customer)
                 TijarioFilterChip(
                     selected = selectedFilter == "top",
                     onClick = { selectedFilter = "top" },
@@ -1292,7 +1292,7 @@ fun CustomersScreen(
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // 1. إجمالي العملاء (Total)
+                    // 1. Ø¥Ø¬Ù…Ø§Ù„ÙŠ Ø§Ù„Ø¹Ù…Ù„Ø§Ø¡ (Total)
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier.weight(1f)
@@ -1305,7 +1305,7 @@ fun CustomersScreen(
 
                     Box(modifier = Modifier.width(1.dp).height(32.dp).background(MaterialTheme.colorScheme.outlineVariant))
 
-                    // 2. عملاء نشطين (Active)
+                    // 2. Ø¹Ù…Ù„Ø§Ø¡ Ù†Ø´Ø·ÙŠÙ† (Active)
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier.weight(1f)
@@ -1318,7 +1318,7 @@ fun CustomersScreen(
 
                     Box(modifier = Modifier.width(1.dp).height(32.dp).background(MaterialTheme.colorScheme.outlineVariant))
 
-                    // 3. عملاء جدد (New)
+                    // 3. Ø¹Ù…Ù„Ø§Ø¡ Ø¬Ø¯Ø¯ (New)
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier.weight(1f)
@@ -1331,7 +1331,7 @@ fun CustomersScreen(
 
                     Box(modifier = Modifier.width(1.dp).height(32.dp).background(MaterialTheme.colorScheme.outlineVariant))
 
-                    // 4. أكثر تعاملاً (Top)
+                    // 4. Ø£ÙƒØ«Ø± ØªØ¹Ø§Ù…Ù„Ø§Ù‹ (Top)
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier.weight(1f)
@@ -1458,7 +1458,7 @@ fun CustomersScreen(
 
                                         if (latestDoc != null) {
                                             Text(
-                                                text = "آخر فاتورة: ${latestDoc.documentNumber}",
+                                                text = "Ø¢Ø®Ø± ÙØ§ØªÙˆØ±Ø©: ${latestDoc.documentNumber}",
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                 fontSize = 11.sp
                                             )
@@ -1486,7 +1486,7 @@ fun CustomersScreen(
                                         ) {
                                             Icon(
                                                 Icons.Filled.Edit,
-                                                contentDescription = "تعديل",
+                                                contentDescription = "ØªØ¹Ø¯ÙŠÙ„",
                                                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                                                 modifier = Modifier.size(16.dp)
                                             )
@@ -1500,14 +1500,14 @@ fun CustomersScreen(
                                                 val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${customer.whatsappNumber}"))
                                                 context.startActivity(intent)
                                             } catch (e: Exception) {
-                                                android.widget.Toast.makeText(context, "تعذر تشغيل تطبيق الاتصال", android.widget.Toast.LENGTH_SHORT).show()
+                                                android.widget.Toast.makeText(context, "ØªØ¹Ø°Ø± ØªØ´ØºÙŠÙ„ ØªØ·Ø¨ÙŠÙ‚ Ø§Ù„Ø§ØªØµØ§Ù„", android.widget.Toast.LENGTH_SHORT).show()
                                             }
                                         },
                                         modifier = Modifier.size(32.dp)
                                     ) {
                                         Icon(
                                             Icons.Filled.Phone,
-                                            contentDescription = "اتصال",
+                                            contentDescription = "Ø§ØªØµØ§Ù„",
                                             tint = Color(0xFF0F9D58),
                                             modifier = Modifier.size(16.dp)
                                         )
@@ -1528,7 +1528,7 @@ fun CustomersScreen(
                                     ) {
                                         Icon(
                                             Icons.Filled.Chat,
-                                            contentDescription = "واتساب",
+                                            contentDescription = "ÙˆØ§ØªØ³Ø§Ø¨",
                                             tint = Color(0xFF25D366),
                                             modifier = Modifier.size(16.dp)
                                         )
@@ -1624,7 +1624,7 @@ fun ProductsScreen(
                                     deleteErrorMessage = res.exceptionOrNull()?.message ?: Localization.getString("delete_product_error", language)
                                 }
                             } catch (e: Exception) {
-                                deleteErrorMessage = e.message ?: "حدث خطأ غير متوقع."
+                                deleteErrorMessage = e.message ?: "Ø­Ø¯Ø« Ø®Ø·Ø£ ØºÙŠØ± Ù…ØªÙˆÙ‚Ø¹."
                             } finally {
                                 isDeleting = false
                             }
@@ -1781,7 +1781,7 @@ fun ProductsScreen(
                                                 onEditProduct?.invoke(item.id!!)
                                             }
                                         ) {
-                                            Icon(Icons.Filled.Edit, contentDescription = "تعديل", tint = MaterialTheme.colorScheme.primary)
+                                            Icon(Icons.Filled.Edit, contentDescription = "ØªØ¹Ø¯ÙŠÙ„", tint = MaterialTheme.colorScheme.primary)
                                         }
                                         IconButton(
                                             onClick = {
@@ -1905,11 +1905,11 @@ fun DocumentsScreen(
                     templateId = templatePreferences.getDefaultTemplateId(),
                 )
                 val intent = exportManager.shareIntent(renderModel)
-                context.startActivity(Intent.createChooser(intent, "مشاركة PDF"))
+                context.startActivity(Intent.createChooser(intent, "Ù…Ø´Ø§Ø±ÙƒØ© PDF"))
             } catch (_: ActivityNotFoundException) {
-                Toast.makeText(context, "لا يوجد تطبيق مناسب للمشاركة", Toast.LENGTH_LONG).show()
+                Toast.makeText(context, "Ù„Ø§ ÙŠÙˆØ¬Ø¯ ØªØ·Ø¨ÙŠÙ‚ Ù…Ù†Ø§Ø³Ø¨ Ù„Ù„Ù…Ø´Ø§Ø±ÙƒØ©", Toast.LENGTH_LONG).show()
             } catch (_: Exception) {
-                Toast.makeText(context, "تعذر تجهيز المستند للمشاركة الآن", Toast.LENGTH_LONG).show()
+                Toast.makeText(context, "ØªØ¹Ø°Ø± ØªØ¬Ù‡ÙŠØ² Ø§Ù„Ù…Ø³ØªÙ†Ø¯ Ù„Ù„Ù…Ø´Ø§Ø±ÙƒØ© Ø§Ù„Ø¢Ù†", Toast.LENGTH_LONG).show()
             } finally {
                 busyDocumentId = null
             }
@@ -2299,21 +2299,21 @@ fun DocumentsScreen(
                                                 modifier = Modifier.background(MaterialTheme.colorScheme.surface)
                                             ) {
                                                 DropdownMenuItem(
-                                                    text = { Text("معاينة", fontWeight = FontWeight.Medium) },
+                                                    text = { Text("Ù…Ø¹Ø§ÙŠÙ†Ø©", fontWeight = FontWeight.Medium) },
                                                     onClick = {
                                                         actionsMenuExpanded = false
                                                         onDocumentClick(doc.id)
                                                     }
                                                 )
                                                 DropdownMenuItem(
-                                                    text = { Text("تعديل", fontWeight = FontWeight.Medium) },
+                                                    text = { Text("ØªØ¹Ø¯ÙŠÙ„", fontWeight = FontWeight.Medium) },
                                                     onClick = {
                                                         actionsMenuExpanded = false
                                                         onEditDocument(doc.id, doc.type)
                                                     }
                                                 )
                                                 DropdownMenuItem(
-                                                    text = { Text("مشاركة", fontWeight = FontWeight.Medium) },
+                                                    text = { Text("Ù…Ø´Ø§Ø±ÙƒØ©", fontWeight = FontWeight.Medium) },
                                                     onClick = {
                                                         actionsMenuExpanded = false
                                                         shareDocument(doc.id)
@@ -2707,9 +2707,9 @@ fun AiToolsScreen(
                                     "friendly" -> t("ai_tone_friendly")
                                     "funny" -> t("ai_tone_funny")
                                     "premium" -> t("ai_tone_premium")
-                                    "short" -> if (language == AppLanguage.AR) "قصير" else "Short"
-                                    "medium" -> if (language == AppLanguage.AR) "متوسط" else "Medium"
-                                    "long" -> if (language == AppLanguage.AR) "طويل" else "Long"
+                                    "short" -> if (language == AppLanguage.AR) "Ù‚ØµÙŠØ±" else "Short"
+                                    "medium" -> if (language == AppLanguage.AR) "Ù…ØªÙˆØ³Ø·" else "Medium"
+                                    "long" -> if (language == AppLanguage.AR) "Ø·ÙˆÙŠÙ„" else "Long"
                                     "gulf" -> t("ai_gulf")
                                     "yemeni" -> t("ai_yemeni")
                                     "egypt" -> t("ai_egyptian")
@@ -2904,9 +2904,9 @@ fun AiToolsScreen(
                                     "friendly" -> t("ai_tone_friendly")
                                     "funny" -> t("ai_tone_funny")
                                     "premium" -> t("ai_tone_premium")
-                                    "short" -> if (language == AppLanguage.AR) "قصير" else "Short"
-                                    "medium" -> if (language == AppLanguage.AR) "متوسط" else "Medium"
-                                    "long" -> if (language == AppLanguage.AR) "طويل" else "Long"
+                                    "short" -> if (language == AppLanguage.AR) "Ù‚ØµÙŠØ±" else "Short"
+                                    "medium" -> if (language == AppLanguage.AR) "Ù…ØªÙˆØ³Ø·" else "Medium"
+                                    "long" -> if (language == AppLanguage.AR) "Ø·ÙˆÙŠÙ„" else "Long"
                                     "gulf" -> t("ai_gulf")
                                     "yemeni" -> t("ai_yemeni")
                                     "egypt" -> t("ai_egyptian")
@@ -3000,7 +3000,7 @@ fun AccountScreen(
                         IconButton(onClick = onBack) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "رجوع"
+                                contentDescription = "Ø±Ø¬ÙˆØ¹"
                             )
                         }
                     },
@@ -3096,7 +3096,7 @@ fun AccountScreen(
                     onChangePassword = {
                         scope.launch {
                             if (currentUserEmail.isBlank()) {
-                                snackbarHostState.showSnackbar("لا يوجد بريد إلكتروني مرتبط بالحساب")
+                                snackbarHostState.showSnackbar("Ù„Ø§ ÙŠÙˆØ¬Ø¯ Ø¨Ø±ÙŠØ¯ Ø¥Ù„ÙƒØªØ±ÙˆÙ†ÙŠ Ù…Ø±ØªØ¨Ø· Ø¨Ø§Ù„Ø­Ø³Ø§Ø¨")
                                 return@launch
                             }
 
@@ -3105,12 +3105,12 @@ fun AccountScreen(
                                     app.tijario.data.remote.ResetPasswordRequest(email = currentUserEmail)
                                 )
                                 if (result.ok) {
-                                    snackbarHostState.showSnackbar("تم إرسال رابط تغيير كلمة المرور إلى بريدك")
+                                    snackbarHostState.showSnackbar("ØªÙ… Ø¥Ø±Ø³Ø§Ù„ Ø±Ø§Ø¨Ø· ØªØºÙŠÙŠØ± ÙƒÙ„Ù…Ø© Ø§Ù„Ù…Ø±ÙˆØ± Ø¥Ù„Ù‰ Ø¨Ø±ÙŠØ¯Ùƒ")
                                 } else {
                                     snackbarHostState.showSnackbar(result.displayMessage)
                                 }
                             } catch (e: Exception) {
-                                snackbarHostState.showSnackbar("تعذر إرسال رابط تغيير كلمة المرور")
+                                snackbarHostState.showSnackbar("ØªØ¹Ø°Ø± Ø¥Ø±Ø³Ø§Ù„ Ø±Ø§Ø¨Ø· ØªØºÙŠÙŠØ± ÙƒÙ„Ù…Ø© Ø§Ù„Ù…Ø±ÙˆØ±")
                             }
                         }
                     },
@@ -3119,7 +3119,7 @@ fun AccountScreen(
 
             // App Settings (Global)
             Text(
-                text = "إعدادات التطبيق",
+                text = "Ø¥Ø¹Ø¯Ø§Ø¯Ø§Øª Ø§Ù„ØªØ·Ø¨ÙŠÙ‚",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
@@ -3141,7 +3141,7 @@ fun AccountScreen(
                                 MainActivity.currentLanguage = AppLanguage.AR
                                 AppPreferences.setLanguage(context, AppLanguage.AR)
                             }) {
-                                Text("العربية", color = if (MainActivity.currentLanguage == AppLanguage.AR) MaterialTheme.colorScheme.primary else Color.Gray)
+                                Text("Ø§Ù„Ø¹Ø±Ø¨ÙŠØ©", color = if (MainActivity.currentLanguage == AppLanguage.AR) MaterialTheme.colorScheme.primary else Color.Gray)
                             }
                             TextButton(onClick = {
                                 MainActivity.currentLanguage = AppLanguage.EN
@@ -3183,9 +3183,9 @@ fun StoreAccountContent(
 ) {
     var businessName by remember(settings) { mutableStateOf(settings?.businessName ?: "") }
     var whatsapp by remember(settings) { mutableStateOf(settings?.whatsappNumber ?: "") }
-    var country by remember(settings) { mutableStateOf(settings?.country ?: "السعودية") }
+    var country by remember(settings) { mutableStateOf(settings?.country.orEmpty()) }
     var city by remember(settings) { mutableStateOf(settings?.city ?: "") }
-    var currency by remember(settings) { mutableStateOf(settings?.currency ?: "SAR") }
+    var currency by remember(settings) { mutableStateOf(settings?.currency.orEmpty()) }
     val logoPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) {
             onLogoSelected(uri)
@@ -3234,6 +3234,7 @@ fun StoreAccountContent(
 
         TijarioButton(
             text = t("btn_save_store_changes"),
+            enabled = settings != null,
             onClick = {
                 if (settings != null) {
                     onUpdate(settings.copy(
@@ -3331,13 +3332,13 @@ private suspend fun buildLogoUploadRequest(
 
         val bytes = context.contentResolver.openInputStream(uri)?.use { input ->
             input.readBytes()
-        } ?: error("تعذر قراءة صورة الشعار.")
+        } ?: error("ØªØ¹Ø°Ø± Ù‚Ø±Ø§Ø¡Ø© ØµÙˆØ±Ø© Ø§Ù„Ø´Ø¹Ø§Ø±.")
 
         require(bytes.isNotEmpty()) {
             Localization.getString("logo_empty_error", language)
         }
         require(bytes.size <= 2 * 1024 * 1024) {
-            val errStr = if (language == AppLanguage.EN) "Logo size must not exceed 2MB." else "حجم الشعار يجب ألا يتجاوز 2MB."
+            val errStr = if (language == AppLanguage.EN) "Logo size must not exceed 2MB." else "Ø­Ø¬Ù… Ø§Ù„Ø´Ø¹Ø§Ø± ÙŠØ¬Ø¨ Ø£Ù„Ø§ ÙŠØªØ¬Ø§ÙˆØ² 2MB."
             errStr
         }
 
@@ -3363,7 +3364,7 @@ private suspend fun buildAiImageInput(
 
         val bytes = context.contentResolver.openInputStream(uri)?.use { input ->
             input.readBytes()
-        } ?: error("تعذر قراءة صورة المنتج.")
+        } ?: error("ØªØ¹Ø°Ø± Ù‚Ø±Ø§Ø¡Ø© ØµÙˆØ±Ø© Ø§Ù„Ù…Ù†ØªØ¬.")
 
         require(bytes.isNotEmpty()) {
             Localization.getString("image_empty_error", language)
@@ -3458,6 +3459,8 @@ private fun UsageIndicator(title: String, used: Int, total: Int, color: Color) {
         )
     }
 }
+
+
 
 
 
