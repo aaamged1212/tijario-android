@@ -809,6 +809,7 @@ open class TijarioRepository(
                 database.withTransaction {
                     dao.upsertDocument(docEntity)
                     dao.insertDocumentItems(itemsEntities)
+                    reserveDocumentQuotaLedger(userId, docId)
                     enqueueOutbox(userId, "document", docId, "CREATE")
                 }
             }
@@ -1050,7 +1051,7 @@ open class TijarioRepository(
                     .decodeList<app.tijario.data.model.UsageCounterRowDto>()
                     .firstOrNull()
 
-                app.tijario.data.model.UserPlanUsage(
+                val baseUsage = app.tijario.data.model.UserPlanUsage(
                     planCode = plan.code,
                     planName = plan.name,
                     periodMonth = periodMonth,
@@ -1058,12 +1059,17 @@ open class TijarioRepository(
                     documentsLimit = plan.monthlyDocumentLimit,
                     aiUsed = usage?.aiUsed ?: 0,
                     aiLimit = plan.monthlyAiLimit
-                ).also { AppPreferences.setPlanUsage(context, userId, it) }
+                )
+                val effectiveUsage = overlayLocalUsage(userId, baseUsage)
+                AppPreferences.setPlanUsage(context, userId, baseUsage)
+                effectiveUsage
             }
         }
 
-    fun getCachedPlanUsage(userId: String): app.tijario.data.model.UserPlanUsage? =
-        AppPreferences.getPlanUsage(context, userId)
+    suspend fun getCachedPlanUsage(userId: String): app.tijario.data.model.UserPlanUsage? =
+        withContext(Dispatchers.IO) {
+            AppPreferences.getPlanUsage(context, userId)?.let { overlayLocalUsage(userId, it) }
+        }
 
     suspend fun fetchCompleteDocument(documentId: String): Result<app.tijario.data.model.CompleteDocument> =
         runCatching {
@@ -1273,38 +1279,8 @@ open class TijarioRepository(
     suspend fun finalizeOrVerifyQuota(documentId: String): Result<Unit> = runCatching {
         val userId = requireUserId()
         withContext(Dispatchers.IO) {
+            reserveDocumentQuotaLedger(userId, documentId)
             val doc = dao.getDocument(userId, documentId) ?: error("Document not found")
-            if (doc.syncStatus == "SYNCED" || doc.localPdfRelativePath != null) {
-                return@withContext
-            }
-            val existingLedger = dao.getLedgerByDocId(userId, documentId)
-            if (existingLedger != null) {
-                return@withContext
-            }
-            val periodMonth = Date().toInstant().toString().substring(0, 7) + "-01"
-            val deviceId = android.os.Build.MODEL + "_" + android.os.Build.ID
-            val lease = dao.getLease(userId, deviceId, periodMonth)
-                ?: throw IllegalStateException("QUOTA_LIMIT_EXCEEDED")
-            if (lease.expiresAt < System.currentTimeMillis()) {
-                throw IllegalStateException("QUOTA_LIMIT_EXCEEDED")
-            }
-            val pendingLedgers = dao.getPendingLedger(userId).size
-            val available = lease.allowedLimit - lease.consumedCount - pendingLedgers
-            if (available <= 0) {
-                throw IllegalStateException("QUOTA_LIMIT_EXCEEDED")
-            }
-            val opId = java.util.UUID.randomUUID().toString()
-            dao.upsertLedger(app.tijario.data.local.LocalUsageLedgerEntity(
-                usageEventId = java.util.UUID.randomUUID().toString(),
-                userId = userId,
-                documentId = documentId,
-                operationId = opId,
-                leaseId = lease.id,
-                periodMonth = periodMonth,
-                status = "PENDING",
-                createdAt = System.currentTimeMillis(),
-                syncedAt = null
-            ))
             dao.upsertDocument(doc.copy(
                 status = "sent",
                 syncStatus = "LOCAL_ONLY"
@@ -1469,6 +1445,7 @@ open class TijarioRepository(
                                             serverRevision = res.server_revision,
                                             syncedAt = System.currentTimeMillis()
                                         ))
+                                        dao.deleteLedgerByDocId(userId, outboxItem.entityId)
                                     }
                                 }
                                 "business_settings" -> {
@@ -1708,5 +1685,47 @@ open class TijarioRepository(
 
     private companion object {
         const val FULL_REFRESH_THROTTLE_MS = 15_000L
+    }
+
+    private suspend fun reserveDocumentQuotaLedger(userId: String, documentId: String) {
+        val doc = dao.getDocument(userId, documentId) ?: error("Document not found")
+        if (doc.syncStatus == "SYNCED" || doc.localPdfRelativePath != null) return
+        if (dao.getLedgerByDocId(userId, documentId) != null) return
+        val periodMonth = currentUtcPeriodMonth()
+        val deviceId = android.os.Build.MODEL + "_" + android.os.Build.ID
+        val pendingLedgers = dao.getPendingLedger(userId).size
+        val lease = dao.getLease(userId, deviceId, periodMonth)
+        val cachedUsage = AppPreferences.getPlanUsage(context, userId)
+        val available = when {
+            lease != null && lease.expiresAt >= System.currentTimeMillis() ->
+                lease.allowedLimit - lease.consumedCount - pendingLedgers
+            cachedUsage != null ->
+                cachedUsage.documentsLimit - cachedUsage.documentsUsed - pendingLedgers
+            else -> throw IllegalStateException("QUOTA_LIMIT_EXCEEDED")
+        }
+        if (available <= 0) {
+            throw IllegalStateException("QUOTA_LIMIT_EXCEEDED")
+        }
+        val opId = java.util.UUID.randomUUID().toString()
+        dao.upsertLedger(app.tijario.data.local.LocalUsageLedgerEntity(
+            usageEventId = java.util.UUID.randomUUID().toString(),
+            userId = userId,
+            documentId = documentId,
+            operationId = opId,
+            leaseId = lease?.id ?: "cached:$periodMonth",
+            periodMonth = periodMonth,
+            status = "PENDING",
+            createdAt = System.currentTimeMillis(),
+            syncedAt = null
+        ))
+    }
+
+    private suspend fun overlayLocalUsage(
+        userId: String,
+        usage: app.tijario.data.model.UserPlanUsage,
+    ): app.tijario.data.model.UserPlanUsage {
+        val pendingDocs = dao.getPendingLedger(userId).size
+        if (pendingDocs <= 0) return usage
+        return usage.copy(documentsUsed = usage.documentsUsed + pendingDocs)
     }
 }

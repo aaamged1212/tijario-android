@@ -95,6 +95,9 @@ interface TijarioDao {
     @Query("SELECT COUNT(*) FROM documents_cache WHERE user_id = :userId AND issue_date LIKE :monthPrefix || '%'")
     suspend fun countDocumentsForMonth(userId: String, monthPrefix: String): Int
 
+    @Query("SELECT COUNT(*) FROM documents_cache WHERE user_id = :userId AND sync_status = 'LOCAL_ONLY' AND is_deleted = 0")
+    suspend fun countLocalOnlyDocuments(userId: String): Int
+
     @Query("SELECT * FROM local_taxes ORDER BY name COLLATE NOCASE ASC")
     fun observeLocalTaxes(): Flow<List<LocalTaxEntity>>
 
@@ -189,6 +192,9 @@ interface TijarioDao {
 
     @Query("SELECT * FROM local_usage_ledger WHERE user_id = :userId AND document_id = :documentId LIMIT 1")
     suspend fun getLedgerByDocId(userId: String, documentId: String): LocalUsageLedgerEntity?
+
+    @Query("DELETE FROM local_usage_ledger WHERE user_id = :userId AND document_id = :documentId")
+    suspend fun deleteLedgerByDocId(userId: String, documentId: String)
 
     @Query("SELECT * FROM local_usage_ledger WHERE user_id = :userId AND operation_id = :operationId LIMIT 1")
     suspend fun getLedgerByOpId(userId: String, operationId: String): LocalUsageLedgerEntity?
