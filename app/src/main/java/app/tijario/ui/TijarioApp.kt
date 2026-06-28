@@ -380,8 +380,8 @@ fun TijarioApp() {
                                         colors = NavigationBarItemDefaults.colors(
                                             selectedIconColor = MaterialTheme.colorScheme.primary,
                                             selectedTextColor = MaterialTheme.colorScheme.primary,
-                                            unselectedIconColor = Color(0xFF64748B),
-                                            unselectedTextColor = Color(0xFF64748B),
+                                            unselectedIconColor = if (androidx.compose.foundation.isSystemInDarkTheme()) Color.White else Color.Black,
+                                            unselectedTextColor = if (androidx.compose.foundation.isSystemInDarkTheme()) Color.White else Color.Black,
                                             indicatorColor = Color.Transparent
                                         )
                                     )

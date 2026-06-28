@@ -1,4 +1,4 @@
-package app.tijario.ui.screens
+﻿package app.tijario.ui.screens
 
 import android.content.Context
 import android.content.ActivityNotFoundException
@@ -2477,6 +2477,10 @@ fun AiToolsScreen(
 
     var selectedTab by remember { mutableStateOf(0) }
 
+    // Validation state trackers
+    var replySubmitted by remember { mutableStateOf(false) }
+    var captionSubmitted by remember { mutableStateOf(false) }
+
     // Smart Reply form
     var quickCase by remember { mutableStateOf<String?>(null) }
     var customerName by remember { mutableStateOf("") }
@@ -2529,451 +2533,527 @@ fun AiToolsScreen(
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .verticalScroll(scrollState)
-            .padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        if (!hideHeader) {
-            Column {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Icon(Icons.Filled.AutoAwesome, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                    Text(
-                        text = t("ai_title"),
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onBackground
+    val onGenerateReply = {
+        replySubmitted = true
+        if (quickCase != null || customerMessage.isNotBlank()) {
+            scope.launch {
+                try {
+                    isReplyLoading = true
+                    replyError = null
+                    replyVariants = emptyList()
+                    val req = AiV2ReplyRequest(
+                        clientRequestId = UUID.randomUUID().toString(),
+                        customerMessage = customerMessage.ifBlank { null },
+                        quickCase = quickCase,
+                        customerName = customerName.ifBlank { null },
+                        goal = "auto",
+                        dialect = replyDialect,
+                        tone = replyTone,
+                        length = replyLength,
+                        extraContext = replyExtraNote.ifBlank { null },
+                        language = if (language == AppLanguage.AR) "ar" else "en",
                     )
+                    val res = dataViewModel.generateAiReplyV2(req)
+                    if (res.ok) {
+                        replyGenerationId = res.data?.generationId
+                        replyVariants = res.data?.variants ?: emptyList()
+                    } else {
+                        replyError = res.message ?: Localization.getString("unexpected_error", language)
+                    }
+                } catch (e: Exception) {
+                    replyError = e.message ?: Localization.getString("unexpected_error", language)
+                } finally {
+                    isReplyLoading = false
                 }
-                Text(
-                    text = t("ai_subtitle"),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
             }
         }
+    }
 
-        // Limit Banner
-        if (isAiLimitReached) {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+    val onGenerateCaption = {
+        captionSubmitted = true
+        if (productOrService.isNotBlank()) {
+            scope.launch {
+                try {
+                    isCaptionLoading = true
+                    captionError = null
+                    captionVariants = emptyList()
+                    val req = AiV2CaptionRequest(
+                        clientRequestId = UUID.randomUUID().toString(),
+                        productOrService = productOrService,
+                        captionType = captionType,
+                        platform = platform,
+                        dialect = captionDialect,
+                        tone = captionTone,
+                        length = captionLength,
+                        offer = offer.ifBlank { null },
+                        productImage = captionImage,
+                        extraContext = captionExtraNote.ifBlank { null },
+                        language = if (language == AppLanguage.AR) "ar" else "en",
+                    )
+                    val res = dataViewModel.generateAiCaptionV2(req)
+                    if (res.ok) {
+                        captionGenerationId = res.data?.generationId
+                        captionVariants = res.data?.variants ?: emptyList()
+                    } else {
+                        captionError = res.message ?: Localization.getString("unexpected_error", language)
+                    }
+                } catch (e: Exception) {
+                    captionError = e.message ?: Localization.getString("unexpected_error", language)
+                } finally {
+                    isCaptionLoading = false
+                }
+            }
+        }
+    }
+
+    val isArabic = language == AppLanguage.AR
+
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        bottomBar = {
+            Surface(
+                tonalElevation = 8.dp,
+                shadowElevation = 8.dp,
+                color = MaterialTheme.colorScheme.surface,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text(
-                    text = t("ai_limit_reached"),
-                    color = MaterialTheme.colorScheme.onErrorContainer,
-                    modifier = Modifier.padding(16.dp),
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center
-                )
+                Box(modifier = Modifier.padding(16.dp)) {
+                    if (selectedTab == 0) {
+                        TijarioButton(
+                            text = t("btn_generate_reply"),
+                            onClick = onGenerateReply,
+                            enabled = !isAiLimitReached && !isReplyLoading,
+                            isLoading = isReplyLoading,
+                            icon = Icons.AutoMirrored.Filled.Send,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    } else {
+                        TijarioButton(
+                            text = t("ai_btn_gen_caption"),
+                            onClick = onGenerateCaption,
+                            enabled = !isAiLimitReached && !isCaptionLoading,
+                            isLoading = isCaptionLoading,
+                            icon = Icons.AutoMirrored.Filled.Send,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
             }
         }
-
-        TabRow(
-            selectedTabIndex = selectedTab,
-            containerColor = MaterialTheme.colorScheme.surface,
-            contentColor = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.clip(RoundedCornerShape(12.dp))
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+                .padding(paddingValues)
+                .verticalScroll(scrollState)
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Tab(
-                selected = selectedTab == 0,
-                onClick = { selectedTab = 0 },
-                text = { Text(t("tab_ai_reply"), fontWeight = FontWeight.Bold, fontSize = 14.sp) }
-            )
-            Tab(
-                selected = selectedTab == 1,
-                onClick = { selectedTab = 1 },
-                text = { Text(t("tab_ai_caption"), fontWeight = FontWeight.Bold, fontSize = 14.sp) }
-            )
-        }
+            if (!hideHeader) {
+                Column {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(Icons.Filled.AutoAwesome, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        Text(
+                            text = t("ai_title"),
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+                    }
+                    Text(
+                        text = t("ai_subtitle"),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
 
-        if (selectedTab == 0) {
-            // Smart Reply Form Card
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            // Limit Banner
+            if (isAiLimitReached) {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = t("ai_limit_reached"),
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        modifier = Modifier.padding(16.dp),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+
+            // Custom Pill Tab Layout matching Documents segment selector
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f), RoundedCornerShape(16.dp))
+                    .padding(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(t("ai_reply_settings"), fontWeight = FontWeight.Bold, fontSize = 15.sp)
-
-                    // Quick case
-                    Text(t("ai_case_type"), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
-                        listOf(
-                            "price_request" to t("ai_case_price_request"),
-                            "price_objection" to t("ai_case_price_objection"),
-                            "discount_request" to t("ai_case_discount_request"),
-                            "delivery_question" to t("ai_case_delivery_question"),
-                            "availability_question" to t("ai_case_availability_question"),
-                            "customer_hesitant" to t("ai_case_customer_hesitant"),
-                            "customer_interested" to t("ai_case_customer_interested"),
-                            "follow_up" to t("ai_case_follow_up"),
-                            "payment_reminder" to t("ai_case_payment_reminder"),
-                            "delayed_response_apology" to t("ai_case_delayed_apology"),
-                            "review_request" to t("ai_case_review_request"),
-                            "general_inquiry" to t("ai_case_general_inquiry"),
-                        ).forEach { (code, label) ->
-                            FilterChip(
-                                selected = quickCase == code,
-                                onClick = { quickCase = if (quickCase == code) null else code },
-                                label = { Text(label) }
-                            )
-                        }
-                    }
-
-                    // Dialect
-                    Text(t("ai_dialect"), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        listOf("fusha_simple" to t("ai_fusha_simple"), "gulf" to t("ai_gulf"), "yemeni" to t("ai_yemeni")).forEach { (code, label) ->
-                            FilterChip(
-                                selected = replyDialect == code,
-                                onClick = { replyDialect = code },
-                                label = { Text(label) }
-                            )
-                        }
-                    }
-
-                    // Tone
-                    Text(t("ai_tone"), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        listOf("friendly" to t("ai_tone_friendly"), "formal" to t("ai_tone_formal"), "sales" to t("ai_tone_sales")).forEach { (code, label) ->
-                            FilterChip(
-                                selected = replyTone == code,
-                                onClick = { replyTone = code },
-                                label = { Text(label) }
-                            )
-                        }
-                    }
-
-                    TijarioTextField(
-                        label = t("ai_cust_name_opt"),
-                        value = customerName,
-                        onValueChange = { customerName = it }
+                // Smart Replay tab
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(if (selectedTab == 0) MaterialTheme.colorScheme.primary else Color.Transparent)
+                        .clickable { selectedTab = 0 }
+                        .padding(vertical = 12.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.QuestionAnswer,
+                        contentDescription = null,
+                        tint = if (selectedTab == 0) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp)
                     )
-
-                    TijarioTextField(
-                        label = t("ai_cust_msg_opt"),
-                        value = customerMessage,
-                        onValueChange = { customerMessage = it },
-                        singleLine = false
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = t("tab_ai_reply"),
+                        fontWeight = FontWeight.Bold,
+                        color = if (selectedTab == 0) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 14.sp
                     )
+                }
 
-                    TijarioTextField(
-                        label = t("ai_notes_label"),
-                        value = replyExtraNote,
-                        onValueChange = { replyExtraNote = it },
-                        singleLine = false
+                // Smart Caption tab
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(if (selectedTab == 1) MaterialTheme.colorScheme.primary else Color.Transparent)
+                        .clickable { selectedTab = 1 }
+                        .padding(vertical = 12.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.AutoAwesome,
+                        contentDescription = null,
+                        tint = if (selectedTab == 1) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp)
                     )
-
-                    TijarioButton(
-                        text = t("btn_generate_reply"),
-                        onClick = {
-                            scope.launch {
-                                try {
-                                    isReplyLoading = true
-                                    replyError = null
-                                    replyVariants = emptyList()
-                                    val req = AiV2ReplyRequest(
-                                        clientRequestId = UUID.randomUUID().toString(),
-                                        customerMessage = customerMessage.ifBlank { null },
-                                        quickCase = quickCase,
-                                        customerName = customerName.ifBlank { null },
-                                        goal = "auto",
-                                        dialect = replyDialect,
-                                        tone = replyTone,
-                                        length = replyLength,
-                                        extraContext = replyExtraNote.ifBlank { null },
-                                        language = if (language == AppLanguage.AR) "ar" else "en",
-                                    )
-                                    val res = dataViewModel.generateAiReplyV2(req)
-                                    if (res.ok) {
-                                        replyGenerationId = res.data?.generationId
-                                        replyVariants = res.data?.variants ?: emptyList()
-                                    } else {
-                                        replyError = res.message ?: Localization.getString("unexpected_error", language)
-                                    }
-                                } catch (e: Exception) {
-                                    replyError = e.message ?: Localization.getString("unexpected_error", language)
-                                } finally {
-                                    isReplyLoading = false
-                                }
-                            }
-                        },
-                        enabled = !isAiLimitReached && !isReplyLoading && (quickCase != null || customerMessage.isNotBlank()),
-                        isLoading = isReplyLoading,
-                        icon = Icons.AutoMirrored.Filled.Send
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = t("tab_ai_caption"),
+                        fontWeight = FontWeight.Bold,
+                        color = if (selectedTab == 1) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 14.sp
                     )
-
-                    if (replyError != null) {
-                        Text(replyError!!, color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
-                    }
                 }
             }
 
-            // Suggestions List
-            if (replyVariants.isNotEmpty()) {
-                Text(t("generated_suggestions"), fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                replyVariants.forEach { variant ->
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFFF0FDF4)),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                val localizedLabel = when (variant.label.lowercase()) {
-                                    "formal" -> t("ai_tone_formal")
-                                    "sales" -> t("ai_tone_sales")
-                                    "friendly" -> t("ai_tone_friendly")
-                                    "funny" -> t("ai_tone_funny")
-                                    "premium" -> t("ai_tone_premium")
-                                    "short" -> if (language == AppLanguage.AR) "Ù‚ØµÙŠØ±" else "Short"
-                                    "medium" -> if (language == AppLanguage.AR) "Ù…ØªÙˆØ³Ø·" else "Medium"
-                                    "long" -> if (language == AppLanguage.AR) "Ø·ÙˆÙŠÙ„" else "Long"
-                                    "gulf" -> t("ai_gulf")
-                                    "yemeni" -> t("ai_yemeni")
-                                    "egypt" -> t("ai_egyptian")
-                                    "standard" -> t("ai_standard")
-                                    "instagram" -> t("ai_instagram")
-                                    "twitter" -> t("ai_twitter")
-                                    "facebook" -> t("ai_facebook")
-                                    else -> variant.label
-                                }
-                                Text(localizedLabel, fontWeight = FontWeight.Bold, color = Color(0xFF15803D), fontSize = 12.sp)
-                                IconButton(onClick = {
-                                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                                    val clip = android.content.ClipData.newPlainText("Reply", variant.text)
-                                    clipboard.setPrimaryClip(clip)
-                                    android.widget.Toast.makeText(context, Localization.getString("reply_copied", language), android.widget.Toast.LENGTH_SHORT).show()
-                                }, modifier = Modifier.size(36.dp)) {
-                                    Icon(Icons.Filled.ContentCopy, contentDescription = Localization.getString("copy", language), tint = Color(0xFF15803D))
-                                }
+            if (selectedTab == 0) {
+                // Smart Reply Form Card
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text(t("ai_reply_settings"), fontWeight = FontWeight.Bold, fontSize = 15.sp)
+
+                        // Quick case
+                        Text(t("ai_case_type"), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
+                            listOf(
+                                "price_request" to t("ai_case_price_request"),
+                                "price_objection" to t("ai_case_price_objection"),
+                                "discount_request" to t("ai_case_discount_request"),
+                                "delivery_question" to t("ai_case_delivery_question"),
+                                "availability_question" to t("ai_case_availability_question"),
+                                "customer_hesitant" to t("ai_case_customer_hesitant"),
+                                "customer_interested" to t("ai_case_customer_interested"),
+                                "follow_up" to t("ai_case_follow_up"),
+                                "payment_reminder" to t("ai_case_payment_reminder"),
+                                "delayed_response_apology" to t("ai_case_delayed_apology"),
+                                "review_request" to t("ai_case_review_request"),
+                                "general_inquiry" to t("ai_case_general_inquiry"),
+                            ).forEach { (code, label) ->
+                                FilterChip(
+                                    selected = quickCase == code,
+                                    onClick = { quickCase = if (quickCase == code) null else code },
+                                    label = { Text(label) }
+                                )
                             }
-                            Text(variant.text, color = Color(0xFF1E293B), fontSize = 14.sp)
-                            if (!replyGenerationId.isNullOrBlank()) {
-                                TextButton(onClick = {
-                                    scope.launch {
-                                        val result = dataViewModel.reportAiGenerationV2(
-                                            AiV2ReportRequest(
-                                                clientRequestId = UUID.randomUUID().toString(),
-                                                generationId = replyGenerationId!!,
-                                                issueType = "wrong_answer",
-                                                note = null,
+                        }
+
+                        // Dialect
+                        Text(t("ai_dialect"), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            listOf("fusha_simple" to t("ai_fusha_simple"), "gulf" to t("ai_gulf"), "yemeni" to t("ai_yemeni")).forEach { (code, label) ->
+                                FilterChip(
+                                    selected = replyDialect == code,
+                                    onClick = { replyDialect = code },
+                                    label = { Text(label) }
+                                )
+                            }
+                        }
+
+                        // Tone
+                        Text(t("ai_tone"), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            listOf("friendly" to t("ai_tone_friendly"), "formal" to t("ai_tone_formal"), "sales" to t("ai_tone_sales")).forEach { (code, label) ->
+                                FilterChip(
+                                    selected = replyTone == code,
+                                    onClick = { replyTone = code },
+                                    label = { Text(label) }
+                                )
+                            }
+                        }
+
+                        TijarioTextField(
+                            label = t("ai_cust_name_opt"),
+                            value = customerName,
+                            onValueChange = { customerName = it }
+                        )
+
+                        TijarioTextField(
+                            label = t("ai_cust_msg_opt"),
+                            value = customerMessage,
+                            onValueChange = { customerMessage = it },
+                            singleLine = false,
+                            error = if (replySubmitted && quickCase == null && customerMessage.isBlank()) t("ai_msg_or_case_required") else null
+                        )
+
+                        TijarioTextField(
+                            label = t("ai_notes_label"),
+                            value = replyExtraNote,
+                            onValueChange = { replyExtraNote = it },
+                            singleLine = false
+                        )
+
+                        if (replyError != null) {
+                            Text(replyError!!, color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
+                        }
+                    }
+                }
+
+                // Suggestions List
+                if (replyVariants.isNotEmpty()) {
+                    Text(t("generated_suggestions"), fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    replyVariants.forEach { variant ->
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFFF0FDF4)),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    val localizedLabel = when (variant.label.lowercase()) {
+                                        "formal" -> t("ai_tone_formal")
+                                        "sales" -> t("ai_tone_sales")
+                                        "friendly" -> t("ai_tone_friendly")
+                                        "funny" -> t("ai_tone_funny")
+                                        "premium" -> t("ai_tone_premium")
+                                        "short" -> if (language == AppLanguage.AR) "قصير" else "Short"
+                                        "medium" -> if (language == AppLanguage.AR) "متوسط" else "Medium"
+                                        "long" -> if (language == AppLanguage.AR) "طويل" else "Long"
+                                        "gulf" -> t("ai_gulf")
+                                        "yemeni" -> t("ai_yemeni")
+                                        "egypt" -> t("ai_egyptian")
+                                        "standard" -> t("ai_standard")
+                                        "instagram" -> t("ai_instagram")
+                                        "twitter" -> t("ai_twitter")
+                                        "facebook" -> t("ai_facebook")
+                                        else -> variant.label
+                                    }
+                                    Text(localizedLabel, fontWeight = FontWeight.Bold, color = Color(0xFF15803D), fontSize = 12.sp)
+                                    IconButton(onClick = {
+                                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                                        val clip = android.content.ClipData.newPlainText("Reply", variant.text)
+                                        clipboard.setPrimaryClip(clip)
+                                        android.widget.Toast.makeText(context, Localization.getString("reply_copied", language), android.widget.Toast.LENGTH_SHORT).show()
+                                    }, modifier = Modifier.size(36.dp)) {
+                                        Icon(Icons.Filled.ContentCopy, contentDescription = Localization.getString("copy", language), tint = Color(0xFF15803D))
+                                    }
+                                }
+                                Text(variant.text, color = Color(0xFF1E293B), fontSize = 14.sp)
+                                if (!replyGenerationId.isNullOrBlank()) {
+                                    TextButton(onClick = {
+                                        scope.launch {
+                                            val result = dataViewModel.reportAiGenerationV2(
+                                                AiV2ReportRequest(
+                                                    clientRequestId = UUID.randomUUID().toString(),
+                                                    generationId = replyGenerationId!!,
+                                                    issueType = "wrong_answer",
+                                                    note = null,
+                                                )
                                             )
-                                        )
-                                        if (!result.ok) {
-                                            replyError = result.message ?: Localization.getString("unexpected_error", language)
+                                            if (!result.ok) {
+                                                replyError = result.message ?: Localization.getString("unexpected_error", language)
+                                            }
                                         }
+                                    }) {
+                                        Text(t("ai_report"))
                                     }
-                                }) {
-                                    Text(t("ai_report"))
                                 }
                             }
                         }
                     }
                 }
-            }
-        } else {
-            // Smart Caption Form Card
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-            ) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(t("ai_caption_settings"), fontWeight = FontWeight.Bold, fontSize = 15.sp)
+            } else {
+                // Smart Caption Form Card
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text(t("ai_caption_settings"), fontWeight = FontWeight.Bold, fontSize = 15.sp)
 
-                    // Platform
-                    Text(t("ai_platform"), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        listOf("instagram" to t("ai_instagram"), "twitter" to t("ai_twitter"), "facebook" to t("ai_facebook")).forEach { (code, label) ->
-                            FilterChip(
-                                selected = platform == code,
-                                onClick = { platform = code },
-                                label = { Text(label) }
-                            )
-                        }
-                    }
-
-                    // Dialect
-                    Text(t("ai_dialect"), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        listOf("fusha_simple" to t("ai_fusha_simple"), "gulf" to t("ai_gulf"), "yemeni" to t("ai_yemeni")).forEach { (code, label) ->
-                            FilterChip(
-                                selected = captionDialect == code,
-                                onClick = { captionDialect = code },
-                                label = { Text(label) }
-                            )
-                        }
-                    }
-
-                    // Tone
-                    Text(t("ai_tone"), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        listOf("sales" to t("ai_tone_sales"), "friendly" to t("ai_tone_friendly"), "premium" to t("ai_tone_premium")).forEach { (code, label) ->
-                            FilterChip(
-                                selected = captionTone == code,
-                                onClick = { captionTone = code },
-                                label = { Text(label) }
-                            )
-                        }
-                    }
-
-                    TijarioTextField(
-                        label = t("ai_prod_srv_label"),
-                        value = productOrService,
-                        onValueChange = { productOrService = it }
-                    )
-
-                    TijarioTextField(
-                        label = t("ai_offer_label"),
-                        value = offer,
-                        onValueChange = { offer = it }
-                    )
-
-                    OutlinedButton(
-                        onClick = { captionImagePicker.launch("image/*") },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(14.dp)
-                    ) {
-                        Icon(Icons.Filled.PhotoCamera, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(captionImageLabel ?: t("ai_add_image_opt"))
-                    }
-
-                    if (captionImage != null) {
-                        TextButton(onClick = {
-                            captionImage = null
-                            captionImageLabel = null
-                        }) {
-                            Text(t("ai_remove_image"))
-                        }
-                    }
-
-                    TijarioTextField(
-                        label = t("ai_notes_simple"),
-                        value = captionExtraNote,
-                        onValueChange = { captionExtraNote = it },
-                        singleLine = false
-                    )
-
-                    TijarioButton(
-                        text = t("ai_btn_gen_caption"),
-                        onClick = {
-                            scope.launch {
-                                try {
-                                    isCaptionLoading = true
-                                    captionError = null
-                                    captionVariants = emptyList()
-                                    val req = AiV2CaptionRequest(
-                                        clientRequestId = UUID.randomUUID().toString(),
-                                        productOrService = productOrService,
-                                        captionType = captionType,
-                                        platform = platform,
-                                        dialect = captionDialect,
-                                        tone = captionTone,
-                                        length = captionLength,
-                                        offer = offer.ifBlank { null },
-                                        productImage = captionImage,
-                                        extraContext = captionExtraNote.ifBlank { null },
-                                        language = if (language == AppLanguage.AR) "ar" else "en",
-                                    )
-                                    val res = dataViewModel.generateAiCaptionV2(req)
-                                    if (res.ok) {
-                                        captionGenerationId = res.data?.generationId
-                                        captionVariants = res.data?.variants ?: emptyList()
-                                    } else {
-                                        captionError = res.message ?: Localization.getString("unexpected_error", language)
-                                    }
-                                } catch (e: Exception) {
-                                    captionError = e.message ?: Localization.getString("unexpected_error", language)
-                                } finally {
-                                    isCaptionLoading = false
-                                }
+                        // Platform
+                        Text(t("ai_platform"), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            listOf("instagram" to t("ai_instagram"), "twitter" to t("ai_twitter"), "facebook" to t("ai_facebook")).forEach { (code, label) ->
+                                FilterChip(
+                                    selected = platform == code,
+                                    onClick = { platform = code },
+                                    label = { Text(label) }
+                                )
                             }
-                        },
-                        enabled = !isAiLimitReached && !isCaptionLoading && productOrService.isNotBlank(),
-                        isLoading = isCaptionLoading,
-                        icon = Icons.AutoMirrored.Filled.Send
-                    )
+                        }
 
-                    if (captionError != null) {
-                        Text(captionError!!, color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
+                        // Dialect
+                        Text(t("ai_dialect"), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            listOf("fusha_simple" to t("ai_fusha_simple"), "gulf" to t("ai_gulf"), "yemeni" to t("ai_yemeni")).forEach { (code, label) ->
+                                FilterChip(
+                                    selected = captionDialect == code,
+                                    onClick = { captionDialect = code },
+                                    label = { Text(label) }
+                                )
+                            }
+                        }
+
+                        // Tone
+                        Text(t("ai_tone"), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            listOf("sales" to t("ai_tone_sales"), "friendly" to t("ai_tone_friendly"), "premium" to t("ai_tone_premium")).forEach { (code, label) ->
+                                FilterChip(
+                                    selected = captionTone == code,
+                                    onClick = { captionTone = code },
+                                    label = { Text(label) }
+                                )
+                            }
+                        }
+
+                        TijarioTextField(
+                            label = t("ai_prod_srv_label"),
+                            value = productOrService,
+                            onValueChange = { productOrService = it },
+                            error = if (captionSubmitted && productOrService.isBlank()) t("field_required") else null
+                        )
+
+                        TijarioTextField(
+                            label = t("ai_offer_label"),
+                            value = offer,
+                            onValueChange = { offer = it }
+                        )
+
+                        OutlinedButton(
+                            onClick = { captionImagePicker.launch("image/*") },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(14.dp)
+                        ) {
+                            Icon(Icons.Filled.PhotoCamera, contentDescription = null)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(captionImageLabel ?: t("ai_add_image_opt"))
+                        }
+
+                        if (captionImage != null) {
+                            TextButton(onClick = {
+                                captionImage = null
+                                captionImageLabel = null
+                            }) {
+                                Text(t("ai_remove_image"))
+                            }
+                        }
+
+                        TijarioTextField(
+                            label = t("ai_notes_simple"),
+                            value = captionExtraNote,
+                            onValueChange = { captionExtraNote = it },
+                            singleLine = false
+                        )
+
+                        if (captionError != null) {
+                            Text(captionError!!, color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
+                        }
                     }
                 }
-            }
 
-            // Captions List
-            if (captionVariants.isNotEmpty()) {
-                Text(t("generated_suggestions"), fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                captionVariants.forEach { variant ->
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFFF0FDF4)),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                val localizedLabel = when (variant.label.lowercase()) {
-                                    "formal" -> t("ai_tone_formal")
-                                    "sales" -> t("ai_tone_sales")
-                                    "friendly" -> t("ai_tone_friendly")
-                                    "funny" -> t("ai_tone_funny")
-                                    "premium" -> t("ai_tone_premium")
-                                    "short" -> if (language == AppLanguage.AR) "Ù‚ØµÙŠØ±" else "Short"
-                                    "medium" -> if (language == AppLanguage.AR) "Ù…ØªÙˆØ³Ø·" else "Medium"
-                                    "long" -> if (language == AppLanguage.AR) "Ø·ÙˆÙŠÙ„" else "Long"
-                                    "gulf" -> t("ai_gulf")
-                                    "yemeni" -> t("ai_yemeni")
-                                    "egypt" -> t("ai_egyptian")
-                                    "standard" -> t("ai_standard")
-                                    "instagram" -> t("ai_instagram")
-                                    "twitter" -> t("ai_twitter")
-                                    "facebook" -> t("ai_facebook")
-                                    else -> variant.label
+                // Captions List
+                if (captionVariants.isNotEmpty()) {
+                    Text(t("generated_suggestions"), fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    captionVariants.forEach { variant ->
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFFF0FDF4)),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    val localizedLabel = when (variant.label.lowercase()) {
+                                        "formal" -> t("ai_tone_formal")
+                                        "sales" -> t("ai_tone_sales")
+                                        "friendly" -> t("ai_tone_friendly")
+                                        "funny" -> t("ai_tone_funny")
+                                        "premium" -> t("ai_tone_premium")
+                                        "short" -> if (language == AppLanguage.AR) "قصير" else "Short"
+                                        "medium" -> if (language == AppLanguage.AR) "متوسط" else "Medium"
+                                        "long" -> if (language == AppLanguage.AR) "طويل" else "Long"
+                                        "gulf" -> t("ai_gulf")
+                                        "yemeni" -> t("ai_yemeni")
+                                        "egypt" -> t("ai_egyptian")
+                                        "standard" -> t("ai_standard")
+                                        "instagram" -> t("ai_instagram")
+                                        "twitter" -> t("ai_twitter")
+                                        "facebook" -> t("ai_facebook")
+                                        else -> variant.label
+                                    }
+                                    Text(localizedLabel, fontWeight = FontWeight.Bold, color = Color(0xFF15803D), fontSize = 12.sp)
+                                    IconButton(onClick = {
+                                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                                        val textToCopy = variant.text
+                                        val clip = android.content.ClipData.newPlainText("Caption", textToCopy)
+                                        clipboard.setPrimaryClip(clip)
+                                        android.widget.Toast.makeText(context, Localization.getString("caption_copied", language), android.widget.Toast.LENGTH_SHORT).show()
+                                    }, modifier = Modifier.size(36.dp)) {
+                                        Icon(Icons.Filled.ContentCopy, contentDescription = Localization.getString("copy", language), tint = Color(0xFF15803D))
+                                    }
                                 }
-                                Text(localizedLabel, fontWeight = FontWeight.Bold, color = Color(0xFF15803D), fontSize = 12.sp)
-                                IconButton(onClick = {
-                                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                                    val textToCopy = variant.text
-                                    val clip = android.content.ClipData.newPlainText("Caption", textToCopy)
-                                    clipboard.setPrimaryClip(clip)
-                                    android.widget.Toast.makeText(context, Localization.getString("caption_copied", language), android.widget.Toast.LENGTH_SHORT).show()
-                                }, modifier = Modifier.size(36.dp)) {
-                                    Icon(Icons.Filled.ContentCopy, contentDescription = Localization.getString("copy", language), tint = Color(0xFF15803D))
-                                }
-                            }
-                            Text(variant.text, color = Color(0xFF1E293B), fontSize = 14.sp)
-                            if (!captionGenerationId.isNullOrBlank()) {
-                                TextButton(onClick = {
-                                    scope.launch {
-                                        val result = dataViewModel.reportAiGenerationV2(
-                                            AiV2ReportRequest(
-                                                clientRequestId = UUID.randomUUID().toString(),
-                                                generationId = captionGenerationId!!,
-                                                issueType = "wrong_answer",
-                                                note = null,
+                                Text(variant.text, color = Color(0xFF1E293B), fontSize = 14.sp)
+                                if (!captionGenerationId.isNullOrBlank()) {
+                                    TextButton(onClick = {
+                                        scope.launch {
+                                            val result = dataViewModel.reportAiGenerationV2(
+                                                AiV2ReportRequest(
+                                                    clientRequestId = UUID.randomUUID().toString(),
+                                                    generationId = captionGenerationId!!,
+                                                    issueType = "wrong_answer",
+                                                    note = null,
+                                                )
                                             )
-                                        )
-                                        if (!result.ok) {
-                                            captionError = result.message ?: Localization.getString("unexpected_error", language)
+                                            if (!result.ok) {
+                                                captionError = result.message ?: Localization.getString("unexpected_error", language)
+                                            }
                                         }
+                                    }) {
+                                        Text(t("ai_report"))
                                     }
-                                }) {
-                                    Text(t("ai_report"))
                                 }
                             }
                         }
@@ -2983,6 +3063,7 @@ fun AiToolsScreen(
         }
     }
 }
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
