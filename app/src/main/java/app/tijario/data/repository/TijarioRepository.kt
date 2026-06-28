@@ -46,6 +46,11 @@ import kotlinx.serialization.json.addJsonObject
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.isSuccess
 
+private val repositoryJson = kotlinx.serialization.json.Json {
+    ignoreUnknownKeys = true
+    encodeDefaults = true
+}
+
 data class CacheSyncState(
     val isRefreshing: Boolean = false,
     val lastSyncedAt: Long? = null,
@@ -1394,6 +1399,7 @@ open class TijarioRepository(
                                     put("instagram_url", bs.instagramUrl)
                                     put("invoice_note", bs.invoiceNote)
                                     put("terms_text", bs.termsText)
+                                    put("logo_url", bs.logoUrl)
                                 }
                             } else {
                                 buildJsonObject {}
@@ -1418,7 +1424,7 @@ open class TijarioRepository(
                 if (pushResponse.status.value == 401) throw IllegalStateException("SESSION_EXPIRED")
                 if (!pushResponse.status.isSuccess()) throw IllegalStateException("RETRYABLE_NETWORK_ERROR")
 
-                val pushResult = kotlinx.serialization.json.Json.decodeFromString<PushSyncResponse>(pushResponse.bodyAsText())
+                val pushResult = repositoryJson.decodeFromString<PushSyncResponse>(pushResponse.bodyAsText())
                 pushResult.results.forEach { res ->
                     val outboxItem = pending.find { it.id == res.operation_id } ?: return@forEach
                     database.withTransaction {
@@ -1532,7 +1538,7 @@ open class TijarioRepository(
 
             val pullResponse = backendApiClient.pullSync(PullSyncRequest(lastSyncedTimeStr))
             if (pullResponse.status.isSuccess()) {
-                val pullResult = kotlinx.serialization.json.Json.decodeFromString<PullSyncResponse>(pullResponse.bodyAsText())
+                val pullResult = repositoryJson.decodeFromString<PullSyncResponse>(pullResponse.bodyAsText())
                 database.withTransaction {
                     pullResult.changes.customers.forEach { item ->
                         val local = dao.getCustomer(userId, item.id)
@@ -1575,13 +1581,13 @@ open class TijarioRepository(
                         if (local == null || local.syncStatus == "SYNCED") {
                             dao.upsertBusinessSettings(app.tijario.data.local.BusinessSettingsEntity(
                                 userId = userId,
-                                remoteId = null,
+                                remoteId = item.id,
                                 businessName = item.business_name,
                                 whatsappNumber = item.whatsapp_number,
                                 country = item.country,
                                 city = item.city,
                                 currency = item.currency,
-                                logoUrl = null,
+                                logoUrl = item.logo_url,
                                 instagramUrl = item.instagram_url,
                                 invoiceNote = item.invoice_note,
                                 termsText = item.terms_text,
@@ -1654,7 +1660,7 @@ open class TijarioRepository(
             val deviceId = android.os.Build.MODEL + "_" + android.os.Build.ID
             val leaseResponse = backendApiClient.requestOfflineLease(OfflineLeaseRequest(deviceId))
             if (leaseResponse.status.isSuccess()) {
-                val leaseResult = kotlinx.serialization.json.Json.decodeFromString<OfflineLeaseResponse>(leaseResponse.bodyAsText())
+                val leaseResult = repositoryJson.decodeFromString<OfflineLeaseResponse>(leaseResponse.bodyAsText())
                 val periodMonth = Date().toInstant().toString().substring(0, 7) + "-01"
                 dao.upsertLease(app.tijario.data.local.OfflineQuotaLeaseEntity(
                     id = leaseResult.lease_id,

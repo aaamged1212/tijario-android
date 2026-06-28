@@ -853,13 +853,10 @@ fun BusinessSettingsScreen(
 
 
                     // Row 3: رقم التواصل
-                    val maskedPhone = remember(form.whatsapp) {
-                        if (form.whatsapp.length > 4) "•••• " + form.whatsapp.takeLast(4) else "•••• ••••"
-                    }
                     SettingsItemRow(
                         icon = Icons.Filled.Phone,
                         title = t("contact_phone"),
-                        value = maskedPhone,
+                        value = form.whatsapp,
                         onClick = { activeDialog = "phone" }
                     )
 

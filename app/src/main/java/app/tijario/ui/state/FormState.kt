@@ -52,8 +52,9 @@ data class BusinessSettingsFormState(
     val whatsappError: String? get() = Validation.whatsapp(whatsapp, lang)
     val countryError: String? get() = Validation.required(country, "country", lang)
     val currencyError: String? get() = Validation.required(currency, "currency", lang)
+    val cityError: String? get() = Validation.required(city, "city", lang)
     val canSubmit: Boolean get() =
-        businessNameError == null && whatsappError == null && countryError == null && currencyError == null
+        businessNameError == null && whatsappError == null && countryError == null && currencyError == null && cityError == null
 }
 
 data class CustomerFormState(

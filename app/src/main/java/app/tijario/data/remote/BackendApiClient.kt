@@ -442,12 +442,14 @@ data class DocumentItemServerDto(
 
 @Serializable
 data class BusinessSettingsServerDto(
+    val id: String? = null,
     val user_id: String,
     val business_name: String,
     val whatsapp_number: String,
     val country: String,
     val city: String?,
     val currency: String,
+    val logo_url: String? = null,
     val instagram_url: String?,
     val invoice_note: String?,
     val terms_text: String?,
