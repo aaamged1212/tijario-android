@@ -106,12 +106,17 @@ class TijarioDataViewModel(
 
     fun refreshPlanUsage() {
         viewModelScope.launch {
-            planUsageStateMutable.value = PlanUsageState.Loading
+            val currentState = planUsageStateMutable.value
+            if (currentState !is PlanUsageState.Success) {
+                planUsageStateMutable.value = PlanUsageState.Loading
+            }
             repository.fetchUserPlanUsage().onSuccess { usage ->
                 planUsageStateMutable.value = PlanUsageState.Success(usage)
                 uiStateMutable.update { it.copy(planUsage = usage) }
             }.onFailure { error ->
-                planUsageStateMutable.value = PlanUsageState.Error(error.message ?: "تعذر تحميل بيانات الخطة.")
+                if (currentState !is PlanUsageState.Success) {
+                    planUsageStateMutable.value = PlanUsageState.Error(error.message ?: "تعذر تحميل بيانات الخطة.")
+                }
             }
         }
     }

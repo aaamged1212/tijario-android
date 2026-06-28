@@ -393,18 +393,8 @@ fun DashboardScreen(
                     )
                     .padding(24.dp)
             ) {
-                // Wavy graph on the end side of the card (left in RTL, right in LTR)
-                StatsWavyGraph(
-                    values = sparklineValues,
-                    modifier = Modifier
-                        .align(Alignment.CenterEnd)
-                        .width(130.dp)
-                        .height(80.dp)
-                        .offset(x = 8.dp, y = (-12).dp)
-                )
-
                 Column(
-                    modifier = Modifier.align(Alignment.TopStart),
+                    modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     Row(
@@ -463,6 +453,30 @@ fun DashboardScreen(
                                 modifier = Modifier.padding(bottom = 4.dp)
                             )
                         }
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        MiniStatItem(
+                            count = uiState.customers.size,
+                            label = if (isArabic) "العملاء" else "Customers",
+                            icon = Icons.Filled.Person,
+                            modifier = Modifier.weight(1f)
+                        )
+                        MiniStatItem(
+                            count = uiState.products.size,
+                            label = if (isArabic) "المنتجات" else "Products",
+                            icon = Icons.Filled.GridView,
+                            modifier = Modifier.weight(1f)
+                        )
+                        MiniStatItem(
+                            count = uiState.documents.size,
+                            label = if (isArabic) "المستندات" else "Documents",
+                            icon = Icons.Filled.Receipt,
+                            modifier = Modifier.weight(1f)
+                        )
                     }
 
                     HorizontalDivider(color = Color.White.copy(alpha = 0.12f))
@@ -3472,6 +3486,45 @@ private fun UsageIndicator(title: String, used: Int, total: Int, color: Color) {
             color = color,
             trackColor = MaterialTheme.colorScheme.surfaceVariant
         )
+    }
+}
+
+@Composable
+private fun MiniStatItem(
+    count: Int,
+    label: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        color = Color.White.copy(alpha = 0.06f),
+        shape = RoundedCornerShape(16.dp),
+        modifier = modifier
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = Color(0xFF2DD4BF),
+                modifier = Modifier.size(16.dp)
+            )
+            Text(
+                text = count.toString(),
+                color = Color.White,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = label,
+                color = Color.White.copy(alpha = 0.6f),
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Medium
+            )
+        }
     }
 }
 
