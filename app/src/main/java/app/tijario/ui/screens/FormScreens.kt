@@ -726,27 +726,48 @@ fun BusinessSettingsScreen(
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         modifier = Modifier.weight(1f)
                     ) {
-                        Surface(
-                            color = Color.White,
-                            shape = CircleShape,
+                        Box(
                             modifier = Modifier
                                 .size(60.dp)
                                 .clickable(enabled = !isLogoUploading) { logoPicker.launch("image/*") }
                         ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                when {
-                                    isLogoUploading -> CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color(0xFF0D9488))
-                                    logoBitmap != null -> Image(
-                                        bitmap = logoBitmap!!.asImageBitmap(),
+                            Surface(
+                                color = Color.White,
+                                shape = CircleShape,
+                                modifier = Modifier.fillMaxSize()
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    when {
+                                        isLogoUploading -> CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color(0xFF0D9488))
+                                        logoBitmap != null -> Image(
+                                            bitmap = logoBitmap!!.asImageBitmap(),
+                                            contentDescription = null,
+                                            modifier = Modifier.fillMaxSize(),
+                                            contentScale = ContentScale.Crop
+                                        )
+                                        else -> Icon(
+                                            imageVector = Icons.Filled.Storefront,
+                                            contentDescription = null,
+                                            tint = Color(0xFF0D9488),
+                                            modifier = Modifier.size(32.dp)
+                                        )
+                                    }
+                                }
+                            }
+                            // Edit Badge overlay at bottom right
+                            Surface(
+                                color = Color(0xFF0D9488),
+                                shape = CircleShape,
+                                modifier = Modifier
+                                    .size(20.dp)
+                                    .align(Alignment.BottomEnd)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Edit,
                                         contentDescription = null,
-                                        modifier = Modifier.fillMaxSize(),
-                                        contentScale = ContentScale.Crop
-                                    )
-                                    else -> Icon(
-                                        imageVector = Icons.Filled.Storefront,
-                                        contentDescription = null,
-                                        tint = Color(0xFF0D9488),
-                                        modifier = Modifier.size(32.dp)
+                                        tint = Color.White,
+                                        modifier = Modifier.size(12.dp)
                                     )
                                 }
                             }
@@ -780,6 +801,15 @@ fun BusinessSettingsScreen(
                                 text = t("store_slogan"),
                                 color = Color.White.copy(alpha = 0.7f),
                                 fontSize = 11.sp
+                            )
+                            Text(
+                                text = if (language == AppLanguage.AR) "ارفع شعار متجرك أو نشاطك" else "Upload store or business logo",
+                                color = Color(0xFF2DD4BF),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier
+                                    .padding(top = 4.dp)
+                                    .clickable(enabled = !isLogoUploading) { logoPicker.launch("image/*") }
                             )
                         }
                     }

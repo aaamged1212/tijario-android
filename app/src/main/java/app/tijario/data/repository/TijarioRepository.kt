@@ -970,8 +970,20 @@ open class TijarioRepository(
         deleteProductLocal(productId).getOrThrow()
     }
 
-    suspend fun saveBusinessSettings(settings: BusinessSettings): Result<Unit> =
-        updateBusinessSettingsLocal(settings)
+    suspend fun saveBusinessSettings(settings: BusinessSettings): Result<Unit> = runCatching {
+        updateBusinessSettingsLocal(settings).getOrThrow()
+        val userId = currentUserId()
+        if (userId != null) {
+            withContext(Dispatchers.IO) {
+                val existing = dao.getBusinessSettings(userId)
+                val settingsToUpsert = settings.copy(
+                    id = existing?.remoteId ?: settings.id,
+                    userId = userId
+                )
+                supabaseClient.from("business_settings").upsert(settingsToUpsert)
+            }
+        }
+    }
 
     suspend fun cacheBusinessSettings(settings: BusinessSettings): Result<Unit> = runCatching {
         val userId = settings.userId ?: requireUserId()

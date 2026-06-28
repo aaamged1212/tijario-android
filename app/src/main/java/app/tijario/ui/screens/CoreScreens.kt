@@ -1,4 +1,4 @@
-﻿package app.tijario.ui.screens
+package app.tijario.ui.screens
 
 import android.content.Context
 import android.content.ActivityNotFoundException
@@ -315,17 +315,32 @@ fun DashboardScreen(
     }
 
     val businessCurrency = uiState.businessSettings?.currency ?: "SAR"
-    val currencyName = when (businessCurrency.uppercase()) {
-        "SAR" -> "Ø§Ù„Ø±ÙŠØ§Ù„ Ø§Ù„Ø³Ø¹ÙˆØ¯ÙŠ"
-        "YER" -> "Ø§Ù„Ø±ÙŠØ§Ù„ Ø§Ù„ÙŠÙ…Ù†ÙŠ"
-        "USD" -> "Ø§Ù„Ø¯ÙˆÙ„Ø§Ø± Ø§Ù„Ø£Ù…Ø±ÙŠÙƒÙŠ"
-        "AED" -> "Ø§Ù„Ø¯Ø±Ù‡Ù… Ø§Ù„Ø¥Ù…Ø§Ø±Ø§ØªÙŠ"
-        "EGP" -> "Ø§Ù„Ø¬Ù†ÙŠÙ‡ Ø§Ù„Ù…ØµØ±ÙŠ"
-        "KWD" -> "Ø§Ù„Ø¯ÙŠÙ†Ø§Ø± Ø§Ù„ÙƒÙˆÙŠØªÙŠ"
-        "BHD" -> "Ø§Ù„Ø¯ÙŠÙ†Ø§Ø± Ø§Ù„Ø¨Ø­Ø±ÙŠÙ†ÙŠ"
-        "OMR" -> "Ø§Ù„Ø±ÙŠØ§Ù„ Ø§Ù„Ø¹Ù…Ø§Ù†ÙŠ"
-        "QAR" -> "Ø§Ù„Ø±ÙŠØ§Ù„ Ø§Ù„Ù‚Ø·Ø±ÙŠ"
-        else -> businessCurrency
+    val currencyName = if (isArabic) {
+        when (businessCurrency.uppercase()) {
+            "SAR" -> "الريال السعودي"
+            "YER" -> "الريال اليمني"
+            "USD" -> "الدولار الأمريكي"
+            "AED" -> "الدرهم الإماراتي"
+            "EGP" -> "الجنيه المصري"
+            "KWD" -> "الدينار الكويتي"
+            "BHD" -> "الدينار البحريني"
+            "OMR" -> "الريال العماني"
+            "QAR" -> "الريال القطري"
+            else -> businessCurrency
+        }
+    } else {
+        when (businessCurrency.uppercase()) {
+            "SAR" -> "Saudi Riyal"
+            "YER" -> "Yemeni Rial"
+            "USD" -> "US Dollar"
+            "AED" -> "UAE Dirham"
+            "EGP" -> "Egyptian Pound"
+            "KWD" -> "Kuwaiti Dinar"
+            "BHD" -> "Bahraini Dinar"
+            "OMR" -> "Omani Rial"
+            "QAR" -> "Qatari Riyal"
+            else -> businessCurrency
+        }
     }
     val totalAmount = remember(uiState.documents, businessCurrency) {
         DashboardStatsCalculator.calculateCollectedInvoiceAmount(uiState.documents, businessCurrency)
