@@ -166,6 +166,7 @@ open class TijarioRepository(
         supabaseClient.auth.updateUser {
             data = buildJsonObject {
                 put("full_name", normalizedName)
+                put("name", normalizedName)
             }
         }
     }

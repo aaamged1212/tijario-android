@@ -456,6 +456,8 @@ fun RegisterScreen(
                                         password = form.password
                                         data = buildJsonObject {
                                             put("full_name", form.fullName)
+                                            put("name", form.fullName)
+                                            put("preferred_language", language.name.lowercase())
                                         }
                                     }
                                     authViewModel.signUpEmail = form.email
@@ -617,9 +619,13 @@ fun VerifyEmailScreen(
             return false
         }
 
-        val resolvedName = authViewModel.signUpFullName ?: runCatching {
-            currentUser.userMetadata?.get("full_name")?.toString()?.replace("\"", "")
-        }.getOrNull()
+        val resolvedName = authViewModel.signUpFullName ?: listOfNotNull(
+            currentUser.userMetadata?.get("full_name")?.toString(),
+            currentUser.userMetadata?.get("name")?.toString(),
+            currentUser.userMetadata?.get("preferred_username")?.toString(),
+        )
+            .map { it.replace("\"", "").trim() }
+            .firstOrNull { it.isNotBlank() }
 
         val bootstrapResult = authViewModel.bootstrapUserAfterVerification(currentUser.id, resolvedName)
         if (bootstrapResult.isFailure) {
