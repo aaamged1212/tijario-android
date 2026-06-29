@@ -25,13 +25,16 @@ import java.math.BigDecimal
         SyncOutboxEntity::class,
         OfflineQuotaLeaseEntity::class,
         LocalUsageLedgerEntity::class,
+        AnnouncementEntity::class,
+        AnnouncementReceiptOutboxEntity::class,
     ],
-    version = 8,
+    version = 9,
     exportSchema = true,
 )
 @TypeConverters(BigDecimalConverter::class)
 abstract class TijarioDatabase : RoomDatabase() {
     abstract fun tijarioDao(): TijarioDao
+    abstract fun notificationsDao(): NotificationsDao
 
     companion object {
         @Volatile
@@ -275,6 +278,54 @@ abstract class TijarioDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS announcements_cache (
+                        user_id TEXT NOT NULL,
+                        id TEXT NOT NULL,
+                        title_ar TEXT NOT NULL,
+                        body_ar TEXT NOT NULL,
+                        title_en TEXT NOT NULL,
+                        body_en TEXT NOT NULL,
+                        action_label_ar TEXT,
+                        action_label_en TEXT,
+                        deep_link TEXT,
+                        priority INTEGER NOT NULL,
+                        published_at TEXT,
+                        expires_at TEXT,
+                        is_read INTEGER NOT NULL,
+                        is_seen INTEGER NOT NULL,
+                        is_dismissed INTEGER NOT NULL,
+                        last_synced_at INTEGER NOT NULL,
+                        PRIMARY KEY(user_id, id)
+                    )
+                """.trimIndent())
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_announcements_cache_user_id ON announcements_cache (user_id)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_announcements_cache_user_id_published_at ON announcements_cache (user_id, published_at)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_announcements_cache_user_id_is_read ON announcements_cache (user_id, is_read)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_announcements_cache_user_id_is_dismissed ON announcements_cache (user_id, is_dismissed)")
+
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS announcement_receipt_outbox (
+                        id TEXT NOT NULL,
+                        user_id TEXT NOT NULL,
+                        announcement_id TEXT NOT NULL,
+                        event TEXT NOT NULL,
+                        opened_from TEXT,
+                        status TEXT NOT NULL,
+                        attempts INTEGER NOT NULL,
+                        created_at INTEGER NOT NULL,
+                        last_error TEXT,
+                        PRIMARY KEY(id)
+                    )
+                """.trimIndent())
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_announcement_receipt_outbox_user_id ON announcement_receipt_outbox (user_id)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_announcement_receipt_outbox_user_id_announcement_id ON announcement_receipt_outbox (user_id, announcement_id)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_announcement_receipt_outbox_status ON announcement_receipt_outbox (status)")
+            }
+        }
+
         fun getInstance(context: Context): TijarioDatabase =
             instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
@@ -282,7 +333,7 @@ abstract class TijarioDatabase : RoomDatabase() {
                     TijarioDatabase::class.java,
                     "tijario-local-cache.db",
                 )
-                    .addMigrations(MIGRATION_6_7, MIGRATION_7_8)
+                    .addMigrations(MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
                     .build()
                     .also { instance = it }
             }

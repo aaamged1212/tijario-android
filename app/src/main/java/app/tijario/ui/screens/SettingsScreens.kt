@@ -100,6 +100,7 @@ import app.tijario.config.t
 import app.tijario.data.remote.ResetPasswordRequest
 import app.tijario.ui.state.TijarioDataViewModel
 import app.tijario.ui.state.PlanUsageState
+import app.tijario.features.notifications.NotificationSettingsSection
 import io.github.jan.supabase.auth.auth
 import kotlinx.coroutines.launch
 
@@ -211,6 +212,7 @@ fun SettingsHomeScreen(
             SettingsOption(Icons.Filled.Business, t("store_settings"), t("store_settings_desc"), onStoreSettings)
             SettingsOption(Icons.Filled.AccountCircle, t("account_settings"), t("account_settings_desc"), onAccountSettings)
             SettingsOption(Icons.Filled.Settings, t("app_settings"), t("app_settings_desc"), onAppSettings)
+            NotificationSettingsSection()
             SettingsOption(Icons.Filled.WorkspacePremium, t("upgrade_plan"), t("upgrade_plan_desc"), onUpgrade)
 
             Button(

@@ -66,6 +66,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
 import android.net.Uri
+import app.tijario.MainActivity
 import app.tijario.config.loadAppConfig
 import app.tijario.config.t
 import app.tijario.ui.screens.AccountScreen
@@ -95,6 +96,14 @@ import app.tijario.ui.state.TijarioDataViewModelFactory
 import app.tijario.ui.state.AuthViewModel
 import app.tijario.ui.state.AuthViewModelFactory
 import app.tijario.ui.state.CentralAuthState
+import app.tijario.features.notifications.NotificationBellButton
+import app.tijario.features.notifications.NotificationDeepLinkState
+import app.tijario.features.notifications.NotificationPermissionPrompt
+import app.tijario.features.notifications.NotificationsScreen
+import app.tijario.features.notifications.NotificationsViewModel
+import app.tijario.features.notifications.NotificationsViewModelFactory
+import app.tijario.features.notifications.StartupAnnouncementDialog
+import app.tijario.config.AppPreferences
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -129,9 +138,13 @@ fun TijarioApp() {
     val dataViewModel: TijarioDataViewModel = viewModel(
         factory = TijarioDataViewModelFactory(context.applicationContext)
     )
+    val notificationsViewModel: NotificationsViewModel = viewModel(
+        factory = NotificationsViewModelFactory(context.applicationContext)
+    )
 
     val authState by authViewModel.authState.collectAsStateWithLifecycle()
     val dataUiState by dataViewModel.uiState.collectAsStateWithLifecycle()
+    val notificationsState by notificationsViewModel.state.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     val showStartupSplash =
         authState is CentralAuthState.Initializing ||
@@ -148,6 +161,8 @@ fun TijarioApp() {
     LaunchedEffect(authState) {
         if (authState is CentralAuthState.AuthenticatedReady || authState is CentralAuthState.AuthenticatedNeedsOnboarding) {
             dataViewModel.startForCurrentUser()
+        } else if (authState is CentralAuthState.Unauthenticated) {
+            notificationsViewModel.logout()
         }
     }
 
@@ -244,6 +259,49 @@ fun TijarioApp() {
             val navController = rememberNavController()
             val pagerState = rememberPagerState(pageCount = { 5 })
             val pagerScope = rememberCoroutineScope()
+            var showNotificationPrompt by remember {
+                mutableStateOf(!AppPreferences.wasNotificationExplained(context))
+            }
+
+            LaunchedEffect(dataUiState.userId) {
+                dataUiState.userId?.let { notificationsViewModel.start(it) }
+            }
+
+            LaunchedEffect(dataUiState.userId, MainActivity.currentLanguage) {
+                notificationsViewModel.syncTopic(MainActivity.currentLanguage)
+            }
+
+            val pendingAnnouncementId = NotificationDeepLinkState.pendingAnnouncementId
+            LaunchedEffect(pendingAnnouncementId) {
+                if (!pendingAnnouncementId.isNullOrBlank()) {
+                    navController.navigate("notifications?announcementId=$pendingAnnouncementId")
+                    NotificationDeepLinkState.consumeAnnouncementId()
+                }
+            }
+
+            notificationsState.startupAnnouncement?.let { startup ->
+                StartupAnnouncementDialog(
+                    announcement = startup,
+                    language = MainActivity.currentLanguage,
+                    onViewDetails = {
+                        notificationsViewModel.markRead(startup.id, "startup")
+                        notificationsViewModel.clearStartup()
+                        navController.navigate("notifications?announcementId=${startup.id}")
+                    },
+                    onDismiss = {
+                        notificationsViewModel.dismissStartup(startup.id)
+                    }
+                )
+            }
+
+            if (showNotificationPrompt) {
+                NotificationPermissionPrompt(
+                    onFinished = {
+                        showNotificationPrompt = false
+                        notificationsViewModel.syncTopic(MainActivity.currentLanguage)
+                    }
+                )
+            }
 
             NavHost(navController = navController, startDestination = "main") {
                 composable("main") {
@@ -312,20 +370,26 @@ fun TijarioApp() {
                                             )
                                         }
                                     }
-                                    IconButton(
-                                        onClick = { navController.navigate("settings") },
-                                        colors = IconButtonDefaults.iconButtonColors(
-                                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                                        ),
-                                        modifier = Modifier
-                                            .size(44.dp)
-                                            .clip(CircleShape)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Filled.Settings,
-                                            contentDescription = t("settings"),
-                                            tint = MaterialTheme.colorScheme.primary
+                                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        NotificationBellButton(
+                                            unreadCount = notificationsState.unreadCount,
+                                            onClick = { navController.navigate("notifications") },
                                         )
+                                        IconButton(
+                                            onClick = { navController.navigate("settings") },
+                                            colors = IconButtonDefaults.iconButtonColors(
+                                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                            ),
+                                            modifier = Modifier
+                                                .size(44.dp)
+                                                .clip(CircleShape)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Filled.Settings,
+                                                contentDescription = t("settings"),
+                                                tint = MaterialTheme.colorScheme.primary
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -680,6 +744,7 @@ fun TijarioApp() {
                     AccountScreen(
                         dataViewModel = dataViewModel,
                         onLogout = {
+                            notificationsViewModel.logout()
                             authViewModel.logout()
                         },
                         onBack = {
@@ -695,7 +760,26 @@ fun TijarioApp() {
                         onAccountSettings = { navController.navigate("account-settings") },
                         onAppSettings = { navController.navigate("app-settings") },
                         onUpgrade = { navController.navigate("upgrade-plan") },
-                        onLogout = { authViewModel.logout() },
+                        onLogout = {
+                            notificationsViewModel.logout()
+                            authViewModel.logout()
+                        },
+                    )
+                }
+                composable(
+                    route = "notifications?announcementId={announcementId}",
+                    arguments = listOf(
+                        navArgument("announcementId") {
+                            type = NavType.StringType
+                            nullable = true
+                            defaultValue = null
+                        }
+                    )
+                ) { backStackEntry ->
+                    NotificationsScreen(
+                        viewModel = notificationsViewModel,
+                        initialAnnouncementId = backStackEntry.arguments?.getString("announcementId"),
+                        onBack = { navController.popBackStack() },
                     )
                 }
                 composable("account-settings") {

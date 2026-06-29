@@ -13,6 +13,9 @@ private const val KEY_DOCUMENTS_USED = "documents_used"
 private const val KEY_DOCUMENTS_LIMIT = "documents_limit"
 private const val KEY_AI_USED = "ai_used"
 private const val KEY_AI_LIMIT = "ai_limit"
+private const val KEY_PUSH_ENABLED = "push_enabled"
+private const val KEY_NOTIFICATION_EXPLAINED = "notification_explained"
+private const val KEY_SUBSCRIBED_TOPIC = "subscribed_topic"
 
 private fun planKey(userId: String, suffix: String) = "plan_usage_${userId}_$suffix"
 
@@ -77,6 +80,39 @@ object AppPreferences {
             .putInt(planKey(userId, KEY_DOCUMENTS_LIMIT), usage.documentsLimit)
             .putInt(planKey(userId, KEY_AI_USED), usage.aiUsed)
             .putInt(planKey(userId, KEY_AI_LIMIT), usage.aiLimit)
+            .apply()
+    }
+
+    fun isPushEnabled(context: Context): Boolean =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getBoolean(KEY_PUSH_ENABLED, false)
+
+    fun setPushEnabled(context: Context, enabled: Boolean) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(KEY_PUSH_ENABLED, enabled)
+            .apply()
+    }
+
+    fun wasNotificationExplained(context: Context): Boolean =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getBoolean(KEY_NOTIFICATION_EXPLAINED, false)
+
+    fun setNotificationExplained(context: Context) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(KEY_NOTIFICATION_EXPLAINED, true)
+            .apply()
+    }
+
+    fun getSubscribedTopic(context: Context): String? =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(KEY_SUBSCRIBED_TOPIC, null)
+
+    fun setSubscribedTopic(context: Context, topic: String?) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(KEY_SUBSCRIBED_TOPIC, topic)
             .apply()
     }
 }

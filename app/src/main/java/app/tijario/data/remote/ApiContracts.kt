@@ -323,3 +323,42 @@ data class ResetPasswordRequest(
 data class ResetPasswordResponse(
     val sent: Boolean = false,
 )
+
+@Serializable
+data class AnnouncementDto(
+    val id: String,
+    @SerialName("title_ar") val titleAr: String,
+    @SerialName("body_ar") val bodyAr: String,
+    @SerialName("title_en") val titleEn: String,
+    @SerialName("body_en") val bodyEn: String,
+    @SerialName("action_label_ar") val actionLabelAr: String? = null,
+    @SerialName("action_label_en") val actionLabelEn: String? = null,
+    @SerialName("deep_link") val deepLink: String? = null,
+    val priority: Int = 0,
+    @SerialName("published_at") val publishedAt: String? = null,
+    @SerialName("expires_at") val expiresAt: String? = null,
+    @SerialName("is_read") val isRead: Boolean = false,
+    @SerialName("is_seen") val isSeen: Boolean = false,
+    @SerialName("is_dismissed") val isDismissed: Boolean = false,
+)
+
+@Serializable
+data class AnnouncementsBootstrapData(
+    val items: List<AnnouncementDto> = emptyList(),
+    @SerialName("unread_count") val unreadCount: Int = 0,
+    @SerialName("startup_announcement") val startupAnnouncement: AnnouncementDto? = null,
+    @SerialName("server_time") val serverTime: String,
+)
+
+@Serializable
+data class AnnouncementReceiptRequest(
+    @SerialName("announcement_id") val announcementId: String,
+    val event: String,
+    @SerialName("opened_from") val openedFrom: String? = null,
+    @SerialName("client_request_id") val clientRequestId: String,
+)
+
+@Serializable
+data class AnnouncementReceiptResponse(
+    @SerialName("updated_count") val updatedCount: Int? = null,
+)

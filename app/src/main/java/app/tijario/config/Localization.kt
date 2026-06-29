@@ -490,6 +490,17 @@ object Localization {
         "verification_code_expired" to mapOf(AppLanguage.AR to "انتهت صلاحية الرمز", AppLanguage.EN to "The verification code has expired."),
         "verification_code_expires_in" to mapOf(AppLanguage.AR to "ينتهي الرمز خلال %d ثانية", AppLanguage.EN to "The verification code is valid for %d seconds."),
         "verification_code_resent" to mapOf(AppLanguage.AR to "تم إعادة إرسال الرمز", AppLanguage.EN to "Verification code resent."),
+        "notifications" to mapOf(AppLanguage.AR to "الإشعارات", AppLanguage.EN to "Notifications"),
+        "notifications_empty" to mapOf(AppLanguage.AR to "لا توجد إشعارات حالياً.", AppLanguage.EN to "No notifications yet."),
+        "notifications_offline_cache" to mapOf(AppLanguage.AR to "أنت غير متصل. يتم عرض آخر إشعارات محفوظة.", AppLanguage.EN to "You are offline. Showing cached notifications."),
+        "mark_all_read" to mapOf(AppLanguage.AR to "تحديد الكل كمقروء", AppLanguage.EN to "Mark all as read"),
+        "view_details" to mapOf(AppLanguage.AR to "عرض التفاصيل", AppLanguage.EN to "View details"),
+        "notification_permission_title" to mapOf(AppLanguage.AR to "فعّل إشعارات تجاريو", AppLanguage.EN to "Enable Tijario notifications"),
+        "notification_permission_body" to mapOf(AppLanguage.AR to "فعّل الإشعارات لتصلك تحديثات تجاريو المهمة حتى لو لم تكن داخل التطبيق.", AppLanguage.EN to "Enable notifications to receive important Tijario updates even when the app is closed."),
+        "enable_notifications" to mapOf(AppLanguage.AR to "تفعيل الإشعارات", AppLanguage.EN to "Enable notifications"),
+        "later" to mapOf(AppLanguage.AR to "لاحقاً", AppLanguage.EN to "Later"),
+        "open_system_settings" to mapOf(AppLanguage.AR to "فتح إعدادات النظام", AppLanguage.EN to "Open system settings"),
+        "notification_settings_desc" to mapOf(AppLanguage.AR to "تحكم في استقبال إعلانات وتحديثات تجاريو المهمة.", AppLanguage.EN to "Control Tijario announcement and update notifications."),
     )
 
     fun getString(key: String, lang: AppLanguage): String {

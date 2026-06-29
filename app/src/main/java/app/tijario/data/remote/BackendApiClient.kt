@@ -101,6 +101,15 @@ class BackendApiClient(
     suspend fun requestOfflineLease(request: OfflineLeaseRequest): HttpResponse =
         authorizedPost("api/mobile/account/offline-lease", request)
 
+    suspend fun fetchAnnouncementsBootstrap(): ApiResult<AnnouncementsBootstrapData> =
+        authorizedGet("api/mobile/announcements/bootstrap").decodeApiResult()
+
+    suspend fun sendAnnouncementReceipt(request: AnnouncementReceiptRequest): ApiResult<AnnouncementReceiptResponse> =
+        authorizedPost("api/mobile/announcements/receipt", request).decodeApiResult()
+
+    suspend fun markAllAnnouncementsRead(): ApiResult<AnnouncementReceiptResponse> =
+        authorizedPostNoBody("api/mobile/announcements/read-all").decodeApiResult()
+
     private suspend inline fun <reified T : Any> authorizedPost(path: String, body: T): HttpResponse =
         httpClient.post(url(path)) {
             accept(ContentType.Application.Json)
