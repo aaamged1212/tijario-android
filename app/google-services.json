@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "992521428598",
+    "project_id": "tijario-1",
+    "storage_bucket": "tijario-1.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:992521428598:android:a7e785aebdc3d2065e8957",
+        "android_client_info": {
+          "package_name": "app.tijario"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBiUowfrGl7Vvs11xiQH_taG-kMpw6fR80"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
