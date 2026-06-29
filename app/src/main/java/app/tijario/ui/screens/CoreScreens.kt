@@ -3582,16 +3582,18 @@ private fun MiniStatItem(
         shape = RoundedCornerShape(16.dp),
         modifier = modifier
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 6.dp, vertical = 10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
                 tint = Color(0xFF2DD4BF),
-                modifier = Modifier.size(16.dp)
+                modifier = Modifier.size(17.dp)
             )
             Text(
                 text = count.toString(),
@@ -3602,8 +3604,9 @@ private fun MiniStatItem(
             Text(
                 text = label,
                 color = Color.White.copy(alpha = 0.6f),
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Medium
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Medium,
+                textAlign = TextAlign.Center
             )
         }
     }
