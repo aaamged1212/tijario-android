@@ -69,7 +69,7 @@ import android.net.Uri
 import app.tijario.config.loadAppConfig
 import app.tijario.config.t
 import app.tijario.ui.screens.AccountScreen
-import app.tijario.ui.screens.AiToolsScreen
+import app.tijario.features.ai.AiToolsScreen
 import app.tijario.ui.screens.BusinessSettingsScreen
 import app.tijario.ui.screens.CustomerFormScreen
 import app.tijario.ui.screens.ConfigurationRequiredScreen
@@ -346,7 +346,7 @@ fun TijarioApp() {
                                         selected = selected,
                                         onClick = {
                                             pagerScope.launch {
-                                                pagerState.animateScrollToPage(index)
+                                                pagerState.scrollToPage(index)
                                             }
                                         },
                                         icon = {
@@ -412,11 +412,11 @@ fun TijarioApp() {
                                             activeSelectedProduct = null
                                             navController.navigate("new-invoice")
                                         },
-                                        onAddProduct = { pagerScope.launch { pagerState.animateScrollToPage(3) } },
-                                        onCustomers = { pagerScope.launch { pagerState.animateScrollToPage(4) } },
-                                        onAiTools = { pagerScope.launch { pagerState.animateScrollToPage(2) } },
+                                        onAddProduct = { pagerScope.launch { pagerState.scrollToPage(3) } },
+                                        onCustomers = { pagerScope.launch { pagerState.scrollToPage(4) } },
+                                        onAiTools = { pagerScope.launch { pagerState.scrollToPage(2) } },
                                         onBusinessSettings = { navController.navigate("business-settings") },
-                                        onViewAllDocuments = { pagerScope.launch { pagerState.animateScrollToPage(1) } },
+                                        onViewAllDocuments = { pagerScope.launch { pagerState.scrollToPage(1) } },
                                         onDocumentClick = { documentId ->
                                             navController.navigate("document-detail?documentId=$documentId")
                                         },

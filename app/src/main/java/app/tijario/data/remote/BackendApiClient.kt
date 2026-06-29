@@ -62,6 +62,18 @@ class BackendApiClient(
             },
         )
 
+    suspend fun generateAiReplyV3(request: AiV3ReplyRequest): AiV3Response =
+        authorizedPost("api/mobile/ai/v3/reply", request).decodeJsonResponse()
+
+    suspend fun generateAiCaptionV3(request: AiV3CaptionRequest): AiV3Response =
+        authorizedPost("api/mobile/ai/v3/caption", request).decodeJsonResponse()
+
+    suspend fun refineAiV3(request: AiV3RefineRequest): AiV3Response =
+        authorizedPost("api/mobile/ai/v3/refine", request).decodeJsonResponse()
+
+    suspend fun reportAiV3(request: AiV3ReportRequest): AiV3ReportResponse =
+        authorizedPost("api/mobile/ai/v3/reports", request).decodeJsonResponse()
+
     suspend fun fetchAccountUsageV2(): AiV2UsageResponse =
         authorizedGet("api/mobile/account/usage").decodeJsonResponse()
 
@@ -501,4 +513,3 @@ data class OfflineLeaseResponse(
     val quota_granted: Int,
     val expires_at: String
 )
-

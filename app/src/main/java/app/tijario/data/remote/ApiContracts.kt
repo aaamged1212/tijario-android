@@ -199,6 +199,110 @@ data class AiV2UsageResponse(
 )
 
 @Serializable
+data class AiV3ReplyRequest(
+    @SerialName("schema_version") val schemaVersion: Int = 3,
+    @SerialName("client_request_id") val clientRequestId: String,
+    @SerialName("customer_message") val customerMessage: String? = null,
+    @SerialName("quick_case") val quickCase: String? = null,
+    @SerialName("customer_id") val customerId: String? = null,
+    @SerialName("product_id") val productId: String? = null,
+    val goal: String = "auto",
+    val dialect: String = "auto",
+    val tone: String = "auto",
+    val length: String = "short",
+    @SerialName("extra_context") val extraContext: String? = null,
+    val language: String = "ar",
+)
+
+@Serializable
+data class AiV3CaptionRequest(
+    @SerialName("schema_version") val schemaVersion: Int = 3,
+    @SerialName("client_request_id") val clientRequestId: String,
+    @SerialName("product_id") val productId: String? = null,
+    @SerialName("product_or_service") val productOrService: String? = null,
+    @SerialName("primary_benefit") val primaryBenefit: String? = null,
+    val offer: String? = null,
+    val platform: String = "instagram",
+    @SerialName("caption_type") val captionType: String = "product_post",
+    val dialect: String = "auto",
+    val length: String = "short",
+    val style: String = "sales",
+    val language: String = "ar",
+)
+
+@Serializable
+data class AiV3RefineRequest(
+    @SerialName("schema_version") val schemaVersion: Int = 3,
+    @SerialName("client_request_id") val clientRequestId: String,
+    @SerialName("generation_id") val generationId: String,
+    @SerialName("variant_id") val variantId: String,
+    val preset: String,
+    val dialect: String? = null,
+    val language: String = "ar",
+)
+
+@Serializable
+data class AiV3ReportRequest(
+    @SerialName("schema_version") val schemaVersion: Int = 3,
+    @SerialName("client_request_id") val clientRequestId: String,
+    @SerialName("generation_type") val generationType: String,
+    @SerialName("generation_id") val generationId: String,
+    @SerialName("variant_id") val variantId: String,
+    @SerialName("issue_type") val issueType: String,
+    val note: String? = null,
+)
+
+@Serializable
+data class AiV3Variant(
+    val id: String,
+    val label: String,
+    val text: String,
+)
+
+@Serializable
+data class AiV3Usage(
+    val used: Int,
+    val limit: Int,
+    val remaining: Int,
+)
+
+@Serializable
+data class AiV3Analysis(
+    val intent: String = "unknown",
+    val mood: String = "unknown",
+    @SerialName("recommended_tone") val recommendedTone: String = "unknown",
+    @SerialName("buying_stage") val buyingStage: String = "unknown",
+    val objection: String? = null,
+    @SerialName("risk_flags") val riskFlags: List<String> = emptyList(),
+)
+
+@Serializable
+data class AiV3ResponseData(
+    @SerialName("generation_id") val generationId: String,
+    @SerialName("schema_version") val schemaVersion: Int = 3,
+    val analysis: AiV3Analysis = AiV3Analysis(),
+    @SerialName("missing_information") val missingInformation: List<String> = emptyList(),
+    val variants: List<AiV3Variant> = emptyList(),
+    val usage: AiV3Usage,
+)
+
+@Serializable
+data class AiV3Response(
+    val ok: Boolean,
+    val data: AiV3ResponseData? = null,
+    val code: String? = null,
+    val message: String? = null,
+    val retryable: Boolean? = null,
+)
+
+@Serializable
+data class AiV3ReportResponse(
+    val ok: Boolean,
+    val code: String? = null,
+    val message: String? = null,
+)
+
+@Serializable
 data class UploadLogoRequest(
     @SerialName("file_name") val fileName: String,
     @SerialName("mime_type") val mimeType: String,
