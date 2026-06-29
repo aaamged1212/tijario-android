@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.Note
 import androidx.compose.material.icons.filled.Numbers
 import androidx.compose.material.icons.filled.Percent
 import androidx.compose.material.icons.filled.LocalOffer
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.PriceChange
@@ -1383,11 +1384,16 @@ fun InvoiceInfoDialog(
 @Composable
 fun SelectTemplateDialog(
     selectedTemplateId: String,
+    allowedTemplateIds: List<String> = emptyList(),
     onDismiss: () -> Unit,
     onSave: (String) -> Unit
 ) {
     val templates = remember { DocumentTemplateRegistry.templates.take(6) }
     var selectedId by remember { mutableStateOf(selectedTemplateId) }
+    val context = LocalContext.current
+    val language = LocalLanguage.current
+    fun isTemplateAllowed(templateId: String): Boolean =
+        allowedTemplateIds.isEmpty() || allowedTemplateIds.contains(templateId)
     val sampleModel = remember {
         DocumentRenderModel(
             documentType = DocumentType.Invoice,
@@ -1479,8 +1485,19 @@ fun SelectTemplateDialog(
                         items(templates) { template ->
                             val templateModel = remember(template.id) { sampleModel.copy(templateId = template.id) }
                             val isSelected = template.id == selectedId
+                            val isAllowed = isTemplateAllowed(template.id)
                             Card(
-                                onClick = { selectedId = template.id },
+                                onClick = {
+                                    if (isAllowed) {
+                                        selectedId = template.id
+                                    } else {
+                                        android.widget.Toast.makeText(
+                                            context,
+                                            if (language == AppLanguage.AR) "هذا القالب يحتاج ترقية الخطة." else "This template requires a plan upgrade.",
+                                            android.widget.Toast.LENGTH_SHORT,
+                                        ).show()
+                                    }
+                                },
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(260.dp),
@@ -1513,8 +1530,23 @@ fun SelectTemplateDialog(
                                         Box(
                                             modifier = Modifier
                                                 .fillMaxSize()
-                                                .clickable { selectedId = template.id }
-                                        )
+                                                .clickable {
+                                                    if (isAllowed) {
+                                                        selectedId = template.id
+                                                    }
+                                                }
+                                        ) {
+                                            if (!isAllowed) {
+                                                Surface(
+                                                    color = Color.Black.copy(alpha = 0.45f),
+                                                    modifier = Modifier.fillMaxSize(),
+                                                ) {
+                                                    Box(contentAlignment = Alignment.Center) {
+                                                        Icon(Icons.Filled.Lock, contentDescription = null, tint = Color.White)
+                                                    }
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -1526,7 +1558,9 @@ fun SelectTemplateDialog(
                     ) {
                         OutlinedButton(onClick = onDismiss) { Text(t("btn_cancel")) }
                         Button(onClick = {
-                            onSave(selectedId)
+                            if (isTemplateAllowed(selectedId)) {
+                                onSave(selectedId)
+                            }
                         }) { Text(t("btn_save")) }
                     }
                 }
@@ -1795,6 +1829,9 @@ fun DocumentFormScreen(
     val invoiceOptionPreferences = remember(context) { DocumentInvoiceOptionPreferences(context) }
     var selectedTemplateId by remember { mutableStateOf(templatePreferences.getDefaultTemplateId()) }
     val uiState by dataViewModel.uiState.collectAsStateWithLifecycle()
+    val allowedTemplateIds = uiState.planUsage?.allowedTemplateIds.orEmpty()
+    fun isTemplateAllowed(templateId: String): Boolean =
+        allowedTemplateIds.isEmpty() || allowedTemplateIds.contains(templateId)
     val businessSettings = uiState.businessSettings
     val scope = rememberCoroutineScope()
     val editDocumentId = documentId?.takeIf { it.isNotBlank() }
@@ -2028,7 +2065,8 @@ fun DocumentFormScreen(
                                             extraFees = Validation.parseNonNegativeMoney(form.extraFees) ?: 0.0,
                                             notes = form.notes.ifBlank { null },
                                             termsText = form.terms.ifBlank { null },
-                                            currency = form.currency
+                                            currency = form.currency,
+                                            templateId = selectedTemplateId,
                                         )
                                         val result = if (editDocumentId != null) {
                                             dataViewModel.updateDocument(editDocumentId, req)
@@ -2768,9 +2806,18 @@ fun DocumentFormScreen(
                 // Sync pager state changes back to selectedTemplateId
                 LaunchedEffect(pagerState.currentPage) {
                     val templateId = templates[pagerState.currentPage].id
-                    if (templateId != selectedTemplateId) {
+                    if (templateId != selectedTemplateId && isTemplateAllowed(templateId)) {
                         selectedTemplateId = templateId
                         templatePreferences.setDefaultTemplateId(templateId)
+                    }
+                }
+
+                LaunchedEffect(allowedTemplateIds) {
+                    if (!isTemplateAllowed(selectedTemplateId)) {
+                        val fallback = templates.firstOrNull { isTemplateAllowed(it.id) }?.id
+                            ?: DocumentTemplateRegistry.defaultTemplateId
+                        selectedTemplateId = fallback
+                        templatePreferences.setDefaultTemplateId(fallback)
                     }
                 }
 
@@ -2886,6 +2933,7 @@ fun DocumentFormScreen(
     if (showTemplatePickerDialog) {
         SelectTemplateDialog(
             selectedTemplateId = selectedTemplateId,
+            allowedTemplateIds = allowedTemplateIds,
             onDismiss = { showTemplatePickerDialog = false },
             onSave = { templateId ->
                 selectedTemplateId = DocumentTemplateRegistry.requireTemplate(templateId).id

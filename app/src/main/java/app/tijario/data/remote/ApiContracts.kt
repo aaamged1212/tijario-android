@@ -43,6 +43,7 @@ data class CreateDocumentRequest(
     val notes: String? = null,
     @SerialName("terms_text") val termsText: String? = null,
     val currency: String? = null,
+    @SerialName("template_id") val templateId: String? = null,
 )
 
 @Serializable
@@ -194,6 +195,29 @@ data class AiReportRequest(
 data class AiV2UsageResponse(
     val ok: Boolean,
     val data: AiV2Usage? = null,
+    val code: String? = null,
+    val message: String? = null,
+)
+
+@Serializable
+data class AccountUsageData(
+    @SerialName("plan_code") val planCode: String,
+    @SerialName("monthly_document_limit") val monthlyDocumentLimit: Int,
+    @SerialName("documents_used") val documentsUsed: Int,
+    @SerialName("monthly_ai_limit") val monthlyAiLimit: Int = 0,
+    @SerialName("ai_used") val aiUsed: Int = 0,
+    @SerialName("customer_limit") val customerLimit: Int? = null,
+    @SerialName("customers_used") val customersUsed: Int = 0,
+    @SerialName("product_limit") val productLimit: Int? = null,
+    @SerialName("products_used") val productsUsed: Int = 0,
+    @SerialName("reset_at") val resetAt: String? = null,
+    @SerialName("allowed_template_ids") val allowedTemplateIds: List<String> = emptyList(),
+)
+
+@Serializable
+data class AccountUsageResponse(
+    val ok: Boolean,
+    val data: AccountUsageData? = null,
     val code: String? = null,
     val message: String? = null,
 )

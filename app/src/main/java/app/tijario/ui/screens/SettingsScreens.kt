@@ -40,6 +40,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.ShoppingBag
 import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.ui.platform.LocalContext
@@ -171,8 +172,8 @@ fun SettingsHomeScreen(
                             val usage = (planUsageState as PlanUsageState.Success).value
                             val displayPlanName = when (usage.planCode.lowercase()) {
                                 "free" -> t("free_plan")
-                                "starter" -> t("starter_plan")
-                                "pro" -> t("account_pro_badge")
+                                "pro" -> "Pro"
+                                "business" -> "Business"
                                 else -> usage.planName
                             }
                             Row(
@@ -204,6 +205,8 @@ fun SettingsHomeScreen(
 
                             UsageLine(t("documents"), usage.documentsUsed, usage.documentsLimit, Icons.Filled.Description, Color(0xFFCCFBF1))
                             UsageLine(t("ai_uses"), usage.aiUsed, usage.aiLimit, Icons.Filled.AutoAwesome, Color(0xFFBAE6FD))
+                            UsageLine(t("tab_customers"), usage.customersUsed, usage.customersLimit, Icons.Filled.Person, Color(0xFFFDE68A))
+                            UsageLine(t("tab_products"), usage.productsUsed, usage.productsLimit, Icons.Filled.ShoppingBag, Color(0xFFC4B5FD))
                         }
                     }
                 }
@@ -1043,8 +1046,10 @@ private fun SettingsToggleRow(icon: ImageVector, title: String, trailing: @Compo
 }
 
 @Composable
-private fun UsageLine(title: String, used: Int, limit: Int, icon: ImageVector, color: Color) {
-    val progress = if (limit <= 0) 0f else (used.toFloat() / limit.toFloat()).coerceIn(0f, 1f)
+private fun UsageLine(title: String, used: Int, limit: Int?, icon: ImageVector, color: Color) {
+    val language = LocalLanguage.current
+    val isUnlimited = limit == null
+    val progress = if (limit == null || limit <= 0) 0f else (used.toFloat() / limit.toFloat()).coerceIn(0f, 1f)
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -1067,7 +1072,11 @@ private fun UsageLine(title: String, used: Int, limit: Int, icon: ImageVector, c
                 Text(title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
             }
             Text(
-                text = if (limit <= 0) "$used" else "$used ${t("of")} $limit",
+                text = when {
+                    isUnlimited -> if (language == AppLanguage.AR) "$used من غير محدود" else "$used of unlimited"
+                    limit <= 0 -> "$used"
+                    else -> "$used ${t("of")} $limit"
+                },
                 color = Color.White,
                 fontWeight = FontWeight.Bold,
                 fontSize = 14.sp

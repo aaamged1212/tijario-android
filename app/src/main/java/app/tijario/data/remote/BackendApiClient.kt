@@ -77,6 +77,9 @@ class BackendApiClient(
     suspend fun fetchAccountUsageV2(): AiV2UsageResponse =
         authorizedGet("api/mobile/account/usage").decodeJsonResponse()
 
+    suspend fun fetchAccountUsage(): AccountUsageResponse =
+        authorizedGet("api/mobile/account/usage").decodeJsonResponse()
+
     suspend fun uploadBusinessLogo(request: UploadLogoRequest): ApiResult<UploadLogoResponse> =
         authorizedPost("api/mobile/business-settings/logo", request).decodeApiResult()
 
@@ -499,7 +502,15 @@ data class SyncChangesDto(
 data class PlanUsageDto(
     val plan_code: String,
     val monthly_document_limit: Int,
-    val documents_used: Int
+    val documents_used: Int,
+    val monthly_ai_limit: Int = 0,
+    val ai_used: Int = 0,
+    val customer_limit: Int? = null,
+    val customers_used: Int = 0,
+    val product_limit: Int? = null,
+    val products_used: Int = 0,
+    val reset_at: String? = null,
+    val allowed_template_ids: List<String> = emptyList(),
 )
 
 @Serializable

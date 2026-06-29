@@ -1102,46 +1102,23 @@ open class TijarioRepository(
     suspend fun fetchUserPlanUsage(): Result<app.tijario.data.model.UserPlanUsage> =
         runCatching {
             val userId = requireUserId()
-            val periodMonth = currentUtcPeriodMonth()
             withContext(Dispatchers.IO) {
-                val userPlan = supabaseClient.from("user_plan")
-                    .select {
-                        filter {
-                            eq("user_id", userId)
-                        }
-                    }
-                    .decodeList<app.tijario.data.model.UserPlanRowDto>()
-                    .firstOrNull()
-                    ?: error("User plan not found.")
-
-                val plan = supabaseClient.from("plans")
-                    .select {
-                        filter {
-                            eq("id", userPlan.planId)
-                        }
-                    }
-                    .decodeList<app.tijario.data.model.Plan>()
-                    .firstOrNull()
-                    ?: error("Plan not found.")
-
-                val usage = supabaseClient.from("usage_counters")
-                    .select {
-                        filter {
-                            eq("user_id", userId)
-                            eq("period_month", periodMonth)
-                        }
-                    }
-                    .decodeList<app.tijario.data.model.UsageCounterRowDto>()
-                    .firstOrNull()
-
+                val response = backendApiClient.fetchAccountUsage()
+                val usage = response.data ?: error(response.message ?: "Plan usage not found.")
                 val baseUsage = app.tijario.data.model.UserPlanUsage(
-                    planCode = plan.code,
-                    planName = plan.name,
-                    periodMonth = periodMonth,
-                    documentsUsed = usage?.documentsUsed ?: 0,
-                    documentsLimit = plan.monthlyDocumentLimit,
-                    aiUsed = usage?.aiUsed ?: 0,
-                    aiLimit = plan.monthlyAiLimit
+                    planCode = usage.planCode,
+                    planName = usage.planCode,
+                    periodMonth = currentUtcPeriodMonth(),
+                    documentsUsed = usage.documentsUsed,
+                    documentsLimit = usage.monthlyDocumentLimit,
+                    aiUsed = usage.aiUsed,
+                    aiLimit = usage.monthlyAiLimit,
+                    customersUsed = usage.customersUsed,
+                    customersLimit = usage.customerLimit,
+                    productsUsed = usage.productsUsed,
+                    productsLimit = usage.productLimit,
+                    resetAt = usage.resetAt,
+                    allowedTemplateIds = usage.allowedTemplateIds,
                 )
                 val effectiveUsage = overlayLocalUsage(userId, baseUsage)
                 AppPreferences.setPlanUsage(context, userId, baseUsage)

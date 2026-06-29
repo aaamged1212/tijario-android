@@ -114,6 +114,12 @@ data class UserPlanUsage(
     val documentsLimit: Int,
     val aiUsed: Int,
     val aiLimit: Int,
+    val customersUsed: Int = 0,
+    val customersLimit: Int? = null,
+    val productsUsed: Int = 0,
+    val productsLimit: Int? = null,
+    val resetAt: String? = null,
+    val allowedTemplateIds: List<String> = emptyList(),
 )
 
 @Serializable
