@@ -1,4 +1,4 @@
-﻿package app.tijario.config
+package app.tijario.config
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.compositionLocalOf
@@ -114,6 +114,7 @@ object Localization {
         "form_items_info" to mapOf(AppLanguage.AR to "تفاصيل البنود والأسعار", AppLanguage.EN to "Items & Pricing Details"),
         "form_item_name" to mapOf(AppLanguage.AR to "اسم البند / الخدمة", AppLanguage.EN to "Item / Service Name"),
         "form_quantity" to mapOf(AppLanguage.AR to "الكمية", AppLanguage.EN to "Quantity"),
+        "form_stock" to mapOf(AppLanguage.AR to "المخزون", AppLanguage.EN to "Stock"),
         "form_unit_price" to mapOf(AppLanguage.AR to "سعر الوحدة", AppLanguage.EN to "Unit Price"),
         "form_discount" to mapOf(AppLanguage.AR to "الخصم", AppLanguage.EN to "Discount"),
         "form_extra_fees" to mapOf(AppLanguage.AR to "رسوم إضافية", AppLanguage.EN to "Extra Fees"),
@@ -165,7 +166,7 @@ object Localization {
         "choose_product_doc" to mapOf(AppLanguage.AR to "اختر منتجًا أو خدمة لإضافتها للمستند", AppLanguage.EN to "Select a product or service to add to the document"),
         "no_products_available" to mapOf(AppLanguage.AR to "لا توجد منتجات أو خدمات متوفرة", AppLanguage.EN to "No products or services available"),
         "add_new_product" to mapOf(AppLanguage.AR to "إضافة بند جديد", AppLanguage.EN to "Add New Item"),
-        "available_stock" to mapOf(AppLanguage.AR to "الكمية المتاحة: ", AppLanguage.EN to "Available stock: "),
+        "available_stock" to mapOf(AppLanguage.AR to "المخزون المتاح: ", AppLanguage.EN to "Available stock: "),
         "cant_delete_doc" to mapOf(AppLanguage.AR to "تعذر حذف المستند حالياً", AppLanguage.EN to "Could not delete document currently"),
         "filter_all" to mapOf(AppLanguage.AR to "الكل", AppLanguage.EN to "All"),
         "filter_unpaid" to mapOf(AppLanguage.AR to "غير مدفوعة", AppLanguage.EN to "Unpaid"),
@@ -317,8 +318,11 @@ object Localization {
         "all_amounts_in" to mapOf(AppLanguage.AR to "جميع الأرقام بـ %s", AppLanguage.EN to "All amounts in %s"),
         "total_sales" to mapOf(AppLanguage.AR to "إجمالي المبيعات", AppLanguage.EN to "Total Sales"),
         "latest_documents" to mapOf(AppLanguage.AR to "آخر المستندات", AppLanguage.EN to "Latest Documents"),
-        "view_all" to mapOf(AppLanguage.AR to "عرض الكل", AppLanguage.EN to "View All"),
-        "available_stock_optional" to mapOf(AppLanguage.AR to "الكمية المتوفرة (اختياري)", AppLanguage.EN to "Available Quantity (Optional)"),
+        "available_stock_optional" to mapOf(AppLanguage.AR to "المخزون المتوفر (اختياري)", AppLanguage.EN to "Available Stock (Optional)"),
+        "category" to mapOf(AppLanguage.AR to "الفئة", AppLanguage.EN to "Category"),
+        "all_categories" to mapOf(AppLanguage.AR to "كل الفئات", AppLanguage.EN to "All Categories"),
+        "product_category" to mapOf(AppLanguage.AR to "فئة المنتج", AppLanguage.EN to "Product Category"),
+        "category_optional" to mapOf(AppLanguage.AR to "الفئة (اختياري)", AppLanguage.EN to "Category (Optional)"),
         "invoice_num" to mapOf(AppLanguage.AR to "فاتورة %s", AppLanguage.EN to "Invoice %s"),
         "quote_num" to mapOf(AppLanguage.AR to "عرض سعر %s", AppLanguage.EN to "Quote %s"),
         "customer_label" to mapOf(AppLanguage.AR to "العميل: %s", AppLanguage.EN to "Customer: %s"),

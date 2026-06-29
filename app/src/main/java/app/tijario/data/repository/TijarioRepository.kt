@@ -347,6 +347,7 @@ open class TijarioRepository(
                     price = BigDecimal.valueOf(remote.price),
                     currency = remote.currency,
                     stockQuantity = remote.stockQuantity,
+                    category = remote.category,
                     syncedAt = syncedAt,
                     syncStatus = "SYNCED",
                     localRevision = existing?.localRevision ?: 1,
@@ -642,6 +643,7 @@ open class TijarioRepository(
             price = BigDecimal.valueOf(localProduct.price),
             currency = localProduct.currency,
             stockQuantity = localProduct.stockQuantity,
+            category = localProduct.category,
             syncedAt = 0L,
             syncStatus = "LOCAL_ONLY",
             localRevision = 1,
@@ -678,6 +680,7 @@ open class TijarioRepository(
                     price = BigDecimal.valueOf(product.price),
                     currency = product.currency,
                     stockQuantity = product.stockQuantity,
+                    category = product.category,
                     localRevision = nextRev,
                     syncStatus = nextStatus
                 )
@@ -811,6 +814,25 @@ open class TijarioRepository(
                     dao.insertDocumentItems(itemsEntities)
                     reserveDocumentQuotaLedger(userId, docId)
                     enqueueOutbox(userId, "document", docId, "CREATE")
+
+                    // Deduct stock if it's an invoice
+                    if (request.type == DocumentType.Invoice) {
+                        itemsEntities.forEach { item ->
+                            if (item.productId != null) {
+                                val product = dao.getProduct(userId, item.productId)
+                                if (product != null && product.stockQuantity != null) {
+                                    val newStock = (product.stockQuantity - item.quantity).coerceAtLeast(0)
+                                    dao.upsertProduct(product.copy(
+                                        stockQuantity = newStock,
+                                        syncStatus = if (product.syncStatus == "LOCAL_ONLY") "LOCAL_ONLY" else "PENDING_SYNC",
+                                        localRevision = product.localRevision + 1
+                                    ))
+                                    val outboxOp = if (product.syncStatus == "LOCAL_ONLY") "CREATE" else "UPDATE"
+                                    enqueueOutbox(userId, "product", product.id, outboxOp, product.serverRevision)
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
@@ -871,10 +893,49 @@ open class TijarioRepository(
 
             withContext(Dispatchers.IO) {
                 database.withTransaction {
+                    // Reverse old deductions if it was an invoice
+                    if (existing.type == "invoice") {
+                        val oldItems = dao.getDocumentItems(userId, documentId)
+                        oldItems.forEach { item ->
+                            if (item.productId != null) {
+                                val product = dao.getProduct(userId, item.productId)
+                                if (product != null && product.stockQuantity != null) {
+                                    val newStock = product.stockQuantity + item.quantity
+                                    dao.upsertProduct(product.copy(
+                                        stockQuantity = newStock,
+                                        syncStatus = if (product.syncStatus == "LOCAL_ONLY") "LOCAL_ONLY" else "PENDING_SYNC",
+                                        localRevision = product.localRevision + 1
+                                    ))
+                                    val outboxOp = if (product.syncStatus == "LOCAL_ONLY") "CREATE" else "UPDATE"
+                                    enqueueOutbox(userId, "product", product.id, outboxOp, product.serverRevision)
+                                }
+                            }
+                        }
+                    }
+
                     // Replace all document items atomically
                     dao.deleteDocumentItems(userId, documentId)
                     dao.insertDocumentItems(itemsEntities)
                     dao.upsertDocument(docEntity)
+
+                    // Apply new deductions if it is an invoice
+                    if (request.type == DocumentType.Invoice) {
+                        itemsEntities.forEach { item ->
+                            if (item.productId != null) {
+                                val product = dao.getProduct(userId, item.productId)
+                                if (product != null && product.stockQuantity != null) {
+                                    val newStock = (product.stockQuantity - item.quantity).coerceAtLeast(0)
+                                    dao.upsertProduct(product.copy(
+                                        stockQuantity = newStock,
+                                        syncStatus = if (product.syncStatus == "LOCAL_ONLY") "LOCAL_ONLY" else "PENDING_SYNC",
+                                        localRevision = product.localRevision + 1
+                                    ))
+                                    val outboxOp = if (product.syncStatus == "LOCAL_ONLY") "CREATE" else "UPDATE"
+                                    enqueueOutbox(userId, "product", product.id, outboxOp, product.serverRevision)
+                                }
+                            }
+                        }
+                    }
 
                     val outboxOp = if (existing.syncStatus == "LOCAL_ONLY") "CREATE" else "UPDATE"
                     enqueueOutbox(userId, "document", documentId, outboxOp, existing.serverRevision)
@@ -897,6 +958,26 @@ open class TijarioRepository(
 
             withContext(Dispatchers.IO) {
                 database.withTransaction {
+                    // Restore stock if it was an invoice
+                    if (existing.type == "invoice") {
+                        val items = dao.getDocumentItems(userId, documentId)
+                        items.forEach { item ->
+                            if (item.productId != null) {
+                                val product = dao.getProduct(userId, item.productId)
+                                if (product != null && product.stockQuantity != null) {
+                                    val newStock = product.stockQuantity + item.quantity
+                                    dao.upsertProduct(product.copy(
+                                        stockQuantity = newStock,
+                                        syncStatus = if (product.syncStatus == "LOCAL_ONLY") "LOCAL_ONLY" else "PENDING_SYNC",
+                                        localRevision = product.localRevision + 1
+                                    ))
+                                    val outboxOp = if (product.syncStatus == "LOCAL_ONLY") "CREATE" else "UPDATE"
+                                    enqueueOutbox(userId, "product", product.id, outboxOp, product.serverRevision)
+                                }
+                            }
+                        }
+                    }
+
                     if (existing.syncStatus == "LOCAL_ONLY" && !mustSoftDelete) {
                         dao.deleteDocumentItems(userId, documentId)
                         dao.deleteDocument(userId, documentId)

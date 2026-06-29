@@ -418,6 +418,7 @@ fun ProductFormScreen(
                     stockQuantity = existing.stockQuantity?.toString().orEmpty(),
                     kind = existing.kind,
                     currency = existing.currency,
+                    category = existing.category.orEmpty(),
                     lang = language
                 )
             }
@@ -489,6 +490,13 @@ fun ProductFormScreen(
                         onValueChange = { form = form.copy(stockQuantity = it) },
                         error = if (form.stockQuantity.isNotEmpty()) form.stockQuantityError else null,
                         leadingIcon = { Icon(Icons.Filled.Numbers, contentDescription = null, tint = Color(0xFF64748B)) }
+                    )
+
+                    TijarioTextField(
+                        label = t("category_optional"),
+                        value = form.category,
+                        onValueChange = { form = form.copy(category = it) },
+                        leadingIcon = { Icon(Icons.Filled.GridView, contentDescription = null, tint = Color(0xFF64748B)) }
                     )
 
                     Text(
@@ -608,7 +616,8 @@ fun ProductFormScreen(
                                         description = form.description.ifBlank { null },
                                         price = Validation.parseNonNegativeMoney(form.price) ?: 0.0,
                                         stockQuantity = Validation.parseNonNegativeInt(form.stockQuantity),
-                                        currency = form.currency
+                                        currency = form.currency,
+                                        category = form.category.ifBlank { null }
                                     )
                                     val result = if (isEditMode) {
                                         dataViewModel.updateProduct(product)

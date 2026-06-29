@@ -163,10 +163,11 @@ data class ProductFormState(
     val stockQuantity: String = "",
     val kind: app.tijario.data.model.ProductKind = app.tijario.data.model.ProductKind.Product,
     val currency: String = "SAR",
+    val category: String = "",
     val lang: AppLanguage = AppLanguage.AR,
 ) {
     val nameError: String? get() = Validation.required(name, "field_fullname", lang)
     val priceError: String? get() = Validation.nonNegativeMoney(price, "product_price", lang)
-    val stockQuantityError: String? get() = Validation.nonNegativeInt(stockQuantity, "form_quantity", lang)
+    val stockQuantityError: String? get() = Validation.nonNegativeInt(stockQuantity, "form_stock", lang)
     val canSubmit: Boolean get() = nameError == null && price.isNotBlank() && priceError == null && stockQuantityError == null
 }

@@ -420,6 +420,30 @@ fun DashboardScreen(
                         }
                     }
 
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        MiniStatItem(
+                            count = uiState.customers.size,
+                            label = if (isArabic) "العملاء" else "Customers",
+                            icon = Icons.Filled.Person,
+                            modifier = Modifier.weight(1f)
+                        )
+                        MiniStatItem(
+                            count = uiState.products.size,
+                            label = if (isArabic) "المنتجات" else "Products",
+                            icon = Icons.Filled.GridView,
+                            modifier = Modifier.weight(1f)
+                        )
+                        MiniStatItem(
+                            count = uiState.documents.size,
+                            label = if (isArabic) "المستندات" else "Documents",
+                            icon = Icons.Filled.Receipt,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+
                     Column(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalAlignment = Alignment.Start
@@ -448,30 +472,6 @@ fun DashboardScreen(
                                 modifier = Modifier.padding(bottom = 4.dp)
                             )
                         }
-                    }
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        MiniStatItem(
-                            count = uiState.customers.size,
-                            label = if (isArabic) "العملاء" else "Customers",
-                            icon = Icons.Filled.Person,
-                            modifier = Modifier.weight(1f)
-                        )
-                        MiniStatItem(
-                            count = uiState.products.size,
-                            label = if (isArabic) "المنتجات" else "Products",
-                            icon = Icons.Filled.GridView,
-                            modifier = Modifier.weight(1f)
-                        )
-                        MiniStatItem(
-                            count = uiState.documents.size,
-                            label = if (isArabic) "المستندات" else "Documents",
-                            icon = Icons.Filled.Receipt,
-                            modifier = Modifier.weight(1f)
-                        )
                     }
 
                     HorizontalDivider(color = Color.White.copy(alpha = 0.12f))
@@ -1612,9 +1612,15 @@ fun ProductsScreen(
 
     val products = uiState.products
     val businessCurrency = uiState.businessSettings?.currency ?: "SAR"
+    val categories = remember(products) { products.mapNotNull { it.category?.ifBlank { null } }.distinct().sorted() }
+    var selectedCategory by remember { mutableStateOf<String?>(null) }
     val isLoading = uiState.isInitialLoading && products.isEmpty()
-    val filteredProducts = products.filter {
-        it.name.contains(searchQuery, ignoreCase = true) || (it.description ?: "").contains(searchQuery, ignoreCase = true)
+
+    val filteredProducts = products.filter { product ->
+        val matchesSearch = product.name.contains(searchQuery, ignoreCase = true) ||
+                (product.description ?: "").contains(searchQuery, ignoreCase = true)
+        val matchesCategory = selectedCategory == null || product.category == selectedCategory
+        matchesSearch && matchesCategory
     }
 
     var productToDelete by remember { mutableStateOf<app.tijario.data.model.Product?>(null) }
@@ -1712,6 +1718,38 @@ fun ProductsScreen(
                 onValueChange = { searchQuery = it },
                 leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) }
             )
+
+            // Category Filter
+            if (categories.isNotEmpty()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TijarioFilterChip(
+                        selected = selectedCategory == null,
+                        onClick = { selectedCategory = null },
+                        label = t("all_categories"),
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Filled.GridView,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = if (selectedCategory == null) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    )
+                    categories.forEach { category ->
+                        TijarioFilterChip(
+                            selected = selectedCategory == category,
+                            onClick = { selectedCategory = category },
+                            label = category
+                        )
+                    }
+                }
+            }
 
             if (isLoading) {
                 Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
@@ -2977,28 +3015,33 @@ private fun MiniStatItem(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 6.dp, vertical = 10.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
+                .padding(horizontal = 8.dp, vertical = 12.dp),
+            horizontalAlignment = Alignment.Start,
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = Color(0xFF2DD4BF),
-                modifier = Modifier.size(17.dp)
-            )
-            Text(
-                text = count.toString(),
-                color = Color.White,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Bold
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = Color(0xFF2DD4BF),
+                    modifier = Modifier.size(16.dp)
+                )
+                Text(
+                    text = count.toString(),
+                    color = Color.White,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
             Text(
                 text = label,
                 color = Color.White.copy(alpha = 0.6f),
-                fontSize = 10.sp,
+                fontSize = 11.sp,
                 fontWeight = FontWeight.Medium,
-                textAlign = TextAlign.Center
+                textAlign = TextAlign.Start
             )
         }
     }

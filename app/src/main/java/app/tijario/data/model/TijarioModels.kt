@@ -38,6 +38,7 @@ data class Product(
     val price: Double,
     val currency: String = "SAR",
     @SerialName("stock_quantity") val stockQuantity: Int? = null,
+    val category: String? = null,
 )
 
 @Serializable

@@ -97,6 +97,7 @@ data class ProductEntity(
     val currency: String,
     @ColumnInfo(name = "stock_quantity")
     val stockQuantity: Int?,
+    val category: String? = null,
     @ColumnInfo(name = "synced_at")
     val syncedAt: Long,
 
@@ -429,6 +430,7 @@ fun Product.toEntity(userIdFallback: String, syncedAt: Long = System.currentTime
         price = BigDecimal.valueOf(price),
         currency = currency,
         stockQuantity = stockQuantity,
+        category = category,
         syncedAt = syncedAt,
     )
 }
@@ -443,6 +445,7 @@ fun ProductEntity.toModel(): Product =
         price = price.toDouble(),
         currency = currency,
         stockQuantity = stockQuantity,
+        category = category,
     )
 
 fun DocumentSummary.toEntity(userId: String, syncedAt: Long = System.currentTimeMillis()): DocumentEntity =
