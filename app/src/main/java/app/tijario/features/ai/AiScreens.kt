@@ -4,6 +4,7 @@ import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,10 +26,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
@@ -82,17 +83,115 @@ import app.tijario.data.remote.AiV3Variant
 import app.tijario.ui.state.TijarioDataViewModel
 import java.util.UUID
 
-// Premium SaaS Color Palette
-private val SaaSBackground = Color(0xFF0F1115)
-private val SaaSSurface = Color(0xFF181B20)
-private val SaaSElevatedSurface = Color(0xFF20242A)
-private val SaaSBorder = Color(0xFF2D323A)
-private val SaaSPrimaryTeal = Color(0xFF14B8A6)
-private val SaaSPrimaryPressed = Color(0xFF0F9488)
-private val SaaSTextPrimary = Color(0xFFF5F7FA)
-private val SaaSTextSecondary = Color(0xFFA6ADB7)
-private val SaaSSuccess = Color(0xFF22C55E)
-private val SaaSError = Color(0xFFEF4444)
+// Dynamic SaaS Color Scheme for Light and Dark mode harmony
+data class SaaSColorScheme(
+    val background: Color,
+    val surface: Color,
+    val elevatedSurface: Color,
+    val border: Color,
+    val primaryTeal: Color,
+    val primaryPressed: Color,
+    val textPrimary: Color,
+    val textSecondary: Color,
+    val success: Color,
+    val error: Color,
+    val isDark: Boolean
+)
+
+@Composable
+fun getSaaSColors(): SaaSColorScheme {
+    val isDark = MaterialTheme.colorScheme.background != Color(0xFFF8FAFC)
+    return if (isDark) {
+        SaaSColorScheme(
+            background = Color(0xFF0F1115),
+            surface = Color(0xFF181B20),
+            elevatedSurface = Color(0xFF20242A),
+            border = Color(0xFF2D323A),
+            primaryTeal = Color(0xFF14B8A6),
+            primaryPressed = Color(0xFF0F9488),
+            textPrimary = Color(0xFFF5F7FA),
+            textSecondary = Color(0xFFA6ADB7),
+            success = Color(0xFF22C55E),
+            error = Color(0xFFEF4444),
+            isDark = true
+        )
+    } else {
+        SaaSColorScheme(
+            background = Color(0xFFF9FAFB),
+            surface = Color(0xFFFFFFFF),
+            elevatedSurface = Color(0xFFF3F4F6),
+            border = Color(0xFFE5E7EB),
+            primaryTeal = Color(0xFF0D9488),
+            primaryPressed = Color(0xFF0F766E),
+            textPrimary = Color(0xFF111827),
+            textSecondary = Color(0xFF4B5563),
+            success = Color(0xFF16A34A),
+            error = Color(0xFFDC2626),
+            isDark = false
+        )
+    }
+}
+
+// Localized strings helper for variant labels
+private fun getLocalizedVariantLabel(id: String, language: AppLanguage): String {
+    return when (id) {
+        "quick" -> if (language == AppLanguage.AR) "مختصر" else "Quick"
+        "professional" -> if (language == AppLanguage.AR) "احترافي" else "Professional"
+        "conversion" -> if (language == AppLanguage.AR) "تحويلي" else "Conversion"
+        "compact" -> if (language == AppLanguage.AR) "مختصر" else "Compact"
+        "direct_sales" -> if (language == AppLanguage.AR) "بيعي مباشر" else "Direct Sales"
+        "story" -> if (language == AppLanguage.AR) "ستوري" else "Story"
+        else -> id.replace("_", " ").replaceFirstChar { it.uppercase() }
+    }
+}
+
+private fun translateAiTerm(term: String, language: AppLanguage): String {
+    val clean = term.trim().lowercase()
+    if (clean == "unknown") return if (language == AppLanguage.AR) "غير معروف" else "Unknown"
+    
+    return when (clean) {
+        // Intents
+        "price_request" -> if (language == AppLanguage.AR) "طلب السعر" else "Price request"
+        "price_objection" -> if (language == AppLanguage.AR) "اعتراض على السعر" else "Price objection"
+        "discount_request" -> if (language == AppLanguage.AR) "طلب خصم" else "Discount request"
+        "delivery_question" -> if (language == AppLanguage.AR) "سؤال عن التوصيل" else "Delivery question"
+        "availability_question" -> if (language == AppLanguage.AR) "سؤال عن التوفر" else "Availability question"
+        "customer_hesitant" -> if (language == AppLanguage.AR) "عميل متردد" else "Hesitant customer"
+        "customer_interested" -> if (language == AppLanguage.AR) "عميل مهتم" else "Interested customer"
+        "follow_up" -> if (language == AppLanguage.AR) "متابعة" else "Follow up"
+        "payment_reminder" -> if (language == AppLanguage.AR) "تذكير بالدفع" else "Payment reminder"
+        "delayed_response_apology" -> if (language == AppLanguage.AR) "اعتذار عن التأخير" else "Delay apology"
+        "review_request" -> if (language == AppLanguage.AR) "طلب تقييم" else "Review request"
+        "general_inquiry" -> if (language == AppLanguage.AR) "استفسار عام" else "General inquiry"
+        "product_promotion" -> if (language == AppLanguage.AR) "ترويج للمنتج" else "Product promotion"
+        "product_highlighting" -> if (language == AppLanguage.AR) "إبراز المنتج" else "Product highlighting"
+        
+        // Moods
+        "neutral" -> if (language == AppLanguage.AR) "محايد" else "Neutral"
+        "friendly" -> if (language == AppLanguage.AR) "ودي" else "Friendly"
+        "happy" -> if (language == AppLanguage.AR) "سعيد" else "Happy"
+        "angry" -> if (language == AppLanguage.AR) "غاضب" else "Angry"
+        "hesitant" -> if (language == AppLanguage.AR) "متردد" else "Hesitant"
+        "interested" -> if (language == AppLanguage.AR) "مهتم" else "Interested"
+        
+        // Buying Stages
+        "awareness" -> if (language == AppLanguage.AR) "مرحلة الوعي" else "Awareness stage"
+        "consideration" -> if (language == AppLanguage.AR) "مرحلة الاهتمام" else "Consideration stage"
+        "decision" -> if (language == AppLanguage.AR) "مرحلة القرار" else "Decision stage"
+        "retention" -> if (language == AppLanguage.AR) "مرحلة الولاء" else "Retention stage"
+        
+        // Missing Information fields
+        "primary_benefit" -> if (language == AppLanguage.AR) "الميزة الأساسية" else "Primary benefit"
+        "offer" -> if (language == AppLanguage.AR) "العرض" else "Offer"
+        "price" -> if (language == AppLanguage.AR) "السعر" else "Price"
+        "delivery_details" -> if (language == AppLanguage.AR) "تفاصيل التوصيل" else "Delivery details"
+        "customer_name" -> if (language == AppLanguage.AR) "اسم العميل" else "Customer name"
+        "product_details" -> if (language == AppLanguage.AR) "تفاصيل المنتج" else "Product details"
+        
+        else -> term.replace("_", " ").replaceFirstChar { it.uppercase() }
+    }
+}
+
 
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -140,8 +239,7 @@ fun AiToolsScreen(
     var showProductSheetForReply by remember { mutableStateOf(false) }
     var showProductSheetForCaption by remember { mutableStateOf(false) }
 
-    val context = LocalContext.current
-    val clipboard = LocalClipboardManager.current
+    val saaSColors = getSaaSColors()
 
     LaunchedEffect(state) {
         if (state is AiV3ScreenState.Success) {
@@ -155,8 +253,8 @@ fun AiToolsScreen(
     val limitReachedByCache = uiState.planUsage?.let { it.aiLimit > 0 && it.aiUsed >= it.aiLimit } == true
 
     Scaffold(
-        containerColor = SaaSBackground,
-        contentColor = SaaSTextPrimary,
+        containerColor = saaSColors.background,
+        contentColor = saaSColors.textPrimary,
     ) { paddingValues ->
         Column(
             modifier = Modifier
@@ -329,8 +427,8 @@ fun AiToolsScreen(
         if (showCustomerSheet) {
             ModalBottomSheet(
                 onDismissRequest = { showCustomerSheet = false },
-                containerColor = SaaSSurface,
-                contentColor = SaaSTextPrimary,
+                containerColor = saaSColors.surface,
+                contentColor = saaSColors.textPrimary,
             ) {
                 CustomerSelectionContent(
                     customers = uiState.customers,
@@ -346,8 +444,8 @@ fun AiToolsScreen(
         if (showProductSheetForReply) {
             ModalBottomSheet(
                 onDismissRequest = { showProductSheetForReply = false },
-                containerColor = SaaSSurface,
-                contentColor = SaaSTextPrimary,
+                containerColor = saaSColors.surface,
+                contentColor = saaSColors.textPrimary,
             ) {
                 ProductSelectionContent(
                     products = uiState.products,
@@ -363,8 +461,8 @@ fun AiToolsScreen(
         if (showProductSheetForCaption) {
             ModalBottomSheet(
                 onDismissRequest = { showProductSheetForCaption = false },
-                containerColor = SaaSSurface,
-                contentColor = SaaSTextPrimary,
+                containerColor = saaSColors.surface,
+                contentColor = saaSColors.textPrimary,
             ) {
                 ProductSelectionContent(
                     products = uiState.products,
@@ -382,6 +480,7 @@ fun AiToolsScreen(
 
 @Composable
 private fun HeaderBlock() {
+    val saaSColors = getSaaSColors()
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -390,7 +489,7 @@ private fun HeaderBlock() {
         Icon(
             Icons.Filled.AutoAwesome,
             contentDescription = null,
-            tint = SaaSPrimaryTeal,
+            tint = saaSColors.primaryTeal,
             modifier = Modifier.size(24.dp)
         )
         Column {
@@ -398,12 +497,12 @@ private fun HeaderBlock() {
                 text = t("ai_title"),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color = SaaSTextPrimary
+                color = saaSColors.textPrimary
             )
             Text(
                 text = t("ai_subtitle"),
                 style = MaterialTheme.typography.bodySmall,
-                color = SaaSTextSecondary
+                color = saaSColors.textSecondary
             )
         }
     }
@@ -411,24 +510,26 @@ private fun HeaderBlock() {
 
 @Composable
 private fun UsageBanner() {
+    val saaSColors = getSaaSColors()
     val language = LocalLanguage.current
     Text(
         text = localized(language, "AI يعمل عند الاتصال بالإنترنت فقط، وبقية التطبيق تستمر Offline.", "AI is online-only; the rest of the app can continue offline."),
-        color = SaaSTextSecondary,
+        color = saaSColors.textSecondary,
         fontSize = 11.sp,
     )
 }
 
 @Composable
 private fun LimitBanner(message: String?) {
+    val saaSColors = getSaaSColors()
     Card(
-        colors = CardDefaults.cardColors(containerColor = SaaSError.copy(alpha = 0.15f)),
+        colors = CardDefaults.cardColors(containerColor = saaSColors.error.copy(alpha = 0.15f)),
         shape = RoundedCornerShape(12.dp)
     ) {
         Text(
             text = message ?: t("ai_limit_reached"),
             modifier = Modifier.padding(12.dp),
-            color = SaaSError,
+            color = saaSColors.error,
             fontWeight = FontWeight.Bold,
             fontSize = 13.sp
         )
@@ -441,12 +542,13 @@ private fun SegmentedControl(
     selectedIndex: Int,
     onOptionSelected: (Int) -> Unit,
 ) {
+    val saaSColors = getSaaSColors()
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .height(44.dp)
             .clip(RoundedCornerShape(12.dp))
-            .background(SaaSSurface)
+            .background(saaSColors.surface)
             .padding(4.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
@@ -457,13 +559,13 @@ private fun SegmentedControl(
                     .weight(1f)
                     .fillMaxSize()
                     .clip(RoundedCornerShape(8.dp))
-                    .background(if (active) SaaSPrimaryTeal else Color.Transparent)
+                    .background(if (active) saaSColors.primaryTeal else Color.Transparent)
                     .clickable { onOptionSelected(index) },
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = option,
-                    color = if (active) SaaSTextPrimary else SaaSTextSecondary,
+                    color = if (active) Color.White else saaSColors.textSecondary, // Always light text inside the active teal tab for contrast
                     fontWeight = FontWeight.Bold,
                     fontSize = 13.sp
                 )
@@ -503,10 +605,12 @@ private fun ReplyFormBlock(
     onSubmit: () -> Unit,
     language: AppLanguage
 ) {
+    val saaSColors = getSaaSColors()
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = SaaSSurface)
+        colors = CardDefaults.cardColors(containerColor = saaSColors.surface),
+        border = if (!saaSColors.isDark) androidx.compose.foundation.BorderStroke(1.dp, saaSColors.border) else null
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -516,23 +620,23 @@ private fun ReplyFormBlock(
                 text = localized(language, "صياغة رد ذكي للعملاء", "Compose Smart Reply"),
                 fontWeight = FontWeight.Bold,
                 fontSize = 14.sp,
-                color = SaaSTextPrimary
+                color = saaSColors.textPrimary
             )
 
             // Message Input
             OutlinedTextField(
                 value = replyMessage,
                 onValueChange = onReplyMessageChange,
-                placeholder = { Text(localized(language, "الصق رسالة العميل هنا...", "Paste the customer message here..."), color = SaaSTextSecondary) },
+                placeholder = { Text(localized(language, "الصق رسالة العميل هنا...", "Paste the customer message here..."), color = saaSColors.textSecondary) },
                 minLines = 4,
                 modifier = Modifier.fillMaxWidth(),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = SaaSPrimaryTeal,
-                    unfocusedBorderColor = SaaSBorder,
-                    focusedContainerColor = SaaSBackground,
-                    unfocusedContainerColor = SaaSBackground,
-                    focusedTextColor = SaaSTextPrimary,
-                    unfocusedTextColor = SaaSTextPrimary
+                    focusedBorderColor = saaSColors.primaryTeal,
+                    unfocusedBorderColor = saaSColors.border,
+                    focusedContainerColor = saaSColors.background,
+                    unfocusedContainerColor = saaSColors.background,
+                    focusedTextColor = saaSColors.textPrimary,
+                    unfocusedTextColor = saaSColors.textPrimary
                 ),
                 shape = RoundedCornerShape(12.dp)
             )
@@ -580,14 +684,14 @@ private fun ReplyFormBlock(
             ) {
                 Text(
                     text = if (showAdvanced) localized(language, "إخفاء الإعدادات المتقدمة", "Hide advanced settings") else localized(language, "إعدادات متقدمة", "Advanced settings"),
-                    color = SaaSPrimaryTeal,
+                    color = saaSColors.primaryTeal,
                     fontWeight = FontWeight.Bold,
                     fontSize = 13.sp
                 )
                 Icon(
                     imageVector = if (showAdvanced) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
                     contentDescription = null,
-                    tint = SaaSPrimaryTeal
+                    tint = saaSColors.primaryTeal
                 )
             }
 
@@ -599,16 +703,16 @@ private fun ReplyFormBlock(
                 OutlinedTextField(
                     value = extra,
                     onValueChange = onExtraChange,
-                    placeholder = { Text(t("ai_notes_label"), color = SaaSTextSecondary) },
+                    placeholder = { Text(t("ai_notes_label"), color = saaSColors.textSecondary) },
                     minLines = 2,
                     modifier = Modifier.fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = SaaSPrimaryTeal,
-                        unfocusedBorderColor = SaaSBorder,
-                        focusedContainerColor = SaaSBackground,
-                        unfocusedContainerColor = SaaSBackground,
-                        focusedTextColor = SaaSTextPrimary,
-                        unfocusedTextColor = SaaSTextPrimary
+                        focusedBorderColor = saaSColors.primaryTeal,
+                        unfocusedBorderColor = saaSColors.border,
+                        focusedContainerColor = saaSColors.background,
+                        unfocusedContainerColor = saaSColors.background,
+                        focusedTextColor = saaSColors.textPrimary,
+                        unfocusedTextColor = saaSColors.textPrimary
                     ),
                     shape = RoundedCornerShape(12.dp)
                 )
@@ -620,10 +724,10 @@ private fun ReplyFormBlock(
                 modifier = Modifier.fillMaxWidth().height(48.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = SaaSPrimaryTeal,
-                    contentColor = SaaSTextPrimary,
-                    disabledContainerColor = SaaSBorder,
-                    disabledContentColor = SaaSTextSecondary
+                    containerColor = saaSColors.primaryTeal,
+                    contentColor = Color.White, // Keep text light inside button
+                    disabledContainerColor = saaSColors.border,
+                    disabledContentColor = saaSColors.textSecondary
                 )
             ) {
                 Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null)
@@ -663,10 +767,12 @@ private fun CaptionFormBlock(
     onSubmit: () -> Unit,
     language: AppLanguage
 ) {
+    val saaSColors = getSaaSColors()
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = SaaSSurface)
+        colors = CardDefaults.cardColors(containerColor = saaSColors.surface),
+        border = if (!saaSColors.isDark) androidx.compose.foundation.BorderStroke(1.dp, saaSColors.border) else null
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -676,7 +782,7 @@ private fun CaptionFormBlock(
                 text = localized(language, "صياغة كابشن ذكي للمنتجات", "Generate Product Caption"),
                 fontWeight = FontWeight.Bold,
                 fontSize = 14.sp,
-                color = SaaSTextPrimary
+                color = saaSColors.textPrimary
             )
 
             // Product selector
@@ -694,15 +800,15 @@ private fun CaptionFormBlock(
                 OutlinedTextField(
                     value = productOrService,
                     onValueChange = onProductOrServiceChange,
-                    placeholder = { Text(t("ai_prod_srv_label"), color = SaaSTextSecondary) },
+                    placeholder = { Text(t("ai_prod_srv_label"), color = saaSColors.textSecondary) },
                     modifier = Modifier.fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = SaaSPrimaryTeal,
-                        unfocusedBorderColor = SaaSBorder,
-                        focusedContainerColor = SaaSBackground,
-                        unfocusedContainerColor = SaaSBackground,
-                        focusedTextColor = SaaSTextPrimary,
-                        unfocusedTextColor = SaaSTextPrimary
+                        focusedBorderColor = saaSColors.primaryTeal,
+                        unfocusedBorderColor = saaSColors.border,
+                        focusedContainerColor = saaSColors.background,
+                        unfocusedContainerColor = saaSColors.background,
+                        focusedTextColor = saaSColors.textPrimary,
+                        unfocusedTextColor = saaSColors.textPrimary
                     ),
                     shape = RoundedCornerShape(12.dp)
                 )
@@ -711,15 +817,15 @@ private fun CaptionFormBlock(
             OutlinedTextField(
                 value = primaryBenefit,
                 onValueChange = onPrimaryBenefitChange,
-                placeholder = { Text(localized(language, "ما أهم فائدة تريد إبرازها؟ (اختياري)", "Primary benefit (optional)"), color = SaaSTextSecondary) },
+                placeholder = { Text(localized(language, "ما أهم فائدة تريد إبرازها؟ (اختياري)", "Primary benefit (optional)"), color = saaSColors.textSecondary) },
                 modifier = Modifier.fillMaxWidth(),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = SaaSPrimaryTeal,
-                    unfocusedBorderColor = SaaSBorder,
-                    focusedContainerColor = SaaSBackground,
-                    unfocusedContainerColor = SaaSBackground,
-                    focusedTextColor = SaaSTextPrimary,
-                    unfocusedTextColor = SaaSTextPrimary
+                    focusedBorderColor = saaSColors.primaryTeal,
+                    unfocusedBorderColor = saaSColors.border,
+                    focusedContainerColor = saaSColors.background,
+                    unfocusedContainerColor = saaSColors.background,
+                    focusedTextColor = saaSColors.textPrimary,
+                    unfocusedTextColor = saaSColors.textPrimary
                 ),
                 shape = RoundedCornerShape(12.dp)
             )
@@ -727,15 +833,15 @@ private fun CaptionFormBlock(
             OutlinedTextField(
                 value = offer,
                 onValueChange = onOfferChange,
-                placeholder = { Text(t("ai_offer_label"), color = SaaSTextSecondary) },
+                placeholder = { Text(t("ai_offer_label"), color = saaSColors.textSecondary) },
                 modifier = Modifier.fillMaxWidth(),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = SaaSPrimaryTeal,
-                    unfocusedBorderColor = SaaSBorder,
-                    focusedContainerColor = SaaSBackground,
-                    unfocusedContainerColor = SaaSBackground,
-                    focusedTextColor = SaaSTextPrimary,
-                    unfocusedTextColor = SaaSTextPrimary
+                    focusedBorderColor = saaSColors.primaryTeal,
+                    unfocusedBorderColor = saaSColors.border,
+                    focusedContainerColor = saaSColors.background,
+                    unfocusedContainerColor = saaSColors.background,
+                    focusedTextColor = saaSColors.textPrimary,
+                    unfocusedTextColor = saaSColors.textPrimary
                 ),
                 shape = RoundedCornerShape(12.dp)
             )
@@ -755,14 +861,14 @@ private fun CaptionFormBlock(
             ) {
                 Text(
                     text = if (showAdvanced) localized(language, "إخفاء الإعدادات المتقدمة", "Hide advanced settings") else localized(language, "إعدادات متقدمة", "Advanced settings"),
-                    color = SaaSPrimaryTeal,
+                    color = saaSColors.primaryTeal,
                     fontWeight = FontWeight.Bold,
                     fontSize = 13.sp
                 )
                 Icon(
                     imageVector = if (showAdvanced) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
                     contentDescription = null,
-                    tint = SaaSPrimaryTeal
+                    tint = saaSColors.primaryTeal
                 )
             }
 
@@ -779,10 +885,10 @@ private fun CaptionFormBlock(
                 modifier = Modifier.fillMaxWidth().height(48.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = SaaSPrimaryTeal,
-                    contentColor = SaaSTextPrimary,
-                    disabledContainerColor = SaaSBorder,
-                    disabledContentColor = SaaSTextSecondary
+                    containerColor = saaSColors.primaryTeal,
+                    contentColor = Color.White, // Keep text light inside button
+                    disabledContainerColor = saaSColors.border,
+                    disabledContentColor = saaSColors.textSecondary
                 )
             ) {
                 Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null)
@@ -802,11 +908,12 @@ private fun ContextSelectorButton(
     modifier: Modifier = Modifier,
     language: AppLanguage
 ) {
+    val saaSColors = getSaaSColors()
     Row(
         modifier = modifier
             .height(48.dp)
             .clip(RoundedCornerShape(12.dp))
-            .background(if (isSelected) SaaSPrimaryTeal.copy(alpha = 0.15f) else SaaSBackground)
+            .background(if (isSelected) saaSColors.primaryTeal.copy(alpha = 0.15f) else saaSColors.background)
             .clickable { onClick() }
             .padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -814,7 +921,7 @@ private fun ContextSelectorButton(
         Text(
             text = label,
             modifier = Modifier.weight(1f),
-            color = if (isSelected) SaaSPrimaryTeal else SaaSTextSecondary,
+            color = if (isSelected) saaSColors.primaryTeal else saaSColors.textSecondary,
             fontSize = 12.sp,
             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
             maxLines = 1,
@@ -824,7 +931,7 @@ private fun ContextSelectorButton(
             Icon(
                 imageVector = Icons.Filled.Close,
                 contentDescription = localized(language, "إلغاء التحديد", "Deselect"),
-                tint = SaaSPrimaryTeal,
+                tint = saaSColors.primaryTeal,
                 modifier = Modifier
                     .size(16.dp)
                     .clickable { onClear() }
@@ -853,7 +960,7 @@ private fun ResultBlock(
     // Variant selector segmented switch
     if (success.data.variants.isNotEmpty()) {
         SegmentedControl(
-            options = success.data.variants.map { it.label },
+            options = success.data.variants.map { getLocalizedVariantLabel(it.id, language) },
             selectedIndex = success.data.variants.indexOfFirst { it.id == selectedVariantId }.coerceAtLeast(0),
             onOptionSelected = { index ->
                 selectedVariantId = success.data.variants[index].id
@@ -877,9 +984,11 @@ private fun ResultBlock(
 @Composable
 private fun AnalysisSummaryCollapsible(data: AiV3ResponseData, language: AppLanguage) {
     var expanded by remember { mutableStateOf(false) }
+    val saaSColors = getSaaSColors()
     Card(
-        colors = CardDefaults.cardColors(containerColor = SaaSSurface),
-        shape = RoundedCornerShape(12.dp)
+        colors = CardDefaults.cardColors(containerColor = saaSColors.surface),
+        shape = RoundedCornerShape(12.dp),
+        border = if (!saaSColors.isDark) androidx.compose.foundation.BorderStroke(1.dp, saaSColors.border) else null
     ) {
         Column(
             modifier = Modifier
@@ -898,28 +1007,32 @@ private fun AnalysisSummaryCollapsible(data: AiV3ResponseData, language: AppLang
                     text = localized(language, "تحليل وفهم الرسالة", "Message understanding"),
                     fontWeight = FontWeight.Bold,
                     fontSize = 13.sp,
-                    color = SaaSTextPrimary
+                    color = saaSColors.textPrimary
                 )
                 Icon(
                     imageVector = if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
                     contentDescription = null,
-                    tint = SaaSTextSecondary
+                    tint = saaSColors.textSecondary
                 )
             }
 
-            val briefMeaning = if (data.analysis.objection != null) {
-                localized(language, "العميل مهتم ولكنه يواجه اعتراضًا: ${data.analysis.objection}", "Customer is interested but has an objection: ${data.analysis.objection}")
+            val localizedObjection = data.analysis.objection?.let { translateAiTerm(it, language) }
+            val localizedStage = translateAiTerm(data.analysis.buyingStage, language)
+            val briefMeaning = if (localizedObjection != null) {
+                localized(language, "العميل مهتم ولكنه يواجه اعتراضًا: $localizedObjection", "Customer is interested but has an objection: $localizedObjection")
             } else {
-                localized(language, "العميل يبدو في وضع: ${data.analysis.buyingStage}", "Customer seems to be in: ${data.analysis.buyingStage}")
+                localized(language, "العميل يبدو في وضع: $localizedStage", "Customer seems to be in: $localizedStage")
             }
 
             Text(
                 text = briefMeaning,
                 fontSize = 12.sp,
-                color = SaaSTextSecondary
+                color = saaSColors.textSecondary
             )
 
             if (expanded) {
+                val localizedIntent = translateAiTerm(data.analysis.intent, language)
+                val localizedMood = translateAiTerm(data.analysis.mood, language)
                 Row(
                     modifier = Modifier.horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -927,31 +1040,32 @@ private fun AnalysisSummaryCollapsible(data: AiV3ResponseData, language: AppLang
                     FilterChip(
                         selected = false,
                         onClick = {},
-                        label = { Text("نية: ${data.analysis.intent}", fontSize = 11.sp) },
+                        label = { Text(localized(language, "نية: $localizedIntent", "Intent: $localizedIntent"), fontSize = 11.sp) },
                         colors = FilterChipDefaults.filterChipColors(
-                            containerColor = SaaSBackground,
-                            labelColor = SaaSTextSecondary
+                            containerColor = saaSColors.background,
+                            labelColor = saaSColors.textSecondary
                         ),
                         border = null
                     )
                     FilterChip(
                         selected = false,
                         onClick = {},
-                        label = { Text("مزاج: ${data.analysis.mood}", fontSize = 11.sp) },
+                        label = { Text(localized(language, "مزاج: $localizedMood", "Mood: $localizedMood"), fontSize = 11.sp) },
                         colors = FilterChipDefaults.filterChipColors(
-                            containerColor = SaaSBackground,
-                            labelColor = SaaSTextSecondary
+                            containerColor = saaSColors.background,
+                            labelColor = saaSColors.textSecondary
                         ),
                         border = null
                     )
                 }
 
                 if (data.missingInformation.isNotEmpty()) {
+                    val localizedMissing = data.missingInformation.map { translateAiTerm(it, language) }.joinToString("، ")
                     Text(
                         text = localized(language, "معلومات ناقصة ننصح بسؤال العميل عنها: ", "Recommended missing info to ask: ") + 
-                            data.missingInformation.joinToString("، "),
+                            localizedMissing,
                         fontSize = 11.sp,
-                        color = SaaSError
+                        color = saaSColors.error
                     )
                 }
 
@@ -959,7 +1073,7 @@ private fun AnalysisSummaryCollapsible(data: AiV3ResponseData, language: AppLang
                     text = localized(language, "متبقي من باقتك: ", "Remaining credits: ") + 
                         "${data.usage.limit - data.usage.used} / ${data.usage.limit}",
                     fontSize = 11.sp,
-                    color = SaaSTextSecondary
+                    color = saaSColors.textSecondary
                 )
             }
         }
@@ -980,11 +1094,13 @@ private fun SingleActiveResultCard(
     val clipboard = LocalClipboardManager.current
     var showImproveSheet by remember { mutableStateOf(false) }
     val copyText = t("copy")
+    val saaSColors = getSaaSColors()
 
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = SaaSSurface)
+        colors = CardDefaults.cardColors(containerColor = saaSColors.surface),
+        border = if (!saaSColors.isDark) androidx.compose.foundation.BorderStroke(1.dp, saaSColors.border) else null
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -994,7 +1110,7 @@ private fun SingleActiveResultCard(
                 text = variant.text,
                 lineHeight = 22.sp,
                 fontSize = 14.sp,
-                color = SaaSTextPrimary
+                color = saaSColors.textPrimary
             )
 
             Row(
@@ -1010,9 +1126,9 @@ private fun SingleActiveResultCard(
                     modifier = Modifier.weight(1f).height(40.dp),
                     shape = RoundedCornerShape(10.dp),
                     colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = SaaSPrimaryTeal
+                        contentColor = saaSColors.primaryTeal
                     ),
-                    border = ButtonDefaults.outlinedButtonBorder.copy(width = 1.dp)
+                    border = androidx.compose.foundation.BorderStroke(1.dp, saaSColors.primaryTeal)
                 ) {
                     Icon(Icons.Filled.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
@@ -1025,8 +1141,8 @@ private fun SingleActiveResultCard(
                     modifier = Modifier.weight(1f).height(40.dp),
                     shape = RoundedCornerShape(10.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = SaaSPrimaryTeal,
-                        contentColor = SaaSTextPrimary
+                        containerColor = saaSColors.primaryTeal,
+                        contentColor = Color.White // Always white text
                     )
                 ) {
                     Icon(Icons.Filled.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -1041,8 +1157,8 @@ private fun SingleActiveResultCard(
     if (showImproveSheet) {
         ModalBottomSheet(
             onDismissRequest = { showImproveSheet = false },
-            containerColor = SaaSSurface,
-            contentColor = SaaSTextPrimary,
+            containerColor = saaSColors.surface,
+            contentColor = saaSColors.textPrimary,
         ) {
             RefineOptionsContent(
                 onRefineSelected = { preset ->
@@ -1078,6 +1194,7 @@ private fun RefineOptionsContent(
     onReportSelected: () -> Unit,
     language: AppLanguage
 ) {
+    val saaSColors = getSaaSColors()
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -1088,7 +1205,7 @@ private fun RefineOptionsContent(
             text = localized(language, "تحسين النص الناتج", "Refining output text"),
             fontWeight = FontWeight.Bold,
             fontSize = 15.sp,
-            color = SaaSTextPrimary,
+            color = saaSColors.textPrimary,
             modifier = Modifier.padding(bottom = 8.dp)
         )
 
@@ -1102,9 +1219,9 @@ private fun RefineOptionsContent(
                     .padding(vertical = 12.dp, horizontal = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Filled.Refresh, contentDescription = null, tint = SaaSPrimaryTeal, modifier = Modifier.size(18.dp))
+                Icon(Icons.Filled.Refresh, contentDescription = null, tint = saaSColors.primaryTeal, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(12.dp))
-                Text(label, color = SaaSTextPrimary, fontSize = 13.sp)
+                Text(label, color = saaSColors.textPrimary, fontSize = 13.sp)
             }
         }
 
@@ -1119,11 +1236,11 @@ private fun RefineOptionsContent(
                 .padding(vertical = 12.dp, horizontal = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(Icons.Filled.Flag, contentDescription = null, tint = SaaSError, modifier = Modifier.size(18.dp))
+            Icon(Icons.Filled.Flag, contentDescription = null, tint = saaSColors.error, modifier = Modifier.size(18.dp))
             Spacer(modifier = Modifier.width(12.dp))
             Text(
                 text = t("ai_report"),
-                color = SaaSError,
+                color = saaSColors.error,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold
             )
@@ -1141,6 +1258,7 @@ private fun CustomerSelectionContent(
     val filtered = remember(searchQuery, customers) {
         customers.filter { it.name.contains(searchQuery, ignoreCase = true) }
     }
+    val saaSColors = getSaaSColors()
 
     Column(
         modifier = Modifier
@@ -1151,22 +1269,22 @@ private fun CustomerSelectionContent(
             text = localized(language, "اختر عميلاً للرد", "Select customer context"),
             fontWeight = FontWeight.Bold,
             fontSize = 15.sp,
-            color = SaaSTextPrimary,
+            color = saaSColors.textPrimary,
             modifier = Modifier.padding(bottom = 12.dp)
         )
 
         OutlinedTextField(
             value = searchQuery,
             onValueChange = { searchQuery = it },
-            placeholder = { Text(localized(language, "بحث باسم العميل...", "Search customer name..."), color = SaaSTextSecondary) },
+            placeholder = { Text(localized(language, "بحث باسم العميل...", "Search customer name..."), color = saaSColors.textSecondary) },
             modifier = Modifier.fillMaxWidth(),
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = SaaSPrimaryTeal,
-                unfocusedBorderColor = SaaSBorder,
-                focusedContainerColor = SaaSBackground,
-                unfocusedContainerColor = SaaSBackground,
-                focusedTextColor = SaaSTextPrimary,
-                unfocusedTextColor = SaaSTextPrimary
+                focusedBorderColor = saaSColors.primaryTeal,
+                unfocusedBorderColor = saaSColors.border,
+                focusedContainerColor = saaSColors.background,
+                unfocusedContainerColor = saaSColors.background,
+                focusedTextColor = saaSColors.textPrimary,
+                unfocusedTextColor = saaSColors.textPrimary
             ),
             shape = RoundedCornerShape(10.dp)
         )
@@ -1176,7 +1294,7 @@ private fun CustomerSelectionContent(
         if (filtered.isEmpty()) {
             Text(
                 text = t("no_search_results"),
-                color = SaaSTextSecondary,
+                color = saaSColors.textSecondary,
                 fontSize = 13.sp,
                 modifier = Modifier.padding(vertical = 16.dp)
             )
@@ -1193,7 +1311,7 @@ private fun CustomerSelectionContent(
                             .clickable { customer.id?.let { onCustomerSelected(it) } }
                             .padding(vertical = 12.dp, horizontal = 8.dp)
                     ) {
-                        Text(customer.name, color = SaaSTextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        Text(customer.name, color = saaSColors.textPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -1211,6 +1329,7 @@ private fun ProductSelectionContent(
     val filtered = remember(searchQuery, products) {
         products.filter { it.name.contains(searchQuery, ignoreCase = true) }
     }
+    val saaSColors = getSaaSColors()
 
     Column(
         modifier = Modifier
@@ -1221,22 +1340,22 @@ private fun ProductSelectionContent(
             text = localized(language, "اختر منتجاً لسياق البيانات", "Select product context"),
             fontWeight = FontWeight.Bold,
             fontSize = 15.sp,
-            color = SaaSTextPrimary,
+            color = saaSColors.textPrimary,
             modifier = Modifier.padding(bottom = 12.dp)
         )
 
         OutlinedTextField(
             value = searchQuery,
             onValueChange = { searchQuery = it },
-            placeholder = { Text(localized(language, "بحث باسم المنتج...", "Search product name..."), color = SaaSTextSecondary) },
+            placeholder = { Text(localized(language, "بحث باسم المنتج...", "Search product name..."), color = saaSColors.textSecondary) },
             modifier = Modifier.fillMaxWidth(),
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = SaaSPrimaryTeal,
-                unfocusedBorderColor = SaaSBorder,
-                focusedContainerColor = SaaSBackground,
-                unfocusedContainerColor = SaaSBackground,
-                focusedTextColor = SaaSTextPrimary,
-                unfocusedTextColor = SaaSTextPrimary
+                focusedBorderColor = saaSColors.primaryTeal,
+                unfocusedBorderColor = saaSColors.border,
+                focusedContainerColor = saaSColors.background,
+                unfocusedContainerColor = saaSColors.background,
+                focusedTextColor = saaSColors.textPrimary,
+                unfocusedTextColor = saaSColors.textPrimary
             ),
             shape = RoundedCornerShape(10.dp)
         )
@@ -1246,7 +1365,7 @@ private fun ProductSelectionContent(
         if (filtered.isEmpty()) {
             Text(
                 text = t("no_products_available"),
-                color = SaaSTextSecondary,
+                color = saaSColors.textSecondary,
                 fontSize = 13.sp,
                 modifier = Modifier.padding(vertical = 16.dp)
             )
@@ -1265,8 +1384,8 @@ private fun ProductSelectionContent(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(product.name, color = SaaSTextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                        Text("${product.price} ${product.currency}", color = SaaSPrimaryTeal, fontSize = 12.sp)
+                        Text(product.name, color = saaSColors.textPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        Text("${product.price} ${product.currency}", color = saaSColors.primaryTeal, fontSize = 12.sp)
                     }
                 }
             }
@@ -1281,11 +1400,12 @@ private fun ChipGroupSlider(
     selected: String?,
     onSelected: (String) -> Unit,
 ) {
+    val saaSColors = getSaaSColors()
     Text(
         text = title,
         fontSize = 11.sp,
         fontWeight = FontWeight.Bold,
-        color = SaaSTextSecondary,
+        color = saaSColors.textSecondary,
         modifier = Modifier.padding(top = 4.dp)
     )
     Row(
@@ -1299,13 +1419,13 @@ private fun ChipGroupSlider(
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(8.dp))
-                    .background(if (active) SaaSPrimaryTeal else SaaSBackground)
+                    .background(if (active) saaSColors.primaryTeal else saaSColors.background)
                     .clickable { onSelected(value) }
                     .padding(horizontal = 12.dp, vertical = 6.dp)
             ) {
                 Text(
                     text = label,
-                    color = if (active) SaaSTextPrimary else SaaSTextSecondary,
+                    color = if (active) Color.White else saaSColors.textSecondary, // Light text inside selected tab, secondary inside unselected
                     fontSize = 12.sp,
                     fontWeight = if (active) FontWeight.Bold else FontWeight.Normal
                 )
@@ -1316,14 +1436,15 @@ private fun ChipGroupSlider(
 
 @Composable
 private fun ErrorCard(message: String) {
+    val saaSColors = getSaaSColors()
     Card(
-        colors = CardDefaults.cardColors(containerColor = SaaSError.copy(alpha = 0.15f)),
+        colors = CardDefaults.cardColors(containerColor = saaSColors.error.copy(alpha = 0.15f)),
         shape = RoundedCornerShape(12.dp)
     ) {
         Text(
             text = message,
             modifier = Modifier.padding(12.dp),
-            color = SaaSError,
+            color = saaSColors.error,
             fontSize = 12.sp
         )
     }
@@ -1331,14 +1452,16 @@ private fun ErrorCard(message: String) {
 
 @Composable
 private fun InfoCard(message: String) {
+    val saaSColors = getSaaSColors()
     Card(
-        colors = CardDefaults.cardColors(containerColor = SaaSSurface),
-        shape = RoundedCornerShape(12.dp)
+        colors = CardDefaults.cardColors(containerColor = saaSColors.surface),
+        shape = RoundedCornerShape(12.dp),
+        border = if (!saaSColors.isDark) androidx.compose.foundation.BorderStroke(1.dp, saaSColors.border) else null
     ) {
         Text(
             text = message,
             modifier = Modifier.padding(12.dp),
-            color = SaaSTextPrimary,
+            color = saaSColors.textPrimary,
             fontSize = 12.sp
         )
     }

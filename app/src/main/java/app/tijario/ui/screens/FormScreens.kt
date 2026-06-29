@@ -374,6 +374,39 @@ fun ProductFormScreen(
     val scope = rememberCoroutineScope()
     val isEditMode = productId != null
 
+    val context = LocalContext.current
+    var selectedImageUri by remember { mutableStateOf<android.net.Uri?>(null) }
+    var imageDeleted by remember { mutableStateOf(false) }
+
+    val imageFile = remember(productId, imageDeleted) {
+        if (productId != null && !imageDeleted) File(context.filesDir, "product_images/$productId.jpg") else null
+    }
+
+    val bitmap = remember(selectedImageUri, imageFile) {
+        if (selectedImageUri != null) {
+            try {
+                context.contentResolver.openInputStream(selectedImageUri!!)?.use { input ->
+                    BitmapFactory.decodeStream(input)?.asImageBitmap()
+                }
+            } catch (e: Exception) {
+                null
+            }
+        } else if (imageFile != null && imageFile.exists()) {
+            BitmapFactory.decodeFile(imageFile.absolutePath)?.asImageBitmap()
+        } else {
+            null
+        }
+    }
+
+    val pickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri != null) {
+            selectedImageUri = uri
+            imageDeleted = false
+        }
+    }
+
     LaunchedEffect(productId) {
         if (productId != null) {
             val existing = dataViewModel.uiState.value.products.find { it.id == productId }
@@ -500,6 +533,65 @@ fun ProductFormScreen(
                         }
                     }
 
+                    Text(
+                        text = if (language == AppLanguage.AR) "صورة المنتج (اختياري)" else "Product Image (Optional)",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    if (bitmap != null) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            androidx.compose.foundation.Image(
+                                bitmap = bitmap,
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .size(72.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                            )
+                            OutlinedButton(
+                                onClick = {
+                                    selectedImageUri = null
+                                    imageDeleted = true
+                                },
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                            ) {
+                                Icon(Icons.Filled.Delete, contentDescription = null)
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(if (language == AppLanguage.AR) "حذف الصورة" else "Remove Image")
+                            }
+                        }
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(80.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                                .clickable { pickerLauncher.launch("image/*") }
+                                .padding(16.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(Icons.Filled.Storefront, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                Text(
+                                    text = if (language == AppLanguage.AR) "اضغط لاختيار صورة للمنتج" else "Tap to choose product image",
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp
+                                )
+                            }
+                        }
+                    }
+
                     Spacer(modifier = Modifier.height(8.dp))
 
                     TijarioButton(
@@ -524,6 +616,21 @@ fun ProductFormScreen(
                                         dataViewModel.createProduct(product)
                                     }
                                     if (result.isSuccess) {
+                                        if (selectedImageUri != null) {
+                                            val dir = File(context.filesDir, "product_images")
+                                            if (!dir.exists()) dir.mkdirs()
+                                            val destFile = File(dir, "${product.id}.jpg")
+                                            context.contentResolver.openInputStream(selectedImageUri!!)?.use { input ->
+                                                destFile.outputStream().use { output ->
+                                                    input.copyTo(output)
+                                                }
+                                            }
+                                        } else if (imageDeleted) {
+                                            val destFile = File(context.filesDir, "product_images/${product.id}.jpg")
+                                            if (destFile.exists()) {
+                                                destFile.delete()
+                                            }
+                                        }
                                         onBack()
                                     } else {
                                         errorMessage = result.exceptionOrNull()?.message

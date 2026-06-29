@@ -1,4 +1,4 @@
-﻿package app.tijario.ui.screens
+package app.tijario.ui.screens
 
 import android.content.Context
 import android.content.ActivityNotFoundException
@@ -1732,6 +1732,15 @@ fun ProductsScreen(
                     modifier = Modifier.weight(1f)
                 ) {
                     items(filteredProducts) { item ->
+                        val context = LocalContext.current
+                        val productBitmap = remember(item.id) {
+                            val file = java.io.File(context.filesDir, "product_images/${item.id}.jpg")
+                            if (file.exists()) {
+                                android.graphics.BitmapFactory.decodeFile(file.absolutePath)?.asImageBitmap()
+                            } else {
+                                null
+                            }
+                        }
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -1760,12 +1769,21 @@ fun ProductsScreen(
                                         modifier = Modifier.size(44.dp)
                                     ) {
                                         Box(contentAlignment = Alignment.Center) {
-                                            Icon(
-                                                imageVector = if (item.kind == app.tijario.data.model.ProductKind.Service) Icons.Filled.Star else Icons.Filled.BusinessCenter,
-                                                contentDescription = null,
-                                                tint = MaterialTheme.colorScheme.primary,
-                                                modifier = Modifier.size(20.dp)
-                                            )
+                                            if (productBitmap != null) {
+                                                androidx.compose.foundation.Image(
+                                                    bitmap = productBitmap,
+                                                    contentDescription = null,
+                                                    contentScale = ContentScale.Crop,
+                                                    modifier = Modifier.fillMaxSize()
+                                                )
+                                            } else {
+                                                Icon(
+                                                    imageVector = if (item.kind == app.tijario.data.model.ProductKind.Service) Icons.Filled.Star else Icons.Filled.BusinessCenter,
+                                                    contentDescription = null,
+                                                    tint = MaterialTheme.colorScheme.primary,
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                            }
                                         }
                                     }
                                     Column {
