@@ -38,7 +38,9 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import java.math.BigDecimal
+import java.time.Instant
 import java.time.LocalDate
+import java.time.OffsetDateTime
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.util.Date
@@ -1333,6 +1335,10 @@ open class TijarioRepository(
         val documents: List<DocumentSummary>,
     )
 
+    private fun parseServerInstantOrNull(value: String): Instant? =
+        runCatching { Instant.parse(value) }.getOrNull()
+            ?: runCatching { OffsetDateTime.parse(value).toInstant() }.getOrNull()
+
     fun observeLocalTaxes(): Flow<List<app.tijario.data.local.LocalTaxEntity>> = dao.observeLocalTaxes()
     suspend fun upsertLocalTax(tax: app.tijario.data.local.LocalTaxEntity) = withContext(Dispatchers.IO) { dao.upsertLocalTax(tax) }
     suspend fun deleteLocalTax(id: String) = withContext(Dispatchers.IO) { dao.deleteLocalTax(id) }
@@ -1593,9 +1599,9 @@ open class TijarioRepository(
 
             val lastSyncedTimeStr = try {
                 val defaultTime = Date(0)
-                val custMax = dao.observeCustomers(userId).first().mapNotNull { it.serverRevision?.let { r -> java.time.Instant.parse(r) } }.maxOrNull()
-                val prodMax = dao.observeProducts(userId).first().mapNotNull { it.serverRevision?.let { r -> java.time.Instant.parse(r) } }.maxOrNull()
-                val docMax = dao.observeDocuments(userId).first().mapNotNull { it.serverRevision?.let { r -> java.time.Instant.parse(r) } }.maxOrNull()
+                val custMax = dao.observeCustomers(userId).first().mapNotNull { it.serverRevision?.let(::parseServerInstantOrNull) }.maxOrNull()
+                val prodMax = dao.observeProducts(userId).first().mapNotNull { it.serverRevision?.let(::parseServerInstantOrNull) }.maxOrNull()
+                val docMax = dao.observeDocuments(userId).first().mapNotNull { it.serverRevision?.let(::parseServerInstantOrNull) }.maxOrNull()
                 
                 val maxInstant = listOfNotNull(custMax, prodMax, docMax).maxOrNull() ?: defaultTime.toInstant()
                 maxInstant.toString()
@@ -1737,7 +1743,7 @@ open class TijarioRepository(
                     periodMonth = periodMonth,
                     allowedLimit = leaseResult.quota_granted,
                     consumedCount = 0,
-                    expiresAt = java.time.Instant.parse(leaseResult.expires_at).toEpochMilli(),
+                    expiresAt = parseServerInstantOrNull(leaseResult.expires_at)?.toEpochMilli() ?: System.currentTimeMillis(),
                     status = "ACTIVE"
                 ))
             }
