@@ -17,6 +17,7 @@ import app.tijario.config.LocalLanguage
 import app.tijario.ui.TijarioApp
 import app.tijario.ui.theme.TijarioTheme
 import app.tijario.features.notifications.NotificationDeepLinkState
+import app.tijario.features.notifications.ensureAnnouncementNotificationChannel
 
 import android.webkit.WebView
 import app.tijario.BuildConfig
@@ -30,6 +31,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
+        ensureAnnouncementNotificationChannel(applicationContext)
         NotificationDeepLinkState.handleUri(intent?.data)
         WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
         currentLanguage = AppPreferences.getLanguage(applicationContext)

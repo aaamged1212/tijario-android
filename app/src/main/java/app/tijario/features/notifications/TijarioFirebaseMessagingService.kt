@@ -2,17 +2,14 @@ package app.tijario.features.notifications
 
 import android.Manifest
 import android.annotation.SuppressLint
-import android.app.NotificationChannel
-import android.app.NotificationManager
 import android.app.PendingIntent
-import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.os.Build
 import androidx.core.app.NotificationCompat
-import androidx.core.content.ContextCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import app.tijario.MainActivity
 import app.tijario.R
 import app.tijario.config.AppPreferences
@@ -31,7 +28,7 @@ class TijarioFirebaseMessagingService : FirebaseMessagingService() {
         val announcementId = message.data["announcement_id"]?.trim().orEmpty()
         if (announcementId.isBlank()) return
 
-        ensureNotificationChannel()
+        ensureAnnouncementNotificationChannel(this)
 
         val title = message.notification?.title ?: message.data["title"].orEmpty().ifBlank { "Tijario" }
         val body = message.notification?.body ?: message.data["body"].orEmpty()
@@ -74,27 +71,6 @@ class TijarioFirebaseMessagingService : FirebaseMessagingService() {
             val language = AppPreferences.getLanguage(applicationContext)
             NotificationTopicManager(applicationContext).syncForLanguage(language)
         }
-    }
-
-    private fun ensureNotificationChannel() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
-        val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        val existing = manager.getNotificationChannel(ANNOUNCEMENT_CHANNEL_ID)
-        if (existing != null) return
-
-        val channelName = if (AppPreferences.getLanguage(this) == app.tijario.config.AppLanguage.AR) {
-            "إعلانات تجاريو"
-        } else {
-            "Tijario Announcements"
-        }
-
-        manager.createNotificationChannel(
-            NotificationChannel(
-                ANNOUNCEMENT_CHANNEL_ID,
-                channelName,
-                NotificationManager.IMPORTANCE_DEFAULT,
-            )
-        )
     }
 
     private fun canPostNotifications(): Boolean =
