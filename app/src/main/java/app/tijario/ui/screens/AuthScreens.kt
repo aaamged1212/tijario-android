@@ -1,5 +1,9 @@
 package app.tijario.ui.screens
 
+import android.content.Intent
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -26,6 +30,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -38,6 +43,9 @@ import app.tijario.config.LocalLanguage
 import app.tijario.config.Localization
 import app.tijario.config.t
 import app.tijario.ui.components.GoogleSignInButton
+import app.tijario.ui.components.StoreLogoPicker
+import app.tijario.ui.components.buildLogoUploadRequest
+import app.tijario.ui.components.clearBusinessLogoCache
 import app.tijario.ui.components.TijarioButton
 import app.tijario.ui.components.TijarioTextField
 import app.tijario.ui.state.BusinessSettingsFormState
@@ -339,6 +347,7 @@ fun RegisterScreen(
     var googleAttemptId by remember { mutableIntStateOf(0) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     val googleSignInEnabled = remember { app.tijario.config.loadAppConfig().isGoogleSignInEnabled }
 
     Box(
@@ -473,6 +482,51 @@ fun RegisterScreen(
                         enabled = form.canSubmit,
                         isLoading = isLoading
                     )
+
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Text(
+                            text = t("register_consent_prefix"),
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                        )
+                        Row(
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            TextButton(
+                                onClick = { openExternalPage(context, "https://tijario.site/terms") },
+                                contentPadding = PaddingValues(horizontal = 2.dp, vertical = 0.dp),
+                            ) {
+                                Text(
+                                    text = t("terms_cond"),
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    textDecoration = TextDecoration.Underline,
+                                )
+                            }
+                            Text(
+                                text = t("register_consent_and"),
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            TextButton(
+                                onClick = { openExternalPage(context, "https://tijario.site/privacy") },
+                                contentPadding = PaddingValues(horizontal = 2.dp, vertical = 0.dp),
+                            ) {
+                                Text(
+                                    text = t("privacy_policy"),
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    textDecoration = TextDecoration.Underline,
+                                )
+                            }
+                        }
+                    }
 
                     if (googleSignInEnabled) {
                         Row(
@@ -988,10 +1042,18 @@ fun OnboardingScreen(
         )
     }
     var isLoading by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    var selectedLogoUri by remember { mutableStateOf<Uri?>(null) }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     var countryMenuExpanded by remember { mutableStateOf(false) }
     var currencyMenuExpanded by remember { mutableStateOf(false) }
+    val logoPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) {
+            selectedLogoUri = uri
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -1048,6 +1110,25 @@ fun OnboardingScreen(
                     modifier = Modifier.padding(24.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        StoreLogoPicker(
+                            logoUrl = null,
+                            previewUri = selectedLogoUri,
+                            isUploading = isLoading,
+                            onClick = { logoPicker.launch("image/*") },
+                        )
+                        Text(
+                            text = t("onboarding_logo_hint"),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 12.sp,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+
                     TijarioTextField(
                         label = t("shop_name"),
                         value = form.businessName,
@@ -1106,7 +1187,7 @@ fun OnboardingScreen(
                     }
 
                     TijarioTextField(
-                        label = if (language == AppLanguage.AR) "المدينة" else "City",
+                        label = t("city"),
                         value = form.city,
                         onValueChange = { form = form.copy(city = it) },
                         leadingIcon = {
@@ -1151,15 +1232,24 @@ fun OnboardingScreen(
                         }
                     }
 
+                    errorMessage?.let {
+                        Text(
+                            text = it,
+                            color = MaterialTheme.colorScheme.error,
+                            fontSize = 13.sp,
+                        )
+                    }
+
                     TijarioButton(
                         text = t("btn_save_continue"),
                         onClick = {
                             scope.launch {
                                 try {
                                     isLoading = true
+                                    errorMessage = null
                                     val currentUser = app.tijario.config.Supabase.client.auth.currentUserOrNull()
                                     if (currentUser != null) {
-                                        val settings = app.tijario.data.model.BusinessSettings(
+                                        val baseSettings = app.tijario.data.model.BusinessSettings(
                                             userId = currentUser.id,
                                             businessName = form.businessName,
                                             whatsappNumber = form.whatsapp,
@@ -1168,12 +1258,34 @@ fun OnboardingScreen(
                                             currency = form.currency,
                                             termsText = form.terms.ifBlank { null }
                                         )
-                                        val result = dataViewModel.saveBusinessSettings(settings)
-                                        if (result.isSuccess) {
-                                            onDone()
+                                        val result = dataViewModel.saveBusinessSettings(baseSettings)
+                                        if (result.isFailure) {
+                                            errorMessage = result.exceptionOrNull()?.message ?: Localization.getString("save_settings_error", language)
+                                            return@launch
                                         }
+
+                                        if (selectedLogoUri != null) {
+                                            val uploadRequest = buildLogoUploadRequest(context, selectedLogoUri!!, language)
+                                            val uploadResult = app.tijario.config.Supabase.apiClient.uploadBusinessLogo(uploadRequest)
+                                            val uploadedUrl = uploadResult.data?.logoUrl
+                                            if (!uploadResult.ok || uploadedUrl.isNullOrBlank()) {
+                                                errorMessage = uploadResult.displayMessage.ifBlank { Localization.getString("logo_upload_error", language) }
+                                                return@launch
+                                            }
+                                            clearBusinessLogoCache(context)
+                                            val logoSave = dataViewModel.saveBusinessSettings(baseSettings.copy(logoUrl = uploadedUrl))
+                                            if (logoSave.isFailure) {
+                                                errorMessage = logoSave.exceptionOrNull()?.message ?: Localization.getString("save_settings_error", language)
+                                                return@launch
+                                            }
+                                        }
+
+                                        onDone()
+                                    } else {
+                                        errorMessage = Localization.getString("save_settings_error", language)
                                     }
                                 } catch (e: Exception) {
+                                    errorMessage = e.message ?: Localization.getString("save_settings_error", language)
                                 } finally {
                                     isLoading = false
                                 }
@@ -1187,6 +1299,14 @@ fun OnboardingScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
         }
+    }
+}
+
+private fun openExternalPage(context: android.content.Context, url: String) {
+    runCatching {
+        context.startActivity(
+            Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        )
     }
 }
 

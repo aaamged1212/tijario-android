@@ -1,15 +1,11 @@
 package app.tijario.ui.screens
 
-import android.content.Context
 import android.content.ActivityNotFoundException
 import android.content.Intent
-import android.graphics.BitmapFactory
 import android.net.Uri
-import android.util.Base64
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.Image
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -62,6 +58,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.Canvas
@@ -83,16 +81,14 @@ import app.tijario.domain.PaymentStatusMapper
 import app.tijario.features.documents.export.DocumentExportManager
 import app.tijario.features.documents.mapper.TijarioDocumentMapper
 import app.tijario.features.documents.ui.DocumentTemplatePreferences
+import app.tijario.ui.components.StoreLogoPicker
+import app.tijario.ui.components.buildLogoUploadRequest
+import app.tijario.ui.components.clearBusinessLogoCache
 import app.tijario.ui.components.TijarioButton
 import app.tijario.ui.state.TijarioDataViewModel
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import app.tijario.ui.components.TijarioTextField
 import io.github.jan.supabase.auth.auth
-import java.io.File
-import java.net.URL
-import java.security.MessageDigest
 
 @Composable
 fun ConfigurationRequiredScreen() {
@@ -1247,11 +1243,14 @@ fun CustomersScreen(
                     selected = selectedFilter == "all",
                     onClick = { selectedFilter = "all" },
                     label = t("filter_all"),
+                    horizontalPadding = 12.dp,
+                    verticalPadding = 6.dp,
+                    textFontSize = 12.sp,
                     leadingIcon = {
                         Icon(
                             imageVector = Icons.Filled.GridView,
                             contentDescription = null,
-                            modifier = Modifier.size(16.dp),
+                            modifier = Modifier.size(14.dp),
                             tint = if (selectedFilter == "all") Color.White else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -1262,10 +1261,13 @@ fun CustomersScreen(
                     selected = selectedFilter == "active",
                     onClick = { selectedFilter = "active" },
                     label = t("customer_active"), // Maps to active filter text
+                    horizontalPadding = 12.dp,
+                    verticalPadding = 6.dp,
+                    textFontSize = 12.sp,
                     leadingIcon = {
                         Box(
                             modifier = Modifier
-                                .size(8.dp)
+                                .size(7.dp)
                                 .background(Color(0xFF22C55E), CircleShape)
                         )
                     }
@@ -1275,13 +1277,16 @@ fun CustomersScreen(
                 TijarioFilterChip(
                     selected = selectedFilter == "new",
                     onClick = { selectedFilter = "new" },
-                    label = t("add_new_customer"),
+                    label = t("new_customers"),
+                    horizontalPadding = 12.dp,
+                    verticalPadding = 6.dp,
+                    textFontSize = 12.sp,
                     leadingIcon = {
                         Icon(
-                            imageVector = Icons.Filled.Star,
+                            imageVector = Icons.Filled.Description,
                             contentDescription = null,
                             modifier = Modifier.size(14.dp),
-                            tint = if (selectedFilter == "new") Color.White else Color(0xFFFBBF24)
+                            tint = if (selectedFilter == "new") Color.White else Color(0xFF3B82F6)
                         )
                     }
                 )
@@ -1291,12 +1296,15 @@ fun CustomersScreen(
                     selected = selectedFilter == "top",
                     onClick = { selectedFilter = "top" },
                     label = t("most_active_customers"),
+                    horizontalPadding = 12.dp,
+                    verticalPadding = 6.dp,
+                    textFontSize = 12.sp,
                     leadingIcon = {
                         Icon(
-                            imageVector = Icons.Filled.TrendingUp,
+                            imageVector = Icons.Filled.Star,
                             contentDescription = null,
                             modifier = Modifier.size(14.dp),
-                            tint = if (selectedFilter == "top") Color.White else MaterialTheme.colorScheme.primary
+                            tint = if (selectedFilter == "top") Color.White else Color(0xFFFBBF24)
                         )
                     }
                 )
@@ -1898,7 +1906,10 @@ fun TijarioFilterChip(
     selected: Boolean,
     onClick: () -> Unit,
     label: String,
-    leadingIcon: @Composable (() -> Unit)? = null
+    leadingIcon: @Composable (() -> Unit)? = null,
+    horizontalPadding: Dp = 14.dp,
+    verticalPadding: Dp = 8.dp,
+    textFontSize: TextUnit = 14.sp,
 ) {
     Surface(
         modifier = Modifier
@@ -1912,14 +1923,14 @@ fun TijarioFilterChip(
         shape = RoundedCornerShape(20.dp)
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+            modifier = Modifier.padding(horizontal = horizontalPadding, vertical = verticalPadding),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             leadingIcon?.invoke()
             Text(
                 text = label,
-                style = MaterialTheme.typography.bodyMedium,
+                fontSize = textFontSize,
                 fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
                 color = if (selected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -2629,6 +2640,7 @@ fun AccountScreen(
                                 val result = app.tijario.config.Supabase.apiClient.uploadBusinessLogo(uploadRequest)
                                 val logoUrl = result.data?.logoUrl
                                 if (result.ok && !logoUrl.isNullOrBlank()) {
+                                    clearBusinessLogoCache(context)
                                     dataViewModel.saveBusinessSettings(settings.copy(logoUrl = logoUrl))
                                     snackbarHostState.showSnackbar(Localization.getString("logo_saved_success", language))
                                 } else {
@@ -2665,7 +2677,7 @@ fun AccountScreen(
                     onChangePassword = {
                         scope.launch {
                             if (currentUserEmail.isBlank()) {
-                                snackbarHostState.showSnackbar("لا يوجد بريد إلكتروني مرتبط بالحساب")
+                                snackbarHostState.showSnackbar(Localization.getString("no_email_associated", language))
                                 return@launch
                             }
 
@@ -2674,12 +2686,12 @@ fun AccountScreen(
                                     app.tijario.data.remote.ResetPasswordRequest(email = currentUserEmail)
                                 )
                                 if (result.ok) {
-                                    snackbarHostState.showSnackbar("تم إرسال رابط تغيير كلمة المرور إلى بريدك")
+                                    snackbarHostState.showSnackbar(Localization.getString("password_reset_link_sent", language))
                                 } else {
                                     snackbarHostState.showSnackbar(result.displayMessage)
                                 }
                             } catch (e: Exception) {
-                                snackbarHostState.showSnackbar("تعذر إرسال رابط تغيير كلمة المرور")
+                                snackbarHostState.showSnackbar(Localization.getString("password_reset_link_failed", language))
                             }
                         }
                     },
@@ -2688,7 +2700,7 @@ fun AccountScreen(
 
             // App Settings (Global)
             Text(
-                text = "إعدادات التطبيق",
+                text = t("app_settings"),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
@@ -2710,13 +2722,13 @@ fun AccountScreen(
                                 MainActivity.currentLanguage = AppLanguage.AR
                                 AppPreferences.setLanguage(context, AppLanguage.AR)
                             }) {
-                                Text("العربية", color = if (MainActivity.currentLanguage == AppLanguage.AR) MaterialTheme.colorScheme.primary else Color.Gray)
+                                Text(t("language_arabic"), color = if (MainActivity.currentLanguage == AppLanguage.AR) MaterialTheme.colorScheme.primary else Color.Gray)
                             }
                             TextButton(onClick = {
                                 MainActivity.currentLanguage = AppLanguage.EN
                                 AppPreferences.setLanguage(context, AppLanguage.EN)
                             }) {
-                                Text("English", color = if (MainActivity.currentLanguage == AppLanguage.EN) MaterialTheme.colorScheme.primary else Color.Gray)
+                                Text(t("language_english"), color = if (MainActivity.currentLanguage == AppLanguage.EN) MaterialTheme.colorScheme.primary else Color.Gray)
                             }
                         }
                     }
@@ -2755,9 +2767,16 @@ fun StoreAccountContent(
     var country by remember(settings) { mutableStateOf(settings?.country.orEmpty()) }
     var city by remember(settings) { mutableStateOf(settings?.city ?: "") }
     var currency by remember(settings) { mutableStateOf(settings?.currency.orEmpty()) }
+    var selectedLogoUri by remember { mutableStateOf<Uri?>(null) }
     val logoPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) {
+            selectedLogoUri = uri
             onLogoSelected(uri)
+        }
+    }
+    LaunchedEffect(isLogoUploading, settings?.logoUrl) {
+        if (!isLogoUploading && !settings?.logoUrl.isNullOrBlank()) {
+            selectedLogoUri = null
         }
     }
 
@@ -2765,6 +2784,7 @@ fun StoreAccountContent(
         Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             StoreLogoPicker(
                 logoUrl = settings?.logoUrl,
+                previewUri = selectedLogoUri,
                 isUploading = isLogoUploading,
                 onClick = { logoPicker.launch("image/*") },
             )
@@ -2818,106 +2838,6 @@ fun StoreAccountContent(
         )
     }
 }
-@Composable
-private fun StoreLogoPicker(
-    logoUrl: String?,
-    isUploading: Boolean,
-    onClick: () -> Unit,
-) {
-    val context = LocalContext.current
-    val logoBitmap by produceState<android.graphics.Bitmap?>(initialValue = null, logoUrl) {
-        value = null
-        if (!logoUrl.isNullOrBlank()) {
-            value = loadCachedLogoBitmap(context, logoUrl)
-        }
-    }
-
-    Box(
-        modifier = Modifier
-            .size(110.dp)
-            .clip(CircleShape)
-            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
-            .clickable(enabled = !isUploading) { onClick() },
-        contentAlignment = Alignment.Center
-    ) {
-        when {
-            isUploading -> CircularProgressIndicator(modifier = Modifier.size(28.dp))
-            logoBitmap != null -> Image(
-                bitmap = logoBitmap!!.asImageBitmap(),
-                contentDescription = t("store_logo"),
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop,
-            )
-            else -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(Icons.Filled.PhotoCamera, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                Text(t("store_logo"), fontSize = 10.sp, color = MaterialTheme.colorScheme.primary)
-            }
-        }
-    }
-}
-
-private suspend fun loadCachedLogoBitmap(
-    context: Context,
-    logoUrl: String,
-): android.graphics.Bitmap? =
-    withContext(Dispatchers.IO) {
-        runCatching {
-            val cacheDir = File(context.filesDir, "business-logo-cache").apply { mkdirs() }
-            val cacheFile = File(cacheDir, "${logoUrl.sha256()}.img")
-
-            if (cacheFile.exists() && cacheFile.length() > 0) {
-                BitmapFactory.decodeFile(cacheFile.absolutePath)?.let { return@withContext it }
-            }
-
-            val bytes = URL(logoUrl).openStream().use { stream ->
-                stream.readBytes()
-            }
-
-            if (bytes.isNotEmpty()) {
-                cacheFile.writeBytes(bytes)
-            }
-
-            BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-        }.getOrNull()
-    }
-
-private fun String.sha256(): String =
-    MessageDigest.getInstance("SHA-256")
-        .digest(toByteArray(Charsets.UTF_8))
-        .joinToString("") { byte -> "%02x".format(byte) }
-
-private suspend fun buildLogoUploadRequest(
-    context: Context,
-    uri: Uri,
-    language: AppLanguage,
-): app.tijario.data.remote.UploadLogoRequest =
-    withContext(Dispatchers.IO) {
-        val mimeType = context.contentResolver.getType(uri) ?: "image/jpeg"
-        val allowedMimeTypes = setOf("image/jpeg", "image/png", "image/webp")
-
-        require(mimeType in allowedMimeTypes) {
-            Localization.getString("logo_format_error", language)
-        }
-
-        val bytes = context.contentResolver.openInputStream(uri)?.use { input ->
-            input.readBytes()
-        } ?: error("تعذر قراءة صورة الشعار.")
-
-        require(bytes.isNotEmpty()) {
-            Localization.getString("logo_empty_error", language)
-        }
-        require(bytes.size <= 2 * 1024 * 1024) {
-            val errStr = if (language == AppLanguage.EN) "Logo size must not exceed 2MB." else "حجم الشعار يجب ألا يتجاوز 2MB."
-            errStr
-        }
-
-        app.tijario.data.remote.UploadLogoRequest(
-            fileName = "logo",
-            mimeType = mimeType,
-            base64 = Base64.encodeToString(bytes, Base64.NO_WRAP),
-        )
-    }
-
 
 @Composable
 fun PersonalAccountContent(

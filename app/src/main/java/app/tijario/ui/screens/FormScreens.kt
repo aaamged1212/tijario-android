@@ -78,6 +78,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.tijario.config.LocalLanguage
 import app.tijario.config.Localization
 import app.tijario.config.t
+import app.tijario.ui.components.buildLogoUploadRequest
+import app.tijario.ui.components.clearBusinessLogoCache
+import app.tijario.ui.components.loadStoreLogoBitmap
 import app.tijario.domain.DocumentNumbering
 import app.tijario.domain.Validation
 import app.tijario.data.model.DocumentType
@@ -681,18 +684,17 @@ fun BusinessSettingsScreen(
     val scope = rememberCoroutineScope()
     val uiState by dataViewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    var selectedLogoUri by remember { mutableStateOf<Uri?>(null) }
 
     // Caching business logo
     val logoUrl = uiState.businessSettings?.logoUrl
-    val logoBitmap by produceState<android.graphics.Bitmap?>(initialValue = null, logoUrl) {
-        value = null
-        if (!logoUrl.isNullOrBlank()) {
-            value = loadCachedLogoBitmap(context, logoUrl)
-        }
+    val logoBitmap by produceState<android.graphics.Bitmap?>(initialValue = null, selectedLogoUri, logoUrl) {
+        value = loadStoreLogoBitmap(context, selectedLogoUri, logoUrl)
     }
 
     val logoPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) {
+            selectedLogoUri = uri
             scope.launch {
                 val settings = uiState.businessSettings
                 if (settings == null) {
@@ -706,6 +708,7 @@ fun BusinessSettingsScreen(
                     val result = app.tijario.config.Supabase.apiClient.uploadBusinessLogo(uploadRequest)
                     val uploadedUrl = result.data?.logoUrl
                     if (result.ok && !uploadedUrl.isNullOrBlank()) {
+                        clearBusinessLogoCache(context)
                         dataViewModel.saveBusinessSettings(settings.copy(logoUrl = uploadedUrl))
                         dataViewModel.refreshAll()
                     } else {
@@ -717,6 +720,11 @@ fun BusinessSettingsScreen(
                     isLogoUploading = false
                 }
             }
+        }
+    }
+    LaunchedEffect(isLogoUploading, uiState.businessSettings?.logoUrl) {
+        if (!isLogoUploading && !uiState.businessSettings?.logoUrl.isNullOrBlank()) {
+            selectedLogoUri = null
         }
     }
 
@@ -1142,68 +1150,6 @@ private fun SettingsItemRow(
         }
     }
 }
-
-private suspend fun loadCachedLogoBitmap(
-    context: Context,
-    logoUrl: String,
-): android.graphics.Bitmap? =
-    withContext(Dispatchers.IO) {
-        runCatching {
-            val cacheDir = File(context.filesDir, "business-logo-cache").apply { mkdirs() }
-            val cacheFile = File(cacheDir, "${logoUrl.sha256()}.img")
-
-            if (cacheFile.exists() && cacheFile.length() > 0) {
-                BitmapFactory.decodeFile(cacheFile.absolutePath)?.let { return@withContext it }
-            }
-
-            val bytes = URL(logoUrl).openStream().use { stream ->
-                stream.readBytes()
-            }
-
-            if (bytes.isNotEmpty()) {
-                cacheFile.writeBytes(bytes)
-            }
-
-            BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-        }.getOrNull()
-    }
-
-private fun String.sha256(): String =
-    MessageDigest.getInstance("SHA-256")
-        .digest(toByteArray(Charsets.UTF_8))
-        .joinToString("") { byte -> "%02x".format(byte) }
-
-private suspend fun buildLogoUploadRequest(
-    context: Context,
-    uri: Uri,
-    language: AppLanguage,
-): app.tijario.data.remote.UploadLogoRequest =
-    withContext(Dispatchers.IO) {
-        val mimeType = context.contentResolver.getType(uri) ?: "image/jpeg"
-        val allowedMimeTypes = setOf("image/jpeg", "image/png", "image/webp")
-
-        require(mimeType in allowedMimeTypes) {
-            Localization.getString("logo_format_error", language)
-        }
-
-        val bytes = context.contentResolver.openInputStream(uri)?.use { input ->
-            input.readBytes()
-        } ?: error("تعذر قراءة صورة الشعار.")
-
-        require(bytes.isNotEmpty()) {
-            Localization.getString("logo_empty_error", language)
-        }
-        require(bytes.size <= 2 * 1024 * 1024) {
-            val errStr = if (language == AppLanguage.EN) "Logo size must not exceed 2MB." else "حجم الشعار يجب ألا يتجاوز 2MB."
-            errStr
-        }
-
-        app.tijario.data.remote.UploadLogoRequest(
-            fileName = "logo",
-            mimeType = mimeType,
-            base64 = Base64.encodeToString(bytes, Base64.NO_WRAP),
-        )
-    }
 
 val DocumentFormStateSaver = listSaver<DocumentFormState, Any>(
     save = { state ->
@@ -1749,14 +1695,14 @@ fun EditItemDialog(
                                     }
                                     DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
                                         DropdownMenuItem(
-                                            text = { Text("Percentage") },
+                                            text = { Text(t("discount_percentage")) },
                                             onClick = {
                                                 discountType = "Percentage"
                                                 showMenu = false
                                             }
                                         )
                                         DropdownMenuItem(
-                                            text = { Text("Fixed") },
+                                            text = { Text(t("discount_fixed")) },
                                             onClick = {
                                                 discountType = "Fixed"
                                                 showMenu = false

@@ -2,8 +2,8 @@ package app.tijario.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-val TijarioPrimary = Color(0xFF0F766E)
-val TijarioDeepTeal = Color(0xFF0B5F59)
+val TijarioPrimary = Color(0xFF0D9488)
+val TijarioDeepTeal = Color(0xFF0F766E)
 val TijarioBackground = Color(0xFFF8FAFC)
 val TijarioSurface = Color(0xFFFFFFFF)
 val TijarioSoftSurface = Color(0xFFF1F5F9)
