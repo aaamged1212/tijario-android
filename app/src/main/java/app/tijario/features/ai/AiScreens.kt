@@ -2,8 +2,10 @@ package app.tijario.features.ai
 
 import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -13,6 +15,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -20,20 +26,29 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -41,7 +56,10 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
@@ -64,7 +82,19 @@ import app.tijario.data.remote.AiV3Variant
 import app.tijario.ui.state.TijarioDataViewModel
 import java.util.UUID
 
-@OptIn(ExperimentalLayoutApi::class)
+// Premium SaaS Color Palette
+private val SaaSBackground = Color(0xFF0F1115)
+private val SaaSSurface = Color(0xFF181B20)
+private val SaaSElevatedSurface = Color(0xFF20242A)
+private val SaaSBorder = Color(0xFF2D323A)
+private val SaaSPrimaryTeal = Color(0xFF14B8A6)
+private val SaaSPrimaryPressed = Color(0xFF0F9488)
+private val SaaSTextPrimary = Color(0xFFF5F7FA)
+private val SaaSTextSecondary = Color(0xFFA6ADB7)
+private val SaaSSuccess = Color(0xFF22C55E)
+private val SaaSError = Color(0xFFEF4444)
+
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun AiToolsScreen(
     dataViewModel: TijarioDataViewModel,
@@ -80,6 +110,8 @@ fun AiToolsScreen(
 
     var selectedTab by remember { mutableIntStateOf(0) }
     var localError by remember { mutableStateOf<String?>(null) }
+    
+    // Reply Form State
     var replyMessage by remember { mutableStateOf("") }
     var replyQuickCase by remember { mutableStateOf<String?>(null) }
     var replyCustomerId by remember { mutableStateOf<String?>(null) }
@@ -91,6 +123,7 @@ fun AiToolsScreen(
     var replyExtra by remember { mutableStateOf("") }
     var showReplyAdvanced by remember { mutableStateOf(false) }
 
+    // Caption Form State
     var captionProductId by remember { mutableStateOf<String?>(null) }
     var productOrService by remember { mutableStateOf("") }
     var primaryBenefit by remember { mutableStateOf("") }
@@ -101,6 +134,14 @@ fun AiToolsScreen(
     var captionStyle by remember { mutableStateOf("sales") }
     var captionLength by remember { mutableStateOf("short") }
     var showCaptionAdvanced by remember { mutableStateOf(false) }
+
+    // Modal Sheet Control
+    var showCustomerSheet by remember { mutableStateOf(false) }
+    var showProductSheetForReply by remember { mutableStateOf(false) }
+    var showProductSheetForCaption by remember { mutableStateOf(false) }
+
+    val context = LocalContext.current
+    val clipboard = LocalClipboardManager.current
 
     LaunchedEffect(state) {
         if (state is AiV3ScreenState.Success) {
@@ -113,15 +154,17 @@ fun AiToolsScreen(
         state is AiV3ScreenState.Reporting
     val limitReachedByCache = uiState.planUsage?.let { it.aiLimit > 0 && it.aiUsed >= it.aiLimit } == true
 
-    Scaffold { paddingValues ->
+    Scaffold(
+        containerColor = SaaSBackground,
+        contentColor = SaaSTextPrimary,
+    ) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
                 .padding(paddingValues)
                 .verticalScroll(scrollState)
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
+                .padding(horizontal = 16.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             if (!hideHeader) {
                 HeaderBlock()
@@ -133,45 +176,34 @@ fun AiToolsScreen(
                 LimitBanner((state as? AiV3ScreenState.LimitReached)?.message)
             }
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                FilterChip(
-                    selected = selectedTab == 0,
-                    onClick = {
-                        selectedTab = 0
-                        localError = null
-                    },
-                    label = { Text(t("tab_ai_reply")) },
-                    modifier = Modifier.weight(1f),
-                )
-                FilterChip(
-                    selected = selectedTab == 1,
-                    onClick = {
-                        selectedTab = 1
-                        localError = null
-                    },
-                    label = { Text(t("tab_ai_caption")) },
-                    modifier = Modifier.weight(1f),
-                )
-            }
+            // Tab Segmented Control
+            SegmentedControl(
+                options = listOf(t("tab_ai_reply"), t("tab_ai_caption")),
+                selectedIndex = selectedTab,
+                onOptionSelected = {
+                    selectedTab = it
+                    localError = null
+                }
+            )
 
             if (selectedTab == 0) {
-                ReplyForm(
-                    customers = uiState.customers,
-                    products = uiState.products,
-                    customerMessage = replyMessage,
-                    onCustomerMessageChange = {
+                // Reply Form Block
+                ReplyFormBlock(
+                    replyMessage = replyMessage,
+                    onReplyMessageChange = {
                         replyMessage = it.take(2000)
                         aiViewModel.markEditing()
                     },
-                    quickCase = replyQuickCase,
+                    replyQuickCase = replyQuickCase,
                     onQuickCaseChange = { replyQuickCase = it },
                     selectedCustomerId = replyCustomerId,
-                    onCustomerSelected = { replyCustomerId = it },
+                    customers = uiState.customers,
+                    onCustomerClick = { showCustomerSheet = true },
+                    onCustomerClear = { replyCustomerId = null },
                     selectedProductId = replyProductId,
-                    onProductSelected = { replyProductId = it },
+                    products = uiState.products,
+                    onProductClick = { showProductSheetForReply = true },
+                    onProductClear = { replyProductId = null },
                     dialect = replyDialect,
                     onDialectChange = { replyDialect = it },
                     tone = replyTone,
@@ -188,7 +220,7 @@ fun AiToolsScreen(
                     onSubmit = {
                         if (replyMessage.isBlank() && replyQuickCase == null) {
                             localError = localized(language, "أدخل رسالة العميل أو اختر حالة سريعة.", "Paste a customer message or choose a quick case.")
-                            return@ReplyForm
+                            return@ReplyFormBlock
                         }
                         localError = null
                         aiViewModel.generateReply(
@@ -208,14 +240,17 @@ fun AiToolsScreen(
                             onSuccess = { dataViewModel.refreshPlanUsage() },
                         )
                     },
+                    language = language
                 )
             } else {
-                CaptionForm(
+                // Caption Form Block
+                CaptionFormBlock(
                     products = uiState.products,
                     selectedProductId = captionProductId,
-                    onProductSelected = { product ->
-                        captionProductId = product?.id
-                        if (product != null) productOrService = product.name
+                    onProductClick = { showProductSheetForCaption = true },
+                    onProductClear = {
+                        captionProductId = null
+                        productOrService = ""
                     },
                     productOrService = productOrService,
                     onProductOrServiceChange = {
@@ -243,7 +278,7 @@ fun AiToolsScreen(
                     onSubmit = {
                         if (captionProductId == null && productOrService.isBlank()) {
                             localError = localized(language, "اختر منتجًا محفوظًا أو اكتب اسم المنتج/الخدمة.", "Choose a saved product or type the product/service name.")
-                            return@CaptionForm
+                            return@CaptionFormBlock
                         }
                         localError = null
                         aiViewModel.generateCaption(
@@ -263,11 +298,13 @@ fun AiToolsScreen(
                             onSuccess = { dataViewModel.refreshPlanUsage() },
                         )
                     },
+                    language = language
                 )
             }
 
             localError?.let { ErrorCard(it) }
 
+            // Dynamic Result and States Area
             when (val current = state) {
                 AiV3ScreenState.Idle, AiV3ScreenState.Editing -> Unit
                 AiV3ScreenState.Loading -> InfoCard(localized(language, "جاري توليد النتيجة...", "Generating..."))
@@ -282,9 +319,62 @@ fun AiToolsScreen(
                     InfoCard(localized(language, "جاري إرسال البلاغ...", "Reporting..."))
                     ResultBlock(current.previous, aiViewModel, language, isBusy = true) { dataViewModel.refreshPlanUsage() }
                 }
-                is AiV3ScreenState.Success -> ResultBlock(current, aiViewModel, language, isBusy = false) {
-                    dataViewModel.refreshPlanUsage()
+                is AiV3ScreenState.Success -> {
+                    ResultBlock(current, aiViewModel, language, isBusy = false) { dataViewModel.refreshPlanUsage() }
                 }
+            }
+        }
+
+        // Modal Sheets Declarations
+        if (showCustomerSheet) {
+            ModalBottomSheet(
+                onDismissRequest = { showCustomerSheet = false },
+                containerColor = SaaSSurface,
+                contentColor = SaaSTextPrimary,
+            ) {
+                CustomerSelectionContent(
+                    customers = uiState.customers,
+                    onCustomerSelected = { id ->
+                        replyCustomerId = id
+                        showCustomerSheet = false
+                    },
+                    language = language
+                )
+            }
+        }
+
+        if (showProductSheetForReply) {
+            ModalBottomSheet(
+                onDismissRequest = { showProductSheetForReply = false },
+                containerColor = SaaSSurface,
+                contentColor = SaaSTextPrimary,
+            ) {
+                ProductSelectionContent(
+                    products = uiState.products,
+                    onProductSelected = { product ->
+                        replyProductId = product?.id
+                        showProductSheetForReply = false
+                    },
+                    language = language
+                )
+            }
+        }
+
+        if (showProductSheetForCaption) {
+            ModalBottomSheet(
+                onDismissRequest = { showProductSheetForCaption = false },
+                containerColor = SaaSSurface,
+                contentColor = SaaSTextPrimary,
+            ) {
+                ProductSelectionContent(
+                    products = uiState.products,
+                    onProductSelected = { product ->
+                        captionProductId = product?.id
+                        productOrService = product?.name ?: ""
+                        showProductSheetForCaption = false
+                    },
+                    language = language
+                )
             }
         }
     }
@@ -292,12 +382,30 @@ fun AiToolsScreen(
 
 @Composable
 private fun HeaderBlock() {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Icon(Icons.Filled.AutoAwesome, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-            Text(t("ai_title"), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Icon(
+            Icons.Filled.AutoAwesome,
+            contentDescription = null,
+            tint = SaaSPrimaryTeal,
+            modifier = Modifier.size(24.dp)
+        )
+        Column {
+            Text(
+                text = t("ai_title"),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = SaaSTextPrimary
+            )
+            Text(
+                text = t("ai_subtitle"),
+                style = MaterialTheme.typography.bodySmall,
+                color = SaaSTextSecondary
+            )
         }
-        Text(t("ai_subtitle"), color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -306,36 +414,79 @@ private fun UsageBanner() {
     val language = LocalLanguage.current
     Text(
         text = localized(language, "AI يعمل عند الاتصال بالإنترنت فقط، وبقية التطبيق تستمر Offline.", "AI is online-only; the rest of the app can continue offline."),
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        fontSize = 12.sp,
+        color = SaaSTextSecondary,
+        fontSize = 11.sp,
     )
 }
 
 @Composable
 private fun LimitBanner(message: String?) {
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = SaaSError.copy(alpha = 0.15f)),
+        shape = RoundedCornerShape(12.dp)
+    ) {
         Text(
             text = message ?: t("ai_limit_reached"),
-            modifier = Modifier.padding(14.dp),
-            color = MaterialTheme.colorScheme.onErrorContainer,
+            modifier = Modifier.padding(12.dp),
+            color = SaaSError,
             fontWeight = FontWeight.Bold,
+            fontSize = 13.sp
         )
+    }
+}
+
+@Composable
+private fun SegmentedControl(
+    options: List<String>,
+    selectedIndex: Int,
+    onOptionSelected: (Int) -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(44.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(SaaSSurface)
+            .padding(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        options.forEachIndexed { index, option ->
+            val active = index == selectedIndex
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(if (active) SaaSPrimaryTeal else Color.Transparent)
+                    .clickable { onOptionSelected(index) },
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = option,
+                    color = if (active) SaaSTextPrimary else SaaSTextSecondary,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp
+                )
+            }
+        }
     }
 }
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ReplyForm(
-    customers: List<Customer>,
-    products: List<Product>,
-    customerMessage: String,
-    onCustomerMessageChange: (String) -> Unit,
-    quickCase: String?,
+private fun ReplyFormBlock(
+    replyMessage: String,
+    onReplyMessageChange: (String) -> Unit,
+    replyQuickCase: String?,
     onQuickCaseChange: (String?) -> Unit,
     selectedCustomerId: String?,
-    onCustomerSelected: (String?) -> Unit,
+    customers: List<Customer>,
+    onCustomerClick: () -> Unit,
+    onCustomerClear: () -> Unit,
     selectedProductId: String?,
-    onProductSelected: (String?) -> Unit,
+    products: List<Product>,
+    onProductClick: () -> Unit,
+    onProductClear: () -> Unit,
     dialect: String,
     onDialectChange: (String) -> Unit,
     tone: String,
@@ -350,65 +501,146 @@ private fun ReplyForm(
     onToggleAdvanced: () -> Unit,
     enabled: Boolean,
     onSubmit: () -> Unit,
+    language: AppLanguage
 ) {
-    val language = LocalLanguage.current
-    ElevatedCard(shape = RoundedCornerShape(22.dp)) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            Text(t("ai_card_title"), fontWeight = FontWeight.Bold)
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = SaaSSurface)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = localized(language, "صياغة رد ذكي للعملاء", "Compose Smart Reply"),
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp,
+                color = SaaSTextPrimary
+            )
+
+            // Message Input
             OutlinedTextField(
-                value = customerMessage,
-                onValueChange = onCustomerMessageChange,
-                label = { Text(localized(language, "الصق رسالة العميل هنا", "Paste the customer message here")) },
+                value = replyMessage,
+                onValueChange = onReplyMessageChange,
+                placeholder = { Text(localized(language, "الصق رسالة العميل هنا...", "Paste the customer message here..."), color = SaaSTextSecondary) },
                 minLines = 4,
                 modifier = Modifier.fillMaxWidth(),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = SaaSPrimaryTeal,
+                    unfocusedBorderColor = SaaSBorder,
+                    focusedContainerColor = SaaSBackground,
+                    unfocusedContainerColor = SaaSBackground,
+                    focusedTextColor = SaaSTextPrimary,
+                    unfocusedTextColor = SaaSTextPrimary
+                ),
+                shape = RoundedCornerShape(12.dp)
             )
-            ChipGroup(
+
+            // Quick Cases Slider
+            ChipGroupSlider(
                 title = localized(language, "حالات سريعة اختيارية", "Optional quick cases"),
                 options = replyCaseOptions(language),
-                selected = quickCase,
-                onSelected = { onQuickCaseChange(if (quickCase == it) null else it) },
+                selected = replyQuickCase,
+                onSelected = { onQuickCaseChange(if (replyQuickCase == it) null else it) }
             )
-            EntityChips(
-                title = localized(language, "عميل محفوظ اختياري", "Optional saved customer"),
-                items = customers.mapNotNull { customer -> customer.id?.let { it to customer.name } },
-                selected = selectedCustomerId,
-                onSelected = { onCustomerSelected(if (selectedCustomerId == it) null else it) },
-            )
-            EntityChips(
-                title = localized(language, "منتج محفوظ اختياري", "Optional saved product"),
-                items = products.mapNotNull { product -> product.id?.let { it to product.name } },
-                selected = selectedProductId,
-                onSelected = { onProductSelected(if (selectedProductId == it) null else it) },
-            )
-            OutlinedButton(onClick = onToggleAdvanced, modifier = Modifier.fillMaxWidth()) {
-                Text(if (showAdvanced) localized(language, "إخفاء الإعدادات المتقدمة", "Hide advanced settings") else localized(language, "إعدادات متقدمة", "Advanced settings"))
+
+            // Context Pickers row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Customer Button
+                ContextSelectorButton(
+                    label = customers.find { it.id == selectedCustomerId }?.name 
+                        ?: localized(language, "اختر عميلاً", "Select Customer"),
+                    isSelected = selectedCustomerId != null,
+                    onClick = onCustomerClick,
+                    onClear = onCustomerClear,
+                    modifier = Modifier.weight(1f),
+                    language = language
+                )
+
+                // Product Button
+                ContextSelectorButton(
+                    label = products.find { it.id == selectedProductId }?.name 
+                        ?: localized(language, "اختر منتجاً", "Select Product"),
+                    isSelected = selectedProductId != null,
+                    onClick = onProductClick,
+                    onClear = onProductClear,
+                    modifier = Modifier.weight(1f),
+                    language = language
+                )
             }
+
+            // Advanced settings toggle
+            TextButton(
+                onClick = onToggleAdvanced,
+                modifier = Modifier.align(Alignment.CenterHorizontally)
+            ) {
+                Text(
+                    text = if (showAdvanced) localized(language, "إخفاء الإعدادات المتقدمة", "Hide advanced settings") else localized(language, "إعدادات متقدمة", "Advanced settings"),
+                    color = SaaSPrimaryTeal,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp
+                )
+                Icon(
+                    imageVector = if (showAdvanced) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                    contentDescription = null,
+                    tint = SaaSPrimaryTeal
+                )
+            }
+
             if (showAdvanced) {
-                ChipGroup(localized(language, "اللهجة", "Dialect"), dialectOptions(language), dialect, onDialectChange)
-                ChipGroup(localized(language, "النبرة", "Tone"), replyToneOptions(language), tone, onToneChange)
-                ChipGroup(localized(language, "الطول", "Length"), lengthOptions(language), length, onLengthChange)
-                ChipGroup(localized(language, "الهدف", "Goal"), goalOptions(language), goal, onGoalChange)
+                ChipGroupSlider(localized(language, "اللهجة", "Dialect"), dialectOptions(language), dialect, onDialectChange)
+                ChipGroupSlider(localized(language, "الطول", "Length"), lengthOptions(language), length, onLengthChange)
+                ChipGroupSlider(localized(language, "الهدف", "Goal"), goalOptions(language), goal, onGoalChange)
+                
                 OutlinedTextField(
                     value = extra,
                     onValueChange = onExtraChange,
-                    label = { Text(t("ai_notes_label")) },
+                    placeholder = { Text(t("ai_notes_label"), color = SaaSTextSecondary) },
                     minLines = 2,
                     modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = SaaSPrimaryTeal,
+                        unfocusedBorderColor = SaaSBorder,
+                        focusedContainerColor = SaaSBackground,
+                        unfocusedContainerColor = SaaSBackground,
+                        focusedTextColor = SaaSTextPrimary,
+                        unfocusedTextColor = SaaSTextPrimary
+                    ),
+                    shape = RoundedCornerShape(12.dp)
                 )
             }
-            Button(onClick = onSubmit, enabled = enabled, modifier = Modifier.fillMaxWidth()) {
+
+            Button(
+                onClick = onSubmit,
+                enabled = enabled,
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = SaaSPrimaryTeal,
+                    contentColor = SaaSTextPrimary,
+                    disabledContainerColor = SaaSBorder,
+                    disabledContentColor = SaaSTextSecondary
+                )
+            ) {
                 Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null)
-                Text(t("btn_generate_reply"), modifier = Modifier.padding(start = 8.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(t("btn_generate_reply"), fontWeight = FontWeight.Bold)
             }
         }
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun CaptionForm(
+private fun CaptionFormBlock(
     products: List<Product>,
     selectedProductId: String?,
-    onProductSelected: (Product?) -> Unit,
+    onProductClick: () -> Unit,
+    onProductClear: () -> Unit,
     productOrService: String,
     onProductOrServiceChange: (String) -> Unit,
     primaryBenefit: String,
@@ -429,49 +661,174 @@ private fun CaptionForm(
     onToggleAdvanced: () -> Unit,
     enabled: Boolean,
     onSubmit: () -> Unit,
+    language: AppLanguage
 ) {
-    val language = LocalLanguage.current
-    ElevatedCard(shape = RoundedCornerShape(22.dp)) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            Text(t("ai_caption_card_title"), fontWeight = FontWeight.Bold)
-            ProductEntityChips(
-                title = localized(language, "اختر منتجًا محفوظًا اختياريًا", "Optional saved product"),
-                products = products,
-                selected = selectedProductId,
-                onSelected = { product -> onProductSelected(if (selectedProductId == product?.id) null else product) },
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = SaaSSurface)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = localized(language, "صياغة كابشن ذكي للمنتجات", "Generate Product Caption"),
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp,
+                color = SaaSTextPrimary
             )
-            OutlinedTextField(
-                value = productOrService,
-                onValueChange = onProductOrServiceChange,
-                label = { Text(t("ai_prod_srv_label")) },
+
+            // Product selector
+            ContextSelectorButton(
+                label = products.find { it.id == selectedProductId }?.name 
+                    ?: localized(language, "اختر منتجاً محفوظاً", "Select Saved Product"),
+                isSelected = selectedProductId != null,
+                onClick = onProductClick,
+                onClear = onProductClear,
                 modifier = Modifier.fillMaxWidth(),
+                language = language
             )
+
+            if (selectedProductId == null) {
+                OutlinedTextField(
+                    value = productOrService,
+                    onValueChange = onProductOrServiceChange,
+                    placeholder = { Text(t("ai_prod_srv_label"), color = SaaSTextSecondary) },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = SaaSPrimaryTeal,
+                        unfocusedBorderColor = SaaSBorder,
+                        focusedContainerColor = SaaSBackground,
+                        unfocusedContainerColor = SaaSBackground,
+                        focusedTextColor = SaaSTextPrimary,
+                        unfocusedTextColor = SaaSTextPrimary
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                )
+            }
+
             OutlinedTextField(
                 value = primaryBenefit,
                 onValueChange = onPrimaryBenefitChange,
-                label = { Text(localized(language, "الميزة الأساسية (اختياري)", "Primary benefit (optional)")) },
+                placeholder = { Text(localized(language, "ما أهم فائدة تريد إبرازها؟ (اختياري)", "Primary benefit (optional)"), color = SaaSTextSecondary) },
                 modifier = Modifier.fillMaxWidth(),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = SaaSPrimaryTeal,
+                    unfocusedBorderColor = SaaSBorder,
+                    focusedContainerColor = SaaSBackground,
+                    unfocusedContainerColor = SaaSBackground,
+                    focusedTextColor = SaaSTextPrimary,
+                    unfocusedTextColor = SaaSTextPrimary
+                ),
+                shape = RoundedCornerShape(12.dp)
             )
+
             OutlinedTextField(
                 value = offer,
                 onValueChange = onOfferChange,
-                label = { Text(t("ai_offer_label")) },
+                placeholder = { Text(t("ai_offer_label"), color = SaaSTextSecondary) },
                 modifier = Modifier.fillMaxWidth(),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = SaaSPrimaryTeal,
+                    unfocusedBorderColor = SaaSBorder,
+                    focusedContainerColor = SaaSBackground,
+                    unfocusedContainerColor = SaaSBackground,
+                    focusedTextColor = SaaSTextPrimary,
+                    unfocusedTextColor = SaaSTextPrimary
+                ),
+                shape = RoundedCornerShape(12.dp)
             )
-            ChipGroup(localized(language, "المنصة", "Platform"), platformOptions(language), platform, onPlatformChange)
-            OutlinedButton(onClick = onToggleAdvanced, modifier = Modifier.fillMaxWidth()) {
-                Text(if (showAdvanced) localized(language, "إخفاء الإعدادات المتقدمة", "Hide advanced settings") else localized(language, "إعدادات متقدمة", "Advanced settings"))
+
+            // Platform Switcher (Teal Chips)
+            ChipGroupSlider(
+                title = localized(language, "المنصة", "Platform"),
+                options = platformOptions(language),
+                selected = platform,
+                onSelected = onPlatformChange
+            )
+
+            // Advanced settings toggle
+            TextButton(
+                onClick = onToggleAdvanced,
+                modifier = Modifier.align(Alignment.CenterHorizontally)
+            ) {
+                Text(
+                    text = if (showAdvanced) localized(language, "إخفاء الإعدادات المتقدمة", "Hide advanced settings") else localized(language, "إعدادات متقدمة", "Advanced settings"),
+                    color = SaaSPrimaryTeal,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp
+                )
+                Icon(
+                    imageVector = if (showAdvanced) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                    contentDescription = null,
+                    tint = SaaSPrimaryTeal
+                )
             }
+
             if (showAdvanced) {
-                ChipGroup(localized(language, "نوع الكابشن", "Caption type"), captionTypeOptions(language), captionType, onCaptionTypeChange)
-                ChipGroup(localized(language, "اللهجة", "Dialect"), dialectOptions(language), dialect, onDialectChange)
-                ChipGroup(localized(language, "الأسلوب", "Style"), captionStyleOptions(language), style, onStyleChange)
-                ChipGroup(localized(language, "الطول", "Length"), lengthOptions(language), length, onLengthChange)
+                ChipGroupSlider(localized(language, "نوع الكابشن", "Caption type"), captionTypeOptions(language), captionType, onCaptionTypeChange)
+                ChipGroupSlider(localized(language, "اللهجة", "Dialect"), dialectOptions(language), dialect, onDialectChange)
+                ChipGroupSlider(localized(language, "الأسلوب", "Style"), captionStyleOptions(language), style, onStyleChange)
+                ChipGroupSlider(localized(language, "الطول", "Length"), lengthOptions(language), length, onLengthChange)
             }
-            Button(onClick = onSubmit, enabled = enabled, modifier = Modifier.fillMaxWidth()) {
+
+            Button(
+                onClick = onSubmit,
+                enabled = enabled,
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = SaaSPrimaryTeal,
+                    contentColor = SaaSTextPrimary,
+                    disabledContainerColor = SaaSBorder,
+                    disabledContentColor = SaaSTextSecondary
+                )
+            ) {
                 Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null)
-                Text(t("ai_btn_gen_caption"), modifier = Modifier.padding(start = 8.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(t("ai_btn_gen_caption"), fontWeight = FontWeight.Bold)
             }
+        }
+    }
+}
+
+@Composable
+private fun ContextSelectorButton(
+    label: String,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    onClear: () -> Unit,
+    modifier: Modifier = Modifier,
+    language: AppLanguage
+) {
+    Row(
+        modifier = modifier
+            .height(48.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(if (isSelected) SaaSPrimaryTeal.copy(alpha = 0.15f) else SaaSBackground)
+            .clickable { onClick() }
+            .padding(horizontal = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            modifier = Modifier.weight(1f),
+            color = if (isSelected) SaaSPrimaryTeal else SaaSTextSecondary,
+            fontSize = 12.sp,
+            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        if (isSelected) {
+            Icon(
+                imageVector = Icons.Filled.Close,
+                contentDescription = localized(language, "إلغاء التحديد", "Deselect"),
+                tint = SaaSPrimaryTeal,
+                modifier = Modifier
+                    .size(16.dp)
+                    .clickable { onClear() }
+            )
         }
     }
 }
@@ -484,118 +841,453 @@ private fun ResultBlock(
     isBusy: Boolean,
     onUsageChanged: () -> Unit,
 ) {
-    success.notice?.let { InfoCard(it) }
-    AnalysisCard(success.data, language)
-    Text(t("generated_suggestions"), fontWeight = FontWeight.Bold)
-    success.data.variants.forEach { variant ->
-        VariantCard(
-            generation = success,
-            variant = variant,
-            aiViewModel = aiViewModel,
-            language = language,
-            isBusy = isBusy,
-            onUsageChanged = onUsageChanged,
-        )
+    var selectedVariantId by remember(success.data.generationId) {
+        mutableStateOf(success.data.variants.firstOrNull()?.id ?: "")
     }
-}
+    
+    success.notice?.let { InfoCard(it) }
 
-@Composable
-private fun AnalysisCard(data: AiV3ResponseData, language: AppLanguage) {
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))) {
-        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(localized(language, "تحليل سريع", "Quick analysis"), fontWeight = FontWeight.Bold)
-            Text(localized(language, "النية: ${data.analysis.intent}", "Intent: ${data.analysis.intent}"), fontSize = 12.sp)
-            Text(localized(language, "المزاج: ${data.analysis.mood}", "Mood: ${data.analysis.mood}"), fontSize = 12.sp)
-            Text(localized(language, "النبرة المقترحة: ${data.analysis.recommendedTone}", "Recommended tone: ${data.analysis.recommendedTone}"), fontSize = 12.sp)
-            if (data.missingInformation.isNotEmpty()) {
-                Text(
-                    localized(language, "معلومات ناقصة: ${data.missingInformation.joinToString("، ")}", "Missing information: ${data.missingInformation.joinToString(", ")}"),
-                    fontSize = 12.sp,
-                )
+    // Human-friendly collapsible analysis summary
+    AnalysisSummaryCollapsible(success.data, language)
+
+    // Variant selector segmented switch
+    if (success.data.variants.isNotEmpty()) {
+        SegmentedControl(
+            options = success.data.variants.map { it.label },
+            selectedIndex = success.data.variants.indexOfFirst { it.id == selectedVariantId }.coerceAtLeast(0),
+            onOptionSelected = { index ->
+                selectedVariantId = success.data.variants[index].id
             }
-            Text(
-                localized(language, "استخدام AI: ${data.usage.used}/${data.usage.limit}", "AI usage: ${data.usage.used}/${data.usage.limit}"),
-                fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        val activeVariant = success.data.variants.find { it.id == selectedVariantId }
+        if (activeVariant != null) {
+            SingleActiveResultCard(
+                generation = success,
+                variant = activeVariant,
+                aiViewModel = aiViewModel,
+                language = language,
+                isBusy = isBusy,
+                onUsageChanged = onUsageChanged
             )
         }
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun VariantCard(
-    generation: AiV3ScreenState.Success,
-    variant: AiV3Variant,
-    aiViewModel: AiViewModel,
-    language: AppLanguage,
-    isBusy: Boolean,
-    onUsageChanged: () -> Unit,
-) {
-    val context = LocalContext.current
-    val clipboard = LocalClipboardManager.current
-    val copyLabel = t("copy")
-    Card(shape = RoundedCornerShape(18.dp)) {
-        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(variant.label, fontWeight = FontWeight.Bold)
-                Text(variant.id, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+private fun AnalysisSummaryCollapsible(data: AiV3ResponseData, language: AppLanguage) {
+    var expanded by remember { mutableStateOf(false) }
+    Card(
+        colors = CardDefaults.cardColors(containerColor = SaaSSurface),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { expanded = !expanded },
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = localized(language, "تحليل وفهم الرسالة", "Message understanding"),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp,
+                    color = SaaSTextPrimary
+                )
+                Icon(
+                    imageVector = if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                    contentDescription = null,
+                    tint = SaaSTextSecondary
+                )
             }
-            Text(variant.text, lineHeight = 22.sp)
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                OutlinedButton(
-                    onClick = {
-                        clipboard.setText(AnnotatedString(variant.text))
-                        Toast.makeText(context, copyLabel, Toast.LENGTH_SHORT).show()
-                    },
+
+            val briefMeaning = if (data.analysis.objection != null) {
+                localized(language, "العميل مهتم ولكنه يواجه اعتراضًا: ${data.analysis.objection}", "Customer is interested but has an objection: ${data.analysis.objection}")
+            } else {
+                localized(language, "العميل يبدو في وضع: ${data.analysis.buyingStage}", "Customer seems to be in: ${data.analysis.buyingStage}")
+            }
+
+            Text(
+                text = briefMeaning,
+                fontSize = 12.sp,
+                color = SaaSTextSecondary
+            )
+
+            if (expanded) {
+                Row(
+                    modifier = Modifier.horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Icon(Icons.Filled.ContentCopy, contentDescription = null)
-                    Text(t("copy"), modifier = Modifier.padding(start = 6.dp))
-                }
-                refineOptions(language).forEach { (preset, label) ->
-                    AssistChip(
-                        enabled = !isBusy,
-                        onClick = {
-                            aiViewModel.refine(
-                                previous = generation,
-                                variantId = variant.id,
-                                preset = preset,
-                                dialect = null,
-                                language = language.code,
-                                onSuccess = onUsageChanged,
-                            )
-                        },
-                        label = { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                        leadingIcon = { Icon(Icons.Filled.Refresh, contentDescription = null) },
+                    FilterChip(
+                        selected = false,
+                        onClick = {},
+                        label = { Text("نية: ${data.analysis.intent}", fontSize = 11.sp) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            containerColor = SaaSBackground,
+                            labelColor = SaaSTextSecondary
+                        ),
+                        border = null
+                    )
+                    FilterChip(
+                        selected = false,
+                        onClick = {},
+                        label = { Text("مزاج: ${data.analysis.mood}", fontSize = 11.sp) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            containerColor = SaaSBackground,
+                            labelColor = SaaSTextSecondary
+                        ),
+                        border = null
                     )
                 }
-                AssistChip(
-                    enabled = !isBusy,
-                    onClick = {
-                        aiViewModel.report(
-                            previous = generation,
-                            variantId = variant.id,
-                            issueType = "wrong_answer",
-                            note = null,
-                            onDone = {},
-                        )
-                    },
-                    label = { Text(t("ai_report")) },
-                    leadingIcon = { Icon(Icons.Filled.Flag, contentDescription = null) },
+
+                if (data.missingInformation.isNotEmpty()) {
+                    Text(
+                        text = localized(language, "معلومات ناقصة ننصح بسؤال العميل عنها: ", "Recommended missing info to ask: ") + 
+                            data.missingInformation.joinToString("، "),
+                        fontSize = 11.sp,
+                        color = SaaSError
+                    )
+                }
+
+                Text(
+                    text = localized(language, "متبقي من باقتك: ", "Remaining credits: ") + 
+                        "${data.usage.limit - data.usage.used} / ${data.usage.limit}",
+                    fontSize = 11.sp,
+                    color = SaaSTextSecondary
                 )
             }
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ChipGroup(
+private fun SingleActiveResultCard(
+    generation: AiV3ScreenState.Success,
+    variant: AiV3Variant,
+    aiViewModel: AiViewModel,
+    language: AppLanguage,
+    isBusy: Boolean,
+    onUsageChanged: () -> Unit
+) {
+    val context = LocalContext.current
+    val clipboard = LocalClipboardManager.current
+    var showImproveSheet by remember { mutableStateOf(false) }
+    val copyText = t("copy")
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = SaaSSurface)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = variant.text,
+                lineHeight = 22.sp,
+                fontSize = 14.sp,
+                color = SaaSTextPrimary
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Copy button
+                OutlinedButton(
+                    onClick = {
+                        clipboard.setText(AnnotatedString(variant.text))
+                        Toast.makeText(context, copyText, Toast.LENGTH_SHORT).show()
+                    },
+                    modifier = Modifier.weight(1f).height(40.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = SaaSPrimaryTeal
+                    ),
+                    border = ButtonDefaults.outlinedButtonBorder.copy(width = 1.dp)
+                ) {
+                    Icon(Icons.Filled.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(copyText, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
+
+                // Improve (Refine) button
+                Button(
+                    onClick = { showImproveSheet = true },
+                    modifier = Modifier.weight(1f).height(40.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = SaaSPrimaryTeal,
+                        contentColor = SaaSTextPrimary
+                    )
+                ) {
+                    Icon(Icons.Filled.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(localized(language, "تحسين", "Improve"), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+
+    // Modal Bottom Sheet for text refinement and reporting
+    if (showImproveSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showImproveSheet = false },
+            containerColor = SaaSSurface,
+            contentColor = SaaSTextPrimary,
+        ) {
+            RefineOptionsContent(
+                onRefineSelected = { preset ->
+                    showImproveSheet = false
+                    aiViewModel.refine(
+                        previous = generation,
+                        variantId = variant.id,
+                        preset = preset,
+                        dialect = null,
+                        language = language.code,
+                        onSuccess = onUsageChanged
+                    )
+                },
+                onReportSelected = {
+                    showImproveSheet = false
+                    aiViewModel.report(
+                        previous = generation,
+                        variantId = variant.id,
+                        issueType = "wrong_answer",
+                        note = null,
+                        onDone = {}
+                    )
+                },
+                language = language
+            )
+        }
+    }
+}
+
+@Composable
+private fun RefineOptionsContent(
+    onRefineSelected: (String) -> Unit,
+    onReportSelected: () -> Unit,
+    language: AppLanguage
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(
+            text = localized(language, "تحسين النص الناتج", "Refining output text"),
+            fontWeight = FontWeight.Bold,
+            fontSize = 15.sp,
+            color = SaaSTextPrimary,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+
+        val options = refineOptions(language)
+        options.forEach { (preset, label) ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable { onRefineSelected(preset) }
+                    .padding(vertical = 12.dp, horizontal = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Filled.Refresh, contentDescription = null, tint = SaaSPrimaryTeal, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(label, color = SaaSTextPrimary, fontSize = 13.sp)
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Report option at the bottom
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp))
+                .clickable { onReportSelected() }
+                .padding(vertical = 12.dp, horizontal = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(Icons.Filled.Flag, contentDescription = null, tint = SaaSError, modifier = Modifier.size(18.dp))
+            Spacer(modifier = Modifier.width(12.dp))
+            Text(
+                text = t("ai_report"),
+                color = SaaSError,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+}
+
+@Composable
+private fun CustomerSelectionContent(
+    customers: List<Customer>,
+    onCustomerSelected: (String) -> Unit,
+    language: AppLanguage
+) {
+    var searchQuery by remember { mutableStateOf("") }
+    val filtered = remember(searchQuery, customers) {
+        customers.filter { it.name.contains(searchQuery, ignoreCase = true) }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp)
+    ) {
+        Text(
+            text = localized(language, "اختر عميلاً للرد", "Select customer context"),
+            fontWeight = FontWeight.Bold,
+            fontSize = 15.sp,
+            color = SaaSTextPrimary,
+            modifier = Modifier.padding(bottom = 12.dp)
+        )
+
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = { searchQuery = it },
+            placeholder = { Text(localized(language, "بحث باسم العميل...", "Search customer name..."), color = SaaSTextSecondary) },
+            modifier = Modifier.fillMaxWidth(),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = SaaSPrimaryTeal,
+                unfocusedBorderColor = SaaSBorder,
+                focusedContainerColor = SaaSBackground,
+                unfocusedContainerColor = SaaSBackground,
+                focusedTextColor = SaaSTextPrimary,
+                unfocusedTextColor = SaaSTextPrimary
+            ),
+            shape = RoundedCornerShape(10.dp)
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        if (filtered.isEmpty()) {
+            Text(
+                text = t("no_search_results"),
+                color = SaaSTextSecondary,
+                fontSize = 13.sp,
+                modifier = Modifier.padding(vertical = 16.dp)
+            )
+        } else {
+            LazyColumn(
+                modifier = Modifier.height(260.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                items(filtered) { customer ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { customer.id?.let { onCustomerSelected(it) } }
+                            .padding(vertical = 12.dp, horizontal = 8.dp)
+                    ) {
+                        Text(customer.name, color = SaaSTextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProductSelectionContent(
+    products: List<Product>,
+    onProductSelected: (Product?) -> Unit,
+    language: AppLanguage
+) {
+    var searchQuery by remember { mutableStateOf("") }
+    val filtered = remember(searchQuery, products) {
+        products.filter { it.name.contains(searchQuery, ignoreCase = true) }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp)
+    ) {
+        Text(
+            text = localized(language, "اختر منتجاً لسياق البيانات", "Select product context"),
+            fontWeight = FontWeight.Bold,
+            fontSize = 15.sp,
+            color = SaaSTextPrimary,
+            modifier = Modifier.padding(bottom = 12.dp)
+        )
+
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = { searchQuery = it },
+            placeholder = { Text(localized(language, "بحث باسم المنتج...", "Search product name..."), color = SaaSTextSecondary) },
+            modifier = Modifier.fillMaxWidth(),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = SaaSPrimaryTeal,
+                unfocusedBorderColor = SaaSBorder,
+                focusedContainerColor = SaaSBackground,
+                unfocusedContainerColor = SaaSBackground,
+                focusedTextColor = SaaSTextPrimary,
+                unfocusedTextColor = SaaSTextPrimary
+            ),
+            shape = RoundedCornerShape(10.dp)
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        if (filtered.isEmpty()) {
+            Text(
+                text = t("no_products_available"),
+                color = SaaSTextSecondary,
+                fontSize = 13.sp,
+                modifier = Modifier.padding(vertical = 16.dp)
+            )
+        } else {
+            LazyColumn(
+                modifier = Modifier.height(260.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                items(filtered) { product ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { onProductSelected(product) }
+                            .padding(vertical = 12.dp, horizontal = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(product.name, color = SaaSTextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        Text("${product.price} ${product.currency}", color = SaaSPrimaryTeal, fontSize = 12.sp)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ChipGroupSlider(
     title: String,
     options: List<Pair<String, String>>,
     selected: String?,
     onSelected: (String) -> Unit,
 ) {
-    Text(title, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Text(
+        text = title,
+        fontSize = 11.sp,
+        fontWeight = FontWeight.Bold,
+        color = SaaSTextSecondary,
+        modifier = Modifier.padding(top = 4.dp)
+    )
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -603,82 +1295,52 @@ private fun ChipGroup(
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         options.forEach { (value, label) ->
-            FilterChip(
-                selected = selected == value,
-                onClick = { onSelected(value) },
-                label = { Text(label) },
-            )
-        }
-    }
-}
-
-@Composable
-private fun EntityChips(
-    title: String,
-    items: List<Pair<String, String>>,
-    selected: String?,
-    onSelected: (String) -> Unit,
-) {
-    Text(title, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    if (items.isEmpty()) {
-        Text(t("no_search_results"), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        return
-    }
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        items.take(12).forEach { (id, name) ->
-            FilterChip(
-                selected = selected == id,
-                onClick = { onSelected(id) },
-                label = { Text(name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-            )
-        }
-    }
-}
-
-@Composable
-private fun ProductEntityChips(
-    title: String,
-    products: List<Product>,
-    selected: String?,
-    onSelected: (Product?) -> Unit,
-) {
-    Text(title, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    if (products.isEmpty()) {
-        Text(t("no_products_available"), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        return
-    }
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        products.take(12).forEach { product ->
-            FilterChip(
-                selected = selected == product.id,
-                onClick = { onSelected(product) },
-                label = { Text("${product.name} • ${product.price} ${product.currency}", maxLines = 1, overflow = TextOverflow.Ellipsis) },
-            )
+            val active = selected == value
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(if (active) SaaSPrimaryTeal else SaaSBackground)
+                    .clickable { onSelected(value) }
+                    .padding(horizontal = 12.dp, vertical = 6.dp)
+            ) {
+                Text(
+                    text = label,
+                    color = if (active) SaaSTextPrimary else SaaSTextSecondary,
+                    fontSize = 12.sp,
+                    fontWeight = if (active) FontWeight.Bold else FontWeight.Normal
+                )
+            }
         }
     }
 }
 
 @Composable
 private fun ErrorCard(message: String) {
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
-        Text(message, modifier = Modifier.padding(14.dp), color = MaterialTheme.colorScheme.onErrorContainer)
+    Card(
+        colors = CardDefaults.cardColors(containerColor = SaaSError.copy(alpha = 0.15f)),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Text(
+            text = message,
+            modifier = Modifier.padding(12.dp),
+            color = SaaSError,
+            fontSize = 12.sp
+        )
     }
 }
 
 @Composable
 private fun InfoCard(message: String) {
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))) {
-        Text(message, modifier = Modifier.padding(14.dp), color = MaterialTheme.colorScheme.onSurface)
+    Card(
+        colors = CardDefaults.cardColors(containerColor = SaaSSurface),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Text(
+            text = message,
+            modifier = Modifier.padding(12.dp),
+            color = SaaSTextPrimary,
+            fontSize = 12.sp
+        )
     }
 }
 
@@ -761,6 +1423,5 @@ private fun refineOptions(language: AppLanguage) = listOf(
     "less_salesy" to localized(language, "أقل بيعية", "Less salesy"),
     "add_cta" to localized(language, "إضافة CTA", "Add CTA"),
     "remove_cta" to localized(language, "إزالة CTA", "Remove CTA"),
-    "change_dialect" to localized(language, "تغيير اللهجة", "Change dialect"),
     "rewrite" to localized(language, "إعادة الصياغة", "Rewrite"),
 )
