@@ -203,11 +203,31 @@ fun StartupAnnouncementDialog(
     onViewDetails: () -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val context = LocalContext.current
+    val action = announcement.actionUiState(language)
     AlertDialog(
         onDismissRequest = onDismiss,
         icon = { Icon(Icons.Filled.NotificationsActive, contentDescription = null) },
         title = { Text(announcement.title(language), fontWeight = FontWeight.Bold) },
-        text = { Text(announcement.body(language)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(announcement.body(language))
+                action?.let {
+                    Button(
+                        onClick = {
+                            if (launchAnnouncementAction(context, it.target)) {
+                                onDismiss()
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null)
+                        Spacer(Modifier.size(8.dp))
+                        Text(it.label)
+                    }
+                }
+            }
+        },
         confirmButton = {
             Button(onClick = onViewDetails) {
                 Text(t("view_details"))
@@ -386,7 +406,7 @@ private fun AnnouncementDetailDialog(
     onClose: () -> Unit,
 ) {
     val context = LocalContext.current
-    val action = announcement.actionLabel(language)
+    val action = announcement.actionUiState(language)
     AlertDialog(
         onDismissRequest = onClose,
         title = { Text(announcement.title(language), fontWeight = FontWeight.Bold) },
@@ -399,15 +419,17 @@ private fun AnnouncementDetailDialog(
             }
         },
         confirmButton = {
-            if (!announcement.deepLink.isNullOrBlank() && !action.isNullOrBlank()) {
+            action?.let {
                 Button(
                     onClick = {
-                        runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(announcement.deepLink))) }
+                        if (launchAnnouncementAction(context, it.target)) {
+                            onClose()
+                        }
                     }
                 ) {
                     Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null)
                     Spacer(Modifier.size(8.dp))
-                    Text(action)
+                    Text(it.label)
                 }
             }
         },

@@ -8,6 +8,12 @@
         android:label="Tijario | تجاريو"
         android:supportsRtl="true"
         android:theme="@style/Theme.Tijario.Splash">
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_stat_tijario" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@color/tijario_deep_teal" />
         <activity
             android:name=".MainActivity"
             android:exported="true">
