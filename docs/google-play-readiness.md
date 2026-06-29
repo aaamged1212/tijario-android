@@ -35,6 +35,13 @@ When filling the Play Console Data Safety questionnaire, declare the following:
 ### App Permissions (AndroidManifest.xml)
 Only the absolute minimum permissions are declared:
 - `android.permission.INTERNET`: Required to communicate with Supabase and Tijario APIs.
+- `android.permission.POST_NOTIFICATIONS`: Required on Android 13+ only after the user accepts the notification explanation prompt.
+
+### Firebase Cloud Messaging
+- Firebase Cloud Messaging is used for general Tijario announcements.
+- Firebase may process Firebase installation identifiers, device or other identifiers, app version, and push delivery metadata.
+- Firebase Analytics, Crashlytics, and Firestore are not enabled.
+- Users can deny push notification permission and still see in-app announcements from the backend.
 
 ### FileProvider Configurations
 - A secure FileProvider is configured in `@xml/file_paths` using `cache-path` (for cached PDFs) and `external-files-path` under restricted names to prevent directory traversal attacks or exposing private app folders.

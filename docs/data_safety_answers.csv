@@ -12,3 +12,7 @@
 "Data usage and sharing (Email)","Is this data processed ephemerally?","No","Stored securely in database for user identity."
 "Data usage and sharing (Email)","Is this data collection required or optional?","Required","Users must login/register with their email to authenticate."
 "Data usage and sharing (Email)","Why is this data collected?","Account management","For secure authentication and user communication."
+"Data types collected","Device or other IDs","Yes - Collected by Firebase Cloud Messaging","Used by Firebase for push notification delivery metadata and installation identification."
+"Data usage and sharing (Device or other IDs)","Is this data shared?","No developer sale/share","Processed by Firebase as a service provider for notification delivery only; not sold by Tijario."
+"Data usage and sharing (Device or other IDs)","Why is this data collected?","App functionality","To deliver important app announcements and notification metadata."
+"SDK disclosure","Firebase Analytics / Crashlytics / Firestore","No","Only Firebase Cloud Messaging is added."

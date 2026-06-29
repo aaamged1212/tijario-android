@@ -16,6 +16,8 @@ build/
 keystore.properties
 *.p12
 *.pfx
+firebase-service-account*.json
+service-account*.json
 
 # Environment files
 .env
