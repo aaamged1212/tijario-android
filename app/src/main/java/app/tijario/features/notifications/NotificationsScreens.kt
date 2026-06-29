@@ -53,6 +53,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -66,6 +67,7 @@ import app.tijario.config.AppLanguage
 import app.tijario.config.AppPreferences
 import app.tijario.config.LocalLanguage
 import app.tijario.config.t
+import kotlinx.coroutines.launch
 
 @Composable
 fun NotificationBellButton(
@@ -230,7 +232,10 @@ fun NotificationPermissionPrompt(
     }
 
     AlertDialog(
-        onDismissRequest = onFinished,
+        onDismissRequest = {
+            AppPreferences.setNotificationExplained(context)
+            onFinished()
+        },
         icon = { Icon(Icons.Filled.Notifications, contentDescription = null) },
         title = { Text(t("notification_permission_title"), fontWeight = FontWeight.Bold) },
         text = { Text(t("notification_permission_body")) },
@@ -265,6 +270,9 @@ fun NotificationPermissionPrompt(
 @Composable
 fun NotificationSettingsSection() {
     val context = LocalContext.current
+    val language = LocalLanguage.current
+    val scope = rememberCoroutineScope()
+    val topicManager = remember(context) { NotificationTopicManager(context) }
     var enabled by remember { mutableStateOf(AppPreferences.isPushEnabled(context)) }
 
     Card(
@@ -294,6 +302,9 @@ fun NotificationSettingsSection() {
                     onCheckedChange = {
                         enabled = it
                         AppPreferences.setPushEnabled(context, it)
+                        scope.launch {
+                            runCatching { topicManager.syncForLanguage(language) }
+                        }
                     },
                 )
             }

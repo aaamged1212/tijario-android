@@ -73,6 +73,7 @@ class NotificationsRepository(
 
     suspend fun syncPendingReceipts(userId: String): Result<Unit> = runCatching {
         val pending = withContext(Dispatchers.IO) { dao.getPendingReceiptOperations(userId) }
+        var hasFailure = false
         pending.forEach { item ->
             val result = runCatching {
                 backendApiClient.sendAnnouncementReceipt(
@@ -89,10 +90,14 @@ class NotificationsRepository(
             if (result.isSuccess && apiResult?.ok == true) {
                 withContext(Dispatchers.IO) { dao.deleteReceiptOutbox(item.id) }
             } else {
+                hasFailure = true
                 withContext(Dispatchers.IO) {
                     dao.markReceiptOutboxFailed(item.id, apiResult?.code ?: result.exceptionOrNull()?.message)
                 }
             }
+        }
+        if (hasFailure) {
+            error("receipt_sync_pending")
         }
     }
 

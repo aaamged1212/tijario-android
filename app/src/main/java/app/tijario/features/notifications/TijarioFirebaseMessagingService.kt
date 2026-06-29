@@ -1,12 +1,16 @@
 package app.tijario.features.notifications
 
+import android.Manifest
+import android.annotation.SuppressLint
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import androidx.core.app.NotificationManagerCompat
 import app.tijario.MainActivity
 import app.tijario.R
@@ -21,6 +25,7 @@ import kotlinx.coroutines.launch
 class TijarioFirebaseMessagingService : FirebaseMessagingService() {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
+    @SuppressLint("MissingPermission")
     override fun onMessageReceived(message: RemoteMessage) {
         val announcementId = message.data["announcement_id"]?.trim().orEmpty()
         if (announcementId.isBlank()) return
@@ -55,8 +60,10 @@ class TijarioFirebaseMessagingService : FirebaseMessagingService() {
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .build()
 
-        runCatching {
-            NotificationManagerCompat.from(this).notify(announcementId.hashCode(), notification)
+        if (canPostNotifications()) {
+            runCatching {
+                NotificationManagerCompat.from(this).notify(announcementId.hashCode(), notification)
+            }
         }
     }
 
@@ -87,4 +94,9 @@ class TijarioFirebaseMessagingService : FirebaseMessagingService() {
             )
         )
     }
+
+    private fun canPostNotifications(): Boolean =
+        Build.VERSION.SDK_INT < 33 ||
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) ==
+            PackageManager.PERMISSION_GRANTED
 }
