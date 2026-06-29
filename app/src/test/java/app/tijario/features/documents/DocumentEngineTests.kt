@@ -60,7 +60,7 @@ class DocumentEngineTests {
             businessSettings = DocumentFixtures.business,
             customerCity = DocumentFixtures.customer.city,
         )
-        assertEquals("INV-DRAFT", model.documentNumber)
+        assertEquals("INV-0001", model.documentNumber)
         assertEquals("SAR", model.totals.currency)
         assertEquals(2, model.items.size)
         assertEquals("360.5", model.totals.total.stripTrailingZeros().toPlainString())
