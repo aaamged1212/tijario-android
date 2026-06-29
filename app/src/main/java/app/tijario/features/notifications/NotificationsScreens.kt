@@ -235,7 +235,7 @@ fun StartupAnnouncementDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text(t("close"))
+                Text(t("btn_close"))
             }
         },
     )
@@ -435,7 +435,7 @@ private fun AnnouncementDetailDialog(
         },
         dismissButton = {
             TextButton(onClick = onClose) {
-                Text(t("close"))
+                Text(t("btn_close"))
             }
         },
     )

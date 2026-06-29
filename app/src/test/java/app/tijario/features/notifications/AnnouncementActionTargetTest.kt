@@ -36,6 +36,20 @@ class AnnouncementActionTargetTest {
     }
 
     @Test
+    fun externalHttpsLink_isAllowed() {
+        val announcement = announcement(
+            actionLabelAr = "افتح الرابط",
+            actionLabelEn = "Open link",
+            deepLink = "https://example.com/deal",
+        )
+
+        val action = announcement.actionUiState(AppLanguage.EN)
+
+        assertEquals("Open link", action?.label)
+        assertEquals("https://example.com/deal", action?.target)
+    }
+
+    @Test
     fun invalidTarget_hidesActionButton() {
         val announcement = announcement(
             actionLabelAr = "عرض التفاصيل",

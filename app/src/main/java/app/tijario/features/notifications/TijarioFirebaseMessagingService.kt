@@ -59,7 +59,7 @@ class TijarioFirebaseMessagingService : FirebaseMessagingService() {
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
             .build()
 
         if (canPostNotifications()) {

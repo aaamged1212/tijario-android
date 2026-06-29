@@ -8,8 +8,6 @@ import androidx.compose.runtime.Immutable
 import app.tijario.config.AppLanguage
 import java.net.URI
 
-private val allowedExternalHosts = setOf("tijario.site", "www.tijario.site")
-
 @Immutable
 data class AnnouncementActionUiState(
     val label: String,
@@ -29,7 +27,7 @@ fun normalizeAnnouncementActionTarget(rawTarget: String?): String? {
     val uri = runCatching { URI(value) }.getOrNull() ?: return null
     return when (uri.scheme?.lowercase()) {
         "tijario" -> normalizeInternalAnnouncementTarget(uri)
-        "https" -> normalizeAllowedHttpsTarget(uri, value)
+        "http", "https" -> normalizeAllowedExternalTarget(value)
         else -> null
     }
 }
@@ -57,8 +55,9 @@ private fun normalizeInternalAnnouncementTarget(uri: URI): String? {
     return "tijario://announcements/$id"
 }
 
-private fun normalizeAllowedHttpsTarget(uri: URI, original: String): String? {
-    val host = uri.host?.lowercase() ?: return null
-    if (host !in allowedExternalHosts) return null
+private fun normalizeAllowedExternalTarget(original: String): String? {
+    val uri = runCatching { URI(original) }.getOrNull() ?: return null
+    val host = uri.host?.trim().orEmpty()
+    if (host.isBlank()) return null
     return original
 }
