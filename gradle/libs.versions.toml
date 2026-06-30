@@ -17,8 +17,8 @@ junit = "4.13.2"
 androidxJunit = "1.2.1"
 espresso = "3.6.1"
 androidx-work = "2.9.0"
-firebase-bom = "33.7.0"
-google-services = "4.4.2"
+firebase-bom = "34.15.0"
+google-services = "4.5.0"
 
 [libraries]
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "coreKtx" }
