@@ -84,7 +84,7 @@ data class DocumentRenderModel(
     val documentNote: String? = null,
     val termsAndConditions: String? = null,
     val language: AppLanguage = AppLanguage.AR,
-    val templateId: String = "tijario-classic",
+    val templateId: String = "tijario-basic",
     val templateVersion: Int = 1,
     val formattingVersion: Int = 1,
     val signatureData: String? = null,

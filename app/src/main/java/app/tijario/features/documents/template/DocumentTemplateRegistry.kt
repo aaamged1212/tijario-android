@@ -4,10 +4,10 @@ import app.tijario.features.documents.model.DocumentTemplateDefinition
 import app.tijario.features.documents.model.DocumentTemplateVisual
 
 object DocumentTemplateRegistry {
-    const val defaultTemplateId: String = "tijario-classic"
+    const val defaultTemplateId: String = "tijario-basic"
 
     private val legacyAliases = mapOf(
-        "classic/teal" to defaultTemplateId,
+        "basic/teal" to defaultTemplateId,
         "modern/teal" to "tijario-modern",
         "minimal/slate" to "tijario-minimal",
         "compact/teal" to "tijario-compact",
@@ -17,7 +17,7 @@ object DocumentTemplateRegistry {
         "bold/red" to "tijario-bold",
         "service/green" to "tijario-service",
         "premium/gold" to "tijario-premium",
-        "classic/aqua" to "tijario-aqua",
+        "basic/aqua" to "tijario-aqua",
         "service/lime" to "tijario-lime",
         "bold/ruby" to "tijario-ruby",
         "minimal/ink" to "tijario-ink",
@@ -37,7 +37,7 @@ object DocumentTemplateRegistry {
     )
 
     val templates: List<DocumentTemplateDefinition> = listOf(
-        template("tijario-classic", "Tijario Classic", "classic", "teal", "#0F766E", "#0B5F59", "Balanced header, bordered cards, and traditional invoice rhythm."),
+        template("tijario-basic", "Tijario Basic", "basic", "teal", "#0F766E", "#0B5F59", "Balanced header, bordered cards, and traditional invoice rhythm."),
         template("tijario-modern", "Tijario Modern", "modern", "teal", "#0B5F59", "#064E3B", "Solid header band and high contrast metadata treatment.", styleFamily = 2, topTextColor = "#FFFFFF", titleTextColor = "#FFFFFF", logoBackgroundColor = "#FFFFFF", logoTextColor = "#0B5F59"),
         template("tijario-minimal", "Tijario Minimal", "minimal", "slate", "#334155", "#1E293B", "Quiet monochrome layout with reduced borders.", styleFamily = 5, titleTextColor = "#111827", tableHeaderTextColor = "#111827", itemTopOuterLine = true, itemBottomBlock = false, itemBottomLine = false),
         template("tijario-compact", "Tijario Compact", "compact", "teal", "#0F766E", "#0B5F59", "Dense layout for documents with many items."),
@@ -47,7 +47,7 @@ object DocumentTemplateRegistry {
         template("tijario-bold", "Tijario Bold", "bold", "red", "#B91C1C", "#7F1D1D", "Large title, strong total treatment, and assertive accents.", tableShadeColor = "#FFF1F2", itemTextBold = true),
         template("tijario-service", "Tijario Service", "service", "green", "#15803D", "#166534", "Single-column party treatment for service providers.", tableShadeColor = "#F0FDF4"),
         template("tijario-premium", "Tijario Premium", "premium", "gold", "#92400E", "#78350F", "Premium top rule and warm metadata surfaces.", styleFamily = 6, topTextColor = "#FFFFFF", titleTextColor = "#FFFFFF", logoBackgroundColor = "#FFFFFF", logoTextColor = "#92400E", tableShadeColor = "#FFFBEB", pageAccentColor = "#FFFBEB"),
-        referenceTemplate("tijario-aqua", "Tijario Aqua", "classic", "aqua", "#38B7B0", "#0F766E", "Clean teal business document inspired by compact invoice-maker templates."),
+        referenceTemplate("tijario-aqua", "Tijario Aqua", "basic", "aqua", "#38B7B0", "#0F766E", "Clean teal business document inspired by compact invoice-maker templates."),
         referenceTemplate("tijario-lime", "Tijario Lime", "service", "lime", "#4EAD3A", "#2F6F25", "Fresh green document theme with a simple title led header."),
         referenceTemplate("tijario-ruby", "Tijario Ruby", "bold", "ruby", "#C43A38", "#7F1D1D", "Sharp red accent for urgent invoices and quotations."),
         referenceTemplate("tijario-ink", "Tijario Ink", "minimal", "ink", "#111827", "#020617", "High contrast monochrome document for formal business use.", styleFamily = 5, titleTextColor = "#111827", tableHeaderTextColor = "#111827", itemTopOuterLine = true, itemBottomBlock = false, itemBottomLine = false),
