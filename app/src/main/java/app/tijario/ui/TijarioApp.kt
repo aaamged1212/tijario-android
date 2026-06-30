@@ -806,7 +806,10 @@ fun TijarioApp() {
                     AppSettingsScreen(onBack = { navController.popBackStack() })
                 }
                 composable("upgrade-plan") {
-                    UpgradePlanScreen(onBack = { navController.popBackStack() })
+                    UpgradePlanScreen(
+                        dataViewModel = dataViewModel,
+                        onBack = { navController.popBackStack() }
+                    )
                 }
             }
         }

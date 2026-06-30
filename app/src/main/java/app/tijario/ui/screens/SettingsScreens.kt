@@ -957,7 +957,26 @@ fun AppSettingsScreen(onBack: () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun UpgradePlanScreen(onBack: () -> Unit) {
+fun UpgradePlanScreen(
+    dataViewModel: TijarioDataViewModel,
+    onBack: () -> Unit,
+) {
+    val language = LocalLanguage.current
+    val isArabic = language == AppLanguage.AR
+    val planUsageState by dataViewModel.planUsageState.collectAsStateWithLifecycle()
+    var annualBilling by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        dataViewModel.refreshPlanUsage()
+    }
+
+    val usage = (planUsageState as? PlanUsageState.Success)?.value
+    val currentPlanCode = when (usage?.planCode?.lowercase()) {
+        "starter" -> "pro"
+        null, "" -> "free"
+        else -> usage.planCode.lowercase()
+    }
+
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
@@ -975,39 +994,648 @@ fun UpgradePlanScreen(onBack: () -> Unit) {
                 .fillMaxSize()
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
-                .padding(20.dp),
+                .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Surface(color = Color(0xFFE6FFFA), shape = CircleShape, modifier = Modifier.size(76.dp)) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(Icons.Filled.RocketLaunch, contentDescription = null, tint = Color(0xFF0F766E), modifier = Modifier.size(36.dp))
+            PricingHeroCard(
+                isArabic = isArabic,
+                annualBilling = annualBilling,
+                onToggleBilling = { annualBilling = it },
+            )
+
+            CurrentUsagePricingCard(
+                isArabic = isArabic,
+                usage = usage,
+                currentPlanCode = currentPlanCode,
+            )
+
+            PricingPlansSection(
+                isArabic = isArabic,
+                currentPlanCode = currentPlanCode,
+                annualBilling = annualBilling,
+            )
+
+            PricingComparisonSection(isArabic = isArabic)
+            PricingFaqSection(isArabic = isArabic)
+
+            Card(
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(
+                        text = if (isArabic) "الترقية الفعلية عبر Google Play ستُفعَّل لاحقًا." else "Google Play upgrades will be enabled later.",
+                        textAlign = TextAlign.Center,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Button(
+                        onClick = {},
+                        enabled = false,
+                        modifier = Modifier.fillMaxWidth().height(54.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0D9488)),
+                    ) {
+                        Text(t("coming_soon_upgrade"), fontWeight = FontWeight.Bold, color = Color.White)
+                    }
                 }
             }
-            Text(t("rise_to_pro"), fontSize = 26.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center)
-            Text(t("pro_benefits_desc"), color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
-            
-            PlanCard(
-                title = "Pro", 
-                subtitle = t("suitable_growing_stores"), 
-                features = listOf(t("more_monthly_docs"), t("higher_ai_uses"), t("pro_pdf_templates"), t("advanced_features_support")),
-                border = BorderStroke(1.dp, Color(0xFF2DD4BF))
+        }
+    }
+}
+
+private data class PricingPlanUi(
+    val code: String,
+    val nameAr: String,
+    val nameEn: String,
+    val descAr: String,
+    val descEn: String,
+    val monthlyPriceCents: Int,
+    val annualPriceCents: Int,
+    val monthlyDocumentLimit: Int,
+    val monthlyAiLimit: Int,
+    val customerLimit: Int?,
+    val productLimit: Int?,
+    val templatesAr: String,
+    val templatesEn: String,
+    val supportAr: String,
+    val supportEn: String,
+    val featured: Boolean,
+)
+
+private data class ComparisonItem(
+    val titleAr: String,
+    val titleEn: String,
+    val freeAr: String,
+    val freeEn: String,
+    val proAr: String,
+    val proEn: String,
+    val businessAr: String,
+    val businessEn: String,
+)
+
+@Composable
+private fun PricingHeroCard(
+    isArabic: Boolean,
+    annualBilling: Boolean,
+    onToggleBilling: (Boolean) -> Unit,
+) {
+    val title = if (isArabic) "خطة تناسب كل مرحلة من نمو متجرك" else "A plan for every stage of your store"
+    val subtitle = if (isArabic) {
+        "ابدأ مجانًا ثم قم بالترقية عندما يكبر عملك."
+    } else {
+        "Start free, then upgrade as your documents, customers, products, and AI usage grow."
+    }
+    val monthly = if (isArabic) "شهري" else "Monthly"
+    val annual = if (isArabic) "سنوي" else "Annual"
+    val save = if (isArabic) "وفر شهرين تقريبًا" else "Save about two months"
+
+    Card(
+        shape = RoundedCornerShape(28.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(
+            modifier = Modifier.padding(22.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Surface(color = Color(0xFFE6FFFA), shape = CircleShape, modifier = Modifier.size(72.dp)) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        Icons.Filled.RocketLaunch,
+                        contentDescription = null,
+                        tint = Color(0xFF0F766E),
+                        modifier = Modifier.size(34.dp),
+                    )
+                }
+            }
+            Text(title, fontSize = 24.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center)
+            Text(
+                subtitle,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                lineHeight = 22.sp,
             )
-            PlanCard(
-                title = "Business", 
-                subtitle = t("business_lots_docs"), 
-                features = listOf(t("higher_limits"), t("priority_features"), t("more_flexible_management"), t("ready_to_expand")),
-                badgeColor = Color(0xFFF1F5F9),
-                badgeTextColor = Color(0xFF475569),
-                border = BorderStroke(1.dp, Color(0xFFE2E8F0))
-            )
-            Button(
-                onClick = {}, 
-                modifier = Modifier.fillMaxWidth().height(54.dp), 
-                shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0D9488))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
             ) {
-                Text(t("coming_soon_upgrade"), fontWeight = FontWeight.Bold, color = Color.White)
+                PricingToggleChip(
+                    label = monthly,
+                    selected = !annualBilling,
+                    onClick = { onToggleBilling(false) },
+                )
+                Spacer(modifier = Modifier.size(10.dp))
+                PricingToggleChip(
+                    label = annual,
+                    selected = annualBilling,
+                    onClick = { onToggleBilling(true) },
+                )
+            }
+            Text(save, color = Color(0xFF0F766E), fontWeight = FontWeight.Bold, fontSize = 13.sp)
+        }
+    }
+}
+
+@Composable
+private fun PricingToggleChip(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    Button(
+        onClick = onClick,
+        modifier = Modifier.height(44.dp),
+        shape = RoundedCornerShape(999.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = if (selected) Color(0xFF0D9488) else MaterialTheme.colorScheme.surfaceVariant,
+            contentColor = if (selected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+        ),
+    ) {
+        Text(label, fontWeight = FontWeight.Bold)
+    }
+}
+
+@Composable
+private fun CurrentUsagePricingCard(
+    isArabic: Boolean,
+    usage: app.tijario.data.model.UserPlanUsage?,
+    currentPlanCode: String,
+) {
+    Card(
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(t("current_plan"), fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        text = when (currentPlanCode) {
+                            "free" -> if (isArabic) "الخطة المجانية" else "Free"
+                            "pro" -> "Pro"
+                            "business" -> "Business"
+                            else -> currentPlanCode
+                        },
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Black,
+                    )
+                }
+                Surface(color = Color(0xFFE6FFFA), shape = CircleShape, modifier = Modifier.size(52.dp)) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            Icons.Filled.AutoAwesome,
+                            contentDescription = null,
+                            tint = Color(0xFF0F766E),
+                            modifier = Modifier.size(26.dp),
+                        )
+                    }
+                }
+            }
+
+            if (usage != null) {
+                UsageLine(t("documents"), usage.documentsUsed, usage.documentsLimit, Icons.Filled.Description, Color(0xFFCCFBF1))
+                UsageLine(t("ai_uses"), usage.aiUsed, usage.aiLimit, Icons.Filled.AutoAwesome, Color(0xFFBAE6FD))
+                UsageLine(t("tab_customers"), usage.customersUsed, usage.customersLimit, Icons.Filled.Person, Color(0xFFFDE68A))
+                UsageLine(t("tab_products"), usage.productsUsed, usage.productsLimit, Icons.Filled.ShoppingBag, Color(0xFFC4B5FD))
+            } else {
+                Text(
+                    text = if (isArabic) "جارٍ تحميل الاستهلاك الحالي..." else "Loading current usage...",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PricingPlansSection(
+    isArabic: Boolean,
+    currentPlanCode: String,
+    annualBilling: Boolean,
+) {
+    val plans = listOf(
+        PricingPlanUi(
+            code = "free",
+            nameAr = "مجاني",
+            nameEn = "Free",
+            descAr = "ابدأ مجانًا مع الحدود الأساسية.",
+            descEn = "Start free with the core limits.",
+            monthlyPriceCents = 0,
+            annualPriceCents = 0,
+            monthlyDocumentLimit = 5,
+            monthlyAiLimit = 10,
+            customerLimit = 10,
+            productLimit = 10,
+            templatesAr = "القالب الأساسي الأخضر والأبيض فقط",
+            templatesEn = "Basic green and white template only",
+            supportAr = "دعم قياسي",
+            supportEn = "Standard support",
+            featured = false,
+        ),
+        PricingPlanUi(
+            code = "pro",
+            nameAr = "Pro",
+            nameEn = "Pro",
+            descAr = "الأكثر اختيارًا للمتاجر النامية.",
+            descEn = "Most chosen for growing stores.",
+            monthlyPriceCents = 499,
+            annualPriceCents = 4900,
+            monthlyDocumentLimit = 50,
+            monthlyAiLimit = 100,
+            customerLimit = null,
+            productLimit = null,
+            templatesAr = "جميع القوالب الحالية",
+            templatesEn = "All current templates",
+            supportAr = "دعم قياسي",
+            supportEn = "Standard support",
+            featured = true,
+        ),
+        PricingPlanUi(
+            code = "business",
+            nameAr = "Business",
+            nameEn = "Business",
+            descAr = "للاستخدام المرتفع والمتاجر النشطة.",
+            descEn = "For higher usage and active stores.",
+            monthlyPriceCents = 999,
+            annualPriceCents = 9900,
+            monthlyDocumentLimit = 200,
+            monthlyAiLimit = 500,
+            customerLimit = null,
+            productLimit = null,
+            templatesAr = "جميع القوالب الحالية",
+            templatesEn = "All current templates",
+            supportAr = "دعم أولوية",
+            supportEn = "Priority support",
+            featured = false,
+        ),
+    )
+
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(
+            text = if (isArabic) "الباقات" else "Plans",
+            fontSize = 22.sp,
+            fontWeight = FontWeight.Black,
+        )
+        plans.forEach { plan ->
+            PricingPlanCard(
+                plan = plan,
+                currentPlanCode = currentPlanCode,
+                annualBilling = annualBilling,
+                isArabic = isArabic,
+            )
+        }
+    }
+}
+
+@Composable
+private fun PricingPlanCard(
+    plan: PricingPlanUi,
+    currentPlanCode: String,
+    annualBilling: Boolean,
+    isArabic: Boolean,
+) {
+    val isCurrent = plan.code == currentPlanCode
+    val accent = when (plan.code) {
+        "free" -> Color(0xFF0D9488)
+        "pro" -> Color(0xFF2563EB)
+        else -> Color(0xFF7C3AED)
+    }
+    val priceCents = if (annualBilling) plan.annualPriceCents else plan.monthlyPriceCents
+    val priceLabel = if (priceCents == 0) {
+        if (isArabic) "مجاني" else "Free"
+    } else {
+        val amount = priceCents / 100f
+        val period = if (annualBilling) {
+            if (isArabic) " / سنويًا" else " / year"
+        } else {
+            if (isArabic) " / شهريًا" else " / month"
+        }
+        "$${String.format("%.2f", amount)}$period"
+    }
+
+    Card(
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = if (isCurrent) Color(0xFFF0FDFA) else MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, if (plan.featured) accent else MaterialTheme.colorScheme.outlineVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = if (plan.featured) 4.dp else 1.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = if (isArabic) plan.nameAr else plan.nameEn,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Black,
+                        )
+                        if (plan.featured) {
+                            Surface(color = Color(0xFFE0F2FE), shape = RoundedCornerShape(999.dp)) {
+                                Text(
+                                    text = if (isArabic) "الأكثر اختيارًا" else "Most chosen",
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                    color = Color(0xFF075985),
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                            }
+                        }
+                        if (isCurrent) {
+                            Surface(color = Color(0xFFD1FAE5), shape = RoundedCornerShape(999.dp)) {
+                                Text(
+                                    text = t("current_plan"),
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                    color = Color(0xFF065F46),
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                            }
+                        }
+                    }
+                    Text(
+                        text = if (isArabic) plan.descAr else plan.descEn,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        lineHeight = 20.sp,
+                    )
+                }
+                Surface(color = accent.copy(alpha = 0.12f), shape = CircleShape, modifier = Modifier.size(46.dp)) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = if (plan.code == "free") Icons.Filled.Check else Icons.Filled.WorkspacePremium,
+                            contentDescription = null,
+                            tint = accent,
+                            modifier = Modifier.size(24.dp),
+                        )
+                    }
+                }
+            }
+
+            Text(
+                text = priceLabel,
+                fontSize = 28.sp,
+                fontWeight = FontWeight.Black,
+                color = accent,
+            )
+
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                PricingFeatureRow(
+                    text = if (isArabic) "مستندات شهرية: ${plan.monthlyDocumentLimit}" else "Documents/month: ${plan.monthlyDocumentLimit}",
+                    accent = accent,
+                )
+                PricingFeatureRow(
+                    text = if (isArabic) "عمليات AI شهرية: ${plan.monthlyAiLimit}" else "AI/month: ${plan.monthlyAiLimit}",
+                    accent = accent,
+                )
+                PricingFeatureRow(
+                    text = if (plan.customerLimit == null) {
+                        if (isArabic) "العملاء: غير محدود" else "Customers: Unlimited"
+                    } else {
+                        if (isArabic) "العملاء: ${plan.customerLimit}" else "Customers: ${plan.customerLimit}"
+                    },
+                    accent = accent,
+                )
+                PricingFeatureRow(
+                    text = if (plan.productLimit == null) {
+                        if (isArabic) "المنتجات: غير محدود" else "Products: Unlimited"
+                    } else {
+                        if (isArabic) "المنتجات: ${plan.productLimit}" else "Products: ${plan.productLimit}"
+                    },
+                    accent = accent,
+                )
+                PricingFeatureRow(
+                    text = if (isArabic) plan.templatesAr else plan.templatesEn,
+                    accent = accent,
+                )
+                PricingFeatureRow(
+                    text = if (isArabic) plan.supportAr else plan.supportEn,
+                    accent = accent,
+                )
+            }
+
+            Button(
+                onClick = {},
+                enabled = false,
+                modifier = Modifier.fillMaxWidth().height(50.dp),
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (isCurrent) accent else MaterialTheme.colorScheme.surfaceVariant,
+                    contentColor = if (isCurrent) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                    disabledContainerColor = if (isCurrent) accent else MaterialTheme.colorScheme.surfaceVariant,
+                    disabledContentColor = if (isCurrent) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                ),
+            ) {
+                Text(
+                    text = when {
+                        isCurrent -> if (isArabic) "الخطة الحالية" else "Current plan"
+                        else -> t("coming_soon_upgrade")
+                    },
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PricingFeatureRow(text: String, accent: Color) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Surface(color = accent.copy(alpha = 0.12f), shape = CircleShape, modifier = Modifier.size(22.dp)) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    Icons.Filled.Check,
+                    contentDescription = null,
+                    tint = accent,
+                    modifier = Modifier.size(12.dp),
+                )
+            }
+        }
+        Text(text, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+private fun PricingComparisonSection(isArabic: Boolean) {
+    val title = if (isArabic) "مقارنة كاملة" else "Full comparison"
+    val groups = listOf(
+        ComparisonItem(
+            titleAr = "الاستخدام والحدود",
+            titleEn = "Usage and limits",
+            freeAr = "5 مستندات / 10 AI",
+            freeEn = "5 docs / 10 AI",
+            proAr = "50 مستندًا / 100 AI",
+            proEn = "50 docs / 100 AI",
+            businessAr = "200 مستند / 500 AI",
+            businessEn = "200 docs / 500 AI",
+        ),
+        ComparisonItem(
+            titleAr = "العملاء والمنتجات",
+            titleEn = "Customers and products",
+            freeAr = "10 عناصر حالية لكل منهما",
+            freeEn = "10 current items each",
+            proAr = "غير محدود",
+            proEn = "Unlimited",
+            businessAr = "غير محدود",
+            businessEn = "Unlimited",
+        ),
+        ComparisonItem(
+            titleAr = "العروض والفواتير",
+            titleEn = "Quotes and invoices",
+            freeAr = "إمكانية الإنشاء كاملة",
+            freeEn = "Full creation available",
+            proAr = "تجربة أسرع وحدود أعلى",
+            proEn = "Faster flow with higher limits",
+            businessAr = "الأعلى للاستخدام المكثف",
+            businessEn = "Best for high-volume use",
+        ),
+        ComparisonItem(
+            titleAr = "أدوات AI",
+            titleEn = "AI tools",
+            freeAr = "محدودة حسب الخطة",
+            freeEn = "Limited by plan",
+            proAr = "100 عملية شهريًا",
+            proEn = "100 monthly generations",
+            businessAr = "500 عملية شهريًا",
+            businessEn = "500 monthly generations",
+        ),
+        ComparisonItem(
+            titleAr = "القوالب",
+            titleEn = "Templates",
+            freeAr = "القالب الأخضر والأبيض فقط",
+            freeEn = "Basic green and white only",
+            proAr = "جميع القوالب الحالية",
+            proEn = "All current templates",
+            businessAr = "جميع القوالب الحالية",
+            businessEn = "All current templates",
+        ),
+        ComparisonItem(
+            titleAr = "الدعم والحساب",
+            titleEn = "Support and account",
+            freeAr = "دعم قياسي",
+            freeEn = "Standard support",
+            proAr = "دعم قياسي",
+            proEn = "Standard support",
+            businessAr = "دعم أولوية",
+            businessEn = "Priority support",
+        ),
+    )
+
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(
+            text = title,
+            fontSize = 22.sp,
+            fontWeight = FontWeight.Black,
+        )
+        groups.forEach { item ->
+            Card(
+                shape = RoundedCornerShape(22.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = if (isArabic) item.titleAr else item.titleEn,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp,
+                    )
+                    PricingComparisonRow(
+                        label = if (isArabic) "مجاني" else "Free",
+                        value = if (isArabic) item.freeAr else item.freeEn,
+                    )
+                    PricingComparisonRow(
+                        label = "Pro",
+                        value = if (isArabic) item.proAr else item.proEn,
+                    )
+                    PricingComparisonRow(
+                        label = if (isArabic) "Business" else "Business",
+                        value = if (isArabic) item.businessAr else item.businessEn,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PricingComparisonRow(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.Top,
+    ) {
+        Text(label, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+        Spacer(modifier = Modifier.size(12.dp))
+        Text(
+            text = value,
+            modifier = Modifier.weight(1f),
+            textAlign = TextAlign.End,
+            fontSize = 13.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun PricingFaqSection(isArabic: Boolean) {
+    val title = if (isArabic) "الأسئلة الشائعة" else "FAQ"
+    val items = if (isArabic) {
+        listOf(
+            "ماذا يحدث عند الوصول إلى الحد؟" to "يمنع الخادم الإجراء الجديد وتظهر لك رسالة واضحة مع زر عرض الباقات.",
+            "متى يتجدد الاستخدام؟" to "يتجدد المستند والذكاء الاصطناعي في بداية كل شهر بالتوقيت العالمي.",
+            "هل يمكن تغيير أو إلغاء الخطة؟" to "سيُربط الشراء والإلغاء عبر Google Play عند تفعيل الشراء الفعلي.",
+            "ماذا يحدث بعد تخفيض الخطة؟" to "لا تُحذف بياناتك. يمكنك عرض الموجود وتعديله، لكن الإضافة الجديدة تخضع للحد الحالي.",
+            "هل يمكن البدء مجانًا؟" to "نعم، خطة Free متاحة بدون دفع وتغطي الأساسيات.",
+        )
+    } else {
+        listOf(
+            "What happens at the limit?" to "The server blocks the new action and shows a clear limit state with a plans button.",
+            "When does usage reset?" to "Document and AI usage reset at the beginning of each UTC month.",
+            "Can I change or cancel?" to "Upgrade and cancellation will be handled through Google Play once purchase products are active.",
+            "What happens after downgrade?" to "Your data stays. You can view and edit existing records, but new additions follow the current plan limit.",
+            "Can I start free?" to "Yes. Free is available without payment and covers the core workflow.",
+        )
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(
+            text = title,
+            fontSize = 22.sp,
+            fontWeight = FontWeight.Black,
+        )
+        items.forEach { (question, answer) ->
+            Card(
+                shape = RoundedCornerShape(22.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(question, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                    Text(answer, color = MaterialTheme.colorScheme.onSurfaceVariant, lineHeight = 21.sp)
+                }
             }
         }
     }
