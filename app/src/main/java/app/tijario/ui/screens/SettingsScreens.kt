@@ -1461,10 +1461,12 @@ private fun PricingPlanCard(
                     PricingFeatureRow(
                         text = if (isArabic) "مستندات شهرية: ${plan.monthlyDocumentLimit}" else "Documents/month: ${plan.monthlyDocumentLimit}",
                         accent = accent,
+                        textColor = if (isCurrent && isDarkTheme) Color(0xFF111827) else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     PricingFeatureRow(
                         text = if (isArabic) "عمليات AI شهرية: ${plan.monthlyAiLimit}" else "AI/month: ${plan.monthlyAiLimit}",
                         accent = accent,
+                        textColor = if (isCurrent && isDarkTheme) Color(0xFF111827) else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     PricingFeatureRow(
                         text = if (plan.customerLimit == null) {
@@ -1473,6 +1475,7 @@ private fun PricingPlanCard(
                             if (isArabic) "العملاء: ${plan.customerLimit}" else "Customers: ${plan.customerLimit}"
                         },
                         accent = accent,
+                        textColor = if (isCurrent && isDarkTheme) Color(0xFF111827) else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     PricingFeatureRow(
                         text = if (plan.productLimit == null) {
@@ -1481,14 +1484,17 @@ private fun PricingPlanCard(
                             if (isArabic) "المنتجات: ${plan.productLimit}" else "Products: ${plan.productLimit}"
                         },
                         accent = accent,
+                        textColor = if (isCurrent && isDarkTheme) Color(0xFF111827) else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     PricingFeatureRow(
                         text = if (isArabic) plan.templatesAr else plan.templatesEn,
                         accent = accent,
+                        textColor = if (isCurrent && isDarkTheme) Color(0xFF111827) else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     PricingFeatureRow(
                         text = if (isArabic) plan.supportAr else plan.supportEn,
                         accent = accent,
+                        textColor = if (isCurrent && isDarkTheme) Color(0xFF111827) else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
 
                     Button(
@@ -1531,7 +1537,7 @@ private fun PricingCompactChip(text: String, accent: Color) {
 }
 
 @Composable
-private fun PricingFeatureRow(text: String, accent: Color) {
+private fun PricingFeatureRow(text: String, accent: Color, textColor: Color = MaterialTheme.colorScheme.onSurfaceVariant) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -1547,7 +1553,7 @@ private fun PricingFeatureRow(text: String, accent: Color) {
                 )
             }
         }
-        Text(text, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(text, fontSize = 13.sp, color = textColor)
     }
 }
 
