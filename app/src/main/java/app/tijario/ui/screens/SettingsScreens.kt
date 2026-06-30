@@ -42,6 +42,7 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.ShoppingBag
 import androidx.compose.material.icons.filled.DeleteForever
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.ui.platform.LocalContext
 import android.net.Uri
@@ -87,6 +88,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -215,7 +217,6 @@ fun SettingsHomeScreen(
             SettingsOption(Icons.Filled.Business, t("store_settings"), t("store_settings_desc"), onStoreSettings)
             SettingsOption(Icons.Filled.AccountCircle, t("account_settings"), t("account_settings_desc"), onAccountSettings)
             SettingsOption(Icons.Filled.Settings, t("app_settings"), t("app_settings_desc"), onAppSettings)
-            NotificationSettingsSection()
             SettingsOption(Icons.Filled.WorkspacePremium, t("upgrade_plan"), t("upgrade_plan_desc"), onUpgrade)
 
             Button(
@@ -909,6 +910,10 @@ fun AppSettingsScreen(onBack: () -> Unit) {
 
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = 8.dp))
 
+                    NotificationSettingsSection()
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = 8.dp))
+
                     // Privacy policy row
                     Row(
                         modifier = Modifier
@@ -997,16 +1002,13 @@ fun UpgradePlanScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+            val annualDiscountPercent = pricingAnnualDiscountPercent()
+
             PricingHeroCard(
                 isArabic = isArabic,
                 annualBilling = annualBilling,
+                annualDiscountPercent = annualDiscountPercent,
                 onToggleBilling = { annualBilling = it },
-            )
-
-            CurrentUsagePricingCard(
-                isArabic = isArabic,
-                usage = usage,
-                currentPlanCode = currentPlanCode,
             )
 
             PricingPlansSection(
@@ -1069,21 +1071,11 @@ private data class PricingPlanUi(
     val featured: Boolean,
 )
 
-private data class ComparisonItem(
-    val titleAr: String,
-    val titleEn: String,
-    val freeAr: String,
-    val freeEn: String,
-    val proAr: String,
-    val proEn: String,
-    val businessAr: String,
-    val businessEn: String,
-)
-
 @Composable
 private fun PricingHeroCard(
     isArabic: Boolean,
     annualBilling: Boolean,
+    annualDiscountPercent: Int,
     onToggleBilling: (Boolean) -> Unit,
 ) {
     val title = if (isArabic) "خطة تناسب كل مرحلة من نمو متجرك" else "A plan for every stage of your store"
@@ -1094,7 +1086,7 @@ private fun PricingHeroCard(
     }
     val monthly = if (isArabic) "شهري" else "Monthly"
     val annual = if (isArabic) "سنوي" else "Annual"
-    val save = if (isArabic) "وفر شهرين تقريبًا" else "Save about two months"
+    val save = if (isArabic) "خصم سنوي حتى $annualDiscountPercent%" else "Save up to $annualDiscountPercent% annually"
 
     Card(
         shape = RoundedCornerShape(28.dp),
@@ -1310,6 +1302,7 @@ private fun PricingPlanCard(
     isArabic: Boolean,
 ) {
     val isCurrent = plan.code == currentPlanCode
+    val isDarkTheme = MainActivity.isDarkMode
     val accent = when (plan.code) {
         "free" -> Color(0xFF0D9488)
         "pro" -> Color(0xFF2563EB)
@@ -1325,17 +1318,46 @@ private fun PricingPlanCard(
         } else {
             if (isArabic) " / شهريًا" else " / month"
         }
-        "$${String.format("%.2f", amount)}$period"
+        val planDiscountPercent = pricingAnnualDiscountPercent(plan.monthlyPriceCents, plan.annualPriceCents)
+        val discount = if (annualBilling && plan.annualPriceCents > 0) {
+            " • ${planDiscountPercent}% ${if (isArabic) "خصم" else "off"}"
+        } else {
+            ""
+        }
+        "$${String.format("%.2f", amount)}$period$discount"
+    }
+    var expanded by remember(plan.code) { mutableStateOf(false) }
+    val currentContainer = when {
+        isCurrent && isDarkTheme -> Color.White
+        isCurrent -> Color(0xFFEFFAF7)
+        else -> MaterialTheme.colorScheme.surface
+    }
+    val currentOnSurface = when {
+        isCurrent && isDarkTheme -> Color(0xFF111827)
+        isCurrent -> MaterialTheme.colorScheme.onSurface
+        else -> MaterialTheme.colorScheme.onSurface
+    }
+    val currentSurfaceVariant = when {
+        isCurrent && isDarkTheme -> Color(0xFFF3F4F6)
+        isCurrent -> Color(0xFFE0F2FE)
+        else -> MaterialTheme.colorScheme.surfaceVariant
     }
 
     Card(
         shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = if (isCurrent) Color(0xFFF0FDFA) else MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, if (plan.featured) accent else MaterialTheme.colorScheme.outlineVariant),
+        colors = CardDefaults.cardColors(containerColor = currentContainer),
+        border = BorderStroke(
+            1.dp,
+            when {
+                isCurrent && isDarkTheme -> Color(0xFFE5E7EB)
+                plan.featured -> accent
+                else -> MaterialTheme.colorScheme.outlineVariant
+            }
+        ),
         elevation = CardDefaults.cardElevation(defaultElevation = if (plan.featured) 4.dp else 1.dp),
         modifier = Modifier.fillMaxWidth(),
     ) {
-        Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -1345,26 +1367,27 @@ private fun PricingPlanCard(
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(
                             text = if (isArabic) plan.nameAr else plan.nameEn,
-                            fontSize = 20.sp,
+                            fontSize = 19.sp,
                             fontWeight = FontWeight.Black,
+                            color = currentOnSurface,
                         )
                         if (plan.featured) {
-                            Surface(color = Color(0xFFE0F2FE), shape = RoundedCornerShape(999.dp)) {
+                            Surface(color = if (isCurrent && isDarkTheme) Color(0xFFF3F4F6) else Color(0xFFE0F2FE), shape = RoundedCornerShape(999.dp)) {
                                 Text(
                                     text = if (isArabic) "الأكثر اختيارًا" else "Most chosen",
                                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                                    color = Color(0xFF075985),
+                                    color = if (isCurrent && isDarkTheme) Color(0xFF111827) else Color(0xFF075985),
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold,
                                 )
                             }
                         }
                         if (isCurrent) {
-                            Surface(color = Color(0xFFD1FAE5), shape = RoundedCornerShape(999.dp)) {
+                            Surface(color = if (isDarkTheme) Color(0xFFF3F4F6) else Color(0xFFD1FAE5), shape = RoundedCornerShape(999.dp)) {
                                 Text(
                                     text = t("current_plan"),
                                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                                    color = Color(0xFF065F46),
+                                    color = if (isDarkTheme) Color(0xFF111827) else Color(0xFF065F46),
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold,
                                 )
@@ -1373,17 +1396,32 @@ private fun PricingPlanCard(
                     }
                     Text(
                         text = if (isArabic) plan.descAr else plan.descEn,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = if (isCurrent && isDarkTheme) Color(0xFF374151) else MaterialTheme.colorScheme.onSurfaceVariant,
                         lineHeight = 20.sp,
                     )
                 }
-                Surface(color = accent.copy(alpha = 0.12f), shape = CircleShape, modifier = Modifier.size(46.dp)) {
-                    Box(contentAlignment = Alignment.Center) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Surface(color = currentSurfaceVariant, shape = CircleShape, modifier = Modifier.size(46.dp)) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = if (plan.code == "free") Icons.Filled.Check else Icons.Filled.WorkspacePremium,
+                                contentDescription = null,
+                                tint = accent,
+                                modifier = Modifier.size(24.dp),
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.size(4.dp))
+                    IconButton(onClick = { expanded = !expanded }) {
                         Icon(
-                            imageVector = if (plan.code == "free") Icons.Filled.Check else Icons.Filled.WorkspacePremium,
-                            contentDescription = null,
-                            tint = accent,
-                            modifier = Modifier.size(24.dp),
+                            imageVector = Icons.Filled.KeyboardArrowDown,
+                            contentDescription = if (expanded) {
+                                if (isArabic) "إخفاء المزايا" else "Hide features"
+                            } else {
+                                if (isArabic) "عرض المزايا" else "Show features"
+                            },
+                            tint = currentOnSurface,
+                            modifier = Modifier.rotate(if (expanded) 180f else 0f),
                         )
                     }
                 }
@@ -1396,62 +1434,99 @@ private fun PricingPlanCard(
                 color = accent,
             )
 
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                PricingFeatureRow(
-                    text = if (isArabic) "مستندات شهرية: ${plan.monthlyDocumentLimit}" else "Documents/month: ${plan.monthlyDocumentLimit}",
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                PricingCompactChip(
+                    text = if (isArabic) "مستندات ${plan.monthlyDocumentLimit}" else "Docs ${plan.monthlyDocumentLimit}",
                     accent = accent,
                 )
-                PricingFeatureRow(
-                    text = if (isArabic) "عمليات AI شهرية: ${plan.monthlyAiLimit}" else "AI/month: ${plan.monthlyAiLimit}",
+                PricingCompactChip(
+                    text = if (isArabic) "AI ${plan.monthlyAiLimit}" else "AI ${plan.monthlyAiLimit}",
                     accent = accent,
                 )
-                PricingFeatureRow(
+                PricingCompactChip(
                     text = if (plan.customerLimit == null) {
-                        if (isArabic) "العملاء: غير محدود" else "Customers: Unlimited"
+                        if (isArabic) "عملاء غير محدود" else "Customers unlimited"
                     } else {
-                        if (isArabic) "العملاء: ${plan.customerLimit}" else "Customers: ${plan.customerLimit}"
+                        if (isArabic) "عملاء ${plan.customerLimit}" else "Customers ${plan.customerLimit}"
                     },
-                    accent = accent,
-                )
-                PricingFeatureRow(
-                    text = if (plan.productLimit == null) {
-                        if (isArabic) "المنتجات: غير محدود" else "Products: Unlimited"
-                    } else {
-                        if (isArabic) "المنتجات: ${plan.productLimit}" else "Products: ${plan.productLimit}"
-                    },
-                    accent = accent,
-                )
-                PricingFeatureRow(
-                    text = if (isArabic) plan.templatesAr else plan.templatesEn,
-                    accent = accent,
-                )
-                PricingFeatureRow(
-                    text = if (isArabic) plan.supportAr else plan.supportEn,
                     accent = accent,
                 )
             }
 
-            Button(
-                onClick = {},
-                enabled = false,
-                modifier = Modifier.fillMaxWidth().height(50.dp),
-                shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (isCurrent) accent else MaterialTheme.colorScheme.surfaceVariant,
-                    contentColor = if (isCurrent) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
-                    disabledContainerColor = if (isCurrent) accent else MaterialTheme.colorScheme.surfaceVariant,
-                    disabledContentColor = if (isCurrent) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
-                ),
-            ) {
-                Text(
-                    text = when {
-                        isCurrent -> if (isArabic) "الخطة الحالية" else "Current plan"
-                        else -> t("coming_soon_upgrade")
-                    },
-                    fontWeight = FontWeight.Bold,
-                )
+            if (expanded) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    PricingFeatureRow(
+                        text = if (isArabic) "مستندات شهرية: ${plan.monthlyDocumentLimit}" else "Documents/month: ${plan.monthlyDocumentLimit}",
+                        accent = accent,
+                    )
+                    PricingFeatureRow(
+                        text = if (isArabic) "عمليات AI شهرية: ${plan.monthlyAiLimit}" else "AI/month: ${plan.monthlyAiLimit}",
+                        accent = accent,
+                    )
+                    PricingFeatureRow(
+                        text = if (plan.customerLimit == null) {
+                            if (isArabic) "العملاء: غير محدود" else "Customers: Unlimited"
+                        } else {
+                            if (isArabic) "العملاء: ${plan.customerLimit}" else "Customers: ${plan.customerLimit}"
+                        },
+                        accent = accent,
+                    )
+                    PricingFeatureRow(
+                        text = if (plan.productLimit == null) {
+                            if (isArabic) "المنتجات: غير محدود" else "Products: Unlimited"
+                        } else {
+                            if (isArabic) "المنتجات: ${plan.productLimit}" else "Products: ${plan.productLimit}"
+                        },
+                        accent = accent,
+                    )
+                    PricingFeatureRow(
+                        text = if (isArabic) plan.templatesAr else plan.templatesEn,
+                        accent = accent,
+                    )
+                    PricingFeatureRow(
+                        text = if (isArabic) plan.supportAr else plan.supportEn,
+                        accent = accent,
+                    )
+
+                    Button(
+                        onClick = {},
+                        enabled = false,
+                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (isCurrent) accent else MaterialTheme.colorScheme.surfaceVariant,
+                            contentColor = if (isCurrent) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                            disabledContainerColor = if (isCurrent) accent else MaterialTheme.colorScheme.surfaceVariant,
+                            disabledContentColor = if (isCurrent) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                        ),
+                    ) {
+                        Text(
+                            text = when {
+                                isCurrent -> if (isArabic) "الخطة الحالية" else "Current plan"
+                                else -> t("coming_soon_upgrade")
+                            },
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun PricingCompactChip(text: String, accent: Color) {
+    Surface(color = accent.copy(alpha = 0.12f), shape = RoundedCornerShape(999.dp)) {
+        Text(
+            text = text,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+            color = accent,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold,
+        )
     }
 }
 
@@ -1476,69 +1551,130 @@ private fun PricingFeatureRow(text: String, accent: Color) {
     }
 }
 
+private fun pricingAnnualDiscountPercent(): Int {
+    val discounts = listOf(
+        pricingAnnualDiscountPercent(499, 4900),
+        pricingAnnualDiscountPercent(999, 9900),
+    )
+    return discounts.maxOrNull() ?: 0
+}
+
+private fun pricingAnnualDiscountPercent(monthlyPriceCents: Int, annualPriceCents: Int): Int {
+    if (monthlyPriceCents <= 0 || annualPriceCents <= 0) return 0
+    return (((monthlyPriceCents * 12) - annualPriceCents) * 100f / (monthlyPriceCents * 12)).toInt()
+}
+
 @Composable
 private fun PricingComparisonSection(isArabic: Boolean) {
     val title = if (isArabic) "مقارنة كاملة" else "Full comparison"
-    val groups = listOf(
-        ComparisonItem(
-            titleAr = "الاستخدام والحدود",
-            titleEn = "Usage and limits",
-            freeAr = "5 مستندات / 10 AI",
-            freeEn = "5 docs / 10 AI",
-            proAr = "50 مستندًا / 100 AI",
-            proEn = "50 docs / 100 AI",
-            businessAr = "200 مستند / 500 AI",
-            businessEn = "200 docs / 500 AI",
+    val rows = listOf(
+        ComparisonRow(
+            categoryAr = "الاستخدام والحدود",
+            categoryEn = "Usage and limits",
+            featureAr = "المستندات الشهرية",
+            featureEn = "Monthly documents",
+            freeAr = "5",
+            freeEn = "5",
+            proAr = "50",
+            proEn = "50",
+            businessAr = "200",
+            businessEn = "200",
         ),
-        ComparisonItem(
-            titleAr = "العملاء والمنتجات",
-            titleEn = "Customers and products",
-            freeAr = "10 عناصر حالية لكل منهما",
-            freeEn = "10 current items each",
+        ComparisonRow(
+            categoryAr = "الاستخدام والحدود",
+            categoryEn = "Usage and limits",
+            featureAr = "عمليات AI الشهرية",
+            featureEn = "Monthly AI uses",
+            freeAr = "10",
+            freeEn = "10",
+            proAr = "100",
+            proEn = "100",
+            businessAr = "500",
+            businessEn = "500",
+        ),
+        ComparisonRow(
+            categoryAr = "العملاء والمنتجات",
+            categoryEn = "Customers and products",
+            featureAr = "العملاء",
+            featureEn = "Customers",
+            freeAr = "10",
+            freeEn = "10",
             proAr = "غير محدود",
             proEn = "Unlimited",
             businessAr = "غير محدود",
             businessEn = "Unlimited",
         ),
-        ComparisonItem(
-            titleAr = "العروض والفواتير",
-            titleEn = "Quotes and invoices",
-            freeAr = "إمكانية الإنشاء كاملة",
-            freeEn = "Full creation available",
-            proAr = "تجربة أسرع وحدود أعلى",
-            proEn = "Faster flow with higher limits",
-            businessAr = "الأعلى للاستخدام المكثف",
-            businessEn = "Best for high-volume use",
+        ComparisonRow(
+            categoryAr = "العملاء والمنتجات",
+            categoryEn = "Customers and products",
+            featureAr = "المنتجات",
+            featureEn = "Products",
+            freeAr = "10",
+            freeEn = "10",
+            proAr = "غير محدود",
+            proEn = "Unlimited",
+            businessAr = "غير محدود",
+            businessEn = "Unlimited",
         ),
-        ComparisonItem(
-            titleAr = "أدوات AI",
-            titleEn = "AI tools",
-            freeAr = "محدودة حسب الخطة",
-            freeEn = "Limited by plan",
-            proAr = "100 عملية شهريًا",
-            proEn = "100 monthly generations",
-            businessAr = "500 عملية شهريًا",
-            businessEn = "500 monthly generations",
+        ComparisonRow(
+            categoryAr = "العروض والفواتير",
+            categoryEn = "Quotes and invoices",
+            featureAr = "إنشاء عروض الأسعار والفواتير",
+            featureEn = "Quote and invoice creation",
+            freeAr = "موجود",
+            freeEn = "Included",
+            proAr = "موجود",
+            proEn = "Included",
+            businessAr = "موجود",
+            businessEn = "Included",
         ),
-        ComparisonItem(
-            titleAr = "القوالب",
-            titleEn = "Templates",
-            freeAr = "القالب الأخضر والأبيض فقط",
-            freeEn = "Basic green and white only",
-            proAr = "جميع القوالب الحالية",
-            proEn = "All current templates",
-            businessAr = "جميع القوالب الحالية",
-            businessEn = "All current templates",
+        ComparisonRow(
+            categoryAr = "أدوات AI",
+            categoryEn = "AI tools",
+            featureAr = "Smart Reply",
+            featureEn = "Smart Reply",
+            freeAr = "محدود",
+            freeEn = "Limited",
+            proAr = "100",
+            proEn = "100",
+            businessAr = "500",
+            businessEn = "500",
         ),
-        ComparisonItem(
-            titleAr = "الدعم والحساب",
-            titleEn = "Support and account",
-            freeAr = "دعم قياسي",
-            freeEn = "Standard support",
-            proAr = "دعم قياسي",
-            proEn = "Standard support",
-            businessAr = "دعم أولوية",
-            businessEn = "Priority support",
+        ComparisonRow(
+            categoryAr = "أدوات AI",
+            categoryEn = "AI tools",
+            featureAr = "Smart Caption",
+            featureEn = "Smart Caption",
+            freeAr = "محدود",
+            freeEn = "Limited",
+            proAr = "100",
+            proEn = "100",
+            businessAr = "500",
+            businessEn = "500",
+        ),
+        ComparisonRow(
+            categoryAr = "القوالب",
+            categoryEn = "Templates",
+            featureAr = "القوالب الحالية",
+            featureEn = "Current templates",
+            freeAr = "قالب واحد",
+            freeEn = "One template",
+            proAr = "جميع القوالب",
+            proEn = "All templates",
+            businessAr = "جميع القوالب",
+            businessEn = "All templates",
+        ),
+        ComparisonRow(
+            categoryAr = "الدعم والحساب",
+            categoryEn = "Support and account",
+            featureAr = "الدعم",
+            featureEn = "Support",
+            freeAr = "قياسي",
+            freeEn = "Standard",
+            proAr = "قياسي",
+            proEn = "Standard",
+            businessAr = "أولوية",
+            businessEn = "Priority",
         ),
     )
 
@@ -1548,30 +1684,18 @@ private fun PricingComparisonSection(isArabic: Boolean) {
             fontSize = 22.sp,
             fontWeight = FontWeight.Black,
         )
-        groups.forEach { item ->
-            Card(
-                shape = RoundedCornerShape(22.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text(
-                        text = if (isArabic) item.titleAr else item.titleEn,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp,
-                    )
-                    PricingComparisonRow(
-                        label = if (isArabic) "مجاني" else "Free",
-                        value = if (isArabic) item.freeAr else item.freeEn,
-                    )
-                    PricingComparisonRow(
-                        label = "Pro",
-                        value = if (isArabic) item.proAr else item.proEn,
-                    )
-                    PricingComparisonRow(
-                        label = if (isArabic) "Business" else "Business",
-                        value = if (isArabic) item.businessAr else item.businessEn,
+        Card(
+            shape = RoundedCornerShape(22.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                ComparisonTableHeader(isArabic)
+                rows.forEach { row ->
+                    PricingComparisonCategoryRow(
+                        isArabic = isArabic,
+                        row = row,
                     )
                 }
             }
@@ -1580,23 +1704,105 @@ private fun PricingComparisonSection(isArabic: Boolean) {
 }
 
 @Composable
-private fun PricingComparisonRow(label: String, value: String) {
+private fun ComparisonTableHeader(isArabic: Boolean) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.Top,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Text(label, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-        Spacer(modifier = Modifier.size(12.dp))
-        Text(
-            text = value,
+        ComparisonCell(
+            text = if (isArabic) "الميزة" else "Feature",
+            bold = true,
+            modifier = Modifier.weight(1.3f),
+        )
+        ComparisonCell(
+            text = if (isArabic) "مجاني" else "Free",
+            bold = true,
             modifier = Modifier.weight(1f),
-            textAlign = TextAlign.End,
-            fontSize = 13.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        ComparisonCell(
+            text = "Pro",
+            bold = true,
+            modifier = Modifier.weight(1f),
+        )
+        ComparisonCell(
+            text = if (isArabic) "بزنس" else "Business",
+            bold = true,
+            modifier = Modifier.weight(1f),
         )
     }
 }
+
+@Composable
+private fun PricingComparisonCategoryRow(
+    isArabic: Boolean,
+    row: ComparisonRow,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(
+            text = if (isArabic) row.categoryAr else row.categoryEn,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            ComparisonCell(
+                text = if (isArabic) row.featureAr else row.featureEn,
+                modifier = Modifier.weight(1.3f),
+            )
+            ComparisonCell(
+                text = if (isArabic) row.freeAr else row.freeEn,
+                modifier = Modifier.weight(1f),
+            )
+            ComparisonCell(
+                text = if (isArabic) row.proAr else row.proEn,
+                modifier = Modifier.weight(1f),
+            )
+            ComparisonCell(
+                text = if (isArabic) row.businessAr else row.businessEn,
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun ComparisonCell(
+    text: String,
+    modifier: Modifier = Modifier,
+    bold: Boolean = false,
+) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+        shape = RoundedCornerShape(12.dp),
+        modifier = modifier,
+    ) {
+        Text(
+            text = text,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 10.dp),
+            fontSize = 12.sp,
+            fontWeight = if (bold) FontWeight.Bold else FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onSurface,
+            textAlign = TextAlign.Center,
+            lineHeight = 16.sp,
+        )
+    }
+}
+
+private data class ComparisonRow(
+    val categoryAr: String,
+    val categoryEn: String,
+    val featureAr: String,
+    val featureEn: String,
+    val freeAr: String,
+    val freeEn: String,
+    val proAr: String,
+    val proEn: String,
+    val businessAr: String,
+    val businessEn: String,
+)
 
 @Composable
 private fun PricingFaqSection(isArabic: Boolean) {
