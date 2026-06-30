@@ -1,26 +1,36 @@
 {
   "project_info": {
-    "project_number": "992521428598",
-    "project_id": "tijario-1",
-    "storage_bucket": "tijario-1.firebasestorage.app"
+    "project_number": "82578632439",
+    "project_id": "tijario-app",
+    "storage_bucket": "tijario-app.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:992521428598:android:a7e785aebdc3d2065e8957",
+        "mobilesdk_app_id": "1:82578632439:android:590f01baee3681882eadf2",
         "android_client_info": {
           "package_name": "app.tijario"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "82578632439-71r6r3n4lb0v9g70g104jq8r6bmjcc4c.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
-          "current_key": "AIzaSyBiUowfrGl7Vvs11xiQH_taG-kMpw6fR80"
+          "current_key": "AIzaSyBS8KIRe9Rxy2XgbgmBQaQnPLVht9dp-N4"
         }
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "82578632439-71r6r3n4lb0v9g70g104jq8r6bmjcc4c.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }
