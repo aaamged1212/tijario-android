@@ -20,7 +20,10 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class DocumentEngineTests {
-    private val assetsRoot = File("src/main/assets")
+    private val assetsRoot = listOf(
+        File("src/main/assets"),
+        File("app/src/main/assets"),
+    ).first { it.isDirectory }
     private val renderer = DocumentHtmlRenderer(FileSystemDocumentTemplateLoader(assetsRoot))
 
     @Test

@@ -212,6 +212,8 @@ data class AccountUsageData(
     @SerialName("products_used") val productsUsed: Int = 0,
     @SerialName("reset_at") val resetAt: String? = null,
     @SerialName("allowed_template_ids") val allowedTemplateIds: List<String> = emptyList(),
+    @SerialName("template_access") val templateAccess: String? = null,
+    @SerialName("remove_tijario_branding") val removeTijarioBranding: Boolean = false,
 )
 
 @Serializable
@@ -385,4 +387,105 @@ data class AnnouncementReceiptRequest(
 @Serializable
 data class AnnouncementReceiptResponse(
     @SerialName("updated_count") val updatedCount: Int? = null,
+)
+
+@Serializable
+data class BillingPlanOptionDto(
+    val provider: String,
+    val environment: String,
+    val currency: String,
+    @SerialName("billingInterval") val billingInterval: String,
+    @SerialName("priceCents") val priceCents: Int,
+    @SerialName("compareAtPriceCents") val compareAtPriceCents: Int? = null,
+    @SerialName("discountPercent") val discountPercent: Int? = null,
+    @SerialName("externalProductId") val externalProductId: String? = null,
+    @SerialName("externalBasePlanId") val externalBasePlanId: String? = null,
+    @SerialName("checkoutAvailable") val checkoutAvailable: Boolean = false,
+)
+
+@Serializable
+data class BillingPlanDto(
+    val code: String,
+    @SerialName("nameAr") val nameAr: String? = null,
+    @SerialName("nameEn") val nameEn: String? = null,
+    @SerialName("monthlyDocumentLimit") val monthlyDocumentLimit: Int,
+    @SerialName("monthlyAiLimit") val monthlyAiLimit: Int,
+    @SerialName("customerLimit") val customerLimit: Int? = null,
+    @SerialName("productLimit") val productLimit: Int? = null,
+    @SerialName("templateAccess") val templateAccess: String = "basic",
+    @SerialName("removeTijarioBranding") val removeTijarioBranding: Boolean = false,
+    @SerialName("supportLevel") val supportLevel: String = "standard",
+    @SerialName("rank") val rank: Int = 0,
+    @SerialName("billingOptions") val billingOptions: List<BillingPlanOptionDto> = emptyList(),
+)
+
+@Serializable
+data class BillingSubscriptionDto(
+    val provider: String? = null,
+    val status: String? = null,
+    @SerialName("billingInterval") val billingInterval: String? = null,
+    @SerialName("currentPeriodEnd") val currentPeriodEnd: String? = null,
+)
+
+@Serializable
+data class BillingUsageDto(
+    @SerialName("documentsUsed") val documentsUsed: Int = 0,
+    @SerialName("aiUsed") val aiUsed: Int = 0,
+    @SerialName("documentsRemaining") val documentsRemaining: Int = 0,
+    @SerialName("aiRemaining") val aiRemaining: Int = 0,
+    @SerialName("periodMonth") val periodMonth: String? = null,
+)
+
+@Serializable
+data class BillingCountsDto(
+    val customers: Int = 0,
+    val products: Int = 0,
+)
+
+@Serializable
+data class BillingEntitlementsDto(
+    val plan: BillingPlanDto,
+    val usage: BillingUsageDto,
+    val counts: BillingCountsDto,
+    val subscription: BillingSubscriptionDto = BillingSubscriptionDto(),
+    @SerialName("resetAt") val resetAt: String? = null,
+)
+
+@Serializable
+data class BillingStatusData(
+    val plans: List<BillingPlanDto> = emptyList(),
+    val entitlements: BillingEntitlementsDto? = null,
+    @SerialName("usage_reset_interval") val usageResetInterval: String? = null,
+)
+
+@Serializable
+data class BillingStatusResponse(
+    val ok: Boolean,
+    val data: BillingStatusData? = null,
+    val code: String? = null,
+    val message: String? = null,
+)
+
+@Serializable
+data class GooglePlayVerifyRequest(
+    @SerialName("product_id") val productId: String,
+    @SerialName("purchase_token") val purchaseToken: String,
+)
+
+@Serializable
+data class GooglePlayVerifyData(
+    val acknowledge: Boolean = false,
+    @SerialName("basePlanId") val basePlanId: String? = null,
+    @SerialName("billingInterval") val billingInterval: String? = null,
+    @SerialName("planCode") val planCode: String? = null,
+    @SerialName("productId") val productId: String? = null,
+    @SerialName("subscriptionState") val subscriptionState: String? = null,
+)
+
+@Serializable
+data class GooglePlayVerifyResponse(
+    val ok: Boolean,
+    val data: GooglePlayVerifyData? = null,
+    val code: String? = null,
+    val message: String? = null,
 )

@@ -43,6 +43,21 @@ Only the absolute minimum permissions are declared:
 - Firebase Analytics, Crashlytics, and Firestore are not enabled.
 - Users can deny push notification permission and still see in-app announcements from the backend.
 
+### Google Play Billing
+- Paid Android subscriptions must use Google Play Billing only.
+- The official package name is `app.tijario`.
+- Subscription products must be created after uploading a billing-enabled AAB:
+  - `tijario_starter`
+  - `tijario_pro`
+  - `tijario_business`
+- Each product must include base plans:
+  - `monthly`
+  - `yearly`
+- The app displays localized prices from Google Play `ProductDetails`.
+- The backend verifies purchase tokens before entitlement is granted.
+- The app acknowledges a purchase only after backend verification succeeds.
+- Google Play service-account credentials must never be added to the Android repository.
+
 ### FileProvider Configurations
 - A secure FileProvider is configured in `@xml/file_paths` using `cache-path` (for cached PDFs) and `external-files-path` under restricted names to prevent directory traversal attacks or exposing private app folders.
 

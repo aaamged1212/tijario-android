@@ -121,6 +121,7 @@ dependencies {
     implementation(libs.androidx.work.runtime)
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.messaging)
+    implementation(libs.google.play.billing.ktx)
 
     debugImplementation(libs.androidx.compose.ui.tooling)
     testImplementation(libs.junit)

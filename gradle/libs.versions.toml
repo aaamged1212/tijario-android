@@ -19,6 +19,7 @@ espresso = "3.6.1"
 androidx-work = "2.9.0"
 firebase-bom = "34.15.0"
 google-services = "4.5.0"
+billing = "9.1.0"
 
 [libraries]
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "coreKtx" }
@@ -58,6 +59,7 @@ androidx-espresso-core = { module = "androidx.test.espresso:espresso-core", vers
 androidx-work-runtime = { module = "androidx.work:work-runtime-ktx", version.ref = "androidx-work" }
 firebase-bom = { module = "com.google.firebase:firebase-bom", version.ref = "firebase-bom" }
 firebase-messaging = { module = "com.google.firebase:firebase-messaging" }
+google-play-billing-ktx = { module = "com.android.billingclient:billing-ktx", version.ref = "billing" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

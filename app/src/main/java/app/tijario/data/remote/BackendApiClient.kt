@@ -113,6 +113,12 @@ class BackendApiClient(
     suspend fun markAllAnnouncementsRead(): ApiResult<AnnouncementReceiptResponse> =
         authorizedPostNoBody("api/mobile/announcements/read-all").decodeApiResult()
 
+    suspend fun fetchBillingStatus(): BillingStatusResponse =
+        authorizedGet("api/mobile/billing/status").decodeJsonResponse()
+
+    suspend fun verifyGooglePlayPurchase(request: GooglePlayVerifyRequest): GooglePlayVerifyResponse =
+        authorizedPost("api/mobile/billing/google-play/verify", request).decodeJsonResponse()
+
     private suspend inline fun <reified T : Any> authorizedPost(path: String, body: T): HttpResponse =
         httpClient.post(url(path)) {
             accept(ContentType.Application.Json)

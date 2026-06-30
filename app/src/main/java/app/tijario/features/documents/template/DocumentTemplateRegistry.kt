@@ -4,9 +4,10 @@ import app.tijario.features.documents.model.DocumentTemplateDefinition
 import app.tijario.features.documents.model.DocumentTemplateVisual
 
 object DocumentTemplateRegistry {
-    const val defaultTemplateId: String = "tijario-basic"
+    const val defaultTemplateId: String = "tijario-classic"
 
     private val legacyAliases = mapOf(
+        "tijario-basic" to defaultTemplateId,
         "basic/teal" to defaultTemplateId,
         "modern/teal" to "tijario-modern",
         "minimal/slate" to "tijario-minimal",
@@ -37,7 +38,7 @@ object DocumentTemplateRegistry {
     )
 
     val templates: List<DocumentTemplateDefinition> = listOf(
-        template("tijario-basic", "Tijario Basic", "basic", "teal", "#0F766E", "#0B5F59", "Balanced header, bordered cards, and traditional invoice rhythm."),
+        template("tijario-classic", "Tijario Basic", "basic", "teal", "#0F766E", "#0B5F59", "Balanced header, bordered cards, and traditional invoice rhythm."),
         template("tijario-modern", "Tijario Modern", "modern", "teal", "#0B5F59", "#064E3B", "Solid header band and high contrast metadata treatment.", styleFamily = 2, topTextColor = "#FFFFFF", titleTextColor = "#FFFFFF", logoBackgroundColor = "#FFFFFF", logoTextColor = "#0B5F59"),
         template("tijario-minimal", "Tijario Minimal", "minimal", "slate", "#334155", "#1E293B", "Quiet monochrome layout with reduced borders.", styleFamily = 5, titleTextColor = "#111827", tableHeaderTextColor = "#111827", itemTopOuterLine = true, itemBottomBlock = false, itemBottomLine = false),
         template("tijario-compact", "Tijario Compact", "compact", "teal", "#0F766E", "#0B5F59", "Dense layout for documents with many items."),

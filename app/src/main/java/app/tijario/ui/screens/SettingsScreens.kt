@@ -1,5 +1,8 @@
 ﻿package app.tijario.ui.screens
 
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -95,12 +98,20 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import app.tijario.config.AppLanguage
 import app.tijario.MainActivity
 import app.tijario.config.Supabase
 import app.tijario.config.t
+import app.tijario.data.remote.BillingPlanDto
 import app.tijario.data.remote.ResetPasswordRequest
+import app.tijario.features.billing.BillingCatalog
+import app.tijario.features.billing.BillingUiState
+import app.tijario.features.billing.BillingViewModel
+import app.tijario.features.billing.GooglePlayBillingRepository
 import app.tijario.ui.state.TijarioDataViewModel
 import app.tijario.ui.state.PlanUsageState
 import app.tijario.features.notifications.NotificationSettingsSection
@@ -968,16 +979,35 @@ fun UpgradePlanScreen(
 ) {
     val language = LocalLanguage.current
     val isArabic = language == AppLanguage.AR
+    val context = LocalContext.current
+    val activity = remember(context) { context.findActivity() }
     val planUsageState by dataViewModel.planUsageState.collectAsStateWithLifecycle()
-    var annualBilling by remember { mutableStateOf(false) }
+    val currentUserId = Supabase.client.auth.currentUserOrNull()?.id.orEmpty()
+    val billingViewModel: BillingViewModel = viewModel(
+        factory = remember(context) {
+            object : ViewModelProvider.Factory {
+                @Suppress("UNCHECKED_CAST")
+                override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                    return BillingViewModel(
+                        GooglePlayBillingRepository(
+                            context = context.applicationContext,
+                            backendApiClient = Supabase.apiClient,
+                        )
+                    ) as T
+                }
+            }
+        }
+    )
+    val billingState by billingViewModel.state.collectAsStateWithLifecycle()
+    val annualBilling = billingState.selectedInterval == BillingCatalog.INTERVAL_YEARLY
 
     LaunchedEffect(Unit) {
         dataViewModel.refreshPlanUsage()
+        billingViewModel.load()
     }
 
     val usage = (planUsageState as? PlanUsageState.Success)?.value
     val currentPlanCode = when (usage?.planCode?.lowercase()) {
-        "starter" -> "pro"
         null, "" -> "free"
         else -> usage.planCode.lowercase()
     }
@@ -1008,13 +1038,24 @@ fun UpgradePlanScreen(
                 isArabic = isArabic,
                 annualBilling = annualBilling,
                 annualDiscountPercent = annualDiscountPercent,
-                onToggleBilling = { annualBilling = it },
+                onToggleBilling = {
+                    billingViewModel.selectInterval(
+                        if (it) BillingCatalog.INTERVAL_YEARLY else BillingCatalog.INTERVAL_MONTHLY
+                    )
+                },
             )
 
             PricingPlansSection(
                 isArabic = isArabic,
                 currentPlanCode = currentPlanCode,
                 annualBilling = annualBilling,
+                billingState = billingState,
+                onPurchase = { planCode ->
+                    val purchaseActivity = activity ?: return@PricingPlansSection
+                    if (currentUserId.isNotBlank()) {
+                        billingViewModel.purchase(purchaseActivity, currentUserId, planCode)
+                    }
+                },
             )
 
             PricingComparisonSection(isArabic = isArabic)
@@ -1032,19 +1073,30 @@ fun UpgradePlanScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Text(
-                        text = if (isArabic) "الترقية الفعلية عبر Google Play ستُفعَّل لاحقًا." else "Google Play upgrades will be enabled later.",
+                        text = when {
+                            billingState.isLoading -> if (isArabic) "جارٍ تحميل أسعار Google Play..." else "Loading Google Play prices..."
+                            billingState.errorMessage != null -> billingState.errorMessage.orEmpty()
+                            billingState.successMessage != null -> if (isArabic) "تم التحقق من الشراء بنجاح." else "Purchase verified successfully."
+                            else -> if (isArabic) "الشراء يتم من خلال Google Play فقط، والأسعار تظهر حسب بلد حسابك." else "Purchases are handled only by Google Play, using your local Play price."
+                        },
                         textAlign = TextAlign.Center,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    Button(
-                        onClick = {},
-                        enabled = false,
+                    OutlinedButton(
+                        onClick = { billingViewModel.restorePurchases() },
+                        enabled = !billingState.isLoading && !billingState.isRestoring,
                         modifier = Modifier.fillMaxWidth().height(54.dp),
                         shape = RoundedCornerShape(16.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0D9488)),
                     ) {
-                        Text(t("coming_soon_upgrade"), fontWeight = FontWeight.Bold, color = Color.White)
+                        Text(
+                            text = if (billingState.isRestoring) {
+                                if (isArabic) "جارٍ الاستعادة..." else "Restoring..."
+                            } else {
+                                if (isArabic) "استعادة المشتريات" else "Restore purchases"
+                            },
+                            fontWeight = FontWeight.Bold,
+                        )
                     }
                 }
             }
@@ -1070,6 +1122,146 @@ private data class PricingPlanUi(
     val supportEn: String,
     val featured: Boolean,
 )
+
+private fun BillingPlanDto.toPricingPlanUi(): PricingPlanUi =
+    PricingPlanUi(
+        code = code.lowercase(),
+        nameAr = nameAr ?: defaultPlanNameAr(code),
+        nameEn = nameEn ?: defaultPlanNameEn(code),
+        descAr = defaultPlanDescriptionAr(code),
+        descEn = defaultPlanDescriptionEn(code),
+        monthlyPriceCents = billingOptions.firstOrNull { it.billingInterval == BillingCatalog.INTERVAL_MONTHLY }?.priceCents ?: 0,
+        annualPriceCents = billingOptions.firstOrNull { it.billingInterval == BillingCatalog.INTERVAL_YEARLY }?.priceCents ?: 0,
+        monthlyDocumentLimit = monthlyDocumentLimit,
+        monthlyAiLimit = monthlyAiLimit,
+        customerLimit = customerLimit,
+        productLimit = productLimit,
+        templatesAr = if (templateAccess == "all") "جميع القوالب الحالية" else "القالب الأساسي فقط",
+        templatesEn = if (templateAccess == "all") "All current templates" else "Basic template only",
+        supportAr = when (supportLevel) {
+            "priority" -> "دعم أولوية"
+            "self_service" -> "دعم ذاتي"
+            else -> "دعم قياسي"
+        },
+        supportEn = when (supportLevel) {
+            "priority" -> "Priority support"
+            "self_service" -> "Self-service support"
+            else -> "Standard support"
+        },
+        featured = code.lowercase() == "pro",
+    )
+
+private fun fallbackPricingPlans(): List<PricingPlanUi> =
+    listOf(
+        PricingPlanUi(
+            code = "free",
+            nameAr = "مجاني",
+            nameEn = "Free",
+            descAr = "ابدأ مجانًا مع الأساسيات.",
+            descEn = "Start free with the basics.",
+            monthlyPriceCents = 0,
+            annualPriceCents = 0,
+            monthlyDocumentLimit = 5,
+            monthlyAiLimit = 10,
+            customerLimit = 5,
+            productLimit = 5,
+            templatesAr = "القالب الأساسي فقط",
+            templatesEn = "Basic template only",
+            supportAr = "دعم ذاتي",
+            supportEn = "Self-service support",
+            featured = false,
+        ),
+        PricingPlanUi(
+            code = "starter",
+            nameAr = "Starter",
+            nameEn = "Starter",
+            descAr = "للمتاجر التي بدأت تكبر.",
+            descEn = "For stores starting to grow.",
+            monthlyPriceCents = 499,
+            annualPriceCents = 4790,
+            monthlyDocumentLimit = 50,
+            monthlyAiLimit = 150,
+            customerLimit = 30,
+            productLimit = 30,
+            templatesAr = "جميع القوالب الحالية",
+            templatesEn = "All current templates",
+            supportAr = "دعم قياسي",
+            supportEn = "Standard support",
+            featured = false,
+        ),
+        PricingPlanUi(
+            code = "pro",
+            nameAr = "Pro",
+            nameEn = "Pro",
+            descAr = "الخطة الأكثر توازنًا للمتاجر النشطة.",
+            descEn = "The balanced plan for active stores.",
+            monthlyPriceCents = 999,
+            annualPriceCents = 9590,
+            monthlyDocumentLimit = 200,
+            monthlyAiLimit = 500,
+            customerLimit = null,
+            productLimit = null,
+            templatesAr = "جميع القوالب الحالية",
+            templatesEn = "All current templates",
+            supportAr = "دعم قياسي",
+            supportEn = "Standard support",
+            featured = true,
+        ),
+        PricingPlanUi(
+            code = "business",
+            nameAr = "Business",
+            nameEn = "Business",
+            descAr = "للاستخدام المرتفع والمتاجر النشطة.",
+            descEn = "For high usage and active stores.",
+            monthlyPriceCents = 1999,
+            annualPriceCents = 19190,
+            monthlyDocumentLimit = 300,
+            monthlyAiLimit = 800,
+            customerLimit = null,
+            productLimit = null,
+            templatesAr = "جميع القوالب الحالية",
+            templatesEn = "All current templates",
+            supportAr = "دعم أولوية",
+            supportEn = "Priority support",
+            featured = false,
+        ),
+    )
+
+private fun defaultPlanNameAr(code: String): String =
+    when (code.lowercase()) {
+        "free" -> "مجاني"
+        "starter" -> "Starter"
+        "pro" -> "Pro"
+        "business" -> "Business"
+        else -> code
+    }
+
+private fun defaultPlanNameEn(code: String): String =
+    when (code.lowercase()) {
+        "free" -> "Free"
+        "starter" -> "Starter"
+        "pro" -> "Pro"
+        "business" -> "Business"
+        else -> code
+    }
+
+private fun defaultPlanDescriptionAr(code: String): String =
+    when (code.lowercase()) {
+        "free" -> "ابدأ مجانًا مع الأساسيات."
+        "starter" -> "للمتاجر التي بدأت تكبر."
+        "pro" -> "الخطة الأكثر توازنًا للمتاجر النشطة."
+        "business" -> "للاستخدام المرتفع والمتاجر النشطة."
+        else -> ""
+    }
+
+private fun defaultPlanDescriptionEn(code: String): String =
+    when (code.lowercase()) {
+        "free" -> "Start free with the basics."
+        "starter" -> "For stores starting to grow."
+        "pro" -> "The balanced plan for active stores."
+        "business" -> "For high usage and active stores."
+        else -> ""
+    }
 
 @Composable
 private fun PricingHeroCard(
@@ -1219,63 +1411,13 @@ private fun PricingPlansSection(
     isArabic: Boolean,
     currentPlanCode: String,
     annualBilling: Boolean,
+    billingState: BillingUiState,
+    onPurchase: (String) -> Unit,
 ) {
-    val plans = listOf(
-        PricingPlanUi(
-            code = "free",
-            nameAr = "مجاني",
-            nameEn = "Free",
-            descAr = "ابدأ مجانًا مع الحدود الأساسية.",
-            descEn = "Start free with the core limits.",
-            monthlyPriceCents = 0,
-            annualPriceCents = 0,
-            monthlyDocumentLimit = 5,
-            monthlyAiLimit = 10,
-            customerLimit = 10,
-            productLimit = 10,
-            templatesAr = "القالب الأساسي الأخضر والأبيض فقط",
-            templatesEn = "Basic green and white template only",
-            supportAr = "دعم قياسي",
-            supportEn = "Standard support",
-            featured = false,
-        ),
-        PricingPlanUi(
-            code = "pro",
-            nameAr = "Pro",
-            nameEn = "Pro",
-            descAr = "الأكثر اختيارًا للمتاجر النامية.",
-            descEn = "Most chosen for growing stores.",
-            monthlyPriceCents = 499,
-            annualPriceCents = 4900,
-            monthlyDocumentLimit = 50,
-            monthlyAiLimit = 100,
-            customerLimit = null,
-            productLimit = null,
-            templatesAr = "جميع القوالب الحالية",
-            templatesEn = "All current templates",
-            supportAr = "دعم قياسي",
-            supportEn = "Standard support",
-            featured = true,
-        ),
-        PricingPlanUi(
-            code = "business",
-            nameAr = "Business",
-            nameEn = "Business",
-            descAr = "للاستخدام المرتفع والمتاجر النشطة.",
-            descEn = "For higher usage and active stores.",
-            monthlyPriceCents = 999,
-            annualPriceCents = 9900,
-            monthlyDocumentLimit = 200,
-            monthlyAiLimit = 500,
-            customerLimit = null,
-            productLimit = null,
-            templatesAr = "جميع القوالب الحالية",
-            templatesEn = "All current templates",
-            supportAr = "دعم أولوية",
-            supportEn = "Priority support",
-            featured = false,
-        ),
-    )
+    val plans = billingState.backendPlans
+        .map { it.toPricingPlanUi() }
+        .ifEmpty { fallbackPricingPlans() }
+    val interval = if (annualBilling) BillingCatalog.INTERVAL_YEARLY else BillingCatalog.INTERVAL_MONTHLY
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(
@@ -1289,6 +1431,10 @@ private fun PricingPlansSection(
                 currentPlanCode = currentPlanCode,
                 annualBilling = annualBilling,
                 isArabic = isArabic,
+                googlePlayPrice = billingState.offerFor(plan.code, interval)?.formattedPrice,
+                isBillingLoading = billingState.isLoading,
+                isPurchasing = billingState.isPurchasing,
+                onPurchase = { onPurchase(plan.code) },
             )
         }
     }
@@ -1300,6 +1446,10 @@ private fun PricingPlanCard(
     currentPlanCode: String,
     annualBilling: Boolean,
     isArabic: Boolean,
+    googlePlayPrice: String?,
+    isBillingLoading: Boolean,
+    isPurchasing: Boolean,
+    onPurchase: () -> Unit,
 ) {
     val isCurrent = plan.code == currentPlanCode
     val isDarkTheme = MainActivity.isDarkMode
@@ -1308,24 +1458,21 @@ private fun PricingPlanCard(
         "pro" -> Color(0xFF2563EB)
         else -> Color(0xFF7C3AED)
     }
-    val priceCents = if (annualBilling) plan.annualPriceCents else plan.monthlyPriceCents
-    val priceLabel = if (priceCents == 0) {
+    val priceLabel = if (plan.code == "free") {
         if (isArabic) "مجاني" else "Free"
-    } else {
-        val amount = priceCents / 100f
+    } else if (!googlePlayPrice.isNullOrBlank()) {
         val period = if (annualBilling) {
             if (isArabic) " / سنويًا" else " / year"
         } else {
             if (isArabic) " / شهريًا" else " / month"
         }
-        val planDiscountPercent = pricingAnnualDiscountPercent(plan.monthlyPriceCents, plan.annualPriceCents)
-        val discount = if (annualBilling && plan.annualPriceCents > 0) {
-            " • ${planDiscountPercent}% ${if (isArabic) "خصم" else "off"}"
-        } else {
-            ""
-        }
-        "$${String.format("%.2f", amount)}$period$discount"
+        "$googlePlayPrice$period"
+    } else if (isBillingLoading) {
+        if (isArabic) "جارٍ تحميل السعر..." else "Loading price..."
+    } else {
+        if (isArabic) "غير متاح في Google Play" else "Unavailable in Google Play"
     }
+    val canPurchase = plan.code != "free" && !isCurrent && !googlePlayPrice.isNullOrBlank() && !isPurchasing
     var expanded by remember(plan.code) { mutableStateOf(false) }
     val currentContainer = when {
         isCurrent && isDarkTheme -> Color.White
@@ -1456,6 +1603,34 @@ private fun PricingPlanCard(
                 )
             }
 
+            Button(
+                onClick = onPurchase,
+                enabled = canPurchase,
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = accent,
+                    contentColor = Color.White,
+                    disabledContainerColor = if (isCurrent) accent else MaterialTheme.colorScheme.surfaceVariant,
+                    disabledContentColor = if (isCurrent) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                ),
+            ) {
+                Text(
+                    text = when {
+                        isCurrent -> if (isArabic) "الخطة الحالية" else "Current plan"
+                        plan.code == "free" -> if (isArabic) "الخطة المجانية" else "Free plan"
+                        isPurchasing -> if (isArabic) "جارٍ فتح Google Play..." else "Opening Google Play..."
+                        googlePlayPrice.isNullOrBlank() -> if (isArabic) "غير متاح الآن" else "Unavailable"
+                        else -> if (annualBilling) {
+                            if (isArabic) "اشترك سنويًا" else "Subscribe yearly"
+                        } else {
+                            if (isArabic) "اشترك شهريًا" else "Subscribe monthly"
+                        }
+                    },
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+
             if (expanded) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     PricingFeatureRow(
@@ -1497,26 +1672,6 @@ private fun PricingPlanCard(
                         textColor = if (isCurrent && isDarkTheme) Color(0xFF111827) else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
 
-                    Button(
-                        onClick = {},
-                        enabled = false,
-                        modifier = Modifier.fillMaxWidth().height(48.dp),
-                        shape = RoundedCornerShape(14.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (isCurrent) accent else MaterialTheme.colorScheme.surfaceVariant,
-                            contentColor = if (isCurrent) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
-                            disabledContainerColor = if (isCurrent) accent else MaterialTheme.colorScheme.surfaceVariant,
-                            disabledContentColor = if (isCurrent) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
-                        ),
-                    ) {
-                        Text(
-                            text = when {
-                                isCurrent -> if (isArabic) "الخطة الحالية" else "Current plan"
-                                else -> t("coming_soon_upgrade")
-                            },
-                            fontWeight = FontWeight.Bold,
-                        )
-                    }
                 }
             }
         }
@@ -1558,11 +1713,7 @@ private fun PricingFeatureRow(text: String, accent: Color, textColor: Color = Ma
 }
 
 private fun pricingAnnualDiscountPercent(): Int {
-    val discounts = listOf(
-        pricingAnnualDiscountPercent(499, 4900),
-        pricingAnnualDiscountPercent(999, 9900),
-    )
-    return discounts.maxOrNull() ?: 0
+    return 20
 }
 
 private fun pricingAnnualDiscountPercent(monthlyPriceCents: Int, annualPriceCents: Int): Int {
@@ -1581,10 +1732,12 @@ private fun PricingComparisonSection(isArabic: Boolean) {
             featureEn = "Monthly documents",
             freeAr = "5",
             freeEn = "5",
-            proAr = "50",
-            proEn = "50",
-            businessAr = "200",
-            businessEn = "200",
+            starterAr = "50",
+            starterEn = "50",
+            proAr = "200",
+            proEn = "200",
+            businessAr = "300",
+            businessEn = "300",
         ),
         ComparisonRow(
             categoryAr = "الاستخدام والحدود",
@@ -1593,18 +1746,22 @@ private fun PricingComparisonSection(isArabic: Boolean) {
             featureEn = "Monthly AI uses",
             freeAr = "10",
             freeEn = "10",
-            proAr = "100",
-            proEn = "100",
-            businessAr = "500",
-            businessEn = "500",
+            starterAr = "150",
+            starterEn = "150",
+            proAr = "500",
+            proEn = "500",
+            businessAr = "800",
+            businessEn = "800",
         ),
         ComparisonRow(
             categoryAr = "العملاء والمنتجات",
             categoryEn = "Customers and products",
             featureAr = "العملاء",
             featureEn = "Customers",
-            freeAr = "10",
-            freeEn = "10",
+            freeAr = "5",
+            freeEn = "5",
+            starterAr = "30",
+            starterEn = "30",
             proAr = "غير محدود",
             proEn = "Unlimited",
             businessAr = "غير محدود",
@@ -1615,8 +1772,10 @@ private fun PricingComparisonSection(isArabic: Boolean) {
             categoryEn = "Customers and products",
             featureAr = "المنتجات",
             featureEn = "Products",
-            freeAr = "10",
-            freeEn = "10",
+            freeAr = "5",
+            freeEn = "5",
+            starterAr = "30",
+            starterEn = "30",
             proAr = "غير محدود",
             proEn = "Unlimited",
             businessAr = "غير محدود",
@@ -1629,6 +1788,8 @@ private fun PricingComparisonSection(isArabic: Boolean) {
             featureEn = "Quote and invoice creation",
             freeAr = "موجود",
             freeEn = "Included",
+            starterAr = "موجود",
+            starterEn = "Included",
             proAr = "موجود",
             proEn = "Included",
             businessAr = "موجود",
@@ -1641,10 +1802,12 @@ private fun PricingComparisonSection(isArabic: Boolean) {
             featureEn = "Smart Reply",
             freeAr = "محدود",
             freeEn = "Limited",
-            proAr = "100",
-            proEn = "100",
-            businessAr = "500",
-            businessEn = "500",
+            starterAr = "150",
+            starterEn = "150",
+            proAr = "500",
+            proEn = "500",
+            businessAr = "800",
+            businessEn = "800",
         ),
         ComparisonRow(
             categoryAr = "أدوات AI",
@@ -1653,10 +1816,12 @@ private fun PricingComparisonSection(isArabic: Boolean) {
             featureEn = "Smart Caption",
             freeAr = "محدود",
             freeEn = "Limited",
-            proAr = "100",
-            proEn = "100",
-            businessAr = "500",
-            businessEn = "500",
+            starterAr = "150",
+            starterEn = "150",
+            proAr = "500",
+            proEn = "500",
+            businessAr = "800",
+            businessEn = "800",
         ),
         ComparisonRow(
             categoryAr = "القوالب",
@@ -1665,6 +1830,8 @@ private fun PricingComparisonSection(isArabic: Boolean) {
             featureEn = "Current templates",
             freeAr = "قالب واحد",
             freeEn = "One template",
+            starterAr = "جميع القوالب",
+            starterEn = "All templates",
             proAr = "جميع القوالب",
             proEn = "All templates",
             businessAr = "جميع القوالب",
@@ -1675,8 +1842,10 @@ private fun PricingComparisonSection(isArabic: Boolean) {
             categoryEn = "Support and account",
             featureAr = "الدعم",
             featureEn = "Support",
-            freeAr = "قياسي",
-            freeEn = "Standard",
+            freeAr = "ذاتي",
+            freeEn = "Self-service",
+            starterAr = "قياسي",
+            starterEn = "Standard",
             proAr = "قياسي",
             proEn = "Standard",
             businessAr = "أولوية",
@@ -1726,6 +1895,11 @@ private fun ComparisonTableHeader(isArabic: Boolean) {
             modifier = Modifier.weight(1f),
         )
         ComparisonCell(
+            text = "Starter",
+            bold = true,
+            modifier = Modifier.weight(1f),
+        )
+        ComparisonCell(
             text = "Pro",
             bold = true,
             modifier = Modifier.weight(1f),
@@ -1760,6 +1934,10 @@ private fun PricingComparisonCategoryRow(
             )
             ComparisonCell(
                 text = if (isArabic) row.freeAr else row.freeEn,
+                modifier = Modifier.weight(1f),
+            )
+            ComparisonCell(
+                text = if (isArabic) row.starterAr else row.starterEn,
                 modifier = Modifier.weight(1f),
             )
             ComparisonCell(
@@ -1804,6 +1982,8 @@ private data class ComparisonRow(
     val featureEn: String,
     val freeAr: String,
     val freeEn: String,
+    val starterAr: String,
+    val starterEn: String,
     val proAr: String,
     val proEn: String,
     val businessAr: String,
@@ -2009,3 +2189,10 @@ private fun PlanCard(
         }
     }
 }
+
+private tailrec fun Context.findActivity(): Activity? =
+    when (this) {
+        is Activity -> this
+        is ContextWrapper -> baseContext.findActivity()
+        else -> null
+    }
