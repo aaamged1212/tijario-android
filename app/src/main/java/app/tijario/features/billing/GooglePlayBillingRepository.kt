@@ -42,6 +42,8 @@ class GooglePlayBillingRepository(
         }
         .enablePendingPurchases(
             PendingPurchasesParams.newBuilder()
+                // Billing Library requires pending purchase support to initialize. Tijario uses auto-renewing
+                // subscriptions; one-time products are not sold here, but this flag is the supported builder option.
                 .enableOneTimeProducts()
                 .build()
         )
@@ -89,7 +91,7 @@ class GooglePlayBillingRepository(
     ): Result<Unit> = runCatching {
         ensureConnected()
         val reference = offerReferences[BillingCatalog.offerKey(planCode, billingInterval)]
-            ?: error("Google Play price is unavailable for this plan.")
+            ?: error("billing_product_unavailable")
         val productDetailsParams = BillingFlowParams.ProductDetailsParams.newBuilder()
             .setProductDetails(reference.productDetails)
             .setOfferToken(reference.offer.offerToken)
@@ -100,7 +102,7 @@ class GooglePlayBillingRepository(
             .build()
         val result = billingClient.launchBillingFlow(activity, flowParams)
         if (result.responseCode != BillingClient.BillingResponseCode.OK) {
-            error(result.debugMessage.ifBlank { "Google Play Billing did not start." })
+            error("billing_unavailable")
         }
     }
 
@@ -108,7 +110,7 @@ class GooglePlayBillingRepository(
         ensureConnected()
         val purchases = queryPurchases()
         if (purchases.isEmpty()) {
-            purchaseEventsMutable.emit(BillingPurchaseEvent.Failed("No active Google Play purchases were found."))
+            purchaseEventsMutable.emit(BillingPurchaseEvent.Failed("billing_no_active_purchases"))
         } else {
             purchases.forEach { purchase -> verifyPurchase(purchase) }
         }
@@ -124,7 +126,7 @@ class GooglePlayBillingRepository(
         when (billingResult.responseCode) {
             BillingClient.BillingResponseCode.OK -> {
                 if (purchases.isEmpty()) {
-                    purchaseEventsMutable.emit(BillingPurchaseEvent.Failed("No purchase was returned by Google Play."))
+                    purchaseEventsMutable.emit(BillingPurchaseEvent.Failed("billing_no_purchase_returned"))
                     return
                 }
                 purchases.forEach { purchase -> verifyPurchase(purchase) }
@@ -133,11 +135,7 @@ class GooglePlayBillingRepository(
                 purchaseEventsMutable.emit(BillingPurchaseEvent.Cancelled)
             }
             else -> {
-                purchaseEventsMutable.emit(
-                    BillingPurchaseEvent.Failed(
-                        billingResult.debugMessage.ifBlank { "Google Play Billing failed." }
-                    )
-                )
+                purchaseEventsMutable.emit(BillingPurchaseEvent.Failed("billing_google_play_failed"))
             }
         }
     }
@@ -151,7 +149,7 @@ class GooglePlayBillingRepository(
 
         val productId = purchase.products.firstOrNull()
         if (productId.isNullOrBlank()) {
-            purchaseEventsMutable.emit(BillingPurchaseEvent.Failed("Google Play purchase is missing product data."))
+            purchaseEventsMutable.emit(BillingPurchaseEvent.Failed("billing_missing_product_data"))
             return
         }
 
@@ -162,14 +160,14 @@ class GooglePlayBillingRepository(
                     purchaseToken = purchase.purchaseToken,
                 )
             )
-        }.getOrElse { error ->
-            purchaseEventsMutable.emit(BillingPurchaseEvent.Failed(error.message ?: "Purchase verification failed."))
+        }.getOrElse {
+            purchaseEventsMutable.emit(BillingPurchaseEvent.Failed("billing_verification_failed"))
             return
         }
 
         if (!response.ok) {
             purchaseEventsMutable.emit(
-                BillingPurchaseEvent.Failed(response.message ?: response.code ?: "Purchase verification failed.")
+                BillingPurchaseEvent.Failed(response.code ?: "billing_verification_failed")
             )
             return
         }
@@ -190,7 +188,7 @@ class GooglePlayBillingRepository(
                     } else {
                         continuation.resumeWithException(
                             IllegalStateException(
-                                billingResult.debugMessage.ifBlank { "Google Play Billing is unavailable." }
+                                "billing_unavailable"
                             )
                         )
                     }
@@ -217,9 +215,7 @@ class GooglePlayBillingRepository(
                     continuation.resume(result.productDetailsList)
                 } else {
                     continuation.resumeWithException(
-                        IllegalStateException(
-                            billingResult.debugMessage.ifBlank { "Unable to load Google Play products." }
-                        )
+                        IllegalStateException("billing_products_load_failed")
                     )
                 }
             }
@@ -235,9 +231,7 @@ class GooglePlayBillingRepository(
                     continuation.resume(purchases)
                 } else {
                     continuation.resumeWithException(
-                        IllegalStateException(
-                            billingResult.debugMessage.ifBlank { "Unable to restore purchases." }
-                        )
+                        IllegalStateException("billing_restore_failed")
                     )
                 }
             }
@@ -253,9 +247,7 @@ class GooglePlayBillingRepository(
                     continuation.resume(Unit)
                 } else {
                     continuation.resumeWithException(
-                        IllegalStateException(
-                            billingResult.debugMessage.ifBlank { "Unable to acknowledge purchase." }
-                        )
+                        IllegalStateException("billing_ack_failed")
                     )
                 }
             }

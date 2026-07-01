@@ -3,6 +3,8 @@
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
+import android.content.Intent
+import android.provider.Settings
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -103,6 +105,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.tijario.config.AppLanguage
+import app.tijario.config.Localization
 import app.tijario.MainActivity
 import app.tijario.config.Supabase
 import app.tijario.config.t
@@ -112,9 +115,9 @@ import app.tijario.features.billing.BillingCatalog
 import app.tijario.features.billing.BillingUiState
 import app.tijario.features.billing.BillingViewModel
 import app.tijario.features.billing.GooglePlayBillingRepository
+import app.tijario.features.notifications.NotificationTopicManager
 import app.tijario.ui.state.TijarioDataViewModel
 import app.tijario.ui.state.PlanUsageState
-import app.tijario.features.notifications.NotificationSettingsSection
 import io.github.jan.supabase.auth.auth
 import kotlinx.coroutines.launch
 
@@ -921,7 +924,7 @@ fun AppSettingsScreen(onBack: () -> Unit) {
 
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = 8.dp))
 
-                    NotificationSettingsSection()
+                    LocalNotificationSettingsSection()
 
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = 8.dp))
 
@@ -966,6 +969,63 @@ fun AppSettingsScreen(onBack: () -> Unit) {
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LocalNotificationSettingsSection() {
+    val context = LocalContext.current
+    val language = LocalLanguage.current
+    val scope = rememberCoroutineScope()
+    val topicManager = remember(context) { NotificationTopicManager(context) }
+    var enabled by remember { mutableStateOf(AppPreferences.isPushEnabled(context)) }
+
+    Card(
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(t("notifications"), fontWeight = FontWeight.Bold)
+                    Text(
+                        t("notification_settings_desc"),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = enabled,
+                    onCheckedChange = {
+                        enabled = it
+                        AppPreferences.setPushEnabled(context, it)
+                        scope.launch {
+                            runCatching { topicManager.syncForLanguage(language) }
+                        }
+                    },
+                )
+            }
+            OutlinedButton(
+                onClick = {
+                    context.startActivity(
+                        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                            data = Uri.parse("package:${context.packageName}")
+                        }
+                    )
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(t("open_system_settings"))
             }
         }
     }
@@ -1050,6 +1110,7 @@ fun UpgradePlanScreen(
                 currentPlanCode = currentPlanCode,
                 annualBilling = annualBilling,
                 billingState = billingState,
+                onRetry = { billingViewModel.load() },
                 onPurchase = { planCode ->
                     val purchaseActivity = activity ?: return@PricingPlansSection
                     if (currentUserId.isNotBlank()) {
@@ -1074,10 +1135,10 @@ fun UpgradePlanScreen(
                 ) {
                     Text(
                         text = when {
-                            billingState.isLoading -> if (isArabic) "جارٍ تحميل أسعار Google Play..." else "Loading Google Play prices..."
-                            billingState.errorMessage != null -> billingState.errorMessage.orEmpty()
-                            billingState.successMessage != null -> if (isArabic) "تم التحقق من الشراء بنجاح." else "Purchase verified successfully."
-                            else -> if (isArabic) "الشراء يتم من خلال Google Play فقط، والأسعار تظهر حسب بلد حسابك." else "Purchases are handled only by Google Play, using your local Play price."
+                            billingState.isLoading -> t("billing_loading_prices")
+                            billingState.errorMessage != null -> billingMessage(billingState.errorMessage, language)
+                            billingState.successMessage != null -> billingMessage(billingState.successMessage, language)
+                            else -> t("billing_google_play_note")
                         },
                         textAlign = TextAlign.Center,
                         fontWeight = FontWeight.SemiBold,
@@ -1091,9 +1152,9 @@ fun UpgradePlanScreen(
                     ) {
                         Text(
                             text = if (billingState.isRestoring) {
-                                if (isArabic) "جارٍ الاستعادة..." else "Restoring..."
+                                t("billing_restoring")
                             } else {
-                                if (isArabic) "استعادة المشتريات" else "Restore purchases"
+                                t("billing_restore_purchases")
                             },
                             fontWeight = FontWeight.Bold,
                         )
@@ -1151,82 +1212,6 @@ private fun BillingPlanDto.toPricingPlanUi(): PricingPlanUi =
         featured = code.lowercase() == "pro",
     )
 
-private fun fallbackPricingPlans(): List<PricingPlanUi> =
-    listOf(
-        PricingPlanUi(
-            code = "free",
-            nameAr = "مجاني",
-            nameEn = "Free",
-            descAr = "ابدأ مجانًا مع الأساسيات.",
-            descEn = "Start free with the basics.",
-            monthlyPriceCents = 0,
-            annualPriceCents = 0,
-            monthlyDocumentLimit = 5,
-            monthlyAiLimit = 10,
-            customerLimit = 5,
-            productLimit = 5,
-            templatesAr = "القالب الأساسي فقط",
-            templatesEn = "Basic template only",
-            supportAr = "دعم ذاتي",
-            supportEn = "Self-service support",
-            featured = false,
-        ),
-        PricingPlanUi(
-            code = "starter",
-            nameAr = "Starter",
-            nameEn = "Starter",
-            descAr = "للمتاجر التي بدأت تكبر.",
-            descEn = "For stores starting to grow.",
-            monthlyPriceCents = 499,
-            annualPriceCents = 4790,
-            monthlyDocumentLimit = 50,
-            monthlyAiLimit = 150,
-            customerLimit = 30,
-            productLimit = 30,
-            templatesAr = "جميع القوالب الحالية",
-            templatesEn = "All current templates",
-            supportAr = "دعم قياسي",
-            supportEn = "Standard support",
-            featured = false,
-        ),
-        PricingPlanUi(
-            code = "pro",
-            nameAr = "Pro",
-            nameEn = "Pro",
-            descAr = "الخطة الأكثر توازنًا للمتاجر النشطة.",
-            descEn = "The balanced plan for active stores.",
-            monthlyPriceCents = 999,
-            annualPriceCents = 9590,
-            monthlyDocumentLimit = 200,
-            monthlyAiLimit = 500,
-            customerLimit = null,
-            productLimit = null,
-            templatesAr = "جميع القوالب الحالية",
-            templatesEn = "All current templates",
-            supportAr = "دعم قياسي",
-            supportEn = "Standard support",
-            featured = true,
-        ),
-        PricingPlanUi(
-            code = "business",
-            nameAr = "Business",
-            nameEn = "Business",
-            descAr = "للاستخدام المرتفع والمتاجر النشطة.",
-            descEn = "For high usage and active stores.",
-            monthlyPriceCents = 1999,
-            annualPriceCents = 19190,
-            monthlyDocumentLimit = 300,
-            monthlyAiLimit = 800,
-            customerLimit = null,
-            productLimit = null,
-            templatesAr = "جميع القوالب الحالية",
-            templatesEn = "All current templates",
-            supportAr = "دعم أولوية",
-            supportEn = "Priority support",
-            featured = false,
-        ),
-    )
-
 private fun defaultPlanNameAr(code: String): String =
     when (code.lowercase()) {
         "free" -> "مجاني"
@@ -1262,6 +1247,9 @@ private fun defaultPlanDescriptionEn(code: String): String =
         "business" -> "For high usage and active stores."
         else -> ""
     }
+
+private fun billingMessage(key: String?, language: AppLanguage): String =
+    Localization.getString(key ?: "billing_unavailable", language)
 
 @Composable
 private fun PricingHeroCard(
@@ -1412,11 +1400,11 @@ private fun PricingPlansSection(
     currentPlanCode: String,
     annualBilling: Boolean,
     billingState: BillingUiState,
+    onRetry: () -> Unit,
     onPurchase: (String) -> Unit,
 ) {
     val plans = billingState.backendPlans
         .map { it.toPricingPlanUi() }
-        .ifEmpty { fallbackPricingPlans() }
     val interval = if (annualBilling) BillingCatalog.INTERVAL_YEARLY else BillingCatalog.INTERVAL_MONTHLY
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -1425,6 +1413,30 @@ private fun PricingPlansSection(
             fontSize = 22.sp,
             fontWeight = FontWeight.Black,
         )
+        if (!billingState.isLoading && plans.isEmpty()) {
+            Card(
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Column(
+                    modifier = Modifier.padding(18.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(
+                        text = t("billing_catalog_unavailable"),
+                        textAlign = TextAlign.Center,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    OutlinedButton(onClick = onRetry) {
+                        Text(t("billing_retry"))
+                    }
+                }
+            }
+        }
         plans.forEach { plan ->
             PricingPlanCard(
                 plan = plan,

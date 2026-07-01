@@ -24,7 +24,7 @@ class BillingViewModel(
                             it.copy(
                                 isPurchasing = false,
                                 isRestoring = false,
-                                successMessage = "Purchase verified.",
+                                successMessage = "billing_purchase_verified",
                                 errorMessage = null,
                             )
                         }
@@ -36,7 +36,7 @@ class BillingViewModel(
                                 isPurchasing = false,
                                 isRestoring = false,
                                 successMessage = null,
-                                errorMessage = "Purchase is pending approval in Google Play.",
+                                errorMessage = "billing_purchase_pending",
                             )
                         }
                     }
@@ -88,7 +88,7 @@ class BillingViewModel(
                     stateMutable.update {
                         it.copy(
                             isLoading = false,
-                            errorMessage = error.message ?: "Billing is unavailable.",
+                            errorMessage = error.message ?: "billing_unavailable",
                         )
                     }
                 }
@@ -104,7 +104,7 @@ class BillingViewModel(
                     stateMutable.update {
                         it.copy(
                             isPurchasing = false,
-                            errorMessage = error.message ?: "Unable to start Google Play Billing.",
+                            errorMessage = error.message ?: "billing_unavailable",
                         )
                     }
                 }
@@ -119,7 +119,7 @@ class BillingViewModel(
                     stateMutable.update {
                         it.copy(
                             isRestoring = false,
-                            errorMessage = error.message ?: "Unable to restore purchases.",
+                            errorMessage = error.message ?: "billing_restore_failed",
                         )
                     }
                 }
