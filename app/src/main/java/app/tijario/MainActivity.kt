@@ -26,6 +26,12 @@ class MainActivity : ComponentActivity() {
     companion object {
         var currentLanguage by mutableStateOf(AppLanguage.AR)
         var isDarkMode by mutableStateOf(false)
+        var authDeepLinkTarget by mutableStateOf<String?>(null)
+            private set
+
+        fun consumeAuthDeepLinkTarget() {
+            authDeepLinkTarget = null
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -33,6 +39,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         ensureAnnouncementNotificationChannel(applicationContext)
         NotificationDeepLinkState.handleUri(intent?.data)
+        handleAuthDeepLink(intent)
         WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
         currentLanguage = AppPreferences.getLanguage(applicationContext)
         isDarkMode = AppPreferences.getDarkMode(applicationContext)
@@ -57,5 +64,15 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         NotificationDeepLinkState.handleUri(intent.data)
+        handleAuthDeepLink(intent)
+    }
+
+    private fun handleAuthDeepLink(intent: Intent?) {
+        val uri = intent?.data ?: return
+        val isSupportedScheme = uri.scheme == "tijario" || uri.scheme == "com.tijario.app"
+        val isAuthCallback = uri.host == "auth" && uri.path.orEmpty().startsWith("/callback")
+        if (!isSupportedScheme || !isAuthCallback) return
+
+        authDeepLinkTarget = uri.getQueryParameter("next")?.takeIf { it.startsWith("/") } ?: "/login"
     }
 }

@@ -23,7 +23,7 @@ fun ensureAnnouncementNotificationChannel(context: Context) {
         NotificationChannel(
             ANNOUNCEMENT_CHANNEL_ID,
             channelName,
-            NotificationManager.IMPORTANCE_DEFAULT,
+            NotificationManager.IMPORTANCE_HIGH,
         )
     )
 }

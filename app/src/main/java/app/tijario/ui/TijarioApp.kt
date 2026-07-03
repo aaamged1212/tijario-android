@@ -179,6 +179,7 @@ fun TijarioApp() {
                     authState is CentralAuthState.AuthenticatedNeedsOnboarding)
             ) {
                 dataViewModel.refreshPlanUsage()
+                notificationsViewModel.syncTopic(MainActivity.currentLanguage)
             }
         }
 
@@ -198,9 +199,26 @@ fun TijarioApp() {
         is CentralAuthState.Unauthenticated, is CentralAuthState.AwaitingEmailVerification -> {
             // Unauthenticated Graph
             val navController = rememberNavController()
+            val authDeepLinkTarget = MainActivity.authDeepLinkTarget
+            val initialAuthRoute = when {
+                state is CentralAuthState.AwaitingEmailVerification -> "verify-email"
+                authDeepLinkTarget == "/login" -> "login"
+                else -> "intro"
+            }
+
+            LaunchedEffect(authDeepLinkTarget) {
+                if (authDeepLinkTarget == "/login") {
+                    navController.navigate("login") {
+                        popUpTo(navController.graph.startDestinationId) { inclusive = true }
+                        launchSingleTop = true
+                    }
+                    MainActivity.consumeAuthDeepLinkTarget()
+                }
+            }
+
             NavHost(
                 navController = navController,
-                startDestination = if (state is CentralAuthState.AwaitingEmailVerification) "verify-email" else "intro"
+                startDestination = initialAuthRoute,
             ) {
                 composable("intro") {
                     IntroWalkthroughScreen(
@@ -319,6 +337,7 @@ fun TijarioApp() {
             if (showNotificationPrompt) {
                 NotificationPermissionPrompt(
                     onFinished = {
+                        AppPreferences.setPushEnabled(context, true)
                         showNotificationPrompt = false
                         notificationsViewModel.syncTopic(MainActivity.currentLanguage)
                     }

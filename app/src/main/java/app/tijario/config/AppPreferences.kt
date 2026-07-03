@@ -113,7 +113,7 @@ object AppPreferences {
 
     fun isPushEnabled(context: Context): Boolean =
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .getBoolean(KEY_PUSH_ENABLED, false)
+            .getBoolean(KEY_PUSH_ENABLED, true)
 
     fun setPushEnabled(context: Context, enabled: Boolean) {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)

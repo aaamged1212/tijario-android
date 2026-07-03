@@ -2683,7 +2683,7 @@ fun AccountScreen(
 
                             try {
                                 val result = app.tijario.config.Supabase.apiClient.requestPasswordReset(
-                                    app.tijario.data.remote.ResetPasswordRequest(email = currentUserEmail)
+                                    app.tijario.data.remote.ResetPasswordRequest(email = currentUserEmail, source = "android")
                                 )
                                 if (result.ok) {
                                     snackbarHostState.showSnackbar(Localization.getString("password_reset_link_sent", language))

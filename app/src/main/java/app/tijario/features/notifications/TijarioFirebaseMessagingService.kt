@@ -10,6 +10,7 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import androidx.core.graphics.drawable.toBitmap
 import app.tijario.MainActivity
 import app.tijario.R
 import app.tijario.config.AppPreferences
@@ -25,14 +26,21 @@ class TijarioFirebaseMessagingService : FirebaseMessagingService() {
 
     @SuppressLint("MissingPermission")
     override fun onMessageReceived(message: RemoteMessage) {
-        val announcementId = message.data["announcement_id"]?.trim().orEmpty()
-        if (announcementId.isBlank()) return
-
         ensureAnnouncementNotificationChannel(this)
 
-        val title = message.notification?.title ?: message.data["title"].orEmpty().ifBlank { "Tijario" }
+        val title = message.notification?.title
+            ?: message.data["title"].orEmpty().ifBlank { "Tijario | تجاريو" }
         val body = message.notification?.body ?: message.data["body"].orEmpty()
-        val deepLink = message.data["deep_link"]?.takeIf { it.startsWith("tijario://announcements") }
+        if (title.isBlank() && body.isBlank()) return
+
+        val announcementId = message.data["announcement_id"]
+            ?.trim()
+            .orEmpty()
+            .ifBlank { message.messageId?.trim().orEmpty() }
+            .ifBlank { "${title}|${body}".hashCode().toString() }
+
+        val deepLink = message.data["deep_link"]
+            ?.takeIf { it.startsWith("tijario://announcements") }
             ?: "tijario://announcements/$announcementId"
 
         val intent = Intent(this, MainActivity::class.java).apply {
@@ -57,6 +65,14 @@ class TijarioFirebaseMessagingService : FirebaseMessagingService() {
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .apply {
+                ContextCompat.getDrawable(this@TijarioFirebaseMessagingService, R.drawable.logo_app)
+                    ?.let { drawable ->
+                        setLargeIcon(drawable.toBitmap(width = 128, height = 128))
+                    }
+            }
             .build()
 
         if (canPostNotifications()) {

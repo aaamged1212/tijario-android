@@ -324,7 +324,8 @@ fun LoginScreen(
                         t("create_account"),
                         color = Color.White,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp
+                        fontSize = 14.sp,
+                        textDecoration = TextDecoration.Underline,
                     )
                 }
             }
@@ -599,7 +600,8 @@ fun RegisterScreen(
                         t("btn_login"),
                         color = Color.White,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp
+                        fontSize = 14.sp,
+                        textDecoration = TextDecoration.Underline,
                     )
                 }
             }
@@ -972,7 +974,7 @@ fun ForgotPasswordScreen(onBackToLogin: () -> Unit) {
                                         isLoading = true
                                         errorMessage = null
                                         val result = app.tijario.config.Supabase.apiClient.requestPasswordReset(
-                                            app.tijario.data.remote.ResetPasswordRequest(email = email)
+                                            app.tijario.data.remote.ResetPasswordRequest(email = email, source = "android")
                                         )
                                         if (result.ok) {
                                             isSubmitted = true
@@ -1356,13 +1358,6 @@ fun IntroWalkthroughScreen(onFinished: () -> Unit) {
                 )
             )
     ) {
-        AuthLanguageToggle(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(12.dp)
-                .statusBarsPadding()
-                .zIndex(1f)
-        )
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -1370,23 +1365,35 @@ fun IntroWalkthroughScreen(onFinished: () -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // Top Bar: App Name & Skip Button
-            Row(
+            // Top Bar: App name, centered skip action, and separated language control.
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                    .padding(top = 16.dp)
+                    .heightIn(min = 48.dp),
             ) {
                 Text(
                     text = if (language == AppLanguage.AR) "تجاريو" else "Tijario",
                     color = Color.White,
                     fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.align(Alignment.CenterStart),
                 )
-                TextButton(onClick = onFinished) {
-                        Text(text = if (language == AppLanguage.AR) "تجاوز" else "Skip", color = Color.White.copy(alpha = 0.8f), fontSize = 14.sp)
+                TextButton(
+                    onClick = onFinished,
+                    modifier = Modifier.align(Alignment.Center),
+                ) {
+                    Text(
+                        text = if (language == AppLanguage.AR) "تجاوز" else "Skip",
+                        color = Color.White.copy(alpha = 0.88f),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        textDecoration = TextDecoration.Underline,
+                    )
                 }
+                AuthLanguageToggle(
+                    modifier = Modifier.align(Alignment.CenterEnd),
+                )
             }
 
             // Slide Content Card

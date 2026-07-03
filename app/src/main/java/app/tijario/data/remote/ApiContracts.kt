@@ -343,6 +343,7 @@ data class UploadLogoResponse(
 @Serializable
 data class ResetPasswordRequest(
     val email: String,
+    val source: String = "android",
 )
 
 @Serializable
