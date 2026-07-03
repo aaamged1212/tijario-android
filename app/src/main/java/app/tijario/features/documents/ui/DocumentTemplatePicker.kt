@@ -1,11 +1,13 @@
 package app.tijario.features.documents.ui
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -36,14 +38,22 @@ import app.tijario.features.documents.preview.DocumentPreviewWebView
 import app.tijario.features.documents.template.DocumentTemplateRegistry
 import java.math.BigDecimal
 
+internal fun isTemplateAvailableForSelection(
+    isEntitlementLoaded: Boolean,
+    allowedTemplateIds: Collection<String>,
+    templateId: String,
+): Boolean = isEntitlementLoaded && allowedTemplateIds.contains(templateId)
+
 @Composable
 fun DocumentTemplatePicker(
     selectedTemplateId: String,
     onTemplateSelected: (String) -> Unit,
+    allowedTemplateIds: List<String> = emptyList(),
+    isEntitlementLoaded: Boolean = true,
     modifier: Modifier = Modifier,
     renderModel: DocumentRenderModel? = null,
 ) {
-    val templates = remember { DocumentTemplateRegistry.templates.take(6) }
+    val templates = remember { DocumentTemplateRegistry.templates }
     val activeModel = renderModel ?: remember { createTemplateSampleModel() }
     val pagerState = rememberPagerState(
         initialPage = templates.indexOfFirst { it.id == selectedTemplateId }.coerceAtLeast(0),
@@ -69,10 +79,11 @@ fun DocumentTemplatePicker(
         ) { page ->
             val template = templates[page]
             val selected = template.id == selectedTemplateId
+            val allowed = isTemplateAvailableForSelection(isEntitlementLoaded, allowedTemplateIds, template.id)
             val templateModel = remember(page, activeModel) { activeModel.copy(templateId = template.id) }
 
             Card(
-                onClick = { onTemplateSelected(template.id) },
+                onClick = { if (allowed) onTemplateSelected(template.id) },
                 modifier = Modifier
                     .width(280.dp)
                     .height(410.dp),
@@ -110,6 +121,21 @@ fun DocumentTemplatePicker(
                                 .fillMaxWidth()
                                 .clip(MaterialTheme.shapes.medium),
                         )
+                        if (!allowed) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.58f)),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(
+                                    text = t("upgrade_required"),
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 12.sp,
+                                )
+                            }
+                        }
                     }
                 }
             }

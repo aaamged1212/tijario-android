@@ -94,6 +94,7 @@ import app.tijario.features.documents.model.DocumentRenderStatus
 import app.tijario.features.documents.model.DocumentTotals
 import app.tijario.features.documents.preview.DocumentPreviewWebView
 import app.tijario.features.documents.ui.DocumentTemplatePicker
+import app.tijario.features.documents.ui.isTemplateAvailableForSelection
 import app.tijario.features.documents.ui.DocumentTemplatePreferences
 import app.tijario.features.documents.ui.DocumentInvoiceOptionPreferences
 import app.tijario.ui.components.ModernDocumentPreview
@@ -1385,15 +1386,16 @@ fun InvoiceInfoDialog(
 fun SelectTemplateDialog(
     selectedTemplateId: String,
     allowedTemplateIds: List<String> = emptyList(),
+    isEntitlementLoaded: Boolean = true,
     onDismiss: () -> Unit,
     onSave: (String) -> Unit
 ) {
-    val templates = remember { DocumentTemplateRegistry.templates.take(6) }
+    val templates = remember { DocumentTemplateRegistry.templates }
     var selectedId by remember { mutableStateOf(selectedTemplateId) }
     val context = LocalContext.current
     val language = LocalLanguage.current
     fun isTemplateAllowed(templateId: String): Boolean =
-        allowedTemplateIds.isEmpty() || allowedTemplateIds.contains(templateId)
+        isTemplateAvailableForSelection(isEntitlementLoaded, allowedTemplateIds, templateId)
     val sampleModel = remember {
         DocumentRenderModel(
             documentType = DocumentType.Invoice,
@@ -1829,9 +1831,10 @@ fun DocumentFormScreen(
     val invoiceOptionPreferences = remember(context) { DocumentInvoiceOptionPreferences(context) }
     var selectedTemplateId by remember { mutableStateOf(templatePreferences.getDefaultTemplateId()) }
     val uiState by dataViewModel.uiState.collectAsStateWithLifecycle()
+    val isTemplateEntitlementLoaded = uiState.planUsage != null
     val allowedTemplateIds = uiState.planUsage?.allowedTemplateIds.orEmpty()
     fun isTemplateAllowed(templateId: String): Boolean =
-        allowedTemplateIds.isEmpty() || allowedTemplateIds.contains(templateId)
+        isTemplateAvailableForSelection(isTemplateEntitlementLoaded, allowedTemplateIds, templateId)
     val businessSettings = uiState.businessSettings
     val scope = rememberCoroutineScope()
     val editDocumentId = documentId?.takeIf { it.isNotBlank() }
@@ -1991,16 +1994,16 @@ fun DocumentFormScreen(
         },
         bottomBar = {
             if (!isLoadingDocument) {
-                Surface(
-                    tonalElevation = 8.dp,
-                    shadowElevation = 8.dp,
-                    color = MaterialTheme.colorScheme.surface,
-                    modifier = Modifier.navigationBarsPadding()
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.background)
+                        .navigationBarsPadding(),
                 ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(16.dp),
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
                         horizontalArrangement = Arrangement.spacedBy(16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -2787,6 +2790,16 @@ fun DocumentFormScreen(
                     }
                 }
             }
+        } else if (!isTemplateEntitlementLoaded) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background)
+                    .padding(paddingValues),
+                contentAlignment = Alignment.Center,
+            ) {
+                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+            }
         } else {
             Column(
                 modifier = Modifier
@@ -2797,7 +2810,7 @@ fun DocumentFormScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                val templates = remember { DocumentTemplateRegistry.templates.take(6) }
+                val templates = remember { DocumentTemplateRegistry.templates }
                 val pagerState = rememberPagerState(
                     initialPage = templates.indexOfFirst { it.id == selectedTemplateId }.coerceAtLeast(0),
                     pageCount = { templates.size }
@@ -2934,6 +2947,7 @@ fun DocumentFormScreen(
         SelectTemplateDialog(
             selectedTemplateId = selectedTemplateId,
             allowedTemplateIds = allowedTemplateIds,
+            isEntitlementLoaded = isTemplateEntitlementLoaded,
             onDismiss = { showTemplatePickerDialog = false },
             onSave = { templateId ->
                 selectedTemplateId = DocumentTemplateRegistry.requireTemplate(templateId).id

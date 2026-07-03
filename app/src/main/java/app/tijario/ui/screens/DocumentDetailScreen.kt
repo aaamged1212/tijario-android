@@ -89,6 +89,7 @@ fun DocumentDetailScreen(
     val scope = rememberCoroutineScope()
     val uiState by dataViewModel.uiState.collectAsStateWithLifecycle()
     val businessSettings = uiState.businessSettings
+    val planUsage = uiState.planUsage
     val exportManager = remember(context) { DocumentExportManager(context) }
     val templatePreferences = remember(context) { DocumentTemplatePreferences(context) }
 
@@ -230,6 +231,8 @@ fun DocumentDetailScreen(
 
                         DocumentTemplatePicker(
                             selectedTemplateId = selectedTemplateId,
+                            allowedTemplateIds = planUsage?.allowedTemplateIds.orEmpty(),
+                            isEntitlementLoaded = planUsage != null,
                             onTemplateSelected = {
                                 selectedTemplateId = DocumentTemplateRegistry.requireTemplate(it).id
                                 templatePreferences.setDefaultTemplateId(selectedTemplateId)
