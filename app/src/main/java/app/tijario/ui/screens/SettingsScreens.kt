@@ -1662,8 +1662,10 @@ private fun PricingPlanCard(
     val isDarkTheme = MainActivity.isDarkMode
     val accent = when (plan.code) {
         "free" -> Color(0xFF0D9488)
+        "starter" -> Color(0xFF7C3AED)
         "pro" -> Color(0xFF2563EB)
-        else -> Color(0xFF7C3AED)
+        "business" -> Color(0xFFEA580C)
+        else -> MaterialTheme.colorScheme.primary
     }
     val priceLabel = if (plan.code == "free") {
         if (isArabic) "مجاني" else "Free"
@@ -1931,132 +1933,144 @@ private fun pricingAnnualDiscountPercent(monthlyPriceCents: Int, annualPriceCent
 @Composable
 private fun PricingComparisonSection(isArabic: Boolean) {
     val title = if (isArabic) "مقارنة كاملة" else "Full comparison"
-    val rows = listOf(
-        ComparisonRow(
-            categoryAr = "الاستخدام والحدود",
-            categoryEn = "Usage and limits",
-            featureAr = "المستندات الشهرية",
-            featureEn = "Monthly documents",
-            freeAr = "5",
-            freeEn = "5",
-            starterAr = "50",
-            starterEn = "50",
-            proAr = "200",
-            proEn = "200",
-            businessAr = "300",
-            businessEn = "300",
+    val groups = listOf(
+        ComparisonGroup(
+            titleAr = "الاستخدام والحدود",
+            titleEn = "Usage and limits",
+            rows = listOf(
+                ComparisonFeatureRow(
+                    featureAr = "المستندات الشهرية",
+                    featureEn = "Monthly documents",
+                    freeAr = "5",
+                    freeEn = "5",
+                    starterAr = "50",
+                    starterEn = "50",
+                    proAr = "200",
+                    proEn = "200",
+                    businessAr = "300",
+                    businessEn = "300",
+                ),
+                ComparisonFeatureRow(
+                    featureAr = "عمليات الذكاء الاصطناعي الشهرية",
+                    featureEn = "Monthly AI uses",
+                    freeAr = "10",
+                    freeEn = "10",
+                    starterAr = "150",
+                    starterEn = "150",
+                    proAr = "500",
+                    proEn = "500",
+                    businessAr = "800",
+                    businessEn = "800",
+                ),
+            ),
         ),
-        ComparisonRow(
-            categoryAr = "الاستخدام والحدود",
-            categoryEn = "Usage and limits",
-            featureAr = "عمليات AI الشهرية",
-            featureEn = "Monthly AI uses",
-            freeAr = "10",
-            freeEn = "10",
-            starterAr = "150",
-            starterEn = "150",
-            proAr = "500",
-            proEn = "500",
-            businessAr = "800",
-            businessEn = "800",
+        ComparisonGroup(
+            titleAr = "العملاء والمنتجات",
+            titleEn = "Customers and products",
+            rows = listOf(
+                ComparisonFeatureRow(
+                    featureAr = "العملاء",
+                    featureEn = "Customers",
+                    freeAr = "5",
+                    freeEn = "5",
+                    starterAr = "30",
+                    starterEn = "30",
+                    proAr = "غير محدود",
+                    proEn = "Unlimited",
+                    businessAr = "غير محدود",
+                    businessEn = "Unlimited",
+                ),
+                ComparisonFeatureRow(
+                    featureAr = "المنتجات",
+                    featureEn = "Products",
+                    freeAr = "5",
+                    freeEn = "5",
+                    starterAr = "30",
+                    starterEn = "30",
+                    proAr = "غير محدود",
+                    proEn = "Unlimited",
+                    businessAr = "غير محدود",
+                    businessEn = "Unlimited",
+                ),
+            ),
         ),
-        ComparisonRow(
-            categoryAr = "العملاء والمنتجات",
-            categoryEn = "Customers and products",
-            featureAr = "العملاء",
-            featureEn = "Customers",
-            freeAr = "5",
-            freeEn = "5",
-            starterAr = "30",
-            starterEn = "30",
-            proAr = "غير محدود",
-            proEn = "Unlimited",
-            businessAr = "غير محدود",
-            businessEn = "Unlimited",
+        ComparisonGroup(
+            titleAr = "المستندات والقوالب",
+            titleEn = "Documents and templates",
+            rows = listOf(
+                ComparisonFeatureRow(
+                    featureAr = "عروض الأسعار والفواتير",
+                    featureEn = "Quotes and invoices",
+                    freeAr = "متاح",
+                    freeEn = "Included",
+                    starterAr = "متاح",
+                    starterEn = "Included",
+                    proAr = "متاح",
+                    proEn = "Included",
+                    businessAr = "متاح",
+                    businessEn = "Included",
+                ),
+                ComparisonFeatureRow(
+                    featureAr = "قوالب المستندات",
+                    featureEn = "Document templates",
+                    freeAr = "قالب واحد",
+                    freeEn = "One",
+                    starterAr = "الكل",
+                    starterEn = "All",
+                    proAr = "الكل",
+                    proEn = "All",
+                    businessAr = "الكل",
+                    businessEn = "All",
+                ),
+            ),
         ),
-        ComparisonRow(
-            categoryAr = "العملاء والمنتجات",
-            categoryEn = "Customers and products",
-            featureAr = "المنتجات",
-            featureEn = "Products",
-            freeAr = "5",
-            freeEn = "5",
-            starterAr = "30",
-            starterEn = "30",
-            proAr = "غير محدود",
-            proEn = "Unlimited",
-            businessAr = "غير محدود",
-            businessEn = "Unlimited",
+        ComparisonGroup(
+            titleAr = "أدوات الذكاء الاصطناعي",
+            titleEn = "AI tools",
+            rows = listOf(
+                ComparisonFeatureRow(
+                    featureAr = "رد ذكي",
+                    featureEn = "Smart Reply",
+                    freeAr = "متاح",
+                    freeEn = "Included",
+                    starterAr = "متاح",
+                    starterEn = "Included",
+                    proAr = "متاح",
+                    proEn = "Included",
+                    businessAr = "متاح",
+                    businessEn = "Included",
+                ),
+                ComparisonFeatureRow(
+                    featureAr = "كابشن ذكي",
+                    featureEn = "Smart Caption",
+                    freeAr = "متاح",
+                    freeEn = "Included",
+                    starterAr = "متاح",
+                    starterEn = "Included",
+                    proAr = "متاح",
+                    proEn = "Included",
+                    businessAr = "متاح",
+                    businessEn = "Included",
+                ),
+            ),
         ),
-        ComparisonRow(
-            categoryAr = "العروض والفواتير",
-            categoryEn = "Quotes and invoices",
-            featureAr = "إنشاء عروض الأسعار والفواتير",
-            featureEn = "Quote and invoice creation",
-            freeAr = "موجود",
-            freeEn = "Included",
-            starterAr = "موجود",
-            starterEn = "Included",
-            proAr = "موجود",
-            proEn = "Included",
-            businessAr = "موجود",
-            businessEn = "Included",
-        ),
-        ComparisonRow(
-            categoryAr = "أدوات AI",
-            categoryEn = "AI tools",
-            featureAr = "Smart Reply",
-            featureEn = "Smart Reply",
-            freeAr = "محدود",
-            freeEn = "Limited",
-            starterAr = "150",
-            starterEn = "150",
-            proAr = "500",
-            proEn = "500",
-            businessAr = "800",
-            businessEn = "800",
-        ),
-        ComparisonRow(
-            categoryAr = "أدوات AI",
-            categoryEn = "AI tools",
-            featureAr = "Smart Caption",
-            featureEn = "Smart Caption",
-            freeAr = "محدود",
-            freeEn = "Limited",
-            starterAr = "150",
-            starterEn = "150",
-            proAr = "500",
-            proEn = "500",
-            businessAr = "800",
-            businessEn = "800",
-        ),
-        ComparisonRow(
-            categoryAr = "القوالب",
-            categoryEn = "Templates",
-            featureAr = "القوالب الحالية",
-            featureEn = "Current templates",
-            freeAr = "قالب واحد",
-            freeEn = "One template",
-            starterAr = "جميع القوالب",
-            starterEn = "All templates",
-            proAr = "جميع القوالب",
-            proEn = "All templates",
-            businessAr = "جميع القوالب",
-            businessEn = "All templates",
-        ),
-        ComparisonRow(
-            categoryAr = "الدعم والحساب",
-            categoryEn = "Support and account",
-            featureAr = "الدعم",
-            featureEn = "Support",
-            freeAr = "ذاتي",
-            freeEn = "Self-service",
-            starterAr = "قياسي",
-            starterEn = "Standard",
-            proAr = "قياسي",
-            proEn = "Standard",
-            businessAr = "أولوية",
-            businessEn = "Priority",
+        ComparisonGroup(
+            titleAr = "الدعم والحساب",
+            titleEn = "Support and account",
+            rows = listOf(
+                ComparisonFeatureRow(
+                    featureAr = "مستوى الدعم",
+                    featureEn = "Support level",
+                    freeAr = "ذاتي",
+                    freeEn = "Self-service",
+                    starterAr = "قياسي",
+                    starterEn = "Standard",
+                    proAr = "قياسي",
+                    proEn = "Standard",
+                    businessAr = "أولوية",
+                    businessEn = "Priority",
+                ),
+            ),
         ),
     )
 
@@ -2072,12 +2086,23 @@ private fun PricingComparisonSection(isArabic: Boolean) {
             elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(
+                modifier = Modifier.padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
                 ComparisonTableHeader(isArabic)
-                rows.forEach { row ->
-                    PricingComparisonCategoryRow(
+
+                groups.forEachIndexed { index, group ->
+                    if (index > 0) {
+                        HorizontalDivider(
+                            modifier = Modifier.padding(vertical = 2.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant,
+                        )
+                    }
+
+                    PricingComparisonGroup(
                         isArabic = isArabic,
-                        row = row,
+                        group = group,
                     )
                 }
             }
@@ -2089,102 +2114,187 @@ private fun PricingComparisonSection(isArabic: Boolean) {
 private fun ComparisonTableHeader(isArabic: Boolean) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         ComparisonCell(
             text = if (isArabic) "الميزة" else "Feature",
-            bold = true,
-            modifier = Modifier.weight(1.3f),
+            column = ComparisonColumn.FEATURE,
+            isHeader = true,
+            modifier = Modifier.weight(1.5f),
         )
         ComparisonCell(
             text = if (isArabic) "مجاني" else "Free",
-            bold = true,
+            column = ComparisonColumn.FREE,
+            isHeader = true,
             modifier = Modifier.weight(1f),
         )
         ComparisonCell(
-            text = "Starter",
-            bold = true,
+            text = if (isArabic) "مبتدئ" else "Starter",
+            column = ComparisonColumn.STARTER,
+            isHeader = true,
             modifier = Modifier.weight(1f),
         )
         ComparisonCell(
-            text = "Pro",
-            bold = true,
+            text = if (isArabic) "احترافي" else "Pro",
+            column = ComparisonColumn.PRO,
+            isHeader = true,
             modifier = Modifier.weight(1f),
         )
         ComparisonCell(
-            text = if (isArabic) "بزنس" else "Business",
-            bold = true,
+            text = if (isArabic) "أعمال" else "Business",
+            column = ComparisonColumn.BUSINESS,
+            isHeader = true,
             modifier = Modifier.weight(1f),
         )
     }
 }
 
 @Composable
-private fun PricingComparisonCategoryRow(
+private fun PricingComparisonGroup(
     isArabic: Boolean,
-    row: ComparisonRow,
+    group: ComparisonGroup,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(
-            text = if (isArabic) row.categoryAr else row.categoryEn,
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary,
-        )
-        Row(
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Surface(
+            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
+            shape = RoundedCornerShape(12.dp),
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            ComparisonCell(
-                text = if (isArabic) row.featureAr else row.featureEn,
-                modifier = Modifier.weight(1.3f),
+            Text(
+                text = if (isArabic) group.titleAr else group.titleEn,
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Black,
+                color = MaterialTheme.colorScheme.primary,
             )
-            ComparisonCell(
-                text = if (isArabic) row.freeAr else row.freeEn,
-                modifier = Modifier.weight(1f),
-            )
-            ComparisonCell(
-                text = if (isArabic) row.starterAr else row.starterEn,
-                modifier = Modifier.weight(1f),
-            )
-            ComparisonCell(
-                text = if (isArabic) row.proAr else row.proEn,
-                modifier = Modifier.weight(1f),
-            )
-            ComparisonCell(
-                text = if (isArabic) row.businessAr else row.businessEn,
-                modifier = Modifier.weight(1f),
+        }
+
+        group.rows.forEach { row ->
+            PricingComparisonFeatureRow(
+                isArabic = isArabic,
+                row = row,
             )
         }
     }
 }
 
 @Composable
-private fun ComparisonCell(
-    text: String,
-    modifier: Modifier = Modifier,
-    bold: Boolean = false,
+private fun PricingComparisonFeatureRow(
+    isArabic: Boolean,
+    row: ComparisonFeatureRow,
 ) {
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
-        shape = RoundedCornerShape(12.dp),
-        modifier = modifier,
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            text = text,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 10.dp),
-            fontSize = 12.sp,
-            fontWeight = if (bold) FontWeight.Bold else FontWeight.Medium,
-            color = MaterialTheme.colorScheme.onSurface,
-            textAlign = TextAlign.Center,
-            lineHeight = 16.sp,
+        ComparisonCell(
+            text = if (isArabic) row.featureAr else row.featureEn,
+            column = ComparisonColumn.FEATURE,
+            modifier = Modifier.weight(1.5f),
+        )
+        ComparisonCell(
+            text = if (isArabic) row.freeAr else row.freeEn,
+            column = ComparisonColumn.FREE,
+            modifier = Modifier.weight(1f),
+        )
+        ComparisonCell(
+            text = if (isArabic) row.starterAr else row.starterEn,
+            column = ComparisonColumn.STARTER,
+            modifier = Modifier.weight(1f),
+        )
+        ComparisonCell(
+            text = if (isArabic) row.proAr else row.proEn,
+            column = ComparisonColumn.PRO,
+            modifier = Modifier.weight(1f),
+        )
+        ComparisonCell(
+            text = if (isArabic) row.businessAr else row.businessEn,
+            column = ComparisonColumn.BUSINESS,
+            modifier = Modifier.weight(1f),
         )
     }
 }
 
-private data class ComparisonRow(
-    val categoryAr: String,
-    val categoryEn: String,
+@Composable
+private fun ComparisonCell(
+    text: String,
+    column: ComparisonColumn,
+    modifier: Modifier = Modifier,
+    isHeader: Boolean = false,
+) {
+    val isDarkTheme = MainActivity.isDarkMode
+    val accent = when (column) {
+        ComparisonColumn.FEATURE -> Color(0xFF0F172A)
+        ComparisonColumn.FREE -> Color(0xFF0D9488)
+        ComparisonColumn.STARTER -> Color(0xFF7C3AED)
+        ComparisonColumn.PRO -> Color(0xFF2563EB)
+        ComparisonColumn.BUSINESS -> Color(0xFFEA580C)
+    }
+    val containerColor = when {
+        isHeader -> accent
+        column == ComparisonColumn.FEATURE && isDarkTheme -> Color(0xFF1E293B)
+        column == ComparisonColumn.FEATURE -> Color(0xFFF1F5F9)
+        isDarkTheme -> accent.copy(alpha = 0.20f)
+        else -> accent.copy(alpha = 0.10f)
+    }
+    val contentColor = when {
+        isHeader -> Color.White
+        column == ComparisonColumn.FEATURE && isDarkTheme -> Color.White
+        column == ComparisonColumn.FEATURE -> Color(0xFF0F172A)
+        else -> accent
+    }
+
+    Surface(
+        color = containerColor,
+        shape = RoundedCornerShape(11.dp),
+        border = BorderStroke(
+            width = 1.dp,
+            color = when {
+                isHeader -> accent
+                column == ComparisonColumn.FEATURE -> Color(0xFF94A3B8).copy(alpha = 0.45f)
+                else -> accent.copy(alpha = if (isDarkTheme) 0.45f else 0.24f)
+            },
+        ),
+        modifier = modifier,
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 5.dp, vertical = if (isHeader) 10.dp else 11.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = text,
+                fontSize = if (isHeader) 10.sp else 11.sp,
+                fontWeight = if (isHeader || column == ComparisonColumn.FEATURE) {
+                    FontWeight.Bold
+                } else {
+                    FontWeight.SemiBold
+                },
+                color = contentColor,
+                textAlign = TextAlign.Center,
+                lineHeight = 14.sp,
+            )
+        }
+    }
+}
+
+private enum class ComparisonColumn {
+    FEATURE,
+    FREE,
+    STARTER,
+    PRO,
+    BUSINESS,
+}
+
+private data class ComparisonGroup(
+    val titleAr: String,
+    val titleEn: String,
+    val rows: List<ComparisonFeatureRow>,
+)
+
+private data class ComparisonFeatureRow(
     val featureAr: String,
     val featureEn: String,
     val freeAr: String,
