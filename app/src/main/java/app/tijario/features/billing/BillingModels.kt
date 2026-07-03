@@ -23,9 +23,29 @@ data class BillingUiState(
         googlePlayOffers[BillingCatalog.offerKey(planCode, interval)]
 }
 
+enum class BillingVerificationSource {
+    PURCHASE,
+    SYNC,
+}
+
 sealed interface BillingPurchaseEvent {
-    data object Verified : BillingPurchaseEvent
+    data class Verified(
+        val planCode: String?,
+        val billingInterval: String?,
+        val source: BillingVerificationSource,
+    ) : BillingPurchaseEvent
+
     data object Pending : BillingPurchaseEvent
     data object Cancelled : BillingPurchaseEvent
     data class Failed(val message: String) : BillingPurchaseEvent
+}
+
+sealed interface BillingUiEffect {
+    data class PurchaseVerified(
+        val expectedPlanCode: String?,
+    ) : BillingUiEffect
+
+    data class SubscriptionSynced(
+        val expectedPlanCode: String?,
+    ) : BillingUiEffect
 }

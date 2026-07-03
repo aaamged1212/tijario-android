@@ -18,6 +18,7 @@ import app.tijario.data.remote.AiV2ReportRequest
 import app.tijario.data.remote.AiV2Response
 import app.tijario.data.repository.TijarioRepository
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -111,28 +112,76 @@ class TijarioDataViewModel(
 
     fun refreshPlanUsage() {
         viewModelScope.launch {
-            val currentState = planUsageStateMutable.value
-            val userId = repository.currentUserId()
-            val cachedUsage = userId?.let { repository.getCachedPlanUsage(it) }
+            refreshPlanUsageNow()
+        }
+    }
 
-            if (currentState !is PlanUsageState.Success) {
-                planUsageStateMutable.value = cachedUsage?.let { PlanUsageState.Success(it) }
-                    ?: PlanUsageState.Loading
-                cachedUsage?.let { usage ->
-                    uiStateMutable.update { it.copy(planUsage = usage) }
-                }
-            }
+    suspend fun refreshPlanUsageNow(): Result<app.tijario.data.model.UserPlanUsage> {
+        val currentState = planUsageStateMutable.value
+        val userId = repository.currentUserId()
+        val cachedUsage = userId?.let { repository.getCachedPlanUsage(it) }
 
-            repository.fetchUserPlanUsage().onSuccess { usage ->
-                planUsageStateMutable.value = PlanUsageState.Success(usage)
+        if (currentState !is PlanUsageState.Success) {
+            planUsageStateMutable.value = cachedUsage?.let { PlanUsageState.Success(it) }
+                ?: PlanUsageState.Loading
+            cachedUsage?.let { usage ->
                 uiStateMutable.update { it.copy(planUsage = usage) }
-            }.onFailure {
-                if (currentState !is PlanUsageState.Success && cachedUsage != null) {
-                    planUsageStateMutable.value = PlanUsageState.Success(cachedUsage)
-                    uiStateMutable.update { state -> state.copy(planUsage = cachedUsage) }
-                }
             }
         }
+
+        val result = repository.fetchUserPlanUsage()
+        result.onSuccess { usage ->
+            planUsageStateMutable.value = PlanUsageState.Success(usage)
+            uiStateMutable.update { it.copy(planUsage = usage) }
+        }.onFailure { error ->
+            if (currentState !is PlanUsageState.Success && cachedUsage != null) {
+                planUsageStateMutable.value = PlanUsageState.Success(cachedUsage)
+                uiStateMutable.update { state -> state.copy(planUsage = cachedUsage) }
+            } else if (planUsageStateMutable.value !is PlanUsageState.Success) {
+                planUsageStateMutable.value = PlanUsageState.Error(
+                    error.message ?: "billing_plan_refresh_failed"
+                )
+            }
+        }
+
+        return result
+    }
+
+    suspend fun refreshUntilPlanMatches(
+        expectedPlanCode: String?,
+    ): Result<app.tijario.data.model.UserPlanUsage> {
+        val normalizedExpected = expectedPlanCode
+            ?.trim()
+            ?.lowercase()
+            ?.takeIf { it.isNotBlank() }
+
+        var latestUsage: app.tijario.data.model.UserPlanUsage? = null
+        var latestError: Throwable? = null
+
+        for (waitMs in longArrayOf(0L, 500L, 1_000L)) {
+            if (waitMs > 0) delay(waitMs)
+
+            val result = refreshPlanUsageNow()
+            val usage = result.getOrNull()
+
+            if (usage != null) {
+                latestUsage = usage
+                if (
+                    normalizedExpected == null ||
+                    usage.planCode.equals(normalizedExpected, ignoreCase = true)
+                ) {
+                    return Result.success(usage)
+                }
+            } else {
+                latestError = result.exceptionOrNull()
+            }
+        }
+
+        return Result.failure(
+            latestError ?: IllegalStateException(
+                "billing_plan_refresh_timeout:${latestUsage?.planCode.orEmpty()}"
+            )
+        )
     }
     suspend fun createCustomer(customer: Customer): Result<Unit> =
         repository.createCustomer(customer)

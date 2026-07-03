@@ -112,7 +112,9 @@ class GooglePlayBillingRepository(
         if (purchases.isEmpty()) {
             purchaseEventsMutable.emit(BillingPurchaseEvent.Failed("billing_no_active_purchases"))
         } else {
-            purchases.forEach { purchase -> verifyPurchase(purchase) }
+            purchases.forEach { purchase ->
+                verifyPurchase(purchase, BillingVerificationSource.SYNC)
+            }
         }
     }
 
@@ -129,7 +131,9 @@ class GooglePlayBillingRepository(
                     purchaseEventsMutable.emit(BillingPurchaseEvent.Failed("billing_no_purchase_returned"))
                     return
                 }
-                purchases.forEach { purchase -> verifyPurchase(purchase) }
+                purchases.forEach { purchase ->
+                    verifyPurchase(purchase, BillingVerificationSource.PURCHASE)
+                }
             }
             BillingClient.BillingResponseCode.USER_CANCELED -> {
                 purchaseEventsMutable.emit(BillingPurchaseEvent.Cancelled)
@@ -140,7 +144,10 @@ class GooglePlayBillingRepository(
         }
     }
 
-    private suspend fun verifyPurchase(purchase: Purchase) {
+    private suspend fun verifyPurchase(
+        purchase: Purchase,
+        source: BillingVerificationSource,
+    ) {
         if (purchase.purchaseState == Purchase.PurchaseState.PENDING) {
             purchaseEventsMutable.emit(BillingPurchaseEvent.Pending)
             return
@@ -175,7 +182,13 @@ class GooglePlayBillingRepository(
         if (response.data?.acknowledge == true && !purchase.isAcknowledged) {
             acknowledgePurchase(purchase.purchaseToken)
         }
-        purchaseEventsMutable.emit(BillingPurchaseEvent.Verified)
+        purchaseEventsMutable.emit(
+            BillingPurchaseEvent.Verified(
+                planCode = response.data?.planCode,
+                billingInterval = response.data?.billingInterval,
+                source = source,
+            )
+        )
     }
 
     private suspend fun ensureConnected() {

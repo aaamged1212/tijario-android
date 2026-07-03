@@ -113,6 +113,7 @@ import app.tijario.data.remote.BillingPlanDto
 import app.tijario.data.remote.ResetPasswordRequest
 import app.tijario.features.billing.BillingCatalog
 import app.tijario.features.billing.BillingUiState
+import app.tijario.features.billing.BillingUiEffect
 import app.tijario.features.billing.BillingViewModel
 import app.tijario.features.billing.GooglePlayBillingRepository
 import app.tijario.features.notifications.NotificationTopicManager
@@ -301,6 +302,24 @@ fun AccountSettingsScreen(
     var isSavingName by remember { mutableStateOf(false) }
     var isPasswordResetLoading by remember { mutableStateOf(false) }
     val context = LocalContext.current
+    val language = LocalLanguage.current
+    val subscriptionBillingViewModel: BillingViewModel = viewModel(
+        key = "account-subscription-sync",
+        factory = remember(context) {
+            object : ViewModelProvider.Factory {
+                @Suppress("UNCHECKED_CAST")
+                override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                    return BillingViewModel(
+                        GooglePlayBillingRepository(
+                            context = context.applicationContext,
+                            backendApiClient = Supabase.apiClient,
+                        )
+                    ) as T
+                }
+            }
+        }
+    )
+    val subscriptionBillingState by subscriptionBillingViewModel.state.collectAsStateWithLifecycle()
     val profilePicFile = remember { File(context.filesDir, "personal_profile_pic.jpg") }
     var profilePicBitmap by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
@@ -311,6 +330,33 @@ fun AccountSettingsScreen(
         if (profilePicFile.exists()) {
             profilePicBitmap = android.graphics.BitmapFactory.decodeFile(profilePicFile.absolutePath)
         }
+    }
+
+    LaunchedEffect(subscriptionBillingViewModel) {
+        subscriptionBillingViewModel.effects.collect { effect ->
+            if (effect is BillingUiEffect.SubscriptionSynced) {
+                val result = dataViewModel.refreshUntilPlanMatches(effect.expectedPlanCode)
+                val message = if (result.isSuccess) {
+                    if (language == AppLanguage.AR) {
+                        "تم تحديث اشتراكك بنجاح."
+                    } else {
+                        "Your subscription has been updated successfully."
+                    }
+                } else {
+                    if (language == AppLanguage.AR) {
+                        "تعذر تحديث الاشتراك الآن. حاول مرة أخرى."
+                    } else {
+                        "We could not update your subscription. Please try again."
+                    }
+                }
+                snackbarHostState.showSnackbar(message)
+            }
+        }
+    }
+
+    LaunchedEffect(subscriptionBillingState.errorMessage) {
+        val errorKey = subscriptionBillingState.errorMessage ?: return@LaunchedEffect
+        snackbarHostState.showSnackbar(billingMessage(errorKey, language))
     }
 
     val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
@@ -690,6 +736,82 @@ fun AccountSettingsScreen(
                     }
                 }
             }
+            // Manual subscription sync support action
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(enabled = !subscriptionBillingState.isRestoring) {
+                        subscriptionBillingViewModel.restorePurchases()
+                    },
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .padding(16.dp)
+                        .fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Surface(
+                            color = Color(0xFFE6FFFA),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    Icons.Filled.WorkspacePremium,
+                                    contentDescription = null,
+                                    tint = Color(0xFF0F766E),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                        Column {
+                            Text(
+                                text = if (subscriptionBillingState.isRestoring) {
+                                    if (language == AppLanguage.AR) {
+                                        "جارٍ مزامنة الاشتراك..."
+                                    } else {
+                                        "Syncing subscription..."
+                                    }
+                                } else {
+                                    if (language == AppLanguage.AR) {
+                                        "مزامنة الاشتراك"
+                                    } else {
+                                        "Sync subscription"
+                                    }
+                                },
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp,
+                            )
+                            Text(
+                                text = if (language == AppLanguage.AR) {
+                                    "استخدمه إذا دفعت عبر Google Play ولم تظهر خطتك."
+                                } else {
+                                    "Use this if you paid through Google Play and your plan did not appear."
+                                },
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 11.sp,
+                            )
+                        }
+                    }
+
+                    if (subscriptionBillingState.isRestoring) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp,
+                        )
+                    }
+                }
+            }
+
             // Log Out Row
             Card(
                 modifier = Modifier
@@ -1060,16 +1182,104 @@ fun UpgradePlanScreen(
     )
     val billingState by billingViewModel.state.collectAsStateWithLifecycle()
     val annualBilling = billingState.selectedInterval == BillingCatalog.INTERVAL_YEARLY
+    var upgradedPlanCode by remember { mutableStateOf<String?>(null) }
+    var upgradeRefreshFailed by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         dataViewModel.refreshPlanUsage()
         billingViewModel.load()
     }
 
+    LaunchedEffect(billingViewModel) {
+        billingViewModel.effects.collect { effect ->
+            when (effect) {
+                is BillingUiEffect.PurchaseVerified -> {
+                    val result = dataViewModel.refreshUntilPlanMatches(effect.expectedPlanCode)
+                    val usage = result.getOrNull()
+                    if (usage != null) {
+                        upgradedPlanCode = usage.planCode
+                        upgradeRefreshFailed = false
+                    } else {
+                        upgradeRefreshFailed = true
+                    }
+                }
+
+                is BillingUiEffect.SubscriptionSynced -> {
+                    dataViewModel.refreshUntilPlanMatches(effect.expectedPlanCode)
+                }
+            }
+        }
+    }
+
     val usage = (planUsageState as? PlanUsageState.Success)?.value
     val currentPlanCode = when (usage?.planCode?.lowercase()) {
         null, "" -> "free"
         else -> usage.planCode.lowercase()
+    }
+
+    upgradedPlanCode?.let { planCode ->
+        val planName = when (planCode.lowercase()) {
+            "starter" -> "Starter"
+            "pro" -> "Pro"
+            "business" -> "Business"
+            else -> planCode
+        }
+
+        AlertDialog(
+            onDismissRequest = { upgradedPlanCode = null },
+            title = {
+                Text(
+                    text = if (isArabic) "تمت الترقية بنجاح" else "Upgrade successful",
+                    fontWeight = FontWeight.Bold,
+                )
+            },
+            text = {
+                Text(
+                    text = if (isArabic) {
+                        "تمت ترقية خطتك إلى $planName، وأصبحت مزايا وحدود خطتك الجديدة متاحة الآن."
+                    } else {
+                        "Your plan has been upgraded to $planName. Your new features and usage limits are now available."
+                    }
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { upgradedPlanCode = null }) {
+                    Text(
+                        if (isArabic) {
+                            "ابدأ باستخدام الخطة"
+                        } else {
+                            "Start using your plan"
+                        }
+                    )
+                }
+            }
+        )
+    }
+
+    if (upgradeRefreshFailed) {
+        AlertDialog(
+            onDismissRequest = { upgradeRefreshFailed = false },
+            title = {
+                Text(
+                    text = if (isArabic) "تم تأكيد عملية الشراء" else "Purchase confirmed",
+                    fontWeight = FontWeight.Bold,
+                )
+            },
+            text = {
+                Text(
+                    text = if (isArabic) {
+                        "تم تأكيد عملية الشراء، لكن تعذر تحديث الخطة الآن. افتح إعدادات الحساب واستخدم مزامنة الاشتراك."
+                    } else {
+                        "Your purchase was confirmed, but the plan could not be refreshed. Open account settings and use Sync subscription."
+                    }
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { upgradeRefreshFailed = false }) {
+                    Text(if (isArabic) "حسنًا" else "OK")
+                }
+            }
+        )
     }
 
     Scaffold(
@@ -1144,21 +1354,6 @@ fun UpgradePlanScreen(
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    OutlinedButton(
-                        onClick = { billingViewModel.restorePurchases() },
-                        enabled = !billingState.isLoading && !billingState.isRestoring,
-                        modifier = Modifier.fillMaxWidth().height(54.dp),
-                        shape = RoundedCornerShape(16.dp),
-                    ) {
-                        Text(
-                            text = if (billingState.isRestoring) {
-                                t("billing_restoring")
-                            } else {
-                                t("billing_restore_purchases")
-                            },
-                            fontWeight = FontWeight.Bold,
-                        )
-                    }
                 }
             }
         }
@@ -2007,21 +2202,44 @@ private fun PricingFaqSection(isArabic: Boolean) {
     val title = if (isArabic) "الأسئلة الشائعة" else "FAQ"
     val items = if (isArabic) {
         listOf(
-            "ماذا يحدث عند الوصول إلى الحد؟" to "يمنع الخادم الإجراء الجديد وتظهر لك رسالة واضحة مع زر عرض الباقات.",
-            "متى يتجدد الاستخدام؟" to "يتجدد المستند والذكاء الاصطناعي في بداية كل شهر بالتوقيت العالمي.",
-            "هل يمكن تغيير أو إلغاء الخطة؟" to "سيُربط الشراء والإلغاء عبر Google Play عند تفعيل الشراء الفعلي.",
-            "ماذا يحدث بعد تخفيض الخطة؟" to "لا تُحذف بياناتك. يمكنك عرض الموجود وتعديله، لكن الإضافة الجديدة تخضع للحد الحالي.",
-            "هل يمكن البدء مجانًا؟" to "نعم، خطة Free متاحة بدون دفع وتغطي الأساسيات.",
+            "متى تتجدد حدود الاستخدام؟" to
+                "تتجدد حدود المستندات والذكاء الاصطناعي شهريًا حسب تاريخ بدء اشتراكك. وفي الاشتراك السنوي يتم الدفع سنويًا، بينما تتجدد حدود الاستخدام كل شهر حسب تاريخ بدء الاشتراك.",
+            "هل تنتقل الحدود غير المستخدمة؟" to
+                "لا. تبدأ كل دورة شهرية بالحد الكامل للخطة، ولا تُضاف إليها الحدود المتبقية من الدورة السابقة.",
+            "ماذا يحدث عند ترقية الخطة؟" to
+                "تُفعّل الخطة الجديدة بعد تأكيد Google Play، وتزداد حدودك مباشرة دون تصفير استخدامك الحالي.",
+            "ماذا يحدث عند الوصول إلى الحد؟" to
+                "يتوقف إنشاء العمليات الجديدة التي وصلت إلى حدها، مع بقاء بياناتك ومستنداتك السابقة محفوظة وقابلة للعرض.",
+            "ماذا يحدث عند إلغاء أو انتهاء الاشتراك؟" to
+                "يستمر اشتراكك حتى نهاية الفترة المدفوعة. بعد انتهائها يعود الحساب إلى الخطة المجانية، وتخضع العمليات الجديدة لحدودها.",
+            "دفعت ولم تظهر خطتي، ماذا أفعل؟" to
+                "يحدّث التطبيق خطتك تلقائيًا بعد الدفع. وإذا لم تظهر، استخدم خيار مزامنة الاشتراك من إعدادات الحساب، دون خصم مبلغ جديد.",
+            "هل أفقد بياناتي عند انتهاء الاشتراك؟" to
+                "لا. تبقى مستنداتك وعملاؤك ومنتجاتك محفوظة، لكن إنشاء عمليات جديدة يخضع لحدود الخطة الحالية.",
+            "كيف أدير أو ألغي اشتراكي؟" to
+                "يمكنك إدارة الاشتراك وإلغاء التجديد التلقائي من قسم الاشتراكات داخل Google Play. يستمر اشتراكك حتى نهاية الفترة المدفوعة.",
         )
     } else {
         listOf(
-            "What happens at the limit?" to "The server blocks the new action and shows a clear limit state with a plans button.",
-            "When does usage reset?" to "Document and AI usage reset at the beginning of each UTC month.",
-            "Can I change or cancel?" to "Upgrade and cancellation will be handled through Google Play once purchase products are active.",
-            "What happens after downgrade?" to "Your data stays. You can view and edit existing records, but new additions follow the current plan limit.",
-            "Can I start free?" to "Yes. Free is available without payment and covers the core workflow.",
+            "When do usage limits reset?" to
+                "Document and AI limits reset monthly based on your subscription start date. Annual plans are billed yearly, while usage limits still reset every month based on that start date.",
+            "Do unused limits roll over?" to
+                "No. Every monthly cycle starts with the plan's full allowance, and unused limits are not added to the next cycle.",
+            "What happens when I upgrade?" to
+                "The new plan is activated after Google Play confirms the purchase. Your limits increase immediately without resetting your current usage.",
+            "What happens when I reach a limit?" to
+                "New actions for the exhausted allowance are blocked, while your existing data and documents remain available to view.",
+            "What happens when I cancel or my subscription expires?" to
+                "Your paid plan remains active until the end of the paid period. After that, the account returns to Free and new actions follow Free limits.",
+            "I paid, but my plan did not appear. What should I do?" to
+                "The app refreshes your plan automatically after payment. If it still does not appear, use Sync subscription in account settings. This does not charge you again.",
+            "Will I lose my data when the subscription ends?" to
+                "No. Your documents, customers, and products remain saved. New actions follow the limits of your current plan.",
+            "How do I manage or cancel my subscription?" to
+                "Manage the subscription or turn off auto-renewal in Google Play subscriptions. Your paid access continues until the end of the paid period.",
         )
     }
+    var expandedIndex by remember { mutableStateOf<Int?>(null) }
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(
@@ -2029,16 +2247,48 @@ private fun PricingFaqSection(isArabic: Boolean) {
             fontSize = 22.sp,
             fontWeight = FontWeight.Black,
         )
-        items.forEach { (question, answer) ->
+        items.forEachIndexed { index, (question, answer) ->
+            val expanded = expandedIndex == index
             Card(
                 shape = RoundedCornerShape(22.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        expandedIndex = if (expanded) null else index
+                    },
             ) {
-                Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(question, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                    Text(answer, color = MaterialTheme.colorScheme.onSurfaceVariant, lineHeight = 21.sp)
+                Column(
+                    modifier = Modifier.padding(18.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = question,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 15.sp,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Icon(
+                            imageVector = Icons.Filled.KeyboardArrowDown,
+                            contentDescription = null,
+                            modifier = Modifier.rotate(if (expanded) 180f else 0f),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+
+                    if (expanded) {
+                        Text(
+                            text = answer,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            lineHeight = 21.sp,
+                        )
+                    }
                 }
             }
         }

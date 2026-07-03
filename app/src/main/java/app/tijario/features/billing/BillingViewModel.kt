@@ -3,8 +3,11 @@ package app.tijario.features.billing
 import android.app.Activity
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -13,23 +16,46 @@ class BillingViewModel(
     private val repository: GooglePlayBillingRepository,
 ) : ViewModel() {
     private val stateMutable = MutableStateFlow(BillingUiState(isLoading = true))
+    private val effectsMutable = MutableSharedFlow<BillingUiEffect>(extraBufferCapacity = 4)
+
     val state: StateFlow<BillingUiState> = stateMutable.asStateFlow()
+    val effects: SharedFlow<BillingUiEffect> = effectsMutable.asSharedFlow()
 
     init {
         viewModelScope.launch {
             repository.purchaseEvents.collect { event ->
                 when (event) {
-                    BillingPurchaseEvent.Verified -> {
+                    is BillingPurchaseEvent.Verified -> {
                         stateMutable.update {
                             it.copy(
                                 isPurchasing = false,
                                 isRestoring = false,
-                                successMessage = "billing_purchase_verified",
+                                successMessage = null,
                                 errorMessage = null,
                             )
                         }
+
+                        when (event.source) {
+                            BillingVerificationSource.PURCHASE -> {
+                                effectsMutable.emit(
+                                    BillingUiEffect.PurchaseVerified(
+                                        expectedPlanCode = event.planCode,
+                                    )
+                                )
+                            }
+
+                            BillingVerificationSource.SYNC -> {
+                                effectsMutable.emit(
+                                    BillingUiEffect.SubscriptionSynced(
+                                        expectedPlanCode = event.planCode,
+                                    )
+                                )
+                            }
+                        }
+
                         load()
                     }
+
                     BillingPurchaseEvent.Pending -> {
                         stateMutable.update {
                             it.copy(
@@ -40,6 +66,7 @@ class BillingViewModel(
                             )
                         }
                     }
+
                     BillingPurchaseEvent.Cancelled -> {
                         stateMutable.update {
                             it.copy(
@@ -50,6 +77,7 @@ class BillingViewModel(
                             )
                         }
                     }
+
                     is BillingPurchaseEvent.Failed -> {
                         stateMutable.update {
                             it.copy(
@@ -67,7 +95,13 @@ class BillingViewModel(
 
     fun selectInterval(interval: String) {
         if (interval !in BillingCatalog.supportedIntervals) return
-        stateMutable.update { it.copy(selectedInterval = interval, errorMessage = null, successMessage = null) }
+        stateMutable.update {
+            it.copy(
+                selectedInterval = interval,
+                errorMessage = null,
+                successMessage = null,
+            )
+        }
     }
 
     fun load() {
@@ -98,7 +132,13 @@ class BillingViewModel(
     fun purchase(activity: Activity, userId: String, planCode: String) {
         val interval = stateMutable.value.selectedInterval
         viewModelScope.launch {
-            stateMutable.update { it.copy(isPurchasing = true, errorMessage = null, successMessage = null) }
+            stateMutable.update {
+                it.copy(
+                    isPurchasing = true,
+                    errorMessage = null,
+                    successMessage = null,
+                )
+            }
             repository.launchPurchase(activity, userId, planCode, interval)
                 .onFailure { error ->
                     stateMutable.update {
@@ -113,7 +153,13 @@ class BillingViewModel(
 
     fun restorePurchases() {
         viewModelScope.launch {
-            stateMutable.update { it.copy(isRestoring = true, errorMessage = null, successMessage = null) }
+            stateMutable.update {
+                it.copy(
+                    isRestoring = true,
+                    errorMessage = null,
+                    successMessage = null,
+                )
+            }
             repository.restorePurchases()
                 .onFailure { error ->
                     stateMutable.update {
