@@ -42,7 +42,14 @@ internal fun isTemplateAvailableForSelection(
     isEntitlementLoaded: Boolean,
     allowedTemplateIds: Collection<String>,
     templateId: String,
-): Boolean = isEntitlementLoaded && allowedTemplateIds.contains(templateId)
+): Boolean {
+    if (!isEntitlementLoaded) return false
+
+    val normalizedTemplateId = DocumentTemplateRegistry.normalizeIdOrNull(templateId) ?: return false
+    val normalizedAllowedTemplateIds = allowedTemplateIds.mapNotNull { DocumentTemplateRegistry.normalizeIdOrNull(it) }.toSet()
+
+    return normalizedAllowedTemplateIds.contains(normalizedTemplateId)
+}
 
 @Composable
 fun DocumentTemplatePicker(

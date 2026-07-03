@@ -7,6 +7,9 @@ object DocumentTemplateRegistry {
     const val defaultTemplateId: String = "tijario-classic"
 
     private val legacyAliases = mapOf(
+        "classic" to defaultTemplateId,
+        "modern" to "tijario-modern",
+        "minimal" to "tijario-minimal",
         "tijario-basic" to defaultTemplateId,
         "basic/teal" to defaultTemplateId,
         "modern/teal" to "tijario-modern",
@@ -71,6 +74,13 @@ object DocumentTemplateRegistry {
 
     fun normalizeId(id: String?): String =
         legacyAliases[id] ?: id?.takeIf { templates.any { template -> template.id == it } } ?: defaultTemplateId
+
+    fun normalizeIdOrNull(id: String?): String? {
+        val candidate = id?.trim().orEmpty()
+        if (candidate.isBlank()) return null
+        return legacyAliases[candidate]
+            ?: candidate.takeIf { templates.any { template -> template.id == it } }
+    }
 
     private fun template(
         id: String,

@@ -1880,6 +1880,84 @@ fun DocumentFormScreen(
         }
     }
 
+    fun submitDocument() {
+        if (isLoading) return
+        if (form.customerId == null) {
+            android.widget.Toast.makeText(context, Localization.getString("select_customer_first", language), android.widget.Toast.LENGTH_LONG).show()
+            return
+        }
+        if (form.items.isEmpty()) {
+            android.widget.Toast.makeText(context, Localization.getString("add_one_item_min", language), android.widget.Toast.LENGTH_LONG).show()
+            return
+        }
+        if (!form.items.all { it.isValid }) {
+            android.widget.Toast.makeText(context, Localization.getString("enter_item_details_correctly", language), android.widget.Toast.LENGTH_LONG).show()
+            return
+        }
+
+        scope.launch {
+            try {
+                isLoading = true
+                submitError = null
+                val req = app.tijario.data.remote.CreateDocumentRequest(
+                    type = type,
+                    paymentStatus = if (type == app.tijario.data.model.DocumentType.Invoice) form.paymentStatus else null,
+                    amountPaid = if (type == app.tijario.data.model.DocumentType.Invoice && form.paymentStatus == "partial") Validation.parseNonNegativeMoney(form.amountPaid) else null,
+                    customer = app.tijario.data.remote.DocumentCustomerInput(
+                        name = form.customerName,
+                        whatsappNumber = form.customerWhatsapp,
+                        city = form.customerCity,
+                    ),
+                    items = form.items.map { itm ->
+                        app.tijario.data.remote.DocumentItemInput(
+                            name = itm.name,
+                            productId = itm.productId,
+                            description = itm.description.ifBlank { null },
+                            quantity = Validation.parsePositiveInt(itm.quantity) ?: throw IllegalArgumentException("invalid quantity"),
+                            unitPrice = Validation.parseNonNegativeMoney(itm.unitPrice) ?: throw IllegalArgumentException("invalid price")
+                        )
+                    },
+                    discount = Validation.parseNonNegativeMoney(form.discount) ?: 0.0,
+                    extraFees = Validation.parseNonNegativeMoney(form.extraFees) ?: 0.0,
+                    notes = form.notes.ifBlank { null },
+                    termsText = form.terms.ifBlank { null },
+                    currency = form.currency,
+                    templateId = selectedTemplateId,
+                )
+                val result = if (editDocumentId != null) {
+                    dataViewModel.updateDocument(editDocumentId, req)
+                } else {
+                    dataViewModel.createDocument(req)
+                }
+                if (result.ok) {
+                    val savedDocumentId = result.data?.documentId
+                    if (savedDocumentId.isNullOrBlank()) {
+                        onBack()
+                    } else {
+                        app.tijario.features.documents.pdf.PdfCacheManager(context).invalidate(savedDocumentId)
+                        dataViewModel.upsertDocumentMetadata(
+                            app.tijario.data.local.LocalDocumentMetadataEntity(
+                                documentId = savedDocumentId,
+                                currency = form.currency,
+                                signatureData = form.signatureData.takeIf { it.isNotEmpty() },
+                                paymentMethod = form.paymentMethod.takeIf { it.isNotEmpty() },
+                                taxRate = Validation.parseNonNegativeMoney(form.finalTaxRate) ?: 0.0,
+                                taxName = form.finalTaxName.ifBlank { "Tax" }
+                            )
+                        )
+                        onDocumentSaved(savedDocumentId)
+                    }
+                } else {
+                    submitError = result.displayMessage
+                }
+            } catch (e: Exception) {
+                submitError = e.message ?: Localization.getString("error_save_doc_now", language)
+            } finally {
+                isLoading = false
+            }
+        }
+    }
+
     // Sync selected customer
     LaunchedEffect(selectedCustomer) {
         selectedCustomer?.let {
@@ -1994,131 +2072,7 @@ fun DocumentFormScreen(
         },
         bottomBar = {
             if (!isLoadingDocument) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(MaterialTheme.colorScheme.background)
-                        .navigationBarsPadding(),
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        OutlinedButton(
-                            onClick = {
-                                if (selectedTab == 1) {
-                                    selectedTab = 0
-                                } else {
-                                    selectedTab = 1
-                                }
-                            },
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(48.dp),
-                            shape = RoundedCornerShape(12.dp),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
-                        ) {
-                            val btnText = if (selectedTab == 1) t("edit") else t("btn_preview")
-                            Text(btnText, fontWeight = FontWeight.Bold)
-                        }
-
-                         Button(
-                            onClick = {
-                                if (isLoading) return@Button
-                                if (form.customerId == null) {
-                                    android.widget.Toast.makeText(context, Localization.getString("select_customer_first", language), android.widget.Toast.LENGTH_LONG).show()
-                                    return@Button
-                                }
-                                if (form.items.isEmpty()) {
-                                    android.widget.Toast.makeText(context, Localization.getString("add_one_item_min", language), android.widget.Toast.LENGTH_LONG).show()
-                                    return@Button
-                                }
-                                if (!form.items.all { it.isValid }) {
-                                    android.widget.Toast.makeText(context, Localization.getString("enter_item_details_correctly", language), android.widget.Toast.LENGTH_LONG).show()
-                                    return@Button
-                                }
-
-                                scope.launch {
-                                    try {
-                                        isLoading = true
-                                        submitError = null
-                                        val req = app.tijario.data.remote.CreateDocumentRequest(
-                                            type = type,
-                                            paymentStatus = if (type == app.tijario.data.model.DocumentType.Invoice) form.paymentStatus else null,
-                                            amountPaid = if (type == app.tijario.data.model.DocumentType.Invoice && form.paymentStatus == "partial") Validation.parseNonNegativeMoney(form.amountPaid) else null,
-                                            customer = app.tijario.data.remote.DocumentCustomerInput(
-                                                name = form.customerName,
-                                                whatsappNumber = form.customerWhatsapp,
-                                                city = form.customerCity,
-                                            ),
-                                            items = form.items.map { itm ->
-                                                app.tijario.data.remote.DocumentItemInput(
-                                                    name = itm.name,
-                                                    productId = itm.productId,
-                                                    description = itm.description.ifBlank { null },
-                                                    quantity = Validation.parsePositiveInt(itm.quantity) ?: throw IllegalArgumentException("invalid quantity"),
-                                                    unitPrice = Validation.parseNonNegativeMoney(itm.unitPrice) ?: throw IllegalArgumentException("invalid price")
-                                                )
-                                            },
-                                            discount = Validation.parseNonNegativeMoney(form.discount) ?: 0.0,
-                                            extraFees = Validation.parseNonNegativeMoney(form.extraFees) ?: 0.0,
-                                            notes = form.notes.ifBlank { null },
-                                            termsText = form.terms.ifBlank { null },
-                                            currency = form.currency,
-                                            templateId = selectedTemplateId,
-                                        )
-                                        val result = if (editDocumentId != null) {
-                                            dataViewModel.updateDocument(editDocumentId, req)
-                                        } else {
-                                            dataViewModel.createDocument(req)
-                                        }
-                                        if (result.ok) {
-                                            val savedDocumentId = result.data?.documentId
-                                            if (savedDocumentId.isNullOrBlank()) {
-                                                onBack()
-                                            } else {
-                                                app.tijario.features.documents.pdf.PdfCacheManager(context).invalidate(savedDocumentId)
-                                                dataViewModel.upsertDocumentMetadata(
-                                                    app.tijario.data.local.LocalDocumentMetadataEntity(
-                                                        documentId = savedDocumentId,
-                                                        currency = form.currency,
-                                                        signatureData = form.signatureData.takeIf { it.isNotEmpty() },
-                                                        paymentMethod = form.paymentMethod.takeIf { it.isNotEmpty() },
-                                                        taxRate = Validation.parseNonNegativeMoney(form.finalTaxRate) ?: 0.0,
-                                                        taxName = form.finalTaxName.ifBlank { "Tax" }
-                                                    )
-                                                )
-                                                onDocumentSaved(savedDocumentId)
-                                            }
-                                        } else {
-                                            submitError = result.displayMessage
-                                        }
-                                    } catch (e: Exception) {
-                                        submitError = e.message ?: Localization.getString("error_save_doc_now", language)
-                                    } finally {
-                                        isLoading = false
-                                    }
-                                }
-                            },
-                            enabled = !isLoading,
-                            modifier = Modifier
-                                .weight(2.5f)
-                                .height(48.dp),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                        ) {
-                            if (isLoading) {
-                                CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
-                            } else {
-                                Text(t("btn_save"), fontWeight = FontWeight.Bold, color = Color.White)
-                            }
-                        }
-                    }
-                }
+                Spacer(modifier = Modifier.height(0.dp))
             }
         }
     ) { paddingValues ->
@@ -2787,6 +2741,44 @@ fun DocumentFormScreen(
                                 Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 8.dp, bottom = 2.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            OutlinedButton(
+                                onClick = {
+                                    selectedTab = 1
+                                },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(46.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
+                            ) {
+                                Text(t("btn_preview"), fontWeight = FontWeight.Bold)
+                            }
+
+                            Button(
+                                onClick = { submitDocument() },
+                                enabled = !isLoading,
+                                modifier = Modifier
+                                    .weight(1.6f)
+                                    .height(46.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                            ) {
+                                if (isLoading) {
+                                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(22.dp))
+                                } else {
+                                    Text(t("btn_save"), fontWeight = FontWeight.Bold, color = Color.White)
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -2891,6 +2883,44 @@ fun DocumentFormScreen(
                             templateId = template.id,
                             modifier = Modifier.fillMaxSize(),
                         )
+                    }
+                }
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp, bottom = 2.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    OutlinedButton(
+                        onClick = {
+                            selectedTab = 0
+                        },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(46.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
+                    ) {
+                        Text(t("edit"), fontWeight = FontWeight.Bold)
+                    }
+
+                    Button(
+                        onClick = { submitDocument() },
+                        enabled = !isLoading,
+                        modifier = Modifier
+                            .weight(1.6f)
+                            .height(46.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                    ) {
+                        if (isLoading) {
+                            CircularProgressIndicator(color = Color.White, modifier = Modifier.size(22.dp))
+                        } else {
+                            Text(t("btn_save"), fontWeight = FontWeight.Bold, color = Color.White)
+                        }
                     }
                 }
             }
