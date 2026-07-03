@@ -110,7 +110,6 @@ import app.tijario.MainActivity
 import app.tijario.config.Supabase
 import app.tijario.config.t
 import app.tijario.data.remote.BillingPlanDto
-import app.tijario.data.remote.ResetPasswordRequest
 import app.tijario.features.billing.BillingCatalog
 import app.tijario.features.billing.BillingUiState
 import app.tijario.features.billing.BillingUiEffect
@@ -290,9 +289,6 @@ fun AccountSettingsScreen(
     val nameUpdateFailedMsg = t("name_update_failed")
     val savingMsg = t("saving")
     val btnSaveMsg = t("btn_save")
-    val sendingPasswordLinkMsg = t("sending_password_link")
-    val passwordResetSentMsg = t("password_reset_link_sent")
-    val passwordResetFailedMsg = t("password_reset_link_failed")
     val scope = rememberCoroutineScope()
     var email by remember { mutableStateOf("") }
     var profileFullName by remember { mutableStateOf("") }
@@ -300,7 +296,6 @@ fun AccountSettingsScreen(
     var editNameValue by remember { mutableStateOf("") }
     var editNameError by remember { mutableStateOf<String?>(null) }
     var isSavingName by remember { mutableStateOf(false) }
-    var isPasswordResetLoading by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val language = LocalLanguage.current
     val subscriptionBillingViewModel: BillingViewModel = viewModel(
@@ -323,6 +318,7 @@ fun AccountSettingsScreen(
     val profilePicFile = remember { File(context.filesDir, "personal_profile_pic.jpg") }
     var profilePicBitmap by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
+    var showChangePasswordDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         email = Supabase.client.auth.currentUserOrNull()?.email.orEmpty()
@@ -486,6 +482,14 @@ fun AccountSettingsScreen(
             }
         )
     }
+
+    ChangePasswordDialog(
+        visible = showChangePasswordDialog,
+        onDismiss = { showChangePasswordDialog = false },
+        onSuccess = { message ->
+            scope.launch { snackbarHostState.showSnackbar(message) }
+        },
+    )
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -682,21 +686,7 @@ fun AccountSettingsScreen(
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable(enabled = !isPasswordResetLoading) {
-                        scope.launch {
-                            if (email.isBlank()) {
-                                snackbarHostState.showSnackbar(noEmailMsg)
-                            } else {
-                                isPasswordResetLoading = true
-                                try {
-                                    val result = Supabase.apiClient.requestPasswordReset(ResetPasswordRequest(email))
-                                    snackbarHostState.showSnackbar(if (result.ok) passwordResetSentMsg else passwordResetFailedMsg)
-                                } finally {
-                                    isPasswordResetLoading = false
-                                }
-                            }
-                        }
-                    },
+                    .clickable { showChangePasswordDialog = true },
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
@@ -720,18 +710,8 @@ fun AccountSettingsScreen(
                             }
                         }
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                if (isPasswordResetLoading) sendingPasswordLinkMsg else t("change_password"),
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp,
-                            )
+                            Text(t("change_password"), fontWeight = FontWeight.Bold, fontSize = 14.sp)
                             Text(t("update_password_desc"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
-                        }
-                        if (isPasswordResetLoading) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(18.dp),
-                                strokeWidth = 2.dp
-                            )
                         }
                     }
                 }
