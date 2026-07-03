@@ -86,6 +86,9 @@ class BackendApiClient(
     suspend fun requestPasswordReset(request: ResetPasswordRequest): ApiResult<ResetPasswordResponse> =
         publicPost("api/mobile/auth/reset-password", request).decodeApiResult()
 
+    suspend fun changePassword(request: ChangePasswordRequest): ApiResult<ChangePasswordResponse> =
+        authorizedPost("api/mobile/account/change-password", request).decodeApiResult()
+
     suspend fun deleteAccount(): ApiResult<Unit> =
         authorizedPostNoBody("api/mobile/account/delete").decodeApiResult()
 

@@ -91,6 +91,7 @@ import app.tijario.ui.screens.ProductsScreen
 import app.tijario.ui.screens.ProductFormScreen
 import app.tijario.ui.screens.AccountSettingsScreen
 import app.tijario.ui.screens.AppSettingsScreen
+import app.tijario.ui.screens.ChangePasswordScreen
 import app.tijario.ui.screens.IntroWalkthroughScreen
 import app.tijario.ui.screens.DocumentDetailScreen
 import app.tijario.ui.screens.SettingsHomeScreen
@@ -790,7 +791,8 @@ fun TijarioApp() {
                         },
                         onBack = {
                             navController.popBackStack()
-                        }
+                        },
+                        onChangePassword = { navController.navigate("change-password") },
                     )
                 }
                 composable("settings") {
@@ -827,6 +829,7 @@ fun TijarioApp() {
                     AccountSettingsScreen(
                         dataViewModel = dataViewModel,
                         onBack = { navController.popBackStack() },
+                        onChangePassword = { navController.navigate("change-password") },
                         onLogout = { authViewModel.logout() },
                         onDeleteAccount = {
                             val userId = dataViewModel.currentUserId() ?: ""
@@ -841,6 +844,11 @@ fun TijarioApp() {
                                 Result.failure(Exception(res.message ?: "Failed to delete account"))
                             }
                         }
+                    )
+                }
+                composable("change-password") {
+                    ChangePasswordScreen(
+                        onBack = { navController.popBackStack() },
                     )
                 }
                 composable("app-settings") {

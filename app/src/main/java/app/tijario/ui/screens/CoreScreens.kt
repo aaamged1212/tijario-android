@@ -2541,6 +2541,7 @@ fun AccountScreen(
     dataViewModel: TijarioDataViewModel,
     onLogout: () -> Unit,
     onBack: () -> Unit,
+    onChangePassword: () -> Unit = {},
 ) {
     val language = LocalLanguage.current
     var selectedTab by remember { mutableStateOf(0) } // 0 = Store, 1 = Personal
@@ -2674,27 +2675,7 @@ fun AccountScreen(
                     email = currentUserEmail,
                     name = currentUserName,
                     onLogout = onLogout,
-                    onChangePassword = {
-                        scope.launch {
-                            if (currentUserEmail.isBlank()) {
-                                snackbarHostState.showSnackbar(Localization.getString("no_email_associated", language))
-                                return@launch
-                            }
-
-                            try {
-                                val result = app.tijario.config.Supabase.apiClient.requestPasswordReset(
-                                    app.tijario.data.remote.ResetPasswordRequest(email = currentUserEmail, source = "android")
-                                )
-                                if (result.ok) {
-                                    snackbarHostState.showSnackbar(Localization.getString("password_reset_link_sent", language))
-                                } else {
-                                    snackbarHostState.showSnackbar(result.displayMessage)
-                                }
-                            } catch (e: Exception) {
-                                snackbarHostState.showSnackbar(Localization.getString("password_reset_link_failed", language))
-                            }
-                        }
-                    },
+                    onChangePassword = onChangePassword,
                 )
             }
 

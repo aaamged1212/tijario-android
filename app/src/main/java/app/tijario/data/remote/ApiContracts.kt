@@ -352,6 +352,18 @@ data class ResetPasswordResponse(
 )
 
 @Serializable
+data class ChangePasswordRequest(
+    @SerialName("current_password") val currentPassword: String,
+    @SerialName("new_password") val newPassword: String,
+    @SerialName("confirm_password") val confirmPassword: String,
+)
+
+@Serializable
+data class ChangePasswordResponse(
+    val updated: Boolean = false,
+)
+
+@Serializable
 data class AnnouncementDto(
     val id: String,
     @SerialName("title_ar") val titleAr: String,
