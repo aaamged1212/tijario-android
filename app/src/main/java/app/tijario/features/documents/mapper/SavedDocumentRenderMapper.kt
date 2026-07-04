@@ -20,6 +20,7 @@ object SavedDocumentRenderMapper {
         language: AppLanguage = AppLanguage.AR,
         templateId: String = DocumentTemplateRegistry.defaultTemplateId,
         metadata: app.tijario.data.local.LocalDocumentMetadataEntity? = null,
+        showTijarioBranding: Boolean = true,
     ): DocumentRenderModel {
         require(document.id.isNotBlank()) { "Missing document ID" }
         require(document.documentNumber.isNotBlank()) { "Missing document number" }
@@ -102,6 +103,7 @@ object SavedDocumentRenderMapper {
             signatureData = metadata?.signatureData,
             paymentMethod = metadata?.paymentMethod,
             documentTitle = if (document.type == DocumentType.Invoice) "Online Orders" else "عرض سعر",
+            showTijarioBranding = showTijarioBranding,
         )
     }
 }

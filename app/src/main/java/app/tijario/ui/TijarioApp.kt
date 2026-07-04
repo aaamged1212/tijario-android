@@ -109,6 +109,7 @@ import app.tijario.features.notifications.NotificationsViewModel
 import app.tijario.features.notifications.NotificationsViewModelFactory
 import app.tijario.features.notifications.StartupAnnouncementDialog
 import app.tijario.config.AppPreferences
+import app.tijario.domain.LocalizedErrorMapper
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -866,7 +867,7 @@ fun TijarioApp() {
             val errorMessage = when (state.message) {
                 "فشل فحص حالة الجلسة" -> t("error_session_check_failed")
                 "حدث خطأ أثناء فحص البيانات بعد التحقق." -> t("error_after_verification_check")
-                else -> state.message
+                else -> LocalizedErrorMapper.map(null, state.message, MainActivity.currentLanguage)
             }
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Column(

@@ -120,6 +120,7 @@ data class UserPlanUsage(
     val productsLimit: Int? = null,
     val resetAt: String? = null,
     val allowedTemplateIds: List<String> = emptyList(),
+    val removeTijarioBranding: Boolean = false,
 )
 
 @Serializable

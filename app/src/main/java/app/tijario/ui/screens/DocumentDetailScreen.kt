@@ -73,6 +73,7 @@ import app.tijario.features.documents.template.DocumentTemplateRegistry
 import app.tijario.features.documents.ui.DocumentExportSheet
 import app.tijario.features.documents.ui.DocumentTemplatePicker
 import app.tijario.features.documents.ui.DocumentTemplatePreferences
+import app.tijario.domain.LocalizedErrorMapper
 import app.tijario.ui.state.TijarioDataViewModel
 import kotlinx.coroutines.launch
 
@@ -111,11 +112,11 @@ fun DocumentDetailScreen(
             if (document != null) {
                 documentMetadata = dataViewModel.getDocumentMetadata(documentId)
             }
-            errorMessage = result.exceptionOrNull()?.message ?: if (document == null) {
-                Localization.getString("error_load_doc_detail", language)
-            } else {
-                null
-            }
+            errorMessage = LocalizedErrorMapper.map(
+                null,
+                result.exceptionOrNull()?.message,
+                language,
+            ).takeIf { document == null }
             isLoading = false
         }
     }
@@ -189,6 +190,7 @@ fun DocumentDetailScreen(
                             language = mappedLang,
                             templateId = selectedTemplateId,
                             metadata = documentMetadata,
+                            showTijarioBranding = planUsage?.removeTijarioBranding?.not() ?: true,
                         )
                     }
 

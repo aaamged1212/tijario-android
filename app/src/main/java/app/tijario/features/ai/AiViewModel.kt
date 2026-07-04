@@ -3,15 +3,18 @@ package app.tijario.features.ai
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import app.tijario.MainActivity
+import app.tijario.config.AppLanguage
+import app.tijario.config.Localization
 import app.tijario.data.remote.AiV3CaptionRequest
 import app.tijario.data.remote.AiV3ReplyRequest
 import app.tijario.data.remote.AiV3ReportRequest
 import app.tijario.data.remote.AiV3RefineRequest
 import app.tijario.data.remote.AiV3ResponseData
+import app.tijario.domain.LocalizedErrorMapper
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.io.IOException
 import java.util.UUID
@@ -56,13 +59,17 @@ class AiViewModel(
                             stateMutable.value = AiV3ScreenState.Success("reply", data)
                             onSuccess()
                         }
+
                         response.code == "ai_limit_reached" -> {
-                            stateMutable.value = AiV3ScreenState.LimitReached(response.message ?: "تم الوصول إلى حد استخدام الذكاء الاصطناعي.")
+                            stateMutable.value = AiV3ScreenState.LimitReached(localizedAiLimitReached())
                         }
-                        else -> stateMutable.value = AiV3ScreenState.Error(response.message ?: "تعذر توليد الرد الآن.")
+
+                        else -> stateMutable.value = AiV3ScreenState.Error(localizedReplyError())
                     }
                 }
-                .onFailure { error -> stateMutable.value = mapFailure(error, "تعذر توليد الرد الآن.") }
+                .onFailure { error ->
+                    stateMutable.value = mapFailure(error, localizedReplyError())
+                }
         }
     }
 
@@ -77,13 +84,17 @@ class AiViewModel(
                             stateMutable.value = AiV3ScreenState.Success("caption", data)
                             onSuccess()
                         }
+
                         response.code == "ai_limit_reached" -> {
-                            stateMutable.value = AiV3ScreenState.LimitReached(response.message ?: "تم الوصول إلى حد استخدام الذكاء الاصطناعي.")
+                            stateMutable.value = AiV3ScreenState.LimitReached(localizedAiLimitReached())
                         }
-                        else -> stateMutable.value = AiV3ScreenState.Error(response.message ?: "تعذر توليد الكابشن الآن.")
+
+                        else -> stateMutable.value = AiV3ScreenState.Error(localizedCaptionError())
                     }
                 }
-                .onFailure { error -> stateMutable.value = mapFailure(error, "تعذر توليد الكابشن الآن.") }
+                .onFailure { error ->
+                    stateMutable.value = mapFailure(error, localizedCaptionError())
+                }
         }
     }
 
@@ -113,14 +124,16 @@ class AiViewModel(
                             stateMutable.value = AiV3ScreenState.Success(previous.generationType, data)
                             onSuccess()
                         }
+
                         response.code == "ai_limit_reached" -> {
-                            stateMutable.value = AiV3ScreenState.LimitReached(response.message ?: "تم الوصول إلى حد استخدام الذكاء الاصطناعي.")
+                            stateMutable.value = AiV3ScreenState.LimitReached(localizedAiLimitReached())
                         }
-                        else -> stateMutable.value = previous.copy(notice = response.message ?: "تعذر تحسين النص الآن.")
+
+                        else -> stateMutable.value = previous.copy(notice = localizedRefineError())
                     }
                 }
                 .onFailure { error ->
-                    stateMutable.value = previous.copy(notice = failureMessage(error, "تعذر تحسين النص الآن."))
+                    stateMutable.value = previous.copy(notice = failureMessage(error, localizedRefineError()))
                 }
         }
     }
@@ -145,25 +158,66 @@ class AiViewModel(
             runCatching { repository.report(request) }
                 .onSuccess { response ->
                     stateMutable.value = previous.copy(
-                        notice = if (response.ok) response.message ?: "تم إرسال البلاغ." else response.message ?: "تعذر إرسال البلاغ.",
+                        notice = if (response.ok) localizedReportSuccess() else localizedReportError(),
                     )
                     onDone()
                 }
                 .onFailure { error ->
-                    stateMutable.value = previous.copy(notice = failureMessage(error, "تعذر إرسال البلاغ."))
+                    stateMutable.value = previous.copy(notice = failureMessage(error, localizedReportError()))
                 }
         }
     }
 
     private fun mapFailure(error: Throwable, fallback: String): AiV3ScreenState =
         if (error is IOException) {
-            AiV3ScreenState.Offline("الميزة تحتاج اتصال بالإنترنت. تحقق من الشبكة وحاول مرة أخرى.")
+            AiV3ScreenState.Offline(localizedOfflineMessage())
         } else {
             AiV3ScreenState.Error(failureMessage(error, fallback))
         }
 
-    private fun failureMessage(error: Throwable, fallback: String): String =
-        error.message?.takeIf { it.isNotBlank() } ?: fallback
+    private fun failureMessage(error: Throwable, fallback: String): String {
+        val mapped = LocalizedErrorMapper.map(null, error.message, MainActivity.currentLanguage)
+        return mapped.takeIf { it.isNotBlank() } ?: fallback
+    }
+
+    private fun localizedAiLimitReached(): String =
+        Localization.getString("ai_limit_reached", MainActivity.currentLanguage)
+
+    private fun localizedReplyError(): String = if (MainActivity.currentLanguage == AppLanguage.AR) {
+        "تعذر توليد الرد الآن."
+    } else {
+        "Could not generate the reply right now."
+    }
+
+    private fun localizedCaptionError(): String = if (MainActivity.currentLanguage == AppLanguage.AR) {
+        "تعذر توليد الكابشن الآن."
+    } else {
+        "Could not generate the caption right now."
+    }
+
+    private fun localizedRefineError(): String = if (MainActivity.currentLanguage == AppLanguage.AR) {
+        "تعذر تحسين النص الآن."
+    } else {
+        "Could not refine the text right now."
+    }
+
+    private fun localizedReportError(): String = if (MainActivity.currentLanguage == AppLanguage.AR) {
+        "تعذر إرسال البلاغ."
+    } else {
+        "Could not send the report."
+    }
+
+    private fun localizedReportSuccess(): String = if (MainActivity.currentLanguage == AppLanguage.AR) {
+        "تم إرسال البلاغ."
+    } else {
+        "Report sent."
+    }
+
+    private fun localizedOfflineMessage(): String = if (MainActivity.currentLanguage == AppLanguage.AR) {
+        "الميزة تحتاج اتصالًا بالإنترنت. تحقق من الشبكة وحاول مرة أخرى."
+    } else {
+        "This feature needs an internet connection. Check your network and try again."
+    }
 }
 
 class AiViewModelFactory(

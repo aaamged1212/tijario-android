@@ -1,6 +1,8 @@
 package app.tijario.data.remote
 
 import app.tijario.data.model.DocumentType
+import app.tijario.config.AppLanguage
+import app.tijario.domain.LocalizedErrorMapper
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -14,6 +16,9 @@ data class ApiResult<T>(
     val displayMessage: String
         get() = message ?: "حدث خطأ غير متوقع. حاول مرة أخرى."
 }
+
+fun ApiResult<*>.localizedDisplayMessage(language: AppLanguage): String =
+    LocalizedErrorMapper.map(code = code, message = message, language = language)
 
 @Serializable
 data class DocumentItemInput(

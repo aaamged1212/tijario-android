@@ -109,6 +109,7 @@ import app.tijario.config.Localization
 import app.tijario.MainActivity
 import app.tijario.config.Supabase
 import app.tijario.config.t
+import app.tijario.domain.LocalizedErrorMapper
 import app.tijario.data.remote.BillingPlanDto
 import app.tijario.features.billing.BillingCatalog
 import app.tijario.features.billing.BillingUiState
@@ -399,7 +400,9 @@ fun AccountSettingsScreen(
                                 showDeleteConfirm = false
                                 onLogout()
                             } else {
-                                snackbarHostState.showSnackbar(result.exceptionOrNull()?.message ?: unexpectedErrorMsg)
+                                snackbarHostState.showSnackbar(
+                                    LocalizedErrorMapper.map(null, result.exceptionOrNull()?.message, language)
+                                )
                             }
                         }
                     }

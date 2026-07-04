@@ -39,9 +39,10 @@ fun ModernDocumentPreview(
     businessSettings: BusinessSettings?,
     customerCity: String?,
     templateId: String = DocumentTemplateRegistry.defaultTemplateId,
+    showTijarioBranding: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
-    val model = remember(documentType, form, businessSettings, customerCity, templateId) {
+    val model = remember(documentType, form, businessSettings, customerCity, templateId, showTijarioBranding) {
         val mappedLang = if (form.documentLanguage == "EN") AppLanguage.EN else AppLanguage.AR
         TijarioDocumentMapper.fromDraft(
             documentType = documentType,
@@ -50,6 +51,7 @@ fun ModernDocumentPreview(
             customerCity = customerCity,
             language = mappedLang,
             templateId = templateId,
+            showTijarioBranding = showTijarioBranding,
         )
     }
     var showFullScreenPreview by remember { mutableStateOf(false) }

@@ -88,7 +88,9 @@ class DocumentHtmlRenderer(
                 append("</div>")
                 append("<div style=\"clear: both;\"></div>")
             }
-            append("<footer class=\"footer\">${labels.footer}</footer>")
+            if (model.showTijarioBranding) {
+                append("<footer class=\"footer\">${labels.footer}</footer>")
+            }
             append("</main>")
         }
     }
@@ -124,6 +126,8 @@ class DocumentHtmlRenderer(
         val idClass = ".template-${template.id}"
         val visual = template.visual
         return buildString {
+            append("$idClass .logo{border-radius:50%;overflow:hidden;}\n")
+            append("$idClass .logo-image img{border-radius:50%;object-fit:cover;}\n")
             if (visual.itemTextBold) {
                 append("$idClass .item-name{font-weight:950;}\n")
             }
@@ -152,7 +156,6 @@ class DocumentHtmlRenderer(
                 append("$idClass .meta-card .label,$idClass .meta-card .value{color:#FFFFFF;}\n")
             }
             if (visual.styleFamily == 5) {
-                append("$idClass .logo{border-radius:50%;}\n")
                 append("$idClass .document-title{color:var(--title-text);}\n")
                 append("$idClass .meta-card,$idClass .party-card,$idClass .totals,$idClass .notes{border-radius:0;background:#FFFFFF;}\n")
             }

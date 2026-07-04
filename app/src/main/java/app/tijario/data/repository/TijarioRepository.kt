@@ -1119,6 +1119,7 @@ open class TijarioRepository(
                     productsLimit = usage.productLimit,
                     resetAt = usage.resetAt,
                     allowedTemplateIds = usage.allowedTemplateIds,
+                    removeTijarioBranding = usage.removeTijarioBranding,
                 )
                 val effectiveUsage = overlayLocalUsage(userId, baseUsage)
                 AppPreferences.setPlanUsage(context, userId, baseUsage)
@@ -1759,13 +1760,10 @@ open class TijarioRepository(
         val deviceId = android.os.Build.MODEL + "_" + android.os.Build.ID
         val pendingLedgers = dao.getPendingLedger(userId).size
         val lease = dao.getLease(userId, deviceId, periodMonth)
-        val cachedUsage = AppPreferences.getPlanUsage(context, userId)
         val available = when {
             lease != null && lease.expiresAt >= System.currentTimeMillis() ->
                 lease.allowedLimit - lease.consumedCount - pendingLedgers
-            cachedUsage != null ->
-                cachedUsage.documentsLimit - cachedUsage.documentsUsed - pendingLedgers
-            else -> throw IllegalStateException("QUOTA_LIMIT_EXCEEDED")
+            else -> Int.MAX_VALUE
         }
         if (available <= 0) {
             throw IllegalStateException("QUOTA_LIMIT_EXCEEDED")

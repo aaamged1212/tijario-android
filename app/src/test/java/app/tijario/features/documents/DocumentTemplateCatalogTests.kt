@@ -22,8 +22,10 @@ class DocumentTemplateCatalogTests {
         assertEquals("tijario-modern", DocumentTemplateRegistry.normalizeId("modern"))
         assertEquals("tijario-minimal", DocumentTemplateRegistry.normalizeId("minimal"))
         assertEquals("tijario-classic", DocumentTemplateRegistry.normalizeId("tijario-basic"))
+        assertEquals("tijario-classic", DocumentTemplateRegistry.normalizeId("basic/teal"))
         assertEquals("tijario-modern", DocumentTemplateRegistry.normalizeId("modern/teal"))
         assertEquals("tijario-minimal", DocumentTemplateRegistry.normalizeId("minimal/slate"))
+        assertEquals("tijario-classic", DocumentTemplateRegistry.normalizeId("tijario-invoice-maker"))
         assertEquals("tijario-classic", DocumentTemplateRegistry.normalizeId("unknown"))
     }
 

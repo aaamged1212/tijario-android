@@ -90,6 +90,7 @@ data class DocumentRenderModel(
     val signatureData: String? = null,
     val paymentMethod: String? = null,
     val documentTitle: String? = null,
+    val showTijarioBranding: Boolean = true,
 ) {
     val isRtl: Boolean get() = language == AppLanguage.AR
 }

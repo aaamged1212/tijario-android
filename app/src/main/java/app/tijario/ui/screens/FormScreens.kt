@@ -86,6 +86,8 @@ import app.tijario.domain.DocumentNumbering
 import app.tijario.domain.Validation
 import app.tijario.data.model.DocumentType
 import app.tijario.data.model.BusinessSettings
+import app.tijario.data.remote.localizedDisplayMessage
+import app.tijario.domain.LocalizedErrorMapper
 import app.tijario.features.documents.template.DocumentTemplateRegistry
 import app.tijario.features.documents.model.DocumentPartyInfo
 import app.tijario.features.documents.model.DocumentRenderItem
@@ -239,7 +241,7 @@ fun CustomerFormScreen(
                                     if (result.isSuccess) {
                                         onBack()
                                     } else {
-                                        errorMessage = result.exceptionOrNull()?.message
+                                        errorMessage = LocalizedErrorMapper.map(null, result.exceptionOrNull()?.message, language)
                                             ?: Localization.getString("save_customer_error", language)
                                     }
                                 } catch (e: Exception) {
@@ -647,7 +649,7 @@ fun ProductFormScreen(
                                         }
                                         onBack()
                                     } else {
-                                        errorMessage = result.exceptionOrNull()?.message
+                                        errorMessage = LocalizedErrorMapper.map(null, result.exceptionOrNull()?.message, language)
                                             ?: Localization.getString("save_product_error", language)
                                     }
                                 } catch (e: Exception) {
@@ -714,10 +716,10 @@ fun BusinessSettingsScreen(
                         dataViewModel.saveBusinessSettings(settings.copy(logoUrl = uploadedUrl))
                         dataViewModel.refreshAll()
                     } else {
-                        errorMessage = result.displayMessage
+                        errorMessage = result.localizedDisplayMessage(language)
                     }
                 } catch (e: Exception) {
-                    errorMessage = e.message ?: Localization.getString("logo_upload_error", language)
+                    errorMessage = LocalizedErrorMapper.map(null, e.message, language)
                 } finally {
                     isLogoUploading = false
                 }
@@ -1079,7 +1081,7 @@ fun BusinessSettingsScreen(
                             if (result.isSuccess) {
                                 onBack()
                             } else {
-                                errorMessage = result.exceptionOrNull()?.message
+                                errorMessage = LocalizedErrorMapper.map(null, result.exceptionOrNull()?.message, language)
                                     ?: Localization.getString("save_settings_error", language)
                             }
                         } catch (e: Exception) {
@@ -1833,6 +1835,7 @@ fun DocumentFormScreen(
     val uiState by dataViewModel.uiState.collectAsStateWithLifecycle()
     val isTemplateEntitlementLoaded = uiState.planUsage != null
     val allowedTemplateIds = uiState.planUsage?.allowedTemplateIds.orEmpty()
+    val showTijarioBranding = uiState.planUsage?.removeTijarioBranding?.not() ?: true
     fun isTemplateAllowed(templateId: String): Boolean =
         isTemplateAvailableForSelection(isTemplateEntitlementLoaded, allowedTemplateIds, templateId)
     val businessSettings = uiState.businessSettings
@@ -1948,10 +1951,10 @@ fun DocumentFormScreen(
                         onDocumentSaved(savedDocumentId)
                     }
                 } else {
-                    submitError = result.displayMessage
+                    submitError = result.localizedDisplayMessage(language)
                 }
             } catch (e: Exception) {
-                submitError = e.message ?: Localization.getString("error_save_doc_now", language)
+                submitError = LocalizedErrorMapper.map(null, e.message, language)
             } finally {
                 isLoading = false
             }
@@ -1987,7 +1990,7 @@ fun DocumentFormScreen(
                     lang = language
                 )
             } else {
-                submitError = result.exceptionOrNull()?.message ?: Localization.getString("error_load_doc_detail", language)
+                submitError = LocalizedErrorMapper.map(null, result.exceptionOrNull()?.message, language)
             }
             isLoadingDocument = false
         }
@@ -2072,7 +2075,85 @@ fun DocumentFormScreen(
         },
         bottomBar = {
             if (!isLoadingDocument) {
-                Spacer(modifier = Modifier.height(0.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .navigationBarsPadding()
+                        .imePadding(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
+                        contentColor = MaterialTheme.colorScheme.onSurface,
+                        shape = RoundedCornerShape(24.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.12f)),
+                        shadowElevation = 0.dp,
+                        tonalElevation = 0.dp,
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(10.dp),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            if (selectedTab == 0) {
+                                OutlinedButton(
+                                    onClick = { selectedTab = 1 },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(46.dp),
+                                    shape = RoundedCornerShape(12.dp),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
+                                ) {
+                                    Text(t("btn_preview"), fontWeight = FontWeight.Bold)
+                                }
+                                Button(
+                                    onClick = { submitDocument() },
+                                    enabled = !isLoading,
+                                    modifier = Modifier
+                                        .weight(1.6f)
+                                        .height(46.dp),
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                                ) {
+                                    if (isLoading) {
+                                        CircularProgressIndicator(color = Color.White, modifier = Modifier.size(22.dp))
+                                    } else {
+                                        Text(t("btn_save"), fontWeight = FontWeight.Bold, color = Color.White)
+                                    }
+                                }
+                            } else {
+                                OutlinedButton(
+                                    onClick = { selectedTab = 0 },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(46.dp),
+                                    shape = RoundedCornerShape(12.dp),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
+                                ) {
+                                    Text(t("edit"), fontWeight = FontWeight.Bold)
+                                }
+                                Button(
+                                    onClick = { submitDocument() },
+                                    enabled = !isLoading,
+                                    modifier = Modifier
+                                        .weight(1.6f)
+                                        .height(46.dp),
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                                ) {
+                                    if (isLoading) {
+                                        CircularProgressIndicator(color = Color.White, modifier = Modifier.size(22.dp))
+                                    } else {
+                                        Text(t("btn_save"), fontWeight = FontWeight.Bold, color = Color.White)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     ) { paddingValues ->
@@ -2742,43 +2823,7 @@ fun DocumentFormScreen(
                             }
                         }
 
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 8.dp, bottom = 2.dp),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            OutlinedButton(
-                                onClick = {
-                                    selectedTab = 1
-                                },
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(46.dp),
-                                shape = RoundedCornerShape(12.dp),
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
-                            ) {
-                                Text(t("btn_preview"), fontWeight = FontWeight.Bold)
-                            }
-
-                            Button(
-                                onClick = { submitDocument() },
-                                enabled = !isLoading,
-                                modifier = Modifier
-                                    .weight(1.6f)
-                                    .height(46.dp),
-                                shape = RoundedCornerShape(12.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                            ) {
-                                if (isLoading) {
-                                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(22.dp))
-                                } else {
-                                    Text(t("btn_save"), fontWeight = FontWeight.Bold, color = Color.White)
-                                }
-                            }
-                        }
+                        Spacer(modifier = Modifier.height(12.dp))
                     }
                 }
             }
@@ -2881,48 +2926,13 @@ fun DocumentFormScreen(
                             businessSettings = businessSettings,
                             customerCity = form.customerCity,
                             templateId = template.id,
+                            showTijarioBranding = showTijarioBranding,
                             modifier = Modifier.fillMaxSize(),
                         )
                     }
                 }
 
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp, bottom = 2.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    OutlinedButton(
-                        onClick = {
-                            selectedTab = 0
-                        },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(46.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
-                    ) {
-                        Text(t("edit"), fontWeight = FontWeight.Bold)
-                    }
-
-                    Button(
-                        onClick = { submitDocument() },
-                        enabled = !isLoading,
-                        modifier = Modifier
-                            .weight(1.6f)
-                            .height(46.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                    ) {
-                        if (isLoading) {
-                            CircularProgressIndicator(color = Color.White, modifier = Modifier.size(22.dp))
-                        } else {
-                            Text(t("btn_save"), fontWeight = FontWeight.Bold, color = Color.White)
-                        }
-                    }
-                }
+                Spacer(modifier = Modifier.height(12.dp))
             }
         }
     }

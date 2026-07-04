@@ -27,7 +27,7 @@ class NotificationsRepository(
     suspend fun refresh(userId: String): Result<Unit> = runCatching {
         val response = backendApiClient.fetchAnnouncementsBootstrap()
         if (!response.ok || response.data == null) {
-            error(response.message ?: "notifications_refresh_failed")
+            error(response.code ?: "notifications_refresh_failed")
         }
 
         val syncedAt = System.currentTimeMillis()
@@ -92,7 +92,7 @@ class NotificationsRepository(
             } else {
                 hasFailure = true
                 withContext(Dispatchers.IO) {
-                    dao.markReceiptOutboxFailed(item.id, apiResult?.code ?: result.exceptionOrNull()?.message)
+                    dao.markReceiptOutboxFailed(item.id, apiResult?.code ?: result.exceptionOrNull()?.message ?: "notifications_refresh_failed")
                 }
             }
         }

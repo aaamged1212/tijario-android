@@ -17,6 +17,8 @@ import app.tijario.data.remote.AiV2ReplyRequest
 import app.tijario.data.remote.AiV2ReportRequest
 import app.tijario.data.remote.AiV2Response
 import app.tijario.data.repository.TijarioRepository
+import app.tijario.MainActivity
+import app.tijario.config.Localization
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -133,16 +135,16 @@ class TijarioDataViewModel(
         result.onSuccess { usage ->
             planUsageStateMutable.value = PlanUsageState.Success(usage)
             uiStateMutable.update { it.copy(planUsage = usage) }
-        }.onFailure { error ->
-            if (currentState !is PlanUsageState.Success && cachedUsage != null) {
-                planUsageStateMutable.value = PlanUsageState.Success(cachedUsage)
-                uiStateMutable.update { state -> state.copy(planUsage = cachedUsage) }
-            } else if (planUsageStateMutable.value !is PlanUsageState.Success) {
-                planUsageStateMutable.value = PlanUsageState.Error(
-                    error.message ?: "billing_plan_refresh_failed"
-                )
+            }.onFailure { error ->
+                if (currentState !is PlanUsageState.Success && cachedUsage != null) {
+                    planUsageStateMutable.value = PlanUsageState.Success(cachedUsage)
+                    uiStateMutable.update { state -> state.copy(planUsage = cachedUsage) }
+                } else if (planUsageStateMutable.value !is PlanUsageState.Success) {
+                    planUsageStateMutable.value = PlanUsageState.Error(
+                    Localization.getString("billing_plan_refresh_failed", MainActivity.currentLanguage)
+                    )
+                }
             }
-        }
 
         return result
     }

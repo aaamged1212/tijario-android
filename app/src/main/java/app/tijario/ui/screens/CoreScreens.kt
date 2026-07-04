@@ -76,8 +76,11 @@ import app.tijario.config.AppPreferences
 import app.tijario.config.LocalLanguage
 import app.tijario.config.Localization
 import app.tijario.config.t
+import app.tijario.domain.DashboardDateRangePreset
 import app.tijario.domain.DashboardStatsCalculator
 import app.tijario.domain.PaymentStatusMapper
+import app.tijario.domain.LocalizedErrorMapper
+import app.tijario.data.remote.localizedDisplayMessage
 import app.tijario.features.documents.export.DocumentExportManager
 import app.tijario.features.documents.mapper.TijarioDocumentMapper
 import app.tijario.features.documents.ui.DocumentTemplatePreferences
@@ -333,14 +336,41 @@ fun DashboardScreen(
             else -> businessCurrency
         }
     }
-    val totalAmount = remember(uiState.documents, businessCurrency) {
-        DashboardStatsCalculator.calculateCollectedInvoiceAmount(uiState.documents, businessCurrency)
-    }
-    val sparklineValues = remember(uiState.documents, businessCurrency) {
-        dashboardSparklineValues(uiState.documents, businessCurrency)
-    }
-
     val planUsage = uiState.planUsage
+    var selectedRangePreset by remember { mutableStateOf(DashboardDateRangePreset.ThisMonth) }
+    var customRangeFrom by remember { mutableStateOf("") }
+    var customRangeTo by remember { mutableStateOf("") }
+    var showRangeDialog by remember { mutableStateOf(false) }
+    val referenceDate = remember { java.time.LocalDate.now(java.time.ZoneOffset.UTC) }
+    val presetRange = remember(selectedRangePreset, referenceDate) {
+        DashboardStatsCalculator.resolvePresetRange(selectedRangePreset, referenceDate)
+    }
+    val customFromDate = remember(customRangeFrom) { runCatching { java.time.LocalDate.parse(customRangeFrom) }.getOrNull() }
+    val customToDate = remember(customRangeTo) { runCatching { java.time.LocalDate.parse(customRangeTo) }.getOrNull() }
+    val activeStartDate = when (selectedRangePreset) {
+        DashboardDateRangePreset.Custom -> customFromDate
+        else -> presetRange.startDate
+    }
+    val activeEndDate = when (selectedRangePreset) {
+        DashboardDateRangePreset.Custom -> customToDate
+        else -> presetRange.endDate
+    }
+    val selectedRangeLabel = when (selectedRangePreset) {
+        DashboardDateRangePreset.ThisMonth -> if (isArabic) "هذا الشهر" else "This month"
+        DashboardDateRangePreset.LastMonth -> if (isArabic) "الشهر الماضي" else "Last month"
+        DashboardDateRangePreset.Last7Days -> if (isArabic) "آخر 7 أيام" else "Last 7 days"
+        DashboardDateRangePreset.Last30Days -> if (isArabic) "آخر 30 يومًا" else "Last 30 days"
+        DashboardDateRangePreset.Custom -> if (isArabic) "نطاق مخصص" else "Custom range"
+    }
+    val rangedDocuments = remember(uiState.documents, activeStartDate, activeEndDate, businessCurrency) {
+        DashboardStatsCalculator.filterByRange(uiState.documents, activeStartDate, activeEndDate)
+    }
+    val totalAmount = remember(rangedDocuments, businessCurrency) {
+        DashboardStatsCalculator.calculateCollectedInvoiceAmount(rangedDocuments, businessCurrency)
+    }
+    val sparklineValues = remember(rangedDocuments, businessCurrency) {
+        dashboardSparklineValues(rangedDocuments, businessCurrency)
+    }
     val isDocLimitReached = planUsage != null && planUsage.documentsLimit > 0 && planUsage.documentsUsed >= planUsage.documentsLimit
     var showLimitAlert by remember { mutableStateOf(false) }
 
@@ -354,6 +384,72 @@ fun DashboardScreen(
                     Text(t("btn_ok"))
                 }
             }
+        )
+    }
+
+    if (showRangeDialog) {
+        AlertDialog(
+            onDismissRequest = { showRangeDialog = false },
+            title = { Text(if (isArabic) "نطاق التقرير" else "Reporting range", fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TijarioFilterChip(
+                            selected = selectedRangePreset == DashboardDateRangePreset.ThisMonth,
+                            onClick = { selectedRangePreset = DashboardDateRangePreset.ThisMonth },
+                            label = if (isArabic) "هذا الشهر" else "This month",
+                            textFontSize = 12.sp,
+                        )
+                        TijarioFilterChip(
+                            selected = selectedRangePreset == DashboardDateRangePreset.LastMonth,
+                            onClick = { selectedRangePreset = DashboardDateRangePreset.LastMonth },
+                            label = if (isArabic) "الشهر الماضي" else "Last month",
+                            textFontSize = 12.sp,
+                        )
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TijarioFilterChip(
+                            selected = selectedRangePreset == DashboardDateRangePreset.Last7Days,
+                            onClick = { selectedRangePreset = DashboardDateRangePreset.Last7Days },
+                            label = if (isArabic) "آخر 7 أيام" else "Last 7 days",
+                            textFontSize = 12.sp,
+                        )
+                        TijarioFilterChip(
+                            selected = selectedRangePreset == DashboardDateRangePreset.Last30Days,
+                            onClick = { selectedRangePreset = DashboardDateRangePreset.Last30Days },
+                            label = if (isArabic) "آخر 30 يومًا" else "Last 30 days",
+                            textFontSize = 12.sp,
+                        )
+                    }
+                    TijarioFilterChip(
+                        selected = selectedRangePreset == DashboardDateRangePreset.Custom,
+                        onClick = { selectedRangePreset = DashboardDateRangePreset.Custom },
+                        label = if (isArabic) "نطاق مخصص" else "Custom range",
+                        textFontSize = 12.sp,
+                    )
+                    if (selectedRangePreset == DashboardDateRangePreset.Custom) {
+                        OutlinedTextField(
+                            value = customRangeFrom,
+                            onValueChange = { customRangeFrom = it },
+                            label = { Text(if (isArabic) "من تاريخ" else "From date") },
+                            placeholder = { Text("2026-07-01") },
+                            singleLine = true,
+                        )
+                        OutlinedTextField(
+                            value = customRangeTo,
+                            onValueChange = { customRangeTo = it },
+                            label = { Text(if (isArabic) "إلى تاريخ" else "To date") },
+                            placeholder = { Text("2026-07-31") },
+                            singleLine = true,
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Button(onClick = { showRangeDialog = false }) {
+                    Text(t("btn_ok"))
+                }
+            },
         )
     }
 
@@ -400,7 +496,7 @@ fun DashboardScreen(
 
                         // Button (Ù‡Ø°Ø§ Ø§Ù„Ø´Ù‡Ø±)
                         Button(
-                            onClick = { /* Detail Action */ },
+                            onClick = { showRangeDialog = true },
                             colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.1f)),
                             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                             modifier = Modifier.height(32.dp)
@@ -412,7 +508,7 @@ fun DashboardScreen(
                                 modifier = Modifier.size(14.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text(t("this_month"), color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            Text(selectedRangeLabel, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         }
                     }
 
@@ -433,7 +529,7 @@ fun DashboardScreen(
                             modifier = Modifier.weight(1f)
                         )
                         MiniStatItem(
-                            count = uiState.documents.size,
+                            count = rangedDocuments.size,
                             label = if (isArabic) "المستندات" else "Documents",
                             icon = Icons.Filled.Receipt,
                             modifier = Modifier.weight(1f)
@@ -479,7 +575,7 @@ fun DashboardScreen(
                     ) {
                         // Unpaid Invoices
                         val unpaidAmount = remember(uiState.documents, businessCurrency) {
-                            DashboardStatsCalculator.calculateOutstandingInvoiceAmount(uiState.documents, businessCurrency)
+                            DashboardStatsCalculator.calculateOutstandingInvoiceAmount(rangedDocuments, businessCurrency)
                         }
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -522,7 +618,7 @@ fun DashboardScreen(
 
                         // Open Quotes
                         val openQuotesAmount = remember(uiState.documents, businessCurrency) {
-                            uiState.documents
+                            rangedDocuments
                                 .filter { it.type == app.tijario.data.model.DocumentType.Quote && (it.status?.lowercase() == "draft" || it.status?.lowercase() == "sent") && it.currency.uppercase() == businessCurrency.uppercase() }
                                 .sumOf { it.total }
                         }
@@ -1125,10 +1221,10 @@ fun CustomersScreen(
                                 if (res.isSuccess) {
                                     customerToDelete = null
                                 } else {
-                                    deleteErrorMessage = res.exceptionOrNull()?.message ?: Localization.getString("delete_customer_error", language)
+                                    deleteErrorMessage = LocalizedErrorMapper.map(null, res.exceptionOrNull()?.message, language)
                                 }
                             } catch (e: Exception) {
-                                deleteErrorMessage = e.message ?: "حدث خطأ غير متوقع."
+                                deleteErrorMessage = LocalizedErrorMapper.map(null, e.message, language)
                             } finally {
                                 isDeleting = false
                             }
@@ -1659,10 +1755,10 @@ fun ProductsScreen(
                                 if (res.isSuccess) {
                                     productToDelete = null
                                 } else {
-                                    deleteErrorMessage = res.exceptionOrNull()?.message ?: Localization.getString("delete_product_error", language)
+                                    deleteErrorMessage = LocalizedErrorMapper.map(null, res.exceptionOrNull()?.message, language)
                                 }
                             } catch (e: Exception) {
-                                deleteErrorMessage = e.message ?: "حدث خطأ غير متوقع."
+                                deleteErrorMessage = LocalizedErrorMapper.map(null, e.message, language)
                             } finally {
                                 isDeleting = false
                             }
@@ -1994,6 +2090,7 @@ fun DocumentsScreen(
                     businessSettings = uiState.businessSettings,
                     language = language,
                     templateId = templatePreferences.getDefaultTemplateId(),
+                    showTijarioBranding = uiState.planUsage?.removeTijarioBranding?.not() ?: true,
                 )
                 val intent = exportManager.shareIntent(renderModel)
                 context.startActivity(Intent.createChooser(intent, Localization.getString("export_share_pdf", language)))
@@ -2013,7 +2110,7 @@ fun DocumentsScreen(
                 busyDocumentId = documentId
                 val result = dataViewModel.deleteDocument(documentId)
                 if (!result.ok) {
-                    Toast.makeText(context, result.displayMessage, Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, result.localizedDisplayMessage(language), Toast.LENGTH_LONG).show()
                 }
             } catch (_: Exception) {
                 Toast.makeText(context, Localization.getString("cant_delete_doc", language), Toast.LENGTH_LONG).show()
@@ -2645,10 +2742,10 @@ fun AccountScreen(
                                     dataViewModel.saveBusinessSettings(settings.copy(logoUrl = logoUrl))
                                     snackbarHostState.showSnackbar(Localization.getString("logo_saved_success", language))
                                 } else {
-                                    snackbarHostState.showSnackbar(result.displayMessage)
+                                    snackbarHostState.showSnackbar(result.localizedDisplayMessage(language))
                                 }
                             } catch (e: Exception) {
-                                snackbarHostState.showSnackbar(e.message ?: Localization.getString("logo_upload_error", language))
+                                snackbarHostState.showSnackbar(LocalizedErrorMapper.map(null, e.message, language))
                             } finally {
                                 isLogoUploading = false
                             }

@@ -19,6 +19,7 @@ private const val KEY_PRODUCTS_USED = "products_used"
 private const val KEY_PRODUCTS_LIMIT = "products_limit"
 private const val KEY_RESET_AT = "reset_at"
 private const val KEY_ALLOWED_TEMPLATE_IDS = "allowed_template_ids"
+private const val KEY_REMOVE_TIJARIO_BRANDING = "remove_tijario_branding"
 private const val KEY_PUSH_ENABLED = "push_enabled"
 private const val KEY_NOTIFICATION_EXPLAINED = "notification_explained"
 private const val KEY_SUBSCRIBED_TOPIC = "subscribed_topic"
@@ -72,6 +73,7 @@ object AppPreferences {
             .orEmpty()
             .split("|")
             .filter { it.isNotBlank() }
+        val removeTijarioBranding = prefs.getBoolean(planKey(userId, KEY_REMOVE_TIJARIO_BRANDING), false)
         if (documentsUsed < 0 || documentsLimit < 0 || aiUsed < 0 || aiLimit < 0 || periodMonth.isBlank()) {
             return null
         }
@@ -89,6 +91,7 @@ object AppPreferences {
             productsLimit = productsLimitRaw.takeIf { it >= 0 },
             resetAt = resetAt,
             allowedTemplateIds = allowedTemplateIds,
+            removeTijarioBranding = removeTijarioBranding,
         )
     }
 
@@ -108,6 +111,7 @@ object AppPreferences {
             .putInt(planKey(userId, KEY_PRODUCTS_LIMIT), usage.productsLimit ?: -1)
             .putString(planKey(userId, KEY_RESET_AT), usage.resetAt)
             .putString(planKey(userId, KEY_ALLOWED_TEMPLATE_IDS), usage.allowedTemplateIds.joinToString("|"))
+            .putBoolean(planKey(userId, KEY_REMOVE_TIJARIO_BRANDING), usage.removeTijarioBranding)
             .apply()
     }
 

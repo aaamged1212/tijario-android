@@ -42,6 +42,8 @@ import app.tijario.config.AppPreferences
 import app.tijario.config.LocalLanguage
 import app.tijario.config.Localization
 import app.tijario.config.t
+import app.tijario.domain.LocalizedErrorMapper
+import app.tijario.data.remote.localizedDisplayMessage
 import app.tijario.ui.components.GoogleSignInButton
 import app.tijario.ui.components.StoreLogoPicker
 import app.tijario.ui.components.buildLogoUploadRequest
@@ -979,7 +981,7 @@ fun ForgotPasswordScreen(onBackToLogin: () -> Unit) {
                                         if (result.ok) {
                                             isSubmitted = true
                                         } else {
-                                            errorMessage = result.displayMessage
+                                            errorMessage = result.localizedDisplayMessage(language)
                                         }
                                     } catch (e: Exception) {
                                         errorMessage = if (language == AppLanguage.AR) "تعذر إرسال رابط إعادة التعيين. حاول مرة أخرى." else "Unable to send reset link. Try again."
@@ -1262,7 +1264,7 @@ fun OnboardingScreen(
                                         )
                                         val result = dataViewModel.saveBusinessSettings(baseSettings)
                                         if (result.isFailure) {
-                                            errorMessage = result.exceptionOrNull()?.message ?: Localization.getString("save_settings_error", language)
+                                            errorMessage = LocalizedErrorMapper.map(null, result.exceptionOrNull()?.message, language)
                                             return@launch
                                         }
 
@@ -1271,13 +1273,13 @@ fun OnboardingScreen(
                                             val uploadResult = app.tijario.config.Supabase.apiClient.uploadBusinessLogo(uploadRequest)
                                             val uploadedUrl = uploadResult.data?.logoUrl
                                             if (!uploadResult.ok || uploadedUrl.isNullOrBlank()) {
-                                                errorMessage = uploadResult.displayMessage.ifBlank { Localization.getString("logo_upload_error", language) }
+                                                errorMessage = uploadResult.localizedDisplayMessage(language).ifBlank { Localization.getString("logo_upload_error", language) }
                                                 return@launch
                                             }
                                             clearBusinessLogoCache(context)
                                             val logoSave = dataViewModel.saveBusinessSettings(baseSettings.copy(logoUrl = uploadedUrl))
                                             if (logoSave.isFailure) {
-                                                errorMessage = logoSave.exceptionOrNull()?.message ?: Localization.getString("save_settings_error", language)
+                                                errorMessage = LocalizedErrorMapper.map(null, logoSave.exceptionOrNull()?.message, language)
                                                 return@launch
                                             }
                                         }
@@ -1287,7 +1289,7 @@ fun OnboardingScreen(
                                         errorMessage = Localization.getString("save_settings_error", language)
                                     }
                                 } catch (e: Exception) {
-                                    errorMessage = e.message ?: Localization.getString("save_settings_error", language)
+                                    errorMessage = LocalizedErrorMapper.map(null, e.message, language)
                                 } finally {
                                     isLoading = false
                                 }

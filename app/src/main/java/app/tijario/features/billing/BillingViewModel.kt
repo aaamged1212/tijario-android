@@ -83,7 +83,7 @@ class BillingViewModel(
                             it.copy(
                                 isPurchasing = false,
                                 isRestoring = false,
-                                errorMessage = event.message,
+                                errorMessage = normalizeBillingErrorCode(event.message),
                                 successMessage = null,
                             )
                         }
@@ -122,7 +122,7 @@ class BillingViewModel(
                     stateMutable.update {
                         it.copy(
                             isLoading = false,
-                            errorMessage = error.message ?: "billing_unavailable",
+                            errorMessage = normalizeBillingErrorCode(error.message) ?: "billing_unavailable",
                         )
                     }
                 }
@@ -144,7 +144,7 @@ class BillingViewModel(
                     stateMutable.update {
                         it.copy(
                             isPurchasing = false,
-                            errorMessage = error.message ?: "billing_unavailable",
+                            errorMessage = normalizeBillingErrorCode(error.message) ?: "billing_unavailable",
                         )
                     }
                 }
@@ -165,7 +165,7 @@ class BillingViewModel(
                     stateMutable.update {
                         it.copy(
                             isRestoring = false,
-                            errorMessage = error.message ?: "billing_restore_failed",
+                            errorMessage = normalizeBillingErrorCode(error.message) ?: "billing_restore_failed",
                         )
                     }
                 }
@@ -175,5 +175,15 @@ class BillingViewModel(
     override fun onCleared() {
         repository.close()
         super.onCleared()
+    }
+
+    private fun normalizeBillingErrorCode(message: String?): String? {
+        val code = message?.trim().orEmpty()
+        return when {
+            code.isBlank() -> null
+            code.startsWith("billing_") -> code
+            code == "unauthorized" || code == "unauthenticated" -> "billing_unavailable"
+            else -> "billing_unavailable"
+        }
     }
 }

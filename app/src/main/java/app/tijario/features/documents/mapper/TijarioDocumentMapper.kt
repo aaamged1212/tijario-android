@@ -16,8 +16,9 @@ object TijarioDocumentMapper {
         customerCity: String?,
         language: AppLanguage = AppLanguage.AR,
         templateId: String = DocumentTemplateRegistry.defaultTemplateId,
+        showTijarioBranding: Boolean = true,
     ): DocumentRenderModel =
-        DraftDocumentRenderMapper.map(documentType, form, businessSettings, customerCity, language, templateId)
+        DraftDocumentRenderMapper.map(documentType, form, businessSettings, customerCity, language, templateId, showTijarioBranding)
 
     fun fromSaved(
         document: CompleteDocument,
@@ -25,6 +26,7 @@ object TijarioDocumentMapper {
         language: AppLanguage = AppLanguage.AR,
         templateId: String = DocumentTemplateRegistry.defaultTemplateId,
         metadata: app.tijario.data.local.LocalDocumentMetadataEntity? = null,
+        showTijarioBranding: Boolean = true,
     ): DocumentRenderModel =
-        SavedDocumentRenderMapper.map(document, businessSettings, language, templateId, metadata)
+        SavedDocumentRenderMapper.map(document, businessSettings, language, templateId, metadata, showTijarioBranding)
 }

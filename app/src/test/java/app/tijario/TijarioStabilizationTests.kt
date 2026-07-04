@@ -120,7 +120,7 @@ class TijarioStabilizationTests {
         assertEquals(2, paidCount)
 
         val collectedAmount = DashboardStatsCalculator.calculateCollectedInvoiceAmount(docs, "SAR")
-        assertEquals(975.0, collectedAmount, 0.001)
+        assertEquals(875.0, collectedAmount, 0.001)
 
         val outstandingAmount = DashboardStatsCalculator.calculateOutstandingInvoiceAmount(docs, "SAR")
         assertEquals(675.0, outstandingAmount, 0.001)

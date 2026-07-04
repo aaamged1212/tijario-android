@@ -27,6 +27,7 @@ object DraftDocumentRenderMapper {
         customerCity: String?,
         language: AppLanguage = AppLanguage.AR,
         templateId: String = DocumentTemplateRegistry.defaultTemplateId,
+        showTijarioBranding: Boolean = true,
     ): DocumentRenderModel {
         val calculation = DocumentCalculator.calculate(
             form.items.map { DocumentCalculator.ItemInput(it.quantity, it.unitPrice) },
@@ -97,6 +98,7 @@ object DraftDocumentRenderMapper {
             signatureData = form.signatureData.takeIf { it.isNotBlank() },
             paymentMethod = form.paymentMethod.takeIf { it.isNotBlank() },
             documentTitle = form.documentTitle.takeIf { it.isNotBlank() },
+            showTijarioBranding = showTijarioBranding,
         )
     }
 }

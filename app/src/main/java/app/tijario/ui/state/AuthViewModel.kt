@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import app.tijario.MainActivity
 import app.tijario.BuildConfig
 import app.tijario.config.Localization
+import app.tijario.domain.LocalizedErrorMapper
 import app.tijario.data.AppContainer
 import app.tijario.data.repository.TijarioRepository
 import io.github.jan.supabase.SupabaseClient
@@ -82,7 +83,7 @@ class AuthViewModel(
                     )
                 } else {
                     _authState.value = CentralAuthState.Error(
-                        e.message ?: Localization.getString("error_session_check_failed", MainActivity.currentLanguage)
+                        LocalizedErrorMapper.map(null, e.message, MainActivity.currentLanguage)
                     )
                 }
             }
@@ -161,7 +162,7 @@ class AuthViewModel(
                 }
             } catch (e: Exception) {
                 _authState.value = CentralAuthState.Error(
-                    e.message ?: Localization.getString("error_after_verification_check", MainActivity.currentLanguage)
+                    LocalizedErrorMapper.map(null, e.message, MainActivity.currentLanguage)
                 )
             }
         }
