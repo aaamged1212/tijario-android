@@ -49,6 +49,8 @@ class DashboardStatsRangeTests {
             doc("2026-07-01", total = 100.0, paymentStatus = "paid"),
             doc("2026-07-02", total = 150.0, paymentStatus = "partial", amountPaid = 50.0),
             doc("2026-06-30", total = 999.0, paymentStatus = "paid"),
+            quote("2026-07-03", total = 80.0, status = "draft"),
+            quote("2026-06-29", total = 45.0, status = "sent"),
         )
 
         val collected = DashboardStatsCalculator.calculateCollectedInvoiceAmount(
@@ -63,9 +65,22 @@ class DashboardStatsRangeTests {
             startDate = LocalDate.of(2026, 7, 1),
             endDate = LocalDate.of(2026, 7, 31),
         )
+        val openQuotes = DashboardStatsCalculator.calculateOpenQuotesAmount(
+            docs,
+            currency = "SAR",
+            startDate = LocalDate.of(2026, 7, 1),
+            endDate = LocalDate.of(2026, 7, 31),
+        )
+        val documentCount = DashboardStatsCalculator.countDocuments(
+            docs,
+            startDate = LocalDate.of(2026, 7, 1),
+            endDate = LocalDate.of(2026, 7, 31),
+        )
 
         assertEquals(150.0, collected, 0.001)
         assertEquals(100.0, outstanding, 0.001)
+        assertEquals(80.0, openQuotes, 0.001)
+        assertEquals(3, documentCount)
     }
 
     private fun doc(
@@ -84,5 +99,23 @@ class DashboardStatsRangeTests {
         issueDate = issueDate,
         total = total,
         currency = "SAR",
+    )
+
+    private fun quote(
+        issueDate: String,
+        total: Double = 10.0,
+        status: String = "draft",
+        currency: String = "SAR",
+    ) = DocumentSummary(
+        id = "quote-$issueDate",
+        customerId = "c1",
+        type = DocumentType.Quote,
+        documentNumber = "QT-$issueDate",
+        status = status,
+        paymentStatus = null,
+        amountPaid = null,
+        issueDate = issueDate,
+        total = total,
+        currency = currency,
     )
 }

@@ -574,7 +574,7 @@ fun DashboardScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         // Unpaid Invoices
-                        val unpaidAmount = remember(uiState.documents, businessCurrency) {
+                        val unpaidAmount = remember(rangedDocuments, businessCurrency) {
                             DashboardStatsCalculator.calculateOutstandingInvoiceAmount(rangedDocuments, businessCurrency)
                         }
                         Row(
@@ -617,7 +617,7 @@ fun DashboardScreen(
                         )
 
                         // Open Quotes
-                        val openQuotesAmount = remember(uiState.documents, businessCurrency) {
+                        val openQuotesAmount = remember(rangedDocuments, businessCurrency) {
                             rangedDocuments
                                 .filter { it.type == app.tijario.data.model.DocumentType.Quote && (it.status?.lowercase() == "draft" || it.status?.lowercase() == "sent") && it.currency.uppercase() == businessCurrency.uppercase() }
                                 .sumOf { it.total }

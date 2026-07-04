@@ -51,6 +51,16 @@ class DocumentEngineTests {
     }
 
     @Test
+    fun commonLogoCssKeepsCircularClipping() {
+        val css = File(assetsRoot, "documents/base/common.css").readText()
+        assertTrue(css.contains(".logo {"))
+        assertTrue(css.contains("border-radius: 50%;"))
+        assertTrue(css.contains(".logo-image {"))
+        assertTrue(css.contains("overflow: hidden;"))
+        assertTrue(css.contains("object-fit: cover;"))
+    }
+
+    @Test
     fun htmlEscaperEscapesDangerousCharacters() {
         assertEquals("&lt;tag attr=&quot;1&quot;&gt;&#39;&amp;&lt;/tag&gt;", HtmlEscaper.escape("<tag attr=\"1\">'&</tag>"))
     }
@@ -148,6 +158,29 @@ class DocumentEngineTests {
 
         assertTrue(html.contains("logo-image"))
         assertTrue(html.contains("https://example.com/logo.png"))
+    }
+
+    @Test
+    fun brandingFlagControlsFooterVisibility() {
+        val branded = renderer.render(
+            SavedDocumentRenderMapper.map(
+                document = DocumentFixtures.saved(),
+                businessSettings = DocumentFixtures.business,
+                showTijarioBranding = true,
+            )
+        )
+        val unbranded = renderer.render(
+            SavedDocumentRenderMapper.map(
+                document = DocumentFixtures.saved(),
+                businessSettings = DocumentFixtures.business,
+                showTijarioBranding = false,
+            )
+        )
+
+        assertTrue(branded.contains("Created with Tijario"))
+        assertFalse(unbranded.contains("Created with Tijario"))
+        assertFalse(unbranded.contains("تم إنشاء هذا المستند عبر تجاريو"))
+        assertTrue(unbranded.contains("<main"))
     }
 
     @Test
