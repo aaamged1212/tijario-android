@@ -288,6 +288,7 @@ private fun formatDashboardDate(issueDate: String, language: AppLanguage): Strin
     }.getOrElse { rawDate }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
     dataViewModel: TijarioDataViewModel,
@@ -341,6 +342,8 @@ fun DashboardScreen(
     var customRangeFrom by remember { mutableStateOf("") }
     var customRangeTo by remember { mutableStateOf("") }
     var showRangeDialog by remember { mutableStateOf(false) }
+    var showFromDatePicker by remember { mutableStateOf(false) }
+    var showToDatePicker by remember { mutableStateOf(false) }
     val referenceDate = remember { java.time.LocalDate.now(java.time.ZoneOffset.UTC) }
     val presetRange = remember(selectedRangePreset, referenceDate) {
         DashboardStatsCalculator.resolvePresetRange(selectedRangePreset, referenceDate)
@@ -428,19 +431,25 @@ fun DashboardScreen(
                         textFontSize = 12.sp,
                     )
                     if (selectedRangePreset == DashboardDateRangePreset.Custom) {
-                        OutlinedTextField(
+                        TijarioTextField(
+                            label = if (isArabic) "من تاريخ" else "From date",
                             value = customRangeFrom,
-                            onValueChange = { customRangeFrom = it },
-                            label = { Text(if (isArabic) "من تاريخ" else "From date") },
-                            placeholder = { Text("2026-07-01") },
-                            singleLine = true,
+                            onValueChange = { },
+                            readOnly = true,
+                            modifier = Modifier.clickable { showFromDatePicker = true },
+                            trailingIcon = {
+                                Icon(Icons.Filled.DateRange, contentDescription = null)
+                            },
                         )
-                        OutlinedTextField(
+                        TijarioTextField(
+                            label = if (isArabic) "إلى تاريخ" else "To date",
                             value = customRangeTo,
-                            onValueChange = { customRangeTo = it },
-                            label = { Text(if (isArabic) "إلى تاريخ" else "To date") },
-                            placeholder = { Text("2026-07-31") },
-                            singleLine = true,
+                            onValueChange = { },
+                            readOnly = true,
+                            modifier = Modifier.clickable { showToDatePicker = true },
+                            trailingIcon = {
+                                Icon(Icons.Filled.DateRange, contentDescription = null)
+                            },
                         )
                     }
                 }
@@ -451,6 +460,60 @@ fun DashboardScreen(
                 }
             },
         )
+    }
+
+    if (showFromDatePicker) {
+        val initialDateMillis = customFromDate?.atStartOfDay(java.time.ZoneOffset.UTC)?.toInstant()?.toEpochMilli()
+        val pickerState = rememberDatePickerState(initialSelectedDateMillis = initialDateMillis)
+        DatePickerDialog(
+            onDismissRequest = { showFromDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        pickerState.selectedDateMillis?.let { millis ->
+                            customRangeFrom = java.time.Instant.ofEpochMilli(millis)
+                                .atZone(java.time.ZoneOffset.UTC)
+                                .toLocalDate()
+                                .toString()
+                            selectedRangePreset = DashboardDateRangePreset.Custom
+                        }
+                        showFromDatePicker = false
+                    }
+                ) { Text(t("btn_ok")) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showFromDatePicker = false }) { Text(t("btn_cancel")) }
+            }
+        ) {
+            DatePicker(state = pickerState)
+        }
+    }
+
+    if (showToDatePicker) {
+        val initialDateMillis = customToDate?.atStartOfDay(java.time.ZoneOffset.UTC)?.toInstant()?.toEpochMilli()
+        val pickerState = rememberDatePickerState(initialSelectedDateMillis = initialDateMillis)
+        DatePickerDialog(
+            onDismissRequest = { showToDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        pickerState.selectedDateMillis?.let { millis ->
+                            customRangeTo = java.time.Instant.ofEpochMilli(millis)
+                                .atZone(java.time.ZoneOffset.UTC)
+                                .toLocalDate()
+                                .toString()
+                            selectedRangePreset = DashboardDateRangePreset.Custom
+                        }
+                        showToDatePicker = false
+                    }
+                ) { Text(t("btn_ok")) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showToDatePicker = false }) { Text(t("btn_cancel")) }
+            }
+        ) {
+            DatePicker(state = pickerState)
+        }
     }
 
     val latestDocuments = remember(uiState.documents) {

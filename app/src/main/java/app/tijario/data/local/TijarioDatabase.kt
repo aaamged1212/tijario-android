@@ -28,7 +28,7 @@ import java.math.BigDecimal
         AnnouncementEntity::class,
         AnnouncementReceiptOutboxEntity::class,
     ],
-    version = 9,
+    version = 10,
     exportSchema = true,
 )
 @TypeConverters(BigDecimalConverter::class)
@@ -326,6 +326,15 @@ abstract class TijarioDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE documents_cache ADD COLUMN template_id TEXT")
+                db.execSQL("ALTER TABLE documents_cache ADD COLUMN document_title TEXT")
+                db.execSQL("ALTER TABLE documents_cache ADD COLUMN discount_label TEXT")
+                db.execSQL("ALTER TABLE documents_cache ADD COLUMN extra_fees_label TEXT")
+            }
+        }
+
         fun getInstance(context: Context): TijarioDatabase =
             instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
@@ -333,7 +342,7 @@ abstract class TijarioDatabase : RoomDatabase() {
                     TijarioDatabase::class.java,
                     "tijario-local-cache.db",
                 )
-                    .addMigrations(MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
+                    .addMigrations(MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)
                     .build()
                     .also { instance = it }
             }

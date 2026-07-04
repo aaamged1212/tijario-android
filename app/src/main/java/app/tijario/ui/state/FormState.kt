@@ -106,7 +106,9 @@ data class DocumentFormState(
     val dueTerms: String = "None",
     val dueDate: String = "",
     val poNumber: String = "",
-    val documentTitle: String = "Invoice",
+    val documentTitle: String = "",
+    val discountLabel: String = "",
+    val extraFeesLabel: String = "",
     val finalTaxRate: String = "",
     val finalTaxName: String = "الضريبة",
     val documentLanguage: String = "AR", // "AR" or "EN"

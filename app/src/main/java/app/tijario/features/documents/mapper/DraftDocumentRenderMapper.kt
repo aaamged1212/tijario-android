@@ -98,6 +98,8 @@ object DraftDocumentRenderMapper {
             signatureData = form.signatureData.takeIf { it.isNotBlank() },
             paymentMethod = form.paymentMethod.takeIf { it.isNotBlank() },
             documentTitle = form.documentTitle.takeIf { it.isNotBlank() },
+            discountLabel = form.discountLabel.takeIf { it.isNotBlank() },
+            extraFeesLabel = form.extraFeesLabel.takeIf { it.isNotBlank() },
             showTijarioBranding = showTijarioBranding,
         )
     }

@@ -25,15 +25,15 @@ object SavedDocumentRenderMapper {
         require(document.id.isNotBlank()) { "Missing document ID" }
         require(document.documentNumber.isNotBlank()) { "Missing document number" }
         require(document.issueDate.isNotBlank()) { "Missing issue date" }
-        require(document.items.isNotEmpty()) { "Missing document items" }
 
-        val items = document.items.map {
-            val quantity = it.quantity
-            val unitPrice = BigDecimal.valueOf(it.unitPrice)
+        val items = document.items.mapNotNull { item ->
+            if (item.id.isBlank() || item.name.isBlank()) return@mapNotNull null
+            val quantity = item.quantity
+            val unitPrice = BigDecimal.valueOf(item.unitPrice)
             DocumentRenderItem(
-                id = it.id,
-                name = it.name,
-                description = it.description,
+                id = item.id,
+                name = item.name,
+                description = item.description,
                 quantity = quantity,
                 unitPrice = unitPrice,
                 lineTotal = unitPrice.multiply(BigDecimal(quantity)),
@@ -102,7 +102,12 @@ object SavedDocumentRenderMapper {
             templateVersion = DocumentTemplateRegistry.requireTemplate(templateId).version,
             signatureData = metadata?.signatureData,
             paymentMethod = metadata?.paymentMethod,
-            documentTitle = if (document.type == DocumentType.Invoice) "Online Orders" else "عرض سعر",
+            documentTitle = document.documentTitle?.takeIf { it.isNotBlank() } ?: when (document.type) {
+                DocumentType.Invoice -> if (language == AppLanguage.AR) "فاتورة" else "Invoice"
+                DocumentType.Quote -> if (language == AppLanguage.AR) "عرض سعر" else "Quote"
+            },
+            discountLabel = document.discountLabel?.takeIf { it.isNotBlank() },
+            extraFeesLabel = document.extraFeesLabel?.takeIf { it.isNotBlank() },
             showTijarioBranding = showTijarioBranding,
         )
     }

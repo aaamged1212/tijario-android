@@ -125,15 +125,19 @@ open class TijarioRepository(
                 customerId = entity.customerId,
                 type = if (entity.type == "quote") DocumentType.Quote else DocumentType.Invoice,
                 documentNumber = entity.documentNumber,
+                documentTitle = entity.documentTitle,
                 status = entity.status,
                 paymentStatus = entity.paymentStatus,
                 amountPaid = entity.amountPaid?.toDouble(),
                 issueDate = entity.issueDate,
                 subtotal = entity.subtotal.toDouble(),
                 discount = entity.discount.toDouble(),
+                discountLabel = entity.discountLabel,
                 extraFees = entity.extraFees.toDouble(),
+                extraFeesLabel = entity.extraFeesLabel,
                 total = entity.total.toDouble(),
                 currency = entity.currency,
+                templateId = entity.templateId,
                 notes = entity.notes,
                 termsText = entity.termsText,
                 customer = customer,
@@ -383,6 +387,8 @@ open class TijarioRepository(
                         DocumentType.Quote -> "quote"
                     },
                     documentNumber = remote.documentNumber,
+                    templateId = remote.templateId,
+                    documentTitle = remote.documentTitle,
                     status = remote.status,
                     paymentStatus = remote.paymentStatus,
                     amountPaid = remote.amountPaid?.let { BigDecimal.valueOf(it) },
@@ -392,7 +398,9 @@ open class TijarioRepository(
                     syncedAt = syncedAt,
                     subtotal = existing?.subtotal ?: BigDecimal.ZERO,
                     discount = existing?.discount ?: BigDecimal.ZERO,
+                    discountLabel = remote.discountLabel ?: existing?.discountLabel,
                     extraFees = existing?.extraFees ?: BigDecimal.ZERO,
+                    extraFeesLabel = remote.extraFeesLabel ?: existing?.extraFeesLabel,
                     notes = existing?.notes,
                     termsText = existing?.termsText,
                     syncStatus = "SYNCED",
@@ -789,6 +797,8 @@ open class TijarioRepository(
                     DocumentType.Quote -> "quote"
                 },
                 documentNumber = docNum,
+                templateId = request.templateId,
+                documentTitle = request.documentTitle,
                 status = "draft",
                 paymentStatus = request.paymentStatus,
                 amountPaid = request.amountPaid?.let { BigDecimal.valueOf(it) },
@@ -798,7 +808,9 @@ open class TijarioRepository(
                 syncedAt = 0L,
                 subtotal = subtotal,
                 discount = discountBig,
+                discountLabel = request.discountLabel,
                 extraFees = extraFeesBig,
+                extraFeesLabel = request.extraFeesLabel,
                 notes = request.notes,
                 termsText = request.termsText,
                 syncStatus = "LOCAL_ONLY",
@@ -881,9 +893,13 @@ open class TijarioRepository(
                 total = total,
                 subtotal = subtotal,
                 discount = discountBig,
+                discountLabel = request.discountLabel,
                 extraFees = extraFeesBig,
+                extraFeesLabel = request.extraFeesLabel,
                 notes = request.notes,
                 termsText = request.termsText,
+                templateId = request.templateId,
+                documentTitle = request.documentTitle,
                 localRevision = nextRev,
                 syncStatus = nextStatus,
                 // Invalidate PDF metadata since document content changed
@@ -1083,15 +1099,39 @@ open class TijarioRepository(
     }
 
     // Legacy Document Remote Bridges
-    suspend fun createDocument(request: CreateDocumentRequest): ApiResult<CreateDocumentResponse> {
-        val result = createDocumentLocal(request)
-        return result
-    }
+    suspend fun createDocument(request: CreateDocumentRequest): ApiResult<CreateDocumentResponse> =
+        withContext(Dispatchers.IO) {
+            val result = backendApiClient.createDocument(request)
+            if (!result.ok) return@withContext result
 
-    suspend fun updateDocument(documentId: String, request: CreateDocumentRequest): ApiResult<CreateDocumentResponse> {
-        val result = updateDocumentLocal(documentId, request)
-        return result
-    }
+            val documentId = result.data?.documentId?.takeIf { it.isNotBlank() }
+                ?: return@withContext ApiResult(
+                    ok = false,
+                    code = "SERVER_SAVE_FAILED",
+                    message = "Server did not return a document ID.",
+                )
+
+            runCatching {
+                backendApiClient.fetchCompleteDocument(documentId).data?.let { cacheCompleteDocumentSnapshot(it) }
+                    ?: refreshAll(force = true)
+            }
+            runCatching { fetchUserPlanUsage() }
+            result
+        }
+
+    suspend fun updateDocument(documentId: String, request: CreateDocumentRequest): ApiResult<CreateDocumentResponse> =
+        withContext(Dispatchers.IO) {
+            val result = backendApiClient.updateDocument(documentId, request)
+            if (!result.ok) return@withContext result
+
+            val resolvedDocumentId = result.data?.documentId?.takeIf { it.isNotBlank() } ?: documentId
+            runCatching {
+                backendApiClient.fetchCompleteDocument(resolvedDocumentId).data?.let { cacheCompleteDocumentSnapshot(it) }
+                    ?: refreshAll(force = true)
+            }
+            runCatching { fetchUserPlanUsage() }
+            result
+        }
 
     suspend fun deleteDocument(documentId: String): ApiResult<CreateDocumentResponse> {
         val result = deleteDocumentLocal(documentId)
@@ -1136,42 +1176,114 @@ open class TijarioRepository(
         runCatching {
             val userId = requireUserId()
             withContext(Dispatchers.IO) {
-                val doc = dao.getDocument(userId, documentId) ?: error("Document not found locally")
-                val customer = dao.getCustomer(userId, doc.customerId)?.toModel()
-                val items = dao.getDocumentItems(userId, documentId).map { item ->
-                    app.tijario.data.model.DocumentItem(
-                        id = item.id,
-                        documentId = item.documentId,
-                        productId = item.productId,
-                        name = item.name,
-                        description = item.description,
-                        quantity = item.quantity,
-                        unitPrice = item.unitPrice.toDouble()
+                val localDoc = dao.getDocument(userId, documentId)
+                val localItems = dao.getDocumentItems(userId, documentId)
+                if (localDoc != null && localItems.isNotEmpty()) {
+                    return@withContext buildLocalCompleteDocument(userId, localDoc)
+                }
+
+                val remote = backendApiClient.fetchCompleteDocument(documentId)
+                if (!remote.ok || remote.data == null) {
+                    error(remote.message ?: remote.code ?: "document_not_found")
+                }
+
+                cacheCompleteDocumentSnapshot(remote.data)
+                remote.data
+            }
+        }
+
+    private suspend fun cacheCompleteDocumentSnapshot(document: app.tijario.data.model.CompleteDocument) {
+        val userId = document.userId
+        withContext(Dispatchers.IO) {
+            database.withTransaction {
+                document.customer?.let { customer ->
+                    dao.upsertCustomer(
+                        app.tijario.data.local.CustomerEntity(
+                            id = customer.id ?: document.customerId,
+                            userId = customer.userId ?: userId,
+                            name = customer.name,
+                            whatsappNumber = customer.whatsappNumber,
+                            city = customer.city,
+                            notes = customer.notes,
+                            syncedAt = System.currentTimeMillis(),
+                            syncStatus = "SYNCED",
+                            localRevision = 1,
+                            serverRevision = document.id,
+                            serverUpdatedAt = System.currentTimeMillis(),
+                            lastSyncedAt = System.currentTimeMillis(),
+                            syncErrorCode = null,
+                            isDeleted = false,
+                        )
                     )
                 }
 
-                app.tijario.data.model.CompleteDocument(
-                    id = doc.id,
-                    userId = doc.userId,
-                    customerId = doc.customerId,
-                    type = if (doc.type == "quote") DocumentType.Quote else DocumentType.Invoice,
-                    documentNumber = doc.documentNumber,
-                    status = doc.status,
-                    paymentStatus = doc.paymentStatus,
-                    amountPaid = doc.amountPaid?.toDouble(),
-                    issueDate = doc.issueDate,
-                    subtotal = doc.subtotal.toDouble(),
-                    discount = doc.discount.toDouble(),
-                    extraFees = doc.extraFees.toDouble(),
-                    total = doc.total.toDouble(),
-                    currency = doc.currency,
-                    notes = doc.notes,
-                    termsText = doc.termsText,
-                    customer = customer,
-                    items = items
-                )
+                val localDocument = document.toEntity(userId, System.currentTimeMillis())
+                dao.upsertDocument(localDocument)
+                dao.deleteDocumentItems(userId, document.id)
+                if (document.items.isNotEmpty()) {
+                    dao.insertDocumentItems(
+                        document.items.mapIndexed { index, item ->
+                            app.tijario.data.local.DocumentItemEntity(
+                                id = item.id,
+                                userId = userId,
+                                documentId = document.id,
+                                productId = item.productId,
+                                name = item.name,
+                                description = item.description,
+                                quantity = item.quantity,
+                                unitPrice = BigDecimal.valueOf(item.unitPrice),
+                                lineTotal = BigDecimal.valueOf(item.unitPrice).multiply(BigDecimal.valueOf(item.quantity.toLong())),
+                                sortOrder = index,
+                            )
+                        }
+                    )
+                }
             }
         }
+    }
+
+    private suspend fun buildLocalCompleteDocument(
+        userId: String,
+        doc: app.tijario.data.local.DocumentEntity,
+    ): app.tijario.data.model.CompleteDocument {
+        val customer = dao.getCustomer(userId, doc.customerId)?.toModel()
+        val items = dao.getDocumentItems(userId, doc.id).map { item ->
+            app.tijario.data.model.DocumentItem(
+                id = item.id,
+                documentId = item.documentId,
+                productId = item.productId,
+                name = item.name,
+                description = item.description,
+                quantity = item.quantity,
+                unitPrice = item.unitPrice.toDouble(),
+            )
+        }
+
+        return app.tijario.data.model.CompleteDocument(
+            id = doc.id,
+            userId = doc.userId,
+            customerId = doc.customerId,
+            type = if (doc.type == "quote") DocumentType.Quote else DocumentType.Invoice,
+            documentNumber = doc.documentNumber,
+            documentTitle = doc.documentTitle,
+            status = doc.status,
+            paymentStatus = doc.paymentStatus,
+            amountPaid = doc.amountPaid?.toDouble(),
+            issueDate = doc.issueDate,
+            subtotal = doc.subtotal.toDouble(),
+            discount = doc.discount.toDouble(),
+            discountLabel = doc.discountLabel,
+            extraFees = doc.extraFees.toDouble(),
+            extraFeesLabel = doc.extraFeesLabel,
+            total = doc.total.toDouble(),
+            currency = doc.currency,
+            templateId = doc.templateId,
+            notes = doc.notes,
+            termsText = doc.termsText,
+            customer = customer,
+            items = items,
+        )
+    }
 
     suspend fun fetchDocumentPdf(documentId: String): ByteArray =
         withContext(Dispatchers.IO) {
@@ -1620,6 +1732,7 @@ open class TijarioRepository(
                                 price = BigDecimal.valueOf(item.price),
                                 currency = item.currency,
                                 stockQuantity = item.stock_quantity,
+                                category = item.category,
                                 syncStatus = "SYNCED",
                                 serverRevision = item.updated_at,
                                 syncedAt = System.currentTimeMillis()
@@ -1658,13 +1771,17 @@ open class TijarioRepository(
                                 customerId = item.customer_id,
                                 type = item.type,
                                 documentNumber = item.document_number,
+                                templateId = item.template_id,
+                                documentTitle = item.document_title,
                                 status = item.status,
                                 paymentStatus = item.payment_status,
                                 amountPaid = null,
                                 issueDate = item.issue_date,
                                 subtotal = BigDecimal.valueOf(item.subtotal),
                                 discount = BigDecimal.valueOf(item.discount),
+                                discountLabel = item.discount_label,
                                 extraFees = BigDecimal.valueOf(item.extra_fees),
+                                extraFeesLabel = item.extra_fees_label,
                                 total = BigDecimal.valueOf(item.total),
                                 currency = item.currency,
                                 notes = item.notes,

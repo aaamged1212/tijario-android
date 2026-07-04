@@ -1175,6 +1175,8 @@ val DocumentFormStateSaver = listSaver<DocumentFormState, Any>(
             state.dueDate,
             state.poNumber,
             state.documentTitle,
+            state.discountLabel,
+            state.extraFeesLabel,
             state.finalTaxRate,
             state.finalTaxName,
             state.documentLanguage,
@@ -1198,6 +1200,7 @@ val DocumentFormStateSaver = listSaver<DocumentFormState, Any>(
         list
     },
     restore = { list ->
+        val hasLabels = list.size >= 26
         val customerId = list[0] as String
         val customerName = list[1] as String
         val customerWhatsapp = list[2] as String
@@ -1215,16 +1218,18 @@ val DocumentFormStateSaver = listSaver<DocumentFormState, Any>(
         val dueDate = list[14] as String
         val poNumber = list[15] as String
         val documentTitle = list[16] as String
-        val finalTaxRate = list[17] as String
-        val finalTaxName = list[18] as String
-        val documentLanguage = list[19] as String
-        val currency = list[20] as String
-        val signatureData = list[21] as String
-        val paymentMethod = list[22] as String
-        val lang = app.tijario.config.AppLanguage.valueOf(list[23] as String)
-        
+        val discountLabel = if (hasLabels) list[17] as String else ""
+        val extraFeesLabel = if (hasLabels) list[18] as String else ""
+        val finalTaxRate = if (hasLabels) list[19] as String else list[17] as String
+        val finalTaxName = if (hasLabels) list[20] as String else list[18] as String
+        val documentLanguage = if (hasLabels) list[21] as String else list[19] as String
+        val currency = if (hasLabels) list[22] as String else list[20] as String
+        val signatureData = if (hasLabels) list[23] as String else list[21] as String
+        val paymentMethod = if (hasLabels) list[24] as String else list[22] as String
+        val lang = app.tijario.config.AppLanguage.valueOf(if (hasLabels) list[25] as String else list[23] as String)
+
         val itemsList = mutableListOf<app.tijario.ui.state.DocumentItemState>()
-        val itemsData = list.subList(24, list.size)
+        val itemsData = list.subList(if (hasLabels) 26 else 24, list.size)
         for (i in itemsData.indices step 10) {
             if (i + 9 < itemsData.size) {
                 itemsList.add(
@@ -1264,6 +1269,8 @@ val DocumentFormStateSaver = listSaver<DocumentFormState, Any>(
             dueDate = dueDate,
             poNumber = poNumber,
             documentTitle = documentTitle,
+            discountLabel = discountLabel,
+            extraFeesLabel = extraFeesLabel,
             finalTaxRate = finalTaxRate,
             finalTaxName = finalTaxName,
             documentLanguage = documentLanguage,
@@ -1863,6 +1870,17 @@ fun DocumentFormScreen(
         }
     }
 
+    LaunchedEffect(isEditMode, language, type) {
+        if (!isEditMode && form.documentTitle.isBlank()) {
+            form = form.copy(
+                documentTitle = when (type) {
+                    app.tijario.data.model.DocumentType.Invoice -> if (language == AppLanguage.AR) "فاتورة" else "Invoice"
+                    app.tijario.data.model.DocumentType.Quote -> if (language == AppLanguage.AR) "عرض سعر" else "Quote"
+                }
+            )
+        }
+    }
+
     fun moveItemUp(index: Int) {
         if (index > 0) {
             val list = form.items.toMutableList()
@@ -1926,6 +1944,9 @@ fun DocumentFormScreen(
                     termsText = form.terms.ifBlank { null },
                     currency = form.currency,
                     templateId = selectedTemplateId,
+                    documentTitle = form.documentTitle.ifBlank { null },
+                    discountLabel = form.discountLabel.ifBlank { null },
+                    extraFeesLabel = form.extraFeesLabel.ifBlank { null },
                 )
                 val result = if (editDocumentId != null) {
                     dataViewModel.updateDocument(editDocumentId, req)
@@ -1981,6 +2002,9 @@ fun DocumentFormScreen(
             val existing = result.getOrNull()
             if (existing != null) {
                 val metadata = dataViewModel.getDocumentMetadata(editDocumentId)
+                existing.templateId?.takeIf { it.isNotBlank() }?.let { savedTemplateId ->
+                    selectedTemplateId = DocumentTemplateRegistry.normalizeId(savedTemplateId)
+                }
                 form = existing.toFormState(language).copy(
                     currency = metadata?.currency ?: existing.currency.ifBlank { null } ?: form.currency,
                     signatureData = metadata?.signatureData.orEmpty(),

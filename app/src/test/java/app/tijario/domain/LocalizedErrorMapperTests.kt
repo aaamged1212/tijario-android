@@ -31,4 +31,29 @@ class LocalizedErrorMapperTests {
             LocalizedErrorMapper.map("unauthorized", null, AppLanguage.EN),
         )
     }
+
+    @Test
+    fun arabicMessagesDoNotExposeRawKnownCodes() {
+        val message = LocalizedErrorMapper.map("DOCUMENT_LIMIT_REACHED", "quota limit exceeded", AppLanguage.AR)
+
+        assertFalse(message.contains("DOCUMENT_LIMIT_REACHED"))
+        assertFalse(message.contains("quota limit exceeded"))
+        assertEquals(message, LocalizedErrorMapper.map("document_limit_reached", null, AppLanguage.AR))
+    }
+
+    @Test
+    fun newDocumentSyncCodesResolveToLocalizedStrings() {
+        assertEquals(
+            "تعذر تحميل بنود المستند. حاول المزامنة مرة أخرى.",
+            LocalizedErrorMapper.map("MISSING_DOCUMENT_ITEMS", null, AppLanguage.AR),
+        )
+        assertEquals(
+            "Sync failed. Try again.",
+            LocalizedErrorMapper.map("SYNC_FAILED", null, AppLanguage.EN),
+        )
+        assertEquals(
+            "This action is blocked by your current plan.",
+            LocalizedErrorMapper.map("BLOCKED_BY_PLAN", null, AppLanguage.EN),
+        )
+    }
 }

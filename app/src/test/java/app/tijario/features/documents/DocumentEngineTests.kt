@@ -90,12 +90,15 @@ class DocumentEngineTests {
         assertEquals("paid", model.status.paymentStatus)
     }
 
-    @Test(expected = IllegalArgumentException::class)
-    fun savedMappingFailsWhenCriticalItemsAreMissing() {
-        SavedDocumentRenderMapper.map(
+    @Test
+    fun savedMappingHandlesMissingItemsWithoutCrashing() {
+        val model = SavedDocumentRenderMapper.map(
             document = DocumentFixtures.saved().copy(items = emptyList()),
             businessSettings = DocumentFixtures.business,
         )
+
+        assertTrue(model.items.isEmpty())
+        assertEquals("فاتورة", model.documentTitle)
     }
 
     @Test
@@ -166,6 +169,7 @@ class DocumentEngineTests {
             SavedDocumentRenderMapper.map(
                 document = DocumentFixtures.saved(),
                 businessSettings = DocumentFixtures.business,
+                language = AppLanguage.EN,
                 showTijarioBranding = true,
             )
         )
@@ -173,6 +177,7 @@ class DocumentEngineTests {
             SavedDocumentRenderMapper.map(
                 document = DocumentFixtures.saved(),
                 businessSettings = DocumentFixtures.business,
+                language = AppLanguage.EN,
                 showTijarioBranding = false,
             )
         )
@@ -181,6 +186,20 @@ class DocumentEngineTests {
         assertFalse(unbranded.contains("Created with Tijario"))
         assertFalse(unbranded.contains("تم إنشاء هذا المستند عبر تجاريو"))
         assertTrue(unbranded.contains("<main"))
+    }
+
+    @Test
+    fun savedMappingUsesCustomSummaryLabelsWhenProvided() {
+        val model = SavedDocumentRenderMapper.map(
+            document = DocumentFixtures.saved().copy(
+                discountLabel = "Promo",
+                extraFeesLabel = "Service fee",
+            ),
+            businessSettings = DocumentFixtures.business,
+        )
+
+        assertEquals("Promo", model.discountLabel)
+        assertEquals("Service fee", model.extraFeesLabel)
     }
 
     @Test

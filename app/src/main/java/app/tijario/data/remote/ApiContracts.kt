@@ -49,6 +49,9 @@ data class CreateDocumentRequest(
     @SerialName("terms_text") val termsText: String? = null,
     val currency: String? = null,
     @SerialName("template_id") val templateId: String? = null,
+    @SerialName("document_title") val documentTitle: String? = null,
+    @SerialName("discount_label") val discountLabel: String? = null,
+    @SerialName("extra_fees_label") val extraFeesLabel: String? = null,
 )
 
 @Serializable

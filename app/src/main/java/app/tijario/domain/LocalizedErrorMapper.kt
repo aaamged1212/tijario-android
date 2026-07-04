@@ -23,6 +23,10 @@ object LocalizedErrorMapper {
         "invalid_document_total" to "doc_error_total_negative",
         "document_create_failed" to "doc_error_save_failed",
         "document_update_failed" to "doc_error_update_failed",
+        "SERVER_SAVE_FAILED" to "doc_error_server_save_failed",
+        "server_save_failed" to "doc_error_server_save_failed",
+        "SERVER_UPDATE_FAILED" to "doc_error_server_update_failed",
+        "server_update_failed" to "doc_error_server_update_failed",
         "document_items_delete_failed" to "doc_error_server_error",
         "document_delete_failed" to "doc_error_server_error",
         "document_not_found" to "doc_error_document_not_found",
@@ -38,6 +42,14 @@ object LocalizedErrorMapper {
         "select_customer_first" to "select_customer_first",
         "add_one_item_min" to "add_one_item_min",
         "enter_item_details_correctly" to "enter_item_details_correctly",
+        "MISSING_DOCUMENT_ITEMS" to "doc_error_missing_document_items",
+        "missing_document_items" to "doc_error_missing_document_items",
+        "SYNC_FAILED" to "doc_error_sync_failed",
+        "sync_failed" to "doc_error_sync_failed",
+        "BLOCKED_BY_PLAN" to "doc_error_blocked_by_plan",
+        "blocked_by_plan" to "doc_error_blocked_by_plan",
+        "CONFLICT" to "doc_error_conflict",
+        "conflict" to "doc_error_conflict",
         "CUSTOMER_LIMIT_REACHED" to "doc_error_customer_limit_reached",
         "PRODUCT_LIMIT_REACHED" to "doc_error_product_limit_reached",
         "customer_limit_reached" to "doc_error_customer_limit_reached",
@@ -75,6 +87,12 @@ object LocalizedErrorMapper {
         "could not verify your current plan" to "doc_error_plan_required",
         "could not save the document" to "doc_error_save_failed",
         "could not update the document" to "doc_error_update_failed",
+        "server save failed" to "doc_error_server_save_failed",
+        "server update failed" to "doc_error_server_update_failed",
+        "missing document items" to "doc_error_missing_document_items",
+        "sync failed" to "doc_error_sync_failed",
+        "blocked by plan" to "doc_error_blocked_by_plan",
+        "conflict" to "doc_error_conflict",
         "product or service not found" to "doc_error_saved_product_not_found",
         "saved product not found" to "doc_error_saved_product_not_found",
     )
@@ -87,11 +105,7 @@ object LocalizedErrorMapper {
 
         val sanitizedMessage = message?.trim().orEmpty()
         if (sanitizedMessage.isNotBlank()) {
-            return if (language == AppLanguage.AR) {
-                Localization.getString("doc_error_unexpected", language)
-            } else {
-                Localization.getString("doc_error_unexpected", language)
-            }
+            return Localization.getString("doc_error_unexpected", language)
         }
 
         return when (language) {

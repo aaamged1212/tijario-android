@@ -386,6 +386,8 @@ fun CompleteDocument.toFormState(lang: AppLanguage): app.tijario.ui.state.Docume
         },
         discount = discount.toString(),
         extraFees = extraFees.toString(),
+        discountLabel = discountLabel.orEmpty(),
+        extraFeesLabel = extraFeesLabel.orEmpty(),
         paymentStatus = paymentStatus ?: "unpaid",
         amountPaid = amountPaid?.toString().orEmpty(),
         notes = notes.orEmpty(),
@@ -399,7 +401,7 @@ fun CompleteDocument.toFormState(lang: AppLanguage): app.tijario.ui.state.Docume
         documentTitle = if (type == DocumentType.Invoice) {
             if (isArabic) "فاتورة" else "Invoice"
         } else {
-            if (isArabic) "عرض سعر" else "Quotation"
+            if (isArabic) "عرض سعر" else "Quote"
         },
     )
 }

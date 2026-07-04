@@ -218,7 +218,11 @@ class TijarioDataViewModel(
     }
 
     suspend fun updateDocument(documentId: String, request: CreateDocumentRequest): ApiResult<CreateDocumentResponse> =
-        repository.updateDocument(documentId, request)
+        repository.updateDocument(documentId, request).also { result ->
+            if (result.ok) {
+                refreshPlanUsage()
+            }
+        }
 
     suspend fun deleteDocument(documentId: String): ApiResult<CreateDocumentResponse> =
         repository.deleteDocument(documentId)

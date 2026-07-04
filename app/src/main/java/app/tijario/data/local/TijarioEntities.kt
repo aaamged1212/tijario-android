@@ -7,6 +7,7 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 import app.tijario.data.model.BusinessSettings
 import app.tijario.data.model.Customer
+import app.tijario.data.model.CompleteDocument
 import app.tijario.data.model.DocumentSummary
 import app.tijario.data.model.DocumentType
 import app.tijario.data.model.Product
@@ -136,6 +137,10 @@ data class DocumentEntity(
     val amountPaid: BigDecimal?,
     @ColumnInfo(name = "issue_date")
     val issueDate: String,
+    @ColumnInfo(name = "template_id")
+    val templateId: String? = null,
+    @ColumnInfo(name = "document_title")
+    val documentTitle: String? = null,
     val total: BigDecimal,
     val currency: String,
     @ColumnInfo(name = "synced_at")
@@ -144,8 +149,12 @@ data class DocumentEntity(
     // V7 additions
     val subtotal: BigDecimal = BigDecimal.ZERO,
     val discount: BigDecimal = BigDecimal.ZERO,
+    @ColumnInfo(name = "discount_label")
+    val discountLabel: String? = null,
     @ColumnInfo(name = "extra_fees")
     val extraFees: BigDecimal = BigDecimal.ZERO,
+    @ColumnInfo(name = "extra_fees_label")
+    val extraFeesLabel: String? = null,
     val notes: String? = null,
     @ColumnInfo(name = "terms_text")
     val termsText: String? = null,
@@ -455,6 +464,8 @@ fun DocumentSummary.toEntity(userId: String, syncedAt: Long = System.currentTime
         customerId = customerId,
         type = type.toCacheValue(),
         documentNumber = documentNumber,
+        templateId = templateId,
+        documentTitle = documentTitle,
         status = status,
         paymentStatus = paymentStatus,
         amountPaid = amountPaid?.let { BigDecimal.valueOf(it) },
@@ -462,6 +473,8 @@ fun DocumentSummary.toEntity(userId: String, syncedAt: Long = System.currentTime
         total = BigDecimal.valueOf(total),
         currency = currency,
         syncedAt = syncedAt,
+        discountLabel = discountLabel,
+        extraFeesLabel = extraFeesLabel,
     )
 
 fun DocumentEntity.toModel(): DocumentSummary =
@@ -470,12 +483,47 @@ fun DocumentEntity.toModel(): DocumentSummary =
         customerId = customerId,
         type = type.toDocumentType(),
         documentNumber = documentNumber,
+        documentTitle = documentTitle,
         status = status,
         paymentStatus = paymentStatus,
         amountPaid = amountPaid?.toDouble(),
         issueDate = issueDate,
+        discountLabel = discountLabel,
+        extraFeesLabel = extraFeesLabel,
+        templateId = templateId,
         total = total.toDouble(),
         currency = currency,
+    )
+
+fun CompleteDocument.toEntity(userId: String, syncedAt: Long = System.currentTimeMillis()): DocumentEntity =
+    DocumentEntity(
+        id = id,
+        userId = userId,
+        customerId = customerId,
+        type = type.toCacheValue(),
+        documentNumber = documentNumber,
+        templateId = templateId,
+        status = status,
+        paymentStatus = paymentStatus,
+        amountPaid = amountPaid?.let { BigDecimal.valueOf(it) },
+        issueDate = issueDate,
+        total = BigDecimal.valueOf(total),
+        currency = currency,
+        syncedAt = syncedAt,
+        subtotal = BigDecimal.valueOf(subtotal),
+        discount = BigDecimal.valueOf(discount),
+        discountLabel = discountLabel,
+        extraFees = BigDecimal.valueOf(extraFees),
+        extraFeesLabel = extraFeesLabel,
+        notes = notes,
+        termsText = termsText,
+        syncStatus = "SYNCED",
+        localRevision = 1,
+        serverRevision = id,
+        serverUpdatedAt = syncedAt,
+        lastSyncedAt = syncedAt,
+        syncErrorCode = null,
+        isDeleted = false,
     )
 
 private fun ProductKind.toCacheValue(): String =

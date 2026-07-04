@@ -179,7 +179,7 @@ class DocumentHtmlRenderer(
     private fun title(model: DocumentRenderModel): String =
         model.documentTitle?.takeIf { it.isNotBlank() } ?: when (model.documentType) {
             DocumentType.Invoice -> if (model.language == AppLanguage.AR) "فاتورة" else "Invoice"
-            DocumentType.Quote -> if (model.language == AppLanguage.AR) "عرض سعر" else "Quotation"
+            DocumentType.Quote -> if (model.language == AppLanguage.AR) "عرض سعر" else "Quote"
         }
 
     private fun labels(language: AppLanguage): Labels =
@@ -295,8 +295,10 @@ class DocumentHtmlRenderer(
         buildString {
             append("<aside class=\"totals\">")
             append(totalsRow(labels.subtotal, model.totals.subtotal, model))
-            if (model.totals.discount > BigDecimal.ZERO) append(totalsRow(labels.discount, model.totals.discount, model))
-            if (model.totals.extraFees > BigDecimal.ZERO) append(totalsRow(labels.extraFees, model.totals.extraFees, model))
+            val discountLabel = model.discountLabel?.takeIf { it.isNotBlank() } ?: labels.discount
+            val extraFeesLabel = model.extraFeesLabel?.takeIf { it.isNotBlank() } ?: labels.extraFees
+            if (model.totals.discount > BigDecimal.ZERO) append(totalsRow(discountLabel, model.totals.discount, model))
+            if (model.totals.extraFees > BigDecimal.ZERO) append(totalsRow(extraFeesLabel, model.totals.extraFees, model))
             if (model.totals.finalTaxAmount > BigDecimal.ZERO) {
                 val taxLabel = "${model.totals.finalTaxName} (${model.totals.finalTaxRate}%)"
                 append(totalsRow(taxLabel, model.totals.finalTaxAmount, model))

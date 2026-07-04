@@ -95,6 +95,9 @@ class BackendApiClient(
     suspend fun fetchDocumentPdf(documentId: String): ByteArray =
         authorizedGet("api/mobile/documents/$documentId/pdf").body()
 
+    suspend fun fetchCompleteDocument(documentId: String): ApiResult<app.tijario.data.model.CompleteDocument> =
+        authorizedGet("api/mobile/documents/$documentId").decodeApiResult()
+
     suspend fun pushSync(request: PushSyncRequest): HttpResponse =
         authorizedPost("api/mobile/sync/push", request)
 
@@ -438,6 +441,7 @@ data class ProductServerDto(
     val price: Double,
     val currency: String,
     val stock_quantity: Int?,
+    val category: String? = null,
     val updated_at: String
 )
 
@@ -447,12 +451,16 @@ data class DocumentServerDto(
     val customer_id: String,
     val type: String,
     val document_number: String,
+    val template_id: String? = null,
+    val document_title: String? = null,
     val status: String,
     val payment_status: String?,
     val issue_date: String,
     val subtotal: Double,
     val discount: Double,
+    val discount_label: String? = null,
     val extra_fees: Double,
+    val extra_fees_label: String? = null,
     val total: Double,
     val currency: String,
     val notes: String?,
