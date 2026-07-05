@@ -344,7 +344,31 @@ fun DashboardScreen(
     var showRangeDialog by remember { mutableStateOf(false) }
     var showFromDatePicker by remember { mutableStateOf(false) }
     var showToDatePicker by remember { mutableStateOf(false) }
+    var customRangeError by remember { mutableStateOf<String?>(null) }
     val referenceDate = remember { java.time.LocalDate.now(java.time.ZoneOffset.UTC) }
+    fun ensureCustomRangeDefaults() {
+        if (customRangeFrom.isBlank()) {
+            customRangeFrom = referenceDate.withDayOfMonth(1).toString()
+        }
+        if (customRangeTo.isBlank()) {
+            customRangeTo = referenceDate.toString()
+        }
+        if (selectedRangePreset != DashboardDateRangePreset.Custom) {
+            selectedRangePreset = DashboardDateRangePreset.Custom
+        }
+        customRangeError = null
+    }
+    fun validateCustomRange(): Boolean {
+        val from = runCatching { java.time.LocalDate.parse(customRangeFrom) }.getOrNull()
+        val to = runCatching { java.time.LocalDate.parse(customRangeTo) }.getOrNull()
+        val invalid = from != null && to != null && from.isAfter(to)
+        customRangeError = if (invalid) {
+            if (isArabic) Localization.getString("dashboard_date_range_invalid", language) else Localization.getString("dashboard_date_range_invalid", language)
+        } else {
+            null
+        }
+        return !invalid
+    }
     val presetRange = remember(selectedRangePreset, referenceDate) {
         DashboardStatsCalculator.resolvePresetRange(selectedRangePreset, referenceDate)
     }
@@ -358,6 +382,8 @@ fun DashboardScreen(
         DashboardDateRangePreset.Custom -> customToDate
         else -> presetRange.endDate
     }
+    val isCustomRangeValid = selectedRangePreset != DashboardDateRangePreset.Custom ||
+        (activeStartDate != null && activeEndDate != null && !activeStartDate.isAfter(activeEndDate))
     val selectedRangeLabel = when (selectedRangePreset) {
         DashboardDateRangePreset.ThisMonth -> if (isArabic) "هذا الشهر" else "This month"
         DashboardDateRangePreset.LastMonth -> if (isArabic) "الشهر الماضي" else "Last month"
@@ -366,7 +392,11 @@ fun DashboardScreen(
         DashboardDateRangePreset.Custom -> if (isArabic) "نطاق مخصص" else "Custom range"
     }
     val rangedDocuments = remember(uiState.documents, activeStartDate, activeEndDate, businessCurrency) {
-        DashboardStatsCalculator.filterByRange(uiState.documents, activeStartDate, activeEndDate)
+        if (isCustomRangeValid) {
+            DashboardStatsCalculator.filterByRange(uiState.documents, activeStartDate, activeEndDate)
+        } else {
+            emptyList()
+        }
     }
     val totalAmount = remember(rangedDocuments, businessCurrency) {
         DashboardStatsCalculator.calculateCollectedInvoiceAmount(rangedDocuments, businessCurrency)
@@ -426,31 +456,57 @@ fun DashboardScreen(
                     }
                     TijarioFilterChip(
                         selected = selectedRangePreset == DashboardDateRangePreset.Custom,
-                        onClick = { selectedRangePreset = DashboardDateRangePreset.Custom },
+                        onClick = {
+                            selectedRangePreset = DashboardDateRangePreset.Custom
+                            ensureCustomRangeDefaults()
+                        },
                         label = if (isArabic) "نطاق مخصص" else "Custom range",
                         textFontSize = 12.sp,
                     )
                     if (selectedRangePreset == DashboardDateRangePreset.Custom) {
-                        TijarioTextField(
-                            label = if (isArabic) "من تاريخ" else "From date",
-                            value = customRangeFrom,
-                            onValueChange = { },
-                            readOnly = true,
-                            modifier = Modifier.clickable { showFromDatePicker = true },
-                            trailingIcon = {
-                                Icon(Icons.Filled.DateRange, contentDescription = null)
-                            },
-                        )
-                        TijarioTextField(
-                            label = if (isArabic) "إلى تاريخ" else "To date",
-                            value = customRangeTo,
-                            onValueChange = { },
-                            readOnly = true,
-                            modifier = Modifier.clickable { showToDatePicker = true },
-                            trailingIcon = {
-                                Icon(Icons.Filled.DateRange, contentDescription = null)
-                            },
-                        )
+                        Box(modifier = Modifier.fillMaxWidth()) {
+                            TijarioTextField(
+                                label = if (isArabic) "من تاريخ" else "From date",
+                                value = customRangeFrom,
+                                onValueChange = { },
+                                readOnly = true,
+                                modifier = Modifier.fillMaxWidth(),
+                                trailingIcon = {
+                                    Icon(Icons.Filled.DateRange, contentDescription = null)
+                                },
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .matchParentSize()
+                                    .clickable {
+                                        ensureCustomRangeDefaults()
+                                        showFromDatePicker = true
+                                    }
+                            )
+                        }
+                        Box(modifier = Modifier.fillMaxWidth()) {
+                            TijarioTextField(
+                                label = if (isArabic) "إلى تاريخ" else "To date",
+                                value = customRangeTo,
+                                onValueChange = { },
+                                readOnly = true,
+                                modifier = Modifier.fillMaxWidth(),
+                                trailingIcon = {
+                                    Icon(Icons.Filled.DateRange, contentDescription = null)
+                                },
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .matchParentSize()
+                                    .clickable {
+                                        ensureCustomRangeDefaults()
+                                        showToDatePicker = true
+                                    }
+                            )
+                        }
+                        customRangeError?.let {
+                            Text(it, color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
+                        }
                     }
                 }
             },
@@ -464,6 +520,7 @@ fun DashboardScreen(
 
     if (showFromDatePicker) {
         val initialDateMillis = customFromDate?.atStartOfDay(java.time.ZoneOffset.UTC)?.toInstant()?.toEpochMilli()
+            ?: referenceDate.withDayOfMonth(1).atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli()
         val pickerState = rememberDatePickerState(initialSelectedDateMillis = initialDateMillis)
         DatePickerDialog(
             onDismissRequest = { showFromDatePicker = false },
@@ -476,6 +533,7 @@ fun DashboardScreen(
                                 .toLocalDate()
                                 .toString()
                             selectedRangePreset = DashboardDateRangePreset.Custom
+                            validateCustomRange()
                         }
                         showFromDatePicker = false
                     }
@@ -491,6 +549,7 @@ fun DashboardScreen(
 
     if (showToDatePicker) {
         val initialDateMillis = customToDate?.atStartOfDay(java.time.ZoneOffset.UTC)?.toInstant()?.toEpochMilli()
+            ?: referenceDate.atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli()
         val pickerState = rememberDatePickerState(initialSelectedDateMillis = initialDateMillis)
         DatePickerDialog(
             onDismissRequest = { showToDatePicker = false },
@@ -503,6 +562,7 @@ fun DashboardScreen(
                                 .toLocalDate()
                                 .toString()
                             selectedRangePreset = DashboardDateRangePreset.Custom
+                            validateCustomRange()
                         }
                         showToDatePicker = false
                     }

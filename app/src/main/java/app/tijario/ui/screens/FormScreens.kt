@@ -2535,6 +2535,26 @@ fun DocumentFormScreen(
                                 modifier = Modifier.weight(1.2f)
                             )
                         }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            TijarioTextField(
+                                label = Localization.getString("doc_discount_reason", language),
+                                value = form.discountLabel,
+                                onValueChange = { form = form.copy(discountLabel = it) },
+                                modifier = Modifier.weight(1f),
+                                leadingIcon = { Icon(Icons.Filled.LocalOffer, contentDescription = null, tint = Color(0xFF64748B)) }
+                            )
+                            TijarioTextField(
+                                label = Localization.getString("doc_extra_fee_reason", language),
+                                value = form.extraFeesLabel,
+                                onValueChange = { form = form.copy(extraFeesLabel = it) },
+                                modifier = Modifier.weight(1.2f),
+                                leadingIcon = { Icon(Icons.Filled.PriceChange, contentDescription = null, tint = Color(0xFF64748B)) }
+                            )
+                        }
                         
                         HorizontalDivider(color = Color(0xFFF1F5F9))
 

@@ -1500,54 +1500,12 @@ open class TijarioRepository(
                         }
                         "product" -> {
                             val prod = dao.getProduct(userId, op.entityId)
-                            if (prod != null) {
-                                buildJsonObject {
-                                    put("kind", prod.kind)
-                                    put("name", prod.name)
-                                    put("description", prod.description)
-                                    put("price", prod.price.toDouble())
-                                    put("currency", prod.currency)
-                                    put("stock_quantity", prod.stockQuantity)
-                                }
-                            } else {
-                                buildJsonObject {}
-                            }
+                            if (prod != null) buildProductSyncPayload(prod.toModel()) else buildJsonObject {}
                         }
                         "document" -> {
                             val doc = dao.getDocument(userId, op.entityId)
                             val items = dao.getDocumentItems(userId, op.entityId)
-                            if (doc != null) {
-                                buildJsonObject {
-                                    put("customer_id", doc.customerId)
-                                    put("type", doc.type)
-                                    put("document_number", doc.documentNumber)
-                                    put("status", doc.status)
-                                    put("payment_status", doc.paymentStatus)
-                                    put("issue_date", doc.issueDate)
-                                    put("subtotal", doc.subtotal.toDouble())
-                                    put("discount", doc.discount.toDouble())
-                                    put("extra_fees", doc.extraFees.toDouble())
-                                    put("total", doc.total.toDouble())
-                                    put("currency", doc.currency)
-                                    put("notes", doc.notes)
-                                    put("terms_text", doc.termsText)
-                                    putJsonArray("items") {
-                                        items.forEach { itm ->
-                                            addJsonObject {
-                                                put("id", itm.id)
-                                                put("name", itm.name)
-                                                put("description", itm.description)
-                                                put("quantity", itm.quantity)
-                                                put("unit_price", itm.unitPrice.toDouble())
-                                                put("line_total", itm.lineTotal.toDouble())
-                                                put("sort_order", itm.sortOrder)
-                                            }
-                                        }
-                                    }
-                                }
-                            } else {
-                                buildJsonObject {}
-                            }
+                            if (doc != null) buildDocumentSyncPayload(doc, items) else buildJsonObject {}
                         }
                         "business_settings" -> {
                             val bs = dao.getBusinessSettings(userId)
@@ -1908,3 +1866,55 @@ open class TijarioRepository(
         return usage.copy(documentsUsed = usage.documentsUsed + pendingDocs)
     }
 }
+
+internal fun buildProductSyncPayload(product: Product): kotlinx.serialization.json.JsonElement =
+    buildJsonObject {
+        put("kind", product.kind.name.lowercase())
+        put("name", product.name)
+        put("description", product.description)
+        put("price", product.price)
+        put("currency", product.currency)
+        put("stock_quantity", product.stockQuantity)
+        put("category", product.category)
+    }
+
+internal fun buildDocumentItemSyncPayload(item: app.tijario.data.local.DocumentItemEntity): kotlinx.serialization.json.JsonElement =
+    buildJsonObject {
+        put("id", item.id)
+        put("product_id", item.productId)
+        put("name", item.name)
+        put("description", item.description)
+        put("quantity", item.quantity)
+        put("unit_price", item.unitPrice.toDouble())
+        put("line_total", item.lineTotal.toDouble())
+        put("sort_order", item.sortOrder)
+    }
+
+internal fun buildDocumentSyncPayload(
+    doc: app.tijario.data.local.DocumentEntity,
+    items: List<app.tijario.data.local.DocumentItemEntity>,
+): kotlinx.serialization.json.JsonElement =
+    buildJsonObject {
+        put("customer_id", doc.customerId)
+        put("type", doc.type)
+        put("document_number", doc.documentNumber)
+        put("status", doc.status)
+        put("payment_status", doc.paymentStatus)
+        put("issue_date", doc.issueDate)
+        put("subtotal", doc.subtotal.toDouble())
+        put("discount", doc.discount.toDouble())
+        put("discount_label", doc.discountLabel)
+        put("extra_fees", doc.extraFees.toDouble())
+        put("extra_fees_label", doc.extraFeesLabel)
+        put("total", doc.total.toDouble())
+        put("currency", doc.currency)
+        put("notes", doc.notes)
+        put("terms_text", doc.termsText)
+        put("template_id", doc.templateId)
+        put("document_title", doc.documentTitle)
+        putJsonArray("items") {
+            items.sortedBy { it.sortOrder }.forEach { item ->
+                add(buildDocumentItemSyncPayload(item))
+            }
+        }
+    }

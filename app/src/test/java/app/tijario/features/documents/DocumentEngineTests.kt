@@ -189,6 +189,24 @@ class DocumentEngineTests {
     }
 
     @Test
+    fun brandingFlagDefaultsToVisibleForDraftAndCanBeDisabledForSavedDocuments() {
+        val draftModel = DraftDocumentRenderMapper.map(
+            documentType = DocumentType.Invoice,
+            form = DocumentFixtures.draftForm(),
+            businessSettings = DocumentFixtures.business,
+            customerCity = DocumentFixtures.customer.city,
+        )
+        val savedModel = SavedDocumentRenderMapper.map(
+            document = DocumentFixtures.saved(),
+            businessSettings = DocumentFixtures.business,
+            showTijarioBranding = false,
+        )
+
+        assertTrue(draftModel.showTijarioBranding)
+        assertFalse(savedModel.showTijarioBranding)
+    }
+
+    @Test
     fun savedMappingUsesCustomSummaryLabelsWhenProvided() {
         val model = SavedDocumentRenderMapper.map(
             document = DocumentFixtures.saved().copy(

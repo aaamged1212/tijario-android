@@ -1,6 +1,8 @@
 package app.tijario.data.remote
 
 import app.tijario.config.AppConfig
+import app.tijario.BuildConfig
+import android.util.Log
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.engine.android.Android
@@ -31,10 +33,10 @@ class BackendApiClient(
     private val httpClient: HttpClient = defaultHttpClient(),
 ) {
     suspend fun createDocument(request: CreateDocumentRequest): ApiResult<CreateDocumentResponse> =
-        authorizedPost("api/mobile/documents", request).decodeApiResult()
+        authorizedPost("api/mobile/documents", request).decodeApiResultWithDocumentLogging("api/mobile/documents")
 
     suspend fun updateDocument(documentId: String, request: CreateDocumentRequest): ApiResult<CreateDocumentResponse> =
-        authorizedPut("api/mobile/documents/$documentId", request).decodeApiResult()
+        authorizedPut("api/mobile/documents/$documentId", request).decodeApiResultWithDocumentLogging("api/mobile/documents/$documentId")
 
     suspend fun deleteDocument(documentId: String): ApiResult<CreateDocumentResponse> =
         authorizedDelete("api/mobile/documents/$documentId").decodeApiResult()
@@ -189,6 +191,49 @@ class BackendApiClient(
                 },
             )
         }
+    }
+
+    private suspend inline fun <reified T> HttpResponse.decodeApiResultWithDocumentLogging(path: String): ApiResult<T> {
+        val contentType = headers[HttpHeaders.ContentType].orEmpty()
+        val statusCode = status.value
+        val text = bodyAsText()
+        val result = runCatching {
+            apiJson.decodeFromString<ApiResult<T>>(text)
+        }.getOrElse {
+            val fallback = ApiResult<T>(
+                ok = false,
+                code = if (contentType.contains("application/json", ignoreCase = true)) {
+                    "invalid_api_response"
+                } else {
+                    "unexpected_api_response"
+                },
+                message = when {
+                    contentType.contains("application/json", ignoreCase = true) ->
+                        "تعذر قراءة رد الخادم. حاول مرة أخرى بعد قليل."
+                    text.trimStart().startsWith("<") ->
+                        "الخادم أرسل صفحة HTML بدل JSON. تأكد من رابط الـ API."
+                    else ->
+                        "رد غير متوقع من الخادم. ${responseDiagnostic(contentType, text)}"
+                },
+            )
+            if (BuildConfig.DEBUG) {
+                Log.d(
+                    "TijarioApi",
+                    "path=$path status=$statusCode ok=${fallback.ok} code=${fallback.code} message=${fallback.message} documentIdExists=false",
+                )
+            }
+            return fallback
+        }
+
+        if (BuildConfig.DEBUG) {
+            val documentIdExists = (result.data as? CreateDocumentResponse)?.documentId?.isNotBlank() == true
+            Log.d(
+                "TijarioApi",
+                "path=$path status=$statusCode ok=${result.ok} code=${result.code} message=${result.message} documentIdExists=$documentIdExists",
+            )
+        }
+
+        return result
     }
 
     private suspend inline fun <reified T> HttpResponse.decodeJsonResponse(): T {

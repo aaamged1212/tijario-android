@@ -55,5 +55,21 @@ class LocalizedErrorMapperTests {
             "This action is blocked by your current plan.",
             LocalizedErrorMapper.map("BLOCKED_BY_PLAN", null, AppLanguage.EN),
         )
+        assertEquals(
+            "Could not save the document on the server. Try again.",
+            LocalizedErrorMapper.map("SERVER_SAVE_FAILED", null, AppLanguage.EN),
+        )
+        assertEquals(
+            "تعذر حفظ المستند على الخادم. حاول مرة أخرى.",
+            LocalizedErrorMapper.map("server_save_failed", null, AppLanguage.AR),
+        )
+        assertEquals(
+            "A server error occurred. Try again.",
+            LocalizedErrorMapper.map("invalid_api_response", "unexpected body", AppLanguage.EN),
+        )
+        assertEquals(
+            "Enter the document details correctly.",
+            LocalizedErrorMapper.map("invalid_document_type", null, AppLanguage.EN),
+        )
     }
 }
