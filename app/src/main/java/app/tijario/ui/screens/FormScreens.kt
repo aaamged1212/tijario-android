@@ -122,6 +122,14 @@ import androidx.compose.foundation.Image
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 
+internal fun isDocumentIdentityEditable(isEditMode: Boolean): Boolean = !isEditMode
+
+internal fun documentIdentityLockedHint(language: AppLanguage): String =
+    Localization.getString("locked_after_save", language)
+
+internal fun documentIdentityLockedDescription(language: AppLanguage): String =
+    Localization.getString("document_identity_locked", language)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CustomerFormScreen(
@@ -1286,6 +1294,7 @@ val DocumentFormStateSaver = listSaver<DocumentFormState, Any>(
 @Composable
 fun InvoiceInfoDialog(
     form: app.tijario.ui.state.DocumentFormState,
+    isEditMode: Boolean,
     onDismiss: () -> Unit,
     onSave: (
         documentNumber: String,
@@ -1302,6 +1311,7 @@ fun InvoiceInfoDialog(
     var dueDate by remember { mutableStateOf(form.dueDate) }
     var poNumber by remember { mutableStateOf(form.poNumber) }
     var invoiceTitle by remember { mutableStateOf(form.documentTitle) }
+    val identityLocked = !isDocumentIdentityEditable(isEditMode)
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -1360,13 +1370,15 @@ fun InvoiceInfoDialog(
                             TijarioTextField(
                                 label = t("invoice_number") + " *",
                                 value = invoiceNumber,
-                                onValueChange = { invoiceNumber = it }
+                                onValueChange = { if (!identityLocked) invoiceNumber = it },
+                                readOnly = identityLocked
                             )
 
                             TijarioTextField(
                                 label = t("creation_date") + " *",
                                 value = creationDate,
-                                onValueChange = { creationDate = it }
+                                onValueChange = { if (!identityLocked) creationDate = it },
+                                readOnly = identityLocked
                             )
 
                             var showTermsDropdown by remember { mutableStateOf(false) }
@@ -1380,8 +1392,17 @@ fun InvoiceInfoDialog(
                             TijarioTextField(
                                 label = t("invoice_title_name"),
                                 value = invoiceTitle,
-                                onValueChange = { invoiceTitle = it }
+                                onValueChange = { if (!identityLocked) invoiceTitle = it },
+                                readOnly = identityLocked
                             )
+
+                            if (identityLocked) {
+                                Text(
+                                    text = documentIdentityLockedDescription(form.lang),
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                     }
                 }
@@ -1983,14 +2004,16 @@ fun DocumentFormScreen(
     }
 
     // Sync selected customer
-    LaunchedEffect(selectedCustomer) {
-        selectedCustomer?.let {
-            form = form.copy(
-                customerId = it.id,
-                customerName = it.name,
-                customerWhatsapp = it.whatsappNumber,
-                customerCity = it.city
-            )
+    LaunchedEffect(selectedCustomer, isEditMode) {
+        if (!isEditMode) {
+            selectedCustomer?.let {
+                form = form.copy(
+                    customerId = it.id,
+                    customerName = it.name,
+                    customerWhatsapp = it.whatsappNumber,
+                    customerCity = it.city
+                )
+            }
         }
     }
 
@@ -2231,6 +2254,14 @@ fun DocumentFormScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontSize = 12.sp
                             )
+                            if (isEditMode) {
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = documentIdentityLockedHint(language),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 11.sp
+                                )
+                            }
                         }
                         Icon(
                             Icons.AutoMirrored.Filled.KeyboardArrowRight,
@@ -2356,7 +2387,9 @@ fun DocumentFormScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { onNavigateToSelectCustomer() }
+                                .clickable(enabled = isDocumentIdentityEditable(isEditMode)) {
+                                    onNavigateToSelectCustomer()
+                                }
                                 .padding(16.dp),
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                             verticalAlignment = Alignment.CenterVertically
@@ -2369,6 +2402,13 @@ fun DocumentFormScreen(
                                     fontWeight = FontWeight.SemiBold,
                                     fontSize = 14.sp
                                 )
+                                if (isEditMode) {
+                                    Text(
+                                        text = documentIdentityLockedHint(language),
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontSize = 11.sp
+                                    )
+                                }
                             }
                             Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
@@ -2752,7 +2792,9 @@ fun DocumentFormScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { showCurrencyDialog = true }
+                                .clickable(enabled = isDocumentIdentityEditable(isEditMode)) {
+                                    showCurrencyDialog = true
+                                }
                                 .padding(vertical = 8.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
@@ -2771,6 +2813,14 @@ fun DocumentFormScreen(
                                 Text(form.currency, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
                                 Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
+                        }
+
+                        if (isEditMode) {
+                            Text(
+                                text = documentIdentityLockedHint(language),
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
 
                         HorizontalDivider(color = Color(0xFFF1F5F9))
@@ -3012,6 +3062,7 @@ fun DocumentFormScreen(
     if (showInvoiceInfoDialog) {
         InvoiceInfoDialog(
             form = form,
+            isEditMode = isEditMode,
             onDismiss = { showInvoiceInfoDialog = false },
             onSave = { docNum, date, terms, due, po, title ->
                 form = form.copy(
