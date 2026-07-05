@@ -1888,7 +1888,7 @@ fun DocumentFormScreen(
 ) {
     val language = LocalLanguage.current
     var form by rememberSaveable(stateSaver = DocumentFormStateSaver) { mutableStateOf(DocumentFormState(lang = language)) }
-    var isLoadingDocument by remember { mutableStateOf(documentId != null) }
+    var isLoadingDocument by rememberSaveable { mutableStateOf(documentId != null) }
     var selectedTab by remember { mutableStateOf(0) } // 0 = edit, 1 = preview
     var isLoading by remember { mutableStateOf(false) }
     var submitError by remember { mutableStateOf<String?>(null) }
@@ -2059,30 +2059,36 @@ fun DocumentFormScreen(
         }
     }
 
-    LaunchedEffect(editDocumentId) {
+    LaunchedEffect(editDocumentId, loadedDocumentId) {
         if (shouldLoadEditDocument(loadedDocumentId, editDocumentId)) {
             val currentEditDocumentId = editDocumentId ?: return@LaunchedEffect
             isLoadingDocument = true
             submitError = null
-            val result = dataViewModel.fetchCompleteDocument(currentEditDocumentId)
-            val existing = result.getOrNull()
-            if (existing != null) {
-                val metadata = dataViewModel.getDocumentMetadata(currentEditDocumentId)
-                existing.templateId?.takeIf { it.isNotBlank() }?.let { savedTemplateId ->
-                    selectedTemplateId = DocumentTemplateRegistry.normalizeId(savedTemplateId)
+            try {
+                val result = dataViewModel.fetchCompleteDocument(currentEditDocumentId)
+                val existing = result.getOrNull()
+                if (existing != null) {
+                    val metadata = dataViewModel.getDocumentMetadata(currentEditDocumentId)
+                    existing.templateId?.takeIf { it.isNotBlank() }?.let { savedTemplateId ->
+                        selectedTemplateId = DocumentTemplateRegistry.normalizeId(savedTemplateId)
+                    }
+                    form = existing.toFormState(language).copy(
+                        currency = metadata?.currency ?: existing.currency.ifBlank { null } ?: form.currency,
+                        signatureData = metadata?.signatureData.orEmpty(),
+                        paymentMethod = metadata?.paymentMethod.orEmpty(),
+                        finalTaxRate = metadata?.taxRate?.toString() ?: form.finalTaxRate,
+                        finalTaxName = metadata?.taxName ?: form.finalTaxName,
+                        lang = language
+                    )
+                    loadedDocumentId = currentEditDocumentId
+                } else {
+                    submitError = LocalizedErrorMapper.map(null, result.exceptionOrNull()?.message, language)
                 }
-                form = existing.toFormState(language).copy(
-                    currency = metadata?.currency ?: existing.currency.ifBlank { null } ?: form.currency,
-                    signatureData = metadata?.signatureData.orEmpty(),
-                    paymentMethod = metadata?.paymentMethod.orEmpty(),
-                    finalTaxRate = metadata?.taxRate?.toString() ?: form.finalTaxRate,
-                    finalTaxName = metadata?.taxName ?: form.finalTaxName,
-                    lang = language
-                )
-                loadedDocumentId = currentEditDocumentId
-            } else {
-                submitError = LocalizedErrorMapper.map(null, result.exceptionOrNull()?.message, language)
+            } finally {
+                isLoadingDocument = false
             }
+        }
+        else {
             isLoadingDocument = false
         }
     }

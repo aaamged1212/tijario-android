@@ -17,6 +17,11 @@ class DocumentFormEditFlowTests {
     }
 
     @Test
+    fun alreadyLoadedEditDocumentDoesNotRequestReload() {
+        assertFalse(shouldLoadEditDocument("doc-1", "doc-1"))
+    }
+
+    @Test
     fun selectingProductForExistingRowUpdatesThatRow() {
         val items = listOf(
             DocumentItemState(id = "item-1", productId = "old-1", name = "Old 1", quantity = "2", unitPrice = "10"),
