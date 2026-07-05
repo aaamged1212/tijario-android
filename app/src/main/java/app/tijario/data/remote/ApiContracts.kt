@@ -52,6 +52,8 @@ data class CreateDocumentRequest(
     @SerialName("document_title") val documentTitle: String? = null,
     @SerialName("discount_label") val discountLabel: String? = null,
     @SerialName("extra_fees_label") val extraFeesLabel: String? = null,
+    @SerialName("tax_name") val taxName: String? = null,
+    @SerialName("tax_rate") val taxRate: Double = 0.0,
 )
 
 @Serializable

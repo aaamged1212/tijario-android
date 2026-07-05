@@ -5,7 +5,6 @@ import app.tijario.data.model.BusinessSettings
 import app.tijario.data.model.DocumentType
 import app.tijario.domain.DocumentCalculator
 import app.tijario.domain.DocumentNumbering
-import app.tijario.domain.PaymentAmountCalculator
 import app.tijario.domain.Validation
 import app.tijario.features.documents.model.DocumentPartyInfo
 import app.tijario.features.documents.model.DocumentRenderItem
@@ -33,6 +32,8 @@ object DraftDocumentRenderMapper {
             form.items.map { DocumentCalculator.ItemInput(it.quantity, it.unitPrice) },
             form.discount,
             form.extraFees,
+            form.finalTaxRate,
+            form.amountPaid,
         )
         val items = form.items.map { item ->
             val quantity = Validation.parsePositiveInt(item.quantity) ?: 0
@@ -46,15 +47,6 @@ object DraftDocumentRenderMapper {
                 lineTotal = unitPrice.multiply(BigDecimal(quantity)),
             )
         }
-        val parsedFormTax = BigDecimal.valueOf(Validation.parseNonNegativeMoney(form.finalTaxRate) ?: 0.0)
-        val taxAmount = calculation.total.multiply(parsedFormTax.divide(BigDecimal("100"), 4, java.math.RoundingMode.HALF_UP))
-        val totalWithTax = calculation.total.add(taxAmount)
-
-        val paymentAmounts = PaymentAmountCalculator.calculate(
-            paymentStatus = if (documentType == DocumentType.Invoice) form.paymentStatus else null,
-            total = totalWithTax,
-            amountPaid = Validation.parseNonNegativeMoney(form.amountPaid)?.let(BigDecimal::valueOf),
-        )
         return DocumentRenderModel(
             documentType = documentType,
             documentNumber = form.documentNumber.takeIf { it.isNotBlank() } ?: DocumentNumbering.firstDocumentNumber(documentType),
@@ -81,13 +73,13 @@ object DraftDocumentRenderMapper {
                 subtotal = calculation.subtotal,
                 discount = calculation.discount,
                 extraFees = calculation.extraFees,
-                total = totalWithTax,
-                amountPaid = paymentAmounts.paid,
-                amountRemaining = paymentAmounts.remaining,
+                total = calculation.total,
+                amountPaid = Validation.parseNonNegativeMoney(form.amountPaid)?.let(BigDecimal::valueOf) ?: BigDecimal.ZERO,
+                amountRemaining = calculation.amountRemaining,
                 currency = form.currency,
                 finalTaxName = form.finalTaxName,
-                finalTaxRate = parsedFormTax,
-                finalTaxAmount = taxAmount
+                finalTaxRate = BigDecimal.valueOf(Validation.parseNonNegativeMoney(form.finalTaxRate) ?: 0.0),
+                finalTaxAmount = calculation.taxAmount
             ),
             invoiceNote = businessSettings?.invoiceNote,
             documentNote = form.notes.ifBlank { null },

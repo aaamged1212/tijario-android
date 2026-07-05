@@ -91,6 +91,24 @@ class DocumentEngineTests {
     }
 
     @Test
+    fun savedMappingUsesPersistedTaxValues() {
+        val document = DocumentFixtures.saved().copy(
+            taxName = "VAT",
+            taxRate = 10.0,
+            taxAmount = 36.05,
+            total = 396.55,
+        )
+        val model = SavedDocumentRenderMapper.map(
+            document = document,
+            businessSettings = DocumentFixtures.business,
+        )
+
+        assertEquals("VAT", model.totals.finalTaxName)
+        assertEquals("10", model.totals.finalTaxRate.stripTrailingZeros().toPlainString())
+        assertEquals("36.05", model.totals.finalTaxAmount.stripTrailingZeros().toPlainString())
+    }
+
+    @Test
     fun savedMappingHandlesMissingItemsWithoutCrashing() {
         val model = SavedDocumentRenderMapper.map(
             document = DocumentFixtures.saved().copy(items = emptyList()),
@@ -204,6 +222,26 @@ class DocumentEngineTests {
 
         assertTrue(draftModel.showTijarioBranding)
         assertFalse(savedModel.showTijarioBranding)
+    }
+
+    @Test
+    fun savedPdfRendersTaxRowOnlyWhenTaxExists() {
+        val taxDocument = DocumentFixtures.saved().copy(
+            taxName = "VAT",
+            taxRate = 10.0,
+            taxAmount = 36.05,
+            total = 396.55,
+        )
+        val html = renderer.render(
+            SavedDocumentRenderMapper.map(
+                document = taxDocument,
+                businessSettings = DocumentFixtures.business,
+                language = AppLanguage.EN,
+            )
+        )
+
+        assertTrue(html.contains("VAT (10.0%)"))
+        assertTrue(html.contains("36.05"))
     }
 
     @Test

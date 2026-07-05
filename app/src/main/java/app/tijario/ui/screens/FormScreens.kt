@@ -83,6 +83,7 @@ import app.tijario.ui.components.buildLogoUploadRequest
 import app.tijario.ui.components.clearBusinessLogoCache
 import app.tijario.ui.components.loadStoreLogoBitmap
 import app.tijario.domain.DocumentNumbering
+import app.tijario.domain.DocumentCalculator
 import app.tijario.domain.Validation
 import app.tijario.data.model.DocumentType
 import app.tijario.data.model.BusinessSettings
@@ -1650,24 +1651,11 @@ fun EditItemDialog(
     var price by remember { mutableStateOf(item.unitPrice) }
     var quantity by remember { mutableStateOf(item.quantity) }
     var unitOfMeasure by remember { mutableStateOf(item.unitOfMeasure) }
-    var discount by remember { mutableStateOf(item.discount) }
-    var discountType by remember { mutableStateOf(item.discountType) }
-    var taxRate by remember { mutableStateOf(item.taxRate) }
     var description by remember { mutableStateOf(item.description) }
 
     val parsedPrice = Validation.parseNonNegativeMoney(price) ?: 0.0
     val parsedQty = Validation.parsePositiveInt(quantity) ?: 1
-    val parsedDiscount = Validation.parseNonNegativeMoney(discount) ?: 0.0
-    val parsedTax = Validation.parseNonNegativeMoney(taxRate) ?: 0.0
-
-    val subtotal = parsedPrice * parsedQty
-    val discountAmt = if (discountType == "Percentage") {
-        subtotal * (parsedDiscount / 100.0)
-    } else {
-        parsedDiscount
-    }
-    val taxAmt = (subtotal - discountAmt) * (parsedTax / 100.0)
-    val totalAmount = subtotal - discountAmt + taxAmt
+    val totalAmount = parsedPrice * parsedQty
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -1699,9 +1687,6 @@ fun EditItemDialog(
                                             quantity = quantity,
                                             description = description,
                                             unitOfMeasure = unitOfMeasure,
-                                            discount = discount,
-                                            discountType = discountType,
-                                            taxRate = taxRate
                                         )
                                     )
                                 },
@@ -1777,47 +1762,6 @@ fun EditItemDialog(
                                 label = t("unit_measure_label"),
                                 value = unitOfMeasure,
                                 onValueChange = { unitOfMeasure = it }
-                            )
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                TijarioTextField(
-                                    label = t("item_discount"),
-                                    value = discount,
-                                    onValueChange = { discount = it },
-                                    modifier = Modifier.weight(1f)
-                                )
-                                var showMenu by remember { mutableStateOf(false) }
-                                Box {
-                                    OutlinedButton(onClick = { showMenu = true }) {
-                                        Text(if (discountType == "Percentage") "%" else "$")
-                                    }
-                                    DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                                        DropdownMenuItem(
-                                            text = { Text(t("discount_percentage")) },
-                                            onClick = {
-                                                discountType = "Percentage"
-                                                showMenu = false
-                                            }
-                                        )
-                                        DropdownMenuItem(
-                                            text = { Text(t("discount_fixed")) },
-                                            onClick = {
-                                                discountType = "Fixed"
-                                                showMenu = false
-                                            }
-                                        )
-                                    }
-                                }
-                            }
-
-                            TijarioTextField(
-                                label = t("item_tax_rate"),
-                                value = taxRate,
-                                onValueChange = { taxRate = it }
                             )
                         }
                     }
@@ -1978,6 +1922,22 @@ fun DocumentFormScreen(
             android.widget.Toast.makeText(context, Localization.getString("enter_item_details_correctly", language), android.widget.Toast.LENGTH_LONG).show()
             return
         }
+        val totals = DocumentCalculator.calculate(
+            form.items.map { item ->
+                DocumentCalculator.ItemInput(
+                    quantity = item.quantity,
+                    unitPrice = item.unitPrice,
+                )
+            },
+            discountStr = form.discount,
+            extraFeesStr = form.extraFees,
+            taxRateStr = form.finalTaxRate,
+            amountPaidStr = form.amountPaid,
+        )
+        if (!totals.isValid) {
+            android.widget.Toast.makeText(context, Localization.getString("invalid_document_total", language), android.widget.Toast.LENGTH_LONG).show()
+            return
+        }
 
         scope.launch {
             try {
@@ -2010,6 +1970,8 @@ fun DocumentFormScreen(
                     documentTitle = form.documentTitle.ifBlank { null },
                     discountLabel = form.discountLabel.ifBlank { null },
                     extraFeesLabel = form.extraFeesLabel.ifBlank { null },
+                    taxName = form.finalTaxName.ifBlank { null },
+                    taxRate = Validation.parseNonNegativeMoney(form.finalTaxRate) ?: 0.0,
                 )
                 val result = if (editDocumentId != null) {
                     dataViewModel.updateDocument(editDocumentId, req)
@@ -2519,12 +2481,8 @@ fun DocumentFormScreen(
                                     // Total amount
                                     val parsedPrice = Validation.parseNonNegativeMoney(item.unitPrice) ?: 0.0
                                     val parsedQty = Validation.parsePositiveInt(item.quantity) ?: 1
-                                    val parsedDiscount = Validation.parseNonNegativeMoney(item.discount) ?: 0.0
-                                    val parsedTax = Validation.parseNonNegativeMoney(item.taxRate) ?: 0.0
                                     val sub = parsedPrice * parsedQty
-                                    val disc = if (item.discountType == "Percentage") sub * (parsedDiscount / 100.0) else parsedDiscount
-                                    val tax = (sub - disc) * (parsedTax / 100.0)
-                                    val itemTotal = sub - disc + tax
+                                    val itemTotal = sub
 
                                     Text(
                                         text = String.format("%.2f", itemTotal),
@@ -2657,19 +2615,22 @@ fun DocumentFormScreen(
                         HorizontalDivider(color = Color(0xFFF1F5F9))
 
                         // Subtotal and Final Total Calculations
-                        val subtotalVal = form.items.sumOf { item ->
-                            val parsedPrice = Validation.parseNonNegativeMoney(item.unitPrice) ?: 0.0
-                            val parsedQty = Validation.parsePositiveInt(item.quantity) ?: 1
-                            parsedPrice * parsedQty
-                        }
-                        val parsedFormDiscount = Validation.parseNonNegativeMoney(form.discount) ?: 0.0
-                        val parsedFormExtra = Validation.parseNonNegativeMoney(form.extraFees) ?: 0.0
-                        val parsedFormTax = Validation.parseNonNegativeMoney(form.finalTaxRate) ?: 0.0
-
-                        val discountAmount = parsedFormDiscount // Flat discount
-                        val totalAfterDiscountAndExtra = subtotalVal - discountAmount + parsedFormExtra
-                        val taxAmount = totalAfterDiscountAndExtra * (parsedFormTax / 100.0)
-                        val finalTotalVal = totalAfterDiscountAndExtra + taxAmount
+                        val calculations = DocumentCalculator.calculate(
+                            form.items.map { item ->
+                                DocumentCalculator.ItemInput(
+                                    quantity = item.quantity,
+                                    unitPrice = item.unitPrice,
+                                )
+                            },
+                            discountStr = form.discount,
+                            extraFeesStr = form.extraFees,
+                            taxRateStr = form.finalTaxRate,
+                            amountPaidStr = form.amountPaid,
+                        )
+                        val subtotalVal = calculations.subtotal.toDouble()
+                        val taxAmount = calculations.taxAmount.toDouble()
+                        val finalTotalVal = calculations.total.toDouble()
+                        val hasInvalidTotals = !calculations.isValid
 
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Row(
@@ -2684,14 +2645,14 @@ fun DocumentFormScreen(
                                 )
                                 Text(text = String.format("%.2f %s", subtotalVal, form.currency), fontSize = 14.sp)
                             }
-                            if (parsedFormTax > 0.0) {
+                            if (taxAmount > 0.0) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Text(
-                                        text = "${form.finalTaxName} ($parsedFormTax%)",
+                                        text = "${form.finalTaxName} (${form.finalTaxRate}%)",
                                         fontSize = 14.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -2714,6 +2675,13 @@ fun DocumentFormScreen(
                                     fontWeight = FontWeight.ExtraBold,
                                     fontSize = 18.sp,
                                     color = Color(0xFF0D9488) // Accent Green
+                                )
+                            }
+                            if (hasInvalidTotals) {
+                                Text(
+                                    text = Localization.getString("invalid_document_total", language),
+                                    color = MaterialTheme.colorScheme.error,
+                                    fontSize = 12.sp
                                 )
                             }
                         }

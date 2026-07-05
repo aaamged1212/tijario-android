@@ -15,6 +15,7 @@ import app.tijario.data.model.DocumentType
 import app.tijario.data.model.Product
 import app.tijario.data.model.ProfileFullNameUpdateDto
 import app.tijario.domain.DocumentNumbering
+import app.tijario.domain.DocumentCalculator
 import app.tijario.data.remote.ApiResult
 import app.tijario.data.remote.BackendApiClient
 import app.tijario.data.remote.CreateDocumentRequest
@@ -135,6 +136,9 @@ open class TijarioRepository(
                 discountLabel = entity.discountLabel,
                 extraFees = entity.extraFees.toDouble(),
                 extraFeesLabel = entity.extraFeesLabel,
+                taxName = entity.taxName,
+                taxRate = entity.taxRate.toDouble(),
+                taxAmount = entity.taxAmount.toDouble(),
                 total = entity.total.toDouble(),
                 currency = entity.currency,
                 templateId = entity.templateId,
@@ -401,6 +405,9 @@ open class TijarioRepository(
                     discountLabel = remote.discountLabel ?: existing?.discountLabel,
                     extraFees = existing?.extraFees ?: BigDecimal.ZERO,
                     extraFeesLabel = remote.extraFeesLabel ?: existing?.extraFeesLabel,
+                    taxName = remote.taxName ?: existing?.taxName,
+                    taxRate = BigDecimal.valueOf(remote.taxRate),
+                    taxAmount = BigDecimal.valueOf(remote.taxAmount),
                     notes = existing?.notes,
                     termsText = existing?.termsText,
                     syncStatus = "SYNCED",
@@ -760,11 +767,8 @@ open class TijarioRepository(
                 newCust
             }
 
-            // Calculate Totals using BigDecimal
-            var subtotal = BigDecimal.ZERO
             val itemsEntities = request.items.mapIndexed { index, item ->
                 val lineTotal = BigDecimal.valueOf(item.quantity.toLong()).multiply(BigDecimal.valueOf(item.unitPrice))
-                subtotal = subtotal.add(lineTotal)
                 app.tijario.data.local.DocumentItemEntity(
                     id = java.util.UUID.randomUUID().toString(),
                     userId = userId,
@@ -779,9 +783,21 @@ open class TijarioRepository(
                 )
             }
 
-            val discountBig = BigDecimal.valueOf(request.discount)
-            val extraFeesBig = BigDecimal.valueOf(request.extraFees)
-            val total = subtotal.subtract(discountBig).add(extraFeesBig)
+            val calculations = DocumentCalculator.calculate(
+                request.items.map {
+                    DocumentCalculator.ItemInput(
+                        quantity = it.quantity.toString(),
+                        unitPrice = it.unitPrice.toString(),
+                    )
+                },
+                discountStr = request.discount.toString(),
+                extraFeesStr = request.extraFees.toString(),
+                taxRateStr = request.taxRate.toString(),
+                amountPaidStr = (request.amountPaid ?: 0.0).toString(),
+            )
+            if (!calculations.isValid) {
+                return ApiResult(ok = false, code = "invalid_document_total", message = "Invalid document totals.")
+            }
 
             val docNum = DocumentNumbering.nextDocumentNumber(
                 existingDocs.map { it.documentNumber },
@@ -803,13 +819,16 @@ open class TijarioRepository(
                 paymentStatus = request.paymentStatus,
                 amountPaid = request.amountPaid?.let { BigDecimal.valueOf(it) },
                 issueDate = dateStr,
-                total = total,
+                taxName = request.taxName?.takeIf { it.isNotBlank() },
+                taxRate = BigDecimal.valueOf(request.taxRate),
+                taxAmount = calculations.taxAmount,
+                total = calculations.total,
                 currency = request.currency ?: "SAR",
                 syncedAt = 0L,
-                subtotal = subtotal,
-                discount = discountBig,
+                subtotal = calculations.subtotal,
+                discount = calculations.discount,
                 discountLabel = request.discountLabel,
-                extraFees = extraFeesBig,
+                extraFees = calculations.extraFees,
                 extraFeesLabel = request.extraFeesLabel,
                 notes = request.notes,
                 termsText = request.termsText,
@@ -861,11 +880,8 @@ open class TijarioRepository(
             val userId = requireUserId()
             val existing = dao.getDocument(userId, documentId) ?: error("Document not found locally")
 
-            // Calculate Totals using BigDecimal
-            var subtotal = BigDecimal.ZERO
             val itemsEntities = request.items.mapIndexed { index, item ->
                 val lineTotal = BigDecimal.valueOf(item.quantity.toLong()).multiply(BigDecimal.valueOf(item.unitPrice))
-                subtotal = subtotal.add(lineTotal)
                 app.tijario.data.local.DocumentItemEntity(
                     id = java.util.UUID.randomUUID().toString(),
                     userId = userId,
@@ -880,9 +896,21 @@ open class TijarioRepository(
                 )
             }
 
-            val discountBig = BigDecimal.valueOf(request.discount)
-            val extraFeesBig = BigDecimal.valueOf(request.extraFees)
-            val total = subtotal.subtract(discountBig).add(extraFeesBig)
+            val calculations = DocumentCalculator.calculate(
+                request.items.map {
+                    DocumentCalculator.ItemInput(
+                        quantity = it.quantity.toString(),
+                        unitPrice = it.unitPrice.toString(),
+                    )
+                },
+                discountStr = request.discount.toString(),
+                extraFeesStr = request.extraFees.toString(),
+                taxRateStr = request.taxRate.toString(),
+                amountPaidStr = (request.amountPaid ?: 0.0).toString(),
+            )
+            if (!calculations.isValid) {
+                return ApiResult(ok = false, code = "invalid_document_total", message = "Invalid document totals.")
+            }
 
             val nextRev = existing.localRevision + 1
             val nextStatus = if (existing.syncStatus == "LOCAL_ONLY") "LOCAL_ONLY" else "PENDING_SYNC"
@@ -890,12 +918,15 @@ open class TijarioRepository(
             val docEntity = existing.copy(
                 paymentStatus = request.paymentStatus,
                 amountPaid = request.amountPaid?.let { BigDecimal.valueOf(it) },
-                total = total,
-                subtotal = subtotal,
-                discount = discountBig,
+                total = calculations.total,
+                subtotal = calculations.subtotal,
+                discount = calculations.discount,
                 discountLabel = request.discountLabel,
-                extraFees = extraFeesBig,
+                extraFees = calculations.extraFees,
                 extraFeesLabel = request.extraFeesLabel,
+                taxName = request.taxName?.takeIf { it.isNotBlank() },
+                taxRate = BigDecimal.valueOf(request.taxRate),
+                taxAmount = calculations.taxAmount,
                 notes = request.notes,
                 termsText = request.termsText,
                 templateId = request.templateId,
@@ -1275,6 +1306,9 @@ open class TijarioRepository(
             discountLabel = doc.discountLabel,
             extraFees = doc.extraFees.toDouble(),
             extraFeesLabel = doc.extraFeesLabel,
+            taxName = doc.taxName,
+            taxRate = doc.taxRate.toDouble(),
+            taxAmount = doc.taxAmount.toDouble(),
             total = doc.total.toDouble(),
             currency = doc.currency,
             templateId = doc.templateId,
@@ -1740,6 +1774,9 @@ open class TijarioRepository(
                                 discountLabel = item.discount_label,
                                 extraFees = BigDecimal.valueOf(item.extra_fees),
                                 extraFeesLabel = item.extra_fees_label,
+                                taxName = item.tax_name,
+                                taxRate = BigDecimal.valueOf(item.tax_rate),
+                                taxAmount = BigDecimal.valueOf(item.tax_amount),
                                 total = BigDecimal.valueOf(item.total),
                                 currency = item.currency,
                                 notes = item.notes,
@@ -1906,6 +1943,9 @@ internal fun buildDocumentSyncPayload(
         put("discount_label", doc.discountLabel)
         put("extra_fees", doc.extraFees.toDouble())
         put("extra_fees_label", doc.extraFeesLabel)
+        put("tax_name", doc.taxName)
+        put("tax_rate", doc.taxRate.toDouble())
+        put("tax_amount", doc.taxAmount.toDouble())
         put("total", doc.total.toDouble())
         put("currency", doc.currency)
         put("notes", doc.notes)

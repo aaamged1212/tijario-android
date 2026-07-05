@@ -388,6 +388,8 @@ fun CompleteDocument.toFormState(lang: AppLanguage): app.tijario.ui.state.Docume
         extraFees = extraFees.toString(),
         discountLabel = discountLabel.orEmpty(),
         extraFeesLabel = extraFeesLabel.orEmpty(),
+        finalTaxRate = taxRate.toString(),
+        finalTaxName = taxName?.takeIf { it.isNotBlank() } ?: (if (isArabic) "الضريبة" else "Tax"),
         paymentStatus = paymentStatus ?: "unpaid",
         amountPaid = amountPaid?.toString().orEmpty(),
         notes = notes.orEmpty(),
@@ -398,7 +400,7 @@ fun CompleteDocument.toFormState(lang: AppLanguage): app.tijario.ui.state.Docume
         dueTerms = "None",
         dueDate = "",
         poNumber = "",
-        documentTitle = if (type == DocumentType.Invoice) {
+        documentTitle = documentTitle?.takeIf { it.isNotBlank() } ?: if (type == DocumentType.Invoice) {
             if (isArabic) "فاتورة" else "Invoice"
         } else {
             if (isArabic) "عرض سعر" else "Quote"

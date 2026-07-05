@@ -4,6 +4,7 @@ import app.tijario.config.AppLanguage
 import app.tijario.data.model.BusinessSettings
 import app.tijario.data.model.CompleteDocument
 import app.tijario.data.model.DocumentType
+import app.tijario.domain.DocumentCalculator
 import app.tijario.domain.PaymentAmountCalculator
 import app.tijario.features.documents.model.DocumentPartyInfo
 import app.tijario.features.documents.model.DocumentRenderItem
@@ -44,6 +45,32 @@ object SavedDocumentRenderMapper {
             total = BigDecimal.valueOf(document.total),
             amountPaid = document.amountPaid?.let(BigDecimal::valueOf),
         )
+        val fallbackCalculation = DocumentCalculator.calculate(
+            document.items.map {
+                DocumentCalculator.ItemInput(
+                    quantity = it.quantity.toString(),
+                    unitPrice = it.unitPrice.toString(),
+                )
+            },
+            discountStr = document.discount.toString(),
+            extraFeesStr = document.extraFees.toString(),
+            taxRateStr = document.taxRate.toString(),
+            amountPaidStr = document.amountPaid?.toString() ?: "0",
+        )
+        val resolvedTaxRate = when {
+            document.taxRate > 0.0 -> BigDecimal.valueOf(document.taxRate)
+            metadata?.taxRate != null -> BigDecimal.valueOf(metadata.taxRate)
+            else -> BigDecimal.ZERO
+        }
+        val resolvedTaxAmount = when {
+            document.taxAmount > 0.0 -> BigDecimal.valueOf(document.taxAmount)
+            document.taxRate > 0.0 -> fallbackCalculation.taxAmount
+            metadata?.taxRate != null -> fallbackCalculation.taxAmount
+            else -> BigDecimal.ZERO
+        }
+        val resolvedTaxName = document.taxName?.takeIf { it.isNotBlank() }
+            ?: metadata?.taxName?.takeIf { it.isNotBlank() }
+            ?: if (language == AppLanguage.AR) "الضريبة" else "Tax"
         return DocumentRenderModel(
             documentId = document.id,
             documentType = document.type,
@@ -71,28 +98,13 @@ object SavedDocumentRenderMapper {
                 subtotal = BigDecimal.valueOf(document.subtotal),
                 discount = BigDecimal.valueOf(document.discount),
                 extraFees = BigDecimal.valueOf(document.extraFees),
-                total = run {
-                    val sub = BigDecimal.valueOf(document.subtotal)
-                    val disc = BigDecimal.valueOf(document.discount)
-                    val fees = BigDecimal.valueOf(document.extraFees)
-                    val baseTotal = sub.subtract(disc).add(fees)
-                    val rate = BigDecimal.valueOf(metadata?.taxRate ?: 0.0)
-                    val tax = baseTotal.multiply(rate.divide(BigDecimal("100"), 4, java.math.RoundingMode.HALF_UP))
-                    baseTotal.add(tax)
-                },
+                total = BigDecimal.valueOf(document.total),
                 amountPaid = paymentAmounts.paid,
                 amountRemaining = paymentAmounts.remaining,
                 currency = metadata?.currency ?: document.currency.ifBlank { null } ?: businessSettings?.currency ?: "SAR",
-                finalTaxName = metadata?.taxName ?: "Tax",
-                finalTaxRate = BigDecimal.valueOf(metadata?.taxRate ?: 0.0),
-                finalTaxAmount = run {
-                    val sub = BigDecimal.valueOf(document.subtotal)
-                    val disc = BigDecimal.valueOf(document.discount)
-                    val fees = BigDecimal.valueOf(document.extraFees)
-                    val baseTotal = sub.subtract(disc).add(fees)
-                    val rate = BigDecimal.valueOf(metadata?.taxRate ?: 0.0)
-                    baseTotal.multiply(rate.divide(BigDecimal("100"), 4, java.math.RoundingMode.HALF_UP))
-                }
+                finalTaxName = resolvedTaxName,
+                finalTaxRate = resolvedTaxRate,
+                finalTaxAmount = resolvedTaxAmount
             ),
             invoiceNote = businessSettings?.invoiceNote,
             documentNote = document.notes,

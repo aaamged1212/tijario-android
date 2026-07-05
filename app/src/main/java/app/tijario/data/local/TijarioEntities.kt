@@ -137,6 +137,12 @@ data class DocumentEntity(
     val amountPaid: BigDecimal?,
     @ColumnInfo(name = "issue_date")
     val issueDate: String,
+    @ColumnInfo(name = "tax_name")
+    val taxName: String? = null,
+    @ColumnInfo(name = "tax_rate", defaultValue = "0.0")
+    val taxRate: BigDecimal = BigDecimal.ZERO,
+    @ColumnInfo(name = "tax_amount", defaultValue = "0.0")
+    val taxAmount: BigDecimal = BigDecimal.ZERO,
     @ColumnInfo(name = "template_id")
     val templateId: String? = null,
     @ColumnInfo(name = "document_title")
@@ -470,6 +476,9 @@ fun DocumentSummary.toEntity(userId: String, syncedAt: Long = System.currentTime
         paymentStatus = paymentStatus,
         amountPaid = amountPaid?.let { BigDecimal.valueOf(it) },
         issueDate = issueDate,
+        taxName = taxName,
+        taxRate = BigDecimal.valueOf(taxRate),
+        taxAmount = BigDecimal.valueOf(taxAmount),
         total = BigDecimal.valueOf(total),
         currency = currency,
         syncedAt = syncedAt,
@@ -490,6 +499,9 @@ fun DocumentEntity.toModel(): DocumentSummary =
         issueDate = issueDate,
         discountLabel = discountLabel,
         extraFeesLabel = extraFeesLabel,
+        taxName = taxName,
+        taxRate = taxRate.toDouble(),
+        taxAmount = taxAmount.toDouble(),
         templateId = templateId,
         total = total.toDouble(),
         currency = currency,
@@ -507,6 +519,9 @@ fun CompleteDocument.toEntity(userId: String, syncedAt: Long = System.currentTim
         paymentStatus = paymentStatus,
         amountPaid = amountPaid?.let { BigDecimal.valueOf(it) },
         issueDate = issueDate,
+        taxName = taxName,
+        taxRate = BigDecimal.valueOf(taxRate),
+        taxAmount = BigDecimal.valueOf(taxAmount),
         total = BigDecimal.valueOf(total),
         currency = currency,
         syncedAt = syncedAt,

@@ -9,6 +9,7 @@ import java.math.BigDecimal
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.double
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -55,6 +56,9 @@ class DocumentSyncPayloadTests {
                 discountLabel = "Promo",
                 extraFees = BigDecimal("60.00"),
                 extraFeesLabel = "Delivery",
+                taxName = "VAT",
+                taxRate = BigDecimal("15.00"),
+                taxAmount = BigDecimal("31.50"),
                 notes = null,
                 termsText = "Terms",
             ),
@@ -78,6 +82,9 @@ class DocumentSyncPayloadTests {
         assertEquals("Invoice", payload["document_title"]?.jsonPrimitive?.content)
         assertEquals("Promo", payload["discount_label"]?.jsonPrimitive?.content)
         assertEquals("Delivery", payload["extra_fees_label"]?.jsonPrimitive?.content)
+        assertEquals("VAT", payload["tax_name"]?.jsonPrimitive?.content)
+        assertEquals(15.0, payload["tax_rate"]?.jsonPrimitive?.double ?: -1.0, 0.0)
+        assertEquals(31.5, payload["tax_amount"]?.jsonPrimitive?.double ?: -1.0, 0.0)
         val items = payload["items"]?.jsonArray ?: error("items missing")
         assertTrue(items.isNotEmpty())
         assertEquals("p-1", items.first().jsonObject["product_id"]?.jsonPrimitive?.content)
