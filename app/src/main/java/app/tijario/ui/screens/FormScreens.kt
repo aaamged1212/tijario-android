@@ -87,6 +87,7 @@ import app.tijario.domain.Validation
 import app.tijario.data.model.DocumentType
 import app.tijario.data.model.BusinessSettings
 import app.tijario.data.remote.localizedDisplayMessage
+import app.tijario.data.model.Product
 import app.tijario.domain.LocalizedErrorMapper
 import app.tijario.features.documents.template.DocumentTemplateRegistry
 import app.tijario.features.documents.model.DocumentPartyInfo
@@ -105,6 +106,7 @@ import app.tijario.ui.components.TijarioTextField
 import app.tijario.ui.state.BusinessSettingsFormState
 import app.tijario.ui.state.CustomerFormState
 import app.tijario.ui.state.DocumentFormState
+import app.tijario.ui.state.DocumentItemState
 import app.tijario.ui.state.TijarioDataViewModel
 import kotlinx.coroutines.launch
 import android.net.Uri
@@ -129,6 +131,40 @@ internal fun documentIdentityLockedHint(language: AppLanguage): String =
 
 internal fun documentIdentityLockedDescription(language: AppLanguage): String =
     Localization.getString("document_identity_locked", language)
+
+internal fun shouldLoadEditDocument(loadedDocumentId: String?, editDocumentId: String?): Boolean =
+    editDocumentId != null && loadedDocumentId != editDocumentId
+
+internal fun mergeSelectedProductIntoItems(
+    items: List<DocumentItemState>,
+    product: Product,
+    rowIndex: Int?,
+): Pair<List<DocumentItemState>, Int> {
+    val normalizedPrice = Validation.normalizedMoneyString(product.price.toString())
+    val requestedIndex = rowIndex ?: items.size
+    return if (requestedIndex in items.indices) {
+        val updated = items.mapIndexed { index, item ->
+            if (index == requestedIndex) {
+                item.copy(
+                    productId = product.id,
+                    name = product.name,
+                    unitPrice = normalizedPrice
+                )
+            } else {
+                item
+            }
+        }
+        updated to requestedIndex
+    } else {
+        val appended = items + DocumentItemState(
+            productId = product.id,
+            name = product.name,
+            unitPrice = normalizedPrice,
+            quantity = "1"
+        )
+        appended to appended.lastIndex
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -1872,6 +1908,8 @@ fun DocumentFormScreen(
     val isEditMode = editDocumentId != null
 
     var editingItemIndex by remember { mutableStateOf<Int?>(null) }
+    var pendingProductRowIndex by rememberSaveable { mutableStateOf<Int?>(null) }
+    var loadedDocumentId by rememberSaveable { mutableStateOf<String?>(null) }
     var showInvoiceInfoDialog by remember { mutableStateOf(false) }
     var showTemplatePickerDialog by remember { mutableStateOf(false) }
     var showCurrencyDialog by remember { mutableStateOf(false) }
@@ -1900,6 +1938,10 @@ fun DocumentFormScreen(
                 }
             )
         }
+    }
+
+    LaunchedEffect(language) {
+        form = form.copy(lang = language)
     }
 
     fun moveItemUp(index: Int) {
@@ -2017,14 +2059,15 @@ fun DocumentFormScreen(
         }
     }
 
-    LaunchedEffect(documentId) {
-        if (editDocumentId != null) {
+    LaunchedEffect(editDocumentId) {
+        if (shouldLoadEditDocument(loadedDocumentId, editDocumentId)) {
+            val currentEditDocumentId = editDocumentId ?: return@LaunchedEffect
             isLoadingDocument = true
             submitError = null
-            val result = dataViewModel.fetchCompleteDocument(editDocumentId)
+            val result = dataViewModel.fetchCompleteDocument(currentEditDocumentId)
             val existing = result.getOrNull()
             if (existing != null) {
-                val metadata = dataViewModel.getDocumentMetadata(editDocumentId)
+                val metadata = dataViewModel.getDocumentMetadata(currentEditDocumentId)
                 existing.templateId?.takeIf { it.isNotBlank() }?.let { savedTemplateId ->
                     selectedTemplateId = DocumentTemplateRegistry.normalizeId(savedTemplateId)
                 }
@@ -2036,6 +2079,7 @@ fun DocumentFormScreen(
                     finalTaxName = metadata?.taxName ?: form.finalTaxName,
                     lang = language
                 )
+                loadedDocumentId = currentEditDocumentId
             } else {
                 submitError = LocalizedErrorMapper.map(null, result.exceptionOrNull()?.message, language)
             }
@@ -2057,34 +2101,12 @@ fun DocumentFormScreen(
     // Sync selected product to specific row
     LaunchedEffect(selectedProduct, selectedProductRowIndex) {
         selectedProduct?.let { prod ->
-            val idx = selectedProductRowIndex
-            if (idx != null) {
-                if (idx in form.items.indices) {
-                    form = form.copy(
-                        items = form.items.mapIndexed { i, item ->
-                            if (i == idx) {
-                                item.copy(
-                                    productId = prod.id,
-                                    name = prod.name,
-                                    unitPrice = Validation.normalizedMoneyString(prod.price.toString())
-                                )
-                            } else item
-                        }
-                    )
-                    editingItemIndex = idx
-                } else if (idx >= form.items.size) {
-                    val newItem = app.tijario.ui.state.DocumentItemState(
-                        productId = prod.id,
-                        name = prod.name,
-                        unitPrice = Validation.normalizedMoneyString(prod.price.toString()),
-                        quantity = "1"
-                    )
-                    val newList = form.items + newItem
-                    form = form.copy(items = newList)
-                    editingItemIndex = newList.size - 1
-                }
-                onSelectedProductConsumed()
-            }
+            val idx = selectedProductRowIndex ?: pendingProductRowIndex ?: form.items.size
+            val (updatedItems, targetIndex) = mergeSelectedProductIntoItems(form.items, prod, idx)
+            form = form.copy(items = updatedItems)
+            editingItemIndex = targetIndex
+            pendingProductRowIndex = null
+            onSelectedProductConsumed()
         }
     }
 
@@ -2510,6 +2532,7 @@ fun DocumentFormScreen(
                         val isArabic = LocalLanguage.current == app.tijario.config.AppLanguage.AR
                         OutlinedButton(
                             onClick = {
+                                pendingProductRowIndex = form.items.size
                                 onNavigateToSelectProduct(form.items.size)
                             },
                             modifier = Modifier
@@ -3034,28 +3057,31 @@ fun DocumentFormScreen(
     // Launch Edit Item Dialog when requested
     editingItemIndex?.let { index ->
         if (index in form.items.indices) {
-            EditItemDialog(
-                item = form.items[index],
-                onDismiss = { editingItemIndex = null },
-                onSave = { updated ->
-                    form = form.copy(
-                        items = form.items.mapIndexed { idx, itm ->
-                            if (idx == index) updated else itm
-                        }
-                    )
-                    editingItemIndex = null
-                },
-                onDelete = {
-                    form = form.copy(
-                        items = form.items.filterIndexed { idx, _ -> idx != index }
-                    )
-                    editingItemIndex = null
-                },
-                onChooseProduct = {
-                    editingItemIndex = null
-                    onNavigateToSelectProduct(index)
-                }
-            )
+            key(form.items[index].id) {
+                EditItemDialog(
+                    item = form.items[index],
+                    onDismiss = { editingItemIndex = null },
+                    onSave = { updated ->
+                        form = form.copy(
+                            items = form.items.mapIndexed { idx, itm ->
+                                if (idx == index) updated else itm
+                            }
+                        )
+                        editingItemIndex = null
+                    },
+                    onDelete = {
+                        form = form.copy(
+                            items = form.items.filterIndexed { idx, _ -> idx != index }
+                        )
+                        editingItemIndex = null
+                    },
+                    onChooseProduct = {
+                        editingItemIndex = null
+                        pendingProductRowIndex = index
+                        onNavigateToSelectProduct(index)
+                    }
+                )
+            }
         }
     }
 
