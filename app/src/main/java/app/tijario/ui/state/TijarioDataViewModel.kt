@@ -1,4 +1,4 @@
-﻿package app.tijario.ui.state
+package app.tijario.ui.state
 
 import android.content.Context
 import androidx.lifecycle.ViewModel
@@ -186,7 +186,9 @@ class TijarioDataViewModel(
         )
     }
     suspend fun createCustomer(customer: Customer): Result<Unit> =
-        repository.createCustomer(customer)
+        repository.createCustomer(customer).onSuccess {
+            app.tijario.analytics.TijarioAnalytics.logEvent("tijario_customer_created")
+        }
 
     suspend fun updateCustomer(customer: Customer): Result<Unit> =
         repository.updateCustomer(customer)
@@ -213,6 +215,12 @@ class TijarioDataViewModel(
         val result = repository.createDocument(request)
         if (result.ok) {
             refreshPlanUsage()
+            val eventName = if (request.type == app.tijario.data.model.DocumentType.Invoice) {
+                "tijario_invoice_created"
+            } else {
+                "tijario_quote_created"
+            }
+            app.tijario.analytics.TijarioAnalytics.logEvent(eventName)
         }
         return result
     }
@@ -243,23 +251,33 @@ class TijarioDataViewModel(
         val result = aiRepository.generateReply(request)
         if (result.ok) {
             refreshPlanUsage()
+            app.tijario.analytics.TijarioAnalytics.logEvent("tijario_ai_reply_generated")
         }
         return result
     }
 
     suspend fun generateAiReplyV2(request: AiV2ReplyRequest): AiV2Response =
-        aiRepository.generateReplyV2(request)
+        aiRepository.generateReplyV2(request).also { result ->
+            if (result.ok) {
+                app.tijario.analytics.TijarioAnalytics.logEvent("tijario_ai_reply_generated")
+            }
+        }
 
     suspend fun generateAiCaption(request: app.tijario.data.remote.AiCaptionRequest): ApiResult<app.tijario.data.remote.AiCaptionResponse> {
         val result = aiRepository.generateCaption(request)
         if (result.ok) {
             refreshPlanUsage()
+            app.tijario.analytics.TijarioAnalytics.logEvent("tijario_ai_reply_generated")
         }
         return result
     }
 
     suspend fun generateAiCaptionV2(request: AiV2CaptionRequest): AiV2Response =
-        aiRepository.generateCaptionV2(request)
+        aiRepository.generateCaptionV2(request).also { result ->
+            if (result.ok) {
+                app.tijario.analytics.TijarioAnalytics.logEvent("tijario_ai_reply_generated")
+            }
+        }
 
     suspend fun reportAiGenerationV2(request: AiV2ReportRequest): ApiResult<Unit> =
         aiRepository.reportV2(request)

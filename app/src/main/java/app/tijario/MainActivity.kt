@@ -38,6 +38,7 @@ class MainActivity : ComponentActivity() {
         installSplashScreen()
         super.onCreate(savedInstanceState)
         ensureAnnouncementNotificationChannel(applicationContext)
+        app.tijario.analytics.TijarioAnalytics.initialize(applicationContext)
         NotificationDeepLinkState.handleUri(intent?.data)
         handleAuthDeepLink(intent)
         WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)

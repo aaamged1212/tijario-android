@@ -22,8 +22,8 @@ android {
         applicationId = "app.tijario"
         minSdk = 26
         targetSdk = 35
-        versionCode = 9
-        versionName = "1.0.9"
+        versionCode = 10
+        versionName = "1.1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -91,6 +91,7 @@ android {
 dependencies {
     androidTestImplementation(libs.androidx.room.testing)
     implementation(libs.androidx.core.ktx)
+    implementation("com.facebook.android:facebook-core:18.3.0")
     implementation(libs.androidx.core.splashscreen)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)

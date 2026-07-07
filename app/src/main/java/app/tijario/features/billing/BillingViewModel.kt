@@ -37,6 +37,7 @@ class BillingViewModel(
 
                         when (event.source) {
                             BillingVerificationSource.PURCHASE -> {
+                                app.tijario.analytics.TijarioAnalytics.logEvent("tijario_subscription_started")
                                 effectsMutable.emit(
                                     BillingUiEffect.PurchaseVerified(
                                         expectedPlanCode = event.planCode,
