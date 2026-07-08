@@ -51,14 +51,17 @@ class NotificationsViewModel(
                 stateMutable.update { it.copy(unreadCount = count) }
             }
         }
-        refresh(userId)
+        refresh(userId, force = false)
     }
 
-    fun refresh(userId: String = stateMutable.value.userId.orEmpty()) {
+    fun refresh(
+        userId: String = stateMutable.value.userId.orEmpty(),
+        force: Boolean = true,
+    ) {
         if (userId.isBlank()) return
         viewModelScope.launch {
             stateMutable.update { it.copy(isLoading = true, errorMessage = null) }
-            repository.refresh(userId)
+            repository.refresh(userId, force)
                 .onSuccess {
                     val startup = repository.startupAnnouncement(userId)
                     stateMutable.update {

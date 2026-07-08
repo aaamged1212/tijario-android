@@ -2,6 +2,7 @@ package app.tijario.features.notifications
 
 import android.content.Context
 import androidx.room.withTransaction
+import app.tijario.config.AppPreferences
 import app.tijario.data.local.AnnouncementReceiptOutboxEntity
 import app.tijario.data.local.TijarioDatabase
 import app.tijario.data.remote.AnnouncementReceiptRequest
@@ -24,7 +25,12 @@ class NotificationsRepository(
 
     fun observeUnreadCount(userId: String): Flow<Int> = dao.observeUnreadCount(userId)
 
-    suspend fun refresh(userId: String): Result<Unit> = runCatching {
+    suspend fun refresh(userId: String, force: Boolean = true): Result<Unit> = runCatching {
+        if (!force && AppPreferences.isAnnouncementsFresh(context, userId, ANNOUNCEMENTS_TTL_MS)) {
+            syncPendingReceipts(userId).getOrThrow()
+            return@runCatching
+        }
+
         val response = backendApiClient.fetchAnnouncementsBootstrap()
         if (!response.ok || response.data == null) {
             error(response.code ?: "notifications_refresh_failed")
@@ -44,6 +50,7 @@ class NotificationsRepository(
                 }
             }
         }
+        AppPreferences.setAnnouncementsSynced(context, userId)
         syncPendingReceipts(userId)
     }
 
@@ -106,6 +113,7 @@ class NotificationsRepository(
             dao.deleteAnnouncementsForUser(userId)
             dao.deleteReceiptOutboxForUser(userId)
         }
+        AppPreferences.clearAnnouncementsSynced(context, userId)
     }
 
     private suspend fun sendReceiptOrQueue(
@@ -144,5 +152,9 @@ class NotificationsRepository(
             )
         }
         NotificationReceiptSyncScheduler(context).trigger(userId)
+    }
+
+    private companion object {
+        const val ANNOUNCEMENTS_TTL_MS = 24 * 60 * 60 * 1000L
     }
 }

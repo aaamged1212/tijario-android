@@ -84,7 +84,6 @@ class TijarioDataViewModel(
             }
 
             refreshAll(force = forceRefresh)
-            refreshPlanUsage()
         }
     }
 
@@ -107,21 +106,33 @@ class TijarioDataViewModel(
         if (refreshJob?.isActive == true) return
         refreshJob = viewModelScope.launch {
             repository.refreshAll(force = force)
-            refreshPlanUsage()
+            refreshPlanUsage(force = false)
             uiStateMutable.update { it.copy(isInitialLoading = false) }
         }
     }
 
-    fun refreshPlanUsage() {
+    fun refreshPlanUsage(force: Boolean = true) {
         viewModelScope.launch {
-            refreshPlanUsageNow()
+            refreshPlanUsageNow(force)
         }
     }
 
-    suspend fun refreshPlanUsageNow(): Result<app.tijario.data.model.UserPlanUsage> {
+    suspend fun refreshPlanUsageNow(
+        force: Boolean = true,
+    ): Result<app.tijario.data.model.UserPlanUsage> {
         val currentState = planUsageStateMutable.value
         val userId = repository.currentUserId()
         val cachedUsage = userId?.let { repository.getCachedPlanUsage(it) }
+        if (
+            !force &&
+            userId != null &&
+            cachedUsage != null &&
+            repository.isCachedPlanUsageFresh(userId)
+        ) {
+            planUsageStateMutable.value = PlanUsageState.Success(cachedUsage)
+            uiStateMutable.update { it.copy(planUsage = cachedUsage) }
+            return Result.success(cachedUsage)
+        }
 
         if (currentState !is PlanUsageState.Success) {
             planUsageStateMutable.value = cachedUsage?.let { PlanUsageState.Success(it) }
@@ -163,7 +174,7 @@ class TijarioDataViewModel(
         for (waitMs in longArrayOf(0L, 500L, 1_000L)) {
             if (waitMs > 0) delay(waitMs)
 
-            val result = refreshPlanUsageNow()
+            val result = refreshPlanUsageNow(force = true)
             val usage = result.getOrNull()
 
             if (usage != null) {

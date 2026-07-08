@@ -180,7 +180,7 @@ fun TijarioApp() {
                 (authState is CentralAuthState.AuthenticatedReady ||
                     authState is CentralAuthState.AuthenticatedNeedsOnboarding)
             ) {
-                dataViewModel.refreshPlanUsage()
+                dataViewModel.refreshPlanUsage(force = false)
                 notificationsViewModel.syncTopic(MainActivity.currentLanguage)
             }
         }

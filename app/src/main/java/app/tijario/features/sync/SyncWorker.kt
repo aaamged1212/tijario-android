@@ -12,6 +12,7 @@ class SyncWorker(
 
     override suspend fun doWork(): Result {
         val userId = inputData.getString("userId") ?: return Result.failure()
+        if (runAttemptCount >= 3) return Result.failure()
         val repository = AppContainer.repository(applicationContext)
         return try {
             val syncResult = repository.sync(userId)

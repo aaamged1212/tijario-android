@@ -62,6 +62,14 @@ data class CacheSyncState(
     val errorMessage: String? = null,
 )
 
+internal const val MAX_SYNC_ATTEMPTS = 3
+
+internal fun syncRetryDelayMs(attempts: Int): Long =
+    10_000L * (1L shl (attempts - 1).coerceIn(0, 2))
+
+internal fun syncStatusAfterFailure(attempts: Int): String =
+    if (attempts >= MAX_SYNC_ATTEMPTS) "failed_non_retryable" else "PENDING"
+
 open class TijarioRepository(
     protected val context: Context,
     private val database: TijarioDatabase,
@@ -486,7 +494,9 @@ open class TijarioRepository(
             lastFullRefreshUserId = userId
             lastFullRefreshAt = syncedAt
             syncStateMutable.value = CacheSyncState(isRefreshing = false, lastSyncedAt = syncedAt)
-            SyncScheduler(context).triggerSync(userId)
+            if (dao.getPendingOutbox(userId).any { it.status == "PENDING" }) {
+                SyncScheduler(context).triggerSync(userId)
+            }
         }.onFailure { error ->
             setRefreshing(false, error.message ?: "تعذر تحديث البيانات الآن.")
         }
@@ -1203,6 +1213,9 @@ open class TijarioRepository(
             AppPreferences.getPlanUsage(context, userId)?.let { overlayLocalUsage(userId, it) }
         }
 
+    fun isCachedPlanUsageFresh(userId: String): Boolean =
+        AppPreferences.isPlanUsageFresh(context, userId, PLAN_USAGE_TTL_MS)
+
     suspend fun fetchCompleteDocument(documentId: String): Result<app.tijario.data.model.CompleteDocument> =
         runCatching {
             val userId = requireUserId()
@@ -1500,20 +1513,59 @@ open class TijarioRepository(
         }
     }
 
+    private suspend fun markSyncRetry(
+        item: app.tijario.data.local.SyncOutboxEntity,
+        errorCode: String,
+    ) {
+        val attempts = item.attempts + 1
+        val exhausted = attempts >= MAX_SYNC_ATTEMPTS
+        val delayMs = syncRetryDelayMs(attempts)
+        dao.upsertOutbox(
+            item.copy(
+                status = syncStatusAfterFailure(attempts),
+                attempts = attempts,
+                nextRetryAt = if (exhausted) Long.MAX_VALUE else System.currentTimeMillis() + delayMs,
+                processingStartedAt = null,
+                lockExpiresAt = null,
+                lastError = if (exhausted) "max_retries_exceeded:$errorCode" else errorCode,
+            )
+        )
+    }
+
+    private suspend fun markSyncTerminal(
+        item: app.tijario.data.local.SyncOutboxEntity,
+        errorCode: String,
+    ) {
+        dao.upsertOutbox(
+            item.copy(
+                status = "failed_non_retryable",
+                processingStartedAt = null,
+                lockExpiresAt = null,
+                lastError = errorCode,
+            )
+        )
+    }
+
     open suspend fun sync(userId: String): Result<Unit> = runCatching {
         val currentToken = supabaseClient.auth.currentSessionOrNull()?.accessToken
             ?: throw IllegalStateException("SESSION_EXPIRED")
-            
+
         withContext(Dispatchers.IO) {
-            val staleTime = System.currentTimeMillis() - (5 * 60 * 1000) // 5 minutes
+            val now = System.currentTimeMillis()
+            val staleTime = now - (5 * 60 * 1000)
             val staleItems = dao.getPendingOutbox(userId).filter { 
-                it.status == "PROCESSING" && (it.createdAt < staleTime) 
+                it.status == "PROCESSING" &&
+                    (it.processingStartedAt ?: it.createdAt) < staleTime
             }
             staleItems.forEach {
-                dao.upsertOutbox(it.copy(status = "PENDING", attempts = it.attempts + 1))
+                markSyncRetry(it, "processing_timeout")
             }
 
-            val pending = dao.getPendingOutbox(userId).filter { it.status == "PENDING" }
+            val pending = dao.getPendingOutbox(userId).filter {
+                it.status == "PENDING" &&
+                    it.attempts < MAX_SYNC_ATTEMPTS &&
+                    it.nextRetryAt <= now
+            }
                 .sortedBy { it.createdAt }
 
             if (pending.isNotEmpty()) {
@@ -1539,7 +1591,15 @@ open class TijarioRepository(
                         "document" -> {
                             val doc = dao.getDocument(userId, op.entityId)
                             val items = dao.getDocumentItems(userId, op.entityId)
-                            if (doc != null) buildDocumentSyncPayload(doc, items) else buildJsonObject {}
+                            if (doc != null) {
+                                buildDocumentSyncPayload(
+                                    doc,
+                                    items,
+                                    dao.getCustomer(userId, doc.customerId)?.whatsappNumber,
+                                )
+                            } else {
+                                buildJsonObject {}
+                            }
                         }
                         "business_settings" -> {
                             val bs = dao.getBusinessSettings(userId)
@@ -1562,7 +1622,13 @@ open class TijarioRepository(
                         else -> buildJsonObject {}
                     }
 
-                    dao.upsertOutbox(op.copy(status = "PROCESSING"))
+                    dao.upsertOutbox(
+                        op.copy(
+                            status = "PROCESSING",
+                            processingStartedAt = now,
+                            lockExpiresAt = now + (5 * 60 * 1000),
+                        )
+                    )
 
                     SyncOperationDto(
                         operation_id = op.id,
@@ -1574,17 +1640,40 @@ open class TijarioRepository(
                     )
                 }
 
-                val pushResponse = backendApiClient.pushSync(PushSyncRequest(operationsDto))
-                if (pushResponse.status.value == 401) throw IllegalStateException("SESSION_EXPIRED")
-                if (!pushResponse.status.isSuccess()) throw IllegalStateException("RETRYABLE_NETWORK_ERROR")
+                val pushResponse = try {
+                    backendApiClient.pushSync(PushSyncRequest(operationsDto))
+                } catch (error: Exception) {
+                    pending.forEach { markSyncRetry(it, "network_error") }
+                    throw error
+                }
 
-                val pushResult = repositoryJson.decodeFromString<PushSyncResponse>(pushResponse.bodyAsText())
-                pushResult.results.forEach { res ->
-                    val outboxItem = pending.find { it.id == res.operation_id } ?: return@forEach
-                    database.withTransaction {
-                        if (res.status == "APPLIED" || res.status == "ALREADY_PROCESSED") {
+                if (pushResponse.status.value == 401 || pushResponse.status.value == 403) {
+                    pending.forEach { markSyncTerminal(it, "authentication_required") }
+                    throw IllegalStateException("SESSION_EXPIRED")
+                }
+                if (!pushResponse.status.isSuccess()) {
+                    if (pushResponse.status.value == 429 || pushResponse.status.value >= 500) {
+                        pending.forEach { markSyncRetry(it, "http_${pushResponse.status.value}") }
+                        throw IllegalStateException("RETRYABLE_NETWORK_ERROR")
+                    }
+                    pending.forEach { markSyncTerminal(it, "http_${pushResponse.status.value}") }
+                } else {
+                    val pushResult = repositoryJson.decodeFromString<PushSyncResponse>(pushResponse.bodyAsText())
+                    val handledOperationIds = mutableSetOf<String>()
+                    pushResult.results.forEach { res ->
+                        val outboxItem = pending.find { it.id == res.operation_id } ?: return@forEach
+                        handledOperationIds += res.operation_id
+                        database.withTransaction {
+                            if (
+                                res.status in setOf(
+                                    "success",
+                                    "ignored_duplicate",
+                                    "APPLIED",
+                                    "ALREADY_PROCESSED",
+                                )
+                            ) {
                             dao.deleteOutbox(res.operation_id)
-                            
+
                             when (outboxItem.entityType) {
                                 "customer" -> {
                                     val cust = dao.getCustomer(userId, outboxItem.entityId)
@@ -1628,7 +1717,10 @@ open class TijarioRepository(
                                     }
                                 }
                             }
-                        } else if (res.status == "CONFLICT") {
+                            } else if (
+                                res.status == "CONFLICT" ||
+                                (res.status == "failed_non_retryable" && res.error_code == "conflict")
+                            ) {
                             dao.upsertOutbox(outboxItem.copy(status = "CONFLICT"))
                             when (outboxItem.entityType) {
                                 "customer" -> {
@@ -1665,34 +1757,52 @@ open class TijarioRepository(
                                     }
                                 }
                             }
-                        } else if (res.status == "BLOCKED_BY_PLAN") {
+                            } else if (
+                                res.status == "BLOCKED_BY_PLAN" ||
+                                (
+                                    res.status == "failed_non_retryable" &&
+                                        res.error_code in setOf(
+                                            "DOCUMENT_LIMIT_REACHED",
+                                            "CUSTOMER_LIMIT_REACHED",
+                                            "PRODUCT_LIMIT_REACHED",
+                                            "PLAN_REQUIRED",
+                                            "TEMPLATE_NOT_ALLOWED",
+                                        )
+                                    )
+                            ) {
                             dao.upsertOutbox(outboxItem.copy(status = "BLOCKED_BY_PLAN"))
                             if (outboxItem.entityType == "document") {
                                 dao.getDocument(userId, outboxItem.entityId)?.let {
                                     dao.upsertDocument(it.copy(syncStatus = "BLOCKED_BY_PLAN"))
                                 }
                             }
-                        } else {
-                            dao.upsertOutbox(outboxItem.copy(status = "PENDING", attempts = outboxItem.attempts + 1))
+                            } else if (res.status == "failed_non_retryable" || res.retryable == false) {
+                                markSyncTerminal(
+                                    outboxItem,
+                                    res.error_code ?: res.message ?: "sync_validation_failed",
+                                )
+                            } else {
+                                markSyncRetry(
+                                    outboxItem,
+                                    res.error_code ?: res.message ?: "sync_retryable_failure",
+                                )
+                            }
                         }
                     }
+                    pending
+                        .filterNot { it.id in handledOperationIds }
+                        .forEach { markSyncRetry(it, "missing_operation_result") }
                 }
             }
 
-            val lastSyncedTimeStr = try {
-                val defaultTime = Date(0)
-                val custMax = dao.observeCustomers(userId).first().mapNotNull { it.serverRevision?.let(::parseServerInstantOrNull) }.maxOrNull()
-                val prodMax = dao.observeProducts(userId).first().mapNotNull { it.serverRevision?.let(::parseServerInstantOrNull) }.maxOrNull()
-                val docMax = dao.observeDocuments(userId).first().mapNotNull { it.serverRevision?.let(::parseServerInstantOrNull) }.maxOrNull()
-                
-                val maxInstant = listOfNotNull(custMax, prodMax, docMax).maxOrNull() ?: defaultTime.toInstant()
-                maxInstant.toString()
-            } catch (e: Exception) {
-                Date(0).toInstant().toString()
-            }
-
-            val pullResponse = backendApiClient.pullSync(PullSyncRequest(lastSyncedTimeStr))
-            if (pullResponse.status.isSuccess()) {
+            val existingSyncState = dao.getSyncState(userId)
+            val shouldPull = existingSyncState?.lastSuccessfulSync == null ||
+                now - existingSyncState.lastSuccessfulSync >= PULL_SYNC_TTL_MS
+            if (shouldPull) {
+                val lastSyncedTimeStr = existingSyncState?.opaqueCursor
+                    ?: Date(0).toInstant().toString()
+                val pullResponse = backendApiClient.pullSync(PullSyncRequest(lastSyncedTimeStr))
+                if (pullResponse.status.isSuccess()) {
                 val pullResult = repositoryJson.decodeFromString<PullSyncResponse>(pullResponse.bodyAsText())
                 database.withTransaction {
                     pullResult.changes.customers.forEach { item ->
@@ -1817,25 +1927,48 @@ open class TijarioRepository(
                             }
                         }
                     }
+                    dao.upsertSyncState(
+                        app.tijario.data.local.SyncStateEntity(
+                            userId = userId,
+                            opaqueCursor = pullResult.next_cursor,
+                            bootstrapState = "READY",
+                            lastSuccessfulSync = System.currentTimeMillis(),
+                            syncSchemaVersion = existingSyncState?.syncSchemaVersion ?: 1,
+                        )
+                    )
                 }
+            }
             }
 
             val deviceId = android.os.Build.MODEL + "_" + android.os.Build.ID
-            val leaseResponse = backendApiClient.requestOfflineLease(OfflineLeaseRequest(deviceId))
-            if (leaseResponse.status.isSuccess()) {
-                val leaseResult = repositoryJson.decodeFromString<OfflineLeaseResponse>(leaseResponse.bodyAsText())
-                val periodMonth = Date().toInstant().toString().substring(0, 7) + "-01"
-                dao.upsertLease(app.tijario.data.local.OfflineQuotaLeaseEntity(
-                    id = leaseResult.lease_id,
-                    userId = userId,
-                    deviceId = deviceId,
-                    planCode = "free",
-                    periodMonth = periodMonth,
-                    allowedLimit = leaseResult.quota_granted,
-                    consumedCount = 0,
-                    expiresAt = parseServerInstantOrNull(leaseResult.expires_at)?.toEpochMilli() ?: System.currentTimeMillis(),
-                    status = "ACTIVE"
-                ))
+            val periodMonth = currentUtcPeriodMonth()
+            val existingLease = dao.getLease(userId, deviceId, periodMonth)
+            if (
+                existingLease == null ||
+                existingLease.expiresAt - System.currentTimeMillis() <= LEASE_REFRESH_MARGIN_MS
+            ) {
+                val leaseResponse = backendApiClient.requestOfflineLease(OfflineLeaseRequest(deviceId))
+                if (leaseResponse.status.isSuccess()) {
+                    val leaseResult = repositoryJson.decodeFromString<OfflineLeaseResponse>(leaseResponse.bodyAsText())
+                    dao.upsertLease(app.tijario.data.local.OfflineQuotaLeaseEntity(
+                        id = leaseResult.lease_id,
+                        userId = userId,
+                        deviceId = deviceId,
+                        planCode = existingLease?.planCode ?: "free",
+                        periodMonth = periodMonth,
+                        allowedLimit = leaseResult.quota_granted,
+                        consumedCount = existingLease?.consumedCount ?: 0,
+                        expiresAt = parseServerInstantOrNull(leaseResult.expires_at)?.toEpochMilli() ?: System.currentTimeMillis(),
+                        status = "ACTIVE"
+                    ))
+                }
+            }
+            if (
+                dao.getPendingOutbox(userId).any {
+                    it.status == "PENDING" && it.attempts < MAX_SYNC_ATTEMPTS
+                }
+            ) {
+                error("RETRYABLE_SYNC_PENDING")
             }
         }
     }
@@ -1862,6 +1995,9 @@ open class TijarioRepository(
 
     private companion object {
         const val FULL_REFRESH_THROTTLE_MS = 15_000L
+        const val PLAN_USAGE_TTL_MS = 12 * 60 * 60 * 1000L
+        const val PULL_SYNC_TTL_MS = 15 * 60 * 1000L
+        const val LEASE_REFRESH_MARGIN_MS = 60 * 60 * 1000L
     }
 
     private suspend fun reserveDocumentQuotaLedger(userId: String, documentId: String) {
@@ -1930,9 +2066,11 @@ internal fun buildDocumentItemSyncPayload(item: app.tijario.data.local.DocumentI
 internal fun buildDocumentSyncPayload(
     doc: app.tijario.data.local.DocumentEntity,
     items: List<app.tijario.data.local.DocumentItemEntity>,
+    customerWhatsappNumber: String? = null,
 ): kotlinx.serialization.json.JsonElement =
     buildJsonObject {
         put("customer_id", doc.customerId)
+        put("customer_whatsapp_number", customerWhatsappNumber)
         put("type", doc.type)
         put("document_number", doc.documentNumber)
         put("status", doc.status)

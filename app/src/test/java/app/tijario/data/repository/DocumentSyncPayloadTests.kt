@@ -76,8 +76,10 @@ class DocumentSyncPayloadTests {
                     sortOrder = 0,
                 ),
             ),
+            customerWhatsappNumber = "0555555555",
         ).jsonObject
 
+        assertEquals("0555555555", payload["customer_whatsapp_number"]?.jsonPrimitive?.content)
         assertEquals("tijario-modern", payload["template_id"]?.jsonPrimitive?.content)
         assertEquals("Invoice", payload["document_title"]?.jsonPrimitive?.content)
         assertEquals("Promo", payload["discount_label"]?.jsonPrimitive?.content)

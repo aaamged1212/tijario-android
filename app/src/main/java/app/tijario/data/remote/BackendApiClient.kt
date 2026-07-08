@@ -447,8 +447,13 @@ data class PushSyncRequest(
 data class SyncOperationResultDto(
     val operation_id: String,
     val status: String,
+    val entity_type: String? = null,
+    val operation: String? = null,
+    val error_code: String? = null,
+    val server_id: String? = null,
     val server_revision: String? = null,
-    val message: String? = null
+    val retryable: Boolean = false,
+    val message: String? = null,
 )
 
 @Serializable

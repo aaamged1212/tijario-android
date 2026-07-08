@@ -20,6 +20,8 @@ private const val KEY_PRODUCTS_LIMIT = "products_limit"
 private const val KEY_RESET_AT = "reset_at"
 private const val KEY_ALLOWED_TEMPLATE_IDS = "allowed_template_ids"
 private const val KEY_REMOVE_TIJARIO_BRANDING = "remove_tijario_branding"
+private const val KEY_PLAN_USAGE_UPDATED_AT = "plan_usage_updated_at"
+private const val KEY_ANNOUNCEMENTS_SYNCED_AT = "announcements_synced_at"
 private const val KEY_PUSH_ENABLED = "push_enabled"
 private const val KEY_NOTIFICATION_EXPLAINED = "notification_explained"
 private const val KEY_SUBSCRIBED_TOPIC = "subscribed_topic"
@@ -112,6 +114,33 @@ object AppPreferences {
             .putString(planKey(userId, KEY_RESET_AT), usage.resetAt)
             .putString(planKey(userId, KEY_ALLOWED_TEMPLATE_IDS), usage.allowedTemplateIds.joinToString("|"))
             .putBoolean(planKey(userId, KEY_REMOVE_TIJARIO_BRANDING), usage.removeTijarioBranding)
+            .putLong(planKey(userId, KEY_PLAN_USAGE_UPDATED_AT), System.currentTimeMillis())
+            .apply()
+    }
+
+    fun isPlanUsageFresh(context: Context, userId: String, maxAgeMs: Long): Boolean {
+        val updatedAt = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getLong(planKey(userId, KEY_PLAN_USAGE_UPDATED_AT), 0L)
+        return updatedAt > 0L && System.currentTimeMillis() - updatedAt < maxAgeMs
+    }
+
+    fun isAnnouncementsFresh(context: Context, userId: String, maxAgeMs: Long): Boolean {
+        val updatedAt = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getLong(planKey(userId, KEY_ANNOUNCEMENTS_SYNCED_AT), 0L)
+        return updatedAt > 0L && System.currentTimeMillis() - updatedAt < maxAgeMs
+    }
+
+    fun setAnnouncementsSynced(context: Context, userId: String) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putLong(planKey(userId, KEY_ANNOUNCEMENTS_SYNCED_AT), System.currentTimeMillis())
+            .apply()
+    }
+
+    fun clearAnnouncementsSynced(context: Context, userId: String) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .remove(planKey(userId, KEY_ANNOUNCEMENTS_SYNCED_AT))
             .apply()
     }
 

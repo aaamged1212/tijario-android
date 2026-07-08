@@ -29,7 +29,7 @@ class SyncScheduler(private val context: Context) {
         runCatching {
             WorkManager.getInstance(context).enqueueUniqueWork(
                 "TijarioSync:$userId",
-                ExistingWorkPolicy.REPLACE,
+                ExistingWorkPolicy.KEEP,
                 workRequest
             )
         }
