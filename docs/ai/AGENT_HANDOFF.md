@@ -1,0 +1,21 @@
+# Agent Handoff (Android Repo)
+
+- **Last Agent**: Codex, then Antigravity/Gemini for handoff configuration
+- **Date/Time**: 2026-07-08 22:51:00
+- **Repo**: Android Repo (`tjario-android`)
+- **Branch**: `fix/reduce-mobile-vercel-usage-sync-retries-local`
+- **Latest Commits**:
+  - `4a4b997` fix: stop resolving customers by WhatsApp in offline documents
+  - `1324ec3` fix(sync): throttle mobile retries and startup calls
+- **Current Uncommitted Files**: None.
+- **Current Untracked Files**: None.
+- **Summary of Local Codex Changes**:
+  - Updated offline sync logic to avoid mapping document customer relations using the customer's phone number (`customer_whatsapp_number`). Custom models now map explicitly using local-to-remote customer UUIDs.
+  - Added startup call throttling (for announcements, entitlements, usage cycles) to significantly reduce Vercel serverless functions load.
+  - Adjusted error handling in the sync manager (`TijarioRepository.kt`) to count retries (`MAX_SYNC_ATTEMPTS = 3`) and transition non-retryable failures directly to `failed_non_retryable` status without blocking the queue.
+  - Added new unit test classes `SyncRetryPolicyTests.kt` and updated `TijarioRepositoryOfflineTests.kt` and `DocumentSyncPayloadTests.kt`.
+- **Safety Status**: Safe. Working tree is clean. Ignored files include gradle cache, build outputs, and `app-release.aab`.
+- **Pending Release Items**:
+  - Web/API migration and server update must be applied first.
+  - After server-side compatibility is live, this Android code branch can be compiled and pushed.
+- **Recommended Next Action**: Complete handoff and wait for customer release instructions.
