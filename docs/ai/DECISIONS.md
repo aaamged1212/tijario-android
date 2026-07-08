@@ -22,3 +22,7 @@
 ## 4. Closed Testing
 - No Google Play upload unless approved.
 - No disruptive production changes unless approved.
+## 5. Android MVP Write Model
+- **Online-Only Writes**: Creating, updating, and deleting documents, customers, products, and business settings require internet and must persist remotely before showing final success.
+- **Cached Reads**: Local SQLite Room cache is used strictly for reading/displaying previously synced data.
+- **No Offline CRUD Queue**: No local-only success states. If remote save fails or the device is offline, show an error without caching or pretending the data was saved remotely.

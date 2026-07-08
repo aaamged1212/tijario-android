@@ -3,7 +3,7 @@
 - **Repo Name**: Android Repo
 - **Current Branch**: `fix/reduce-mobile-vercel-usage-sync-retries-local`
 - **Latest Commit**: `4a4b997 fix: stop resolving customers by WhatsApp in offline documents`
-- **Current Uncommitted Files Summary**: Working tree clean.
+- **Current Uncommitted Files Summary**: Modified repository writes to ONLINE-ONLY.
 
 ## Tijario status:
 - Google Play Closed Testing is active.

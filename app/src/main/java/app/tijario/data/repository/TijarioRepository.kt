@@ -1095,34 +1095,187 @@ open class TijarioRepository(
 
     // Legacy Save / Cache adapters for backward compatibility
     suspend fun createCustomer(customer: Customer): Result<Unit> = runCatching {
-        createCustomerLocal(customer).getOrThrow()
+        val userId = requireUserId()
+        val generatedId = customer.id ?: java.util.UUID.randomUUID().toString()
+        val remoteCustomer = customer.copy(id = generatedId, userId = userId)
+        withContext(Dispatchers.IO) {
+            supabaseClient.from("customers").insert(remoteCustomer)
+            val entity = app.tijario.data.local.CustomerEntity(
+                id = generatedId,
+                userId = userId,
+                name = remoteCustomer.name,
+                whatsappNumber = remoteCustomer.whatsappNumber,
+                city = remoteCustomer.city,
+                notes = remoteCustomer.notes,
+                syncedAt = System.currentTimeMillis(),
+                syncStatus = "SYNCED",
+                localRevision = 1,
+                serverRevision = null,
+                serverUpdatedAt = System.currentTimeMillis(),
+                lastSyncedAt = System.currentTimeMillis(),
+                syncErrorCode = null,
+                isDeleted = false
+            )
+            dao.upsertCustomer(entity)
+        }
     }
 
     suspend fun updateCustomer(customer: Customer): Result<Unit> = runCatching {
-        updateCustomerLocal(customer).getOrThrow()
+        val userId = requireUserId()
+        val customerId = customer.id ?: error("Customer ID required for update")
+        withContext(Dispatchers.IO) {
+            supabaseClient.from("customers").update(customer) {
+                filter {
+                    eq("id", customerId)
+                }
+            }
+            val existing = dao.getCustomer(userId, customerId)
+            val entity = app.tijario.data.local.CustomerEntity(
+                id = customerId,
+                userId = userId,
+                name = customer.name,
+                whatsappNumber = customer.whatsappNumber,
+                city = customer.city,
+                notes = customer.notes,
+                syncedAt = System.currentTimeMillis(),
+                syncStatus = "SYNCED",
+                localRevision = (existing?.localRevision ?: 0) + 1,
+                serverRevision = existing?.serverRevision,
+                serverUpdatedAt = System.currentTimeMillis(),
+                lastSyncedAt = System.currentTimeMillis(),
+                syncErrorCode = null,
+                isDeleted = false
+            )
+            dao.upsertCustomer(entity)
+        }
     }
 
     suspend fun deleteCustomer(customerId: String): Result<Unit> = runCatching {
-        deleteCustomerLocal(customerId).getOrThrow()
+        val userId = requireUserId()
+        withContext(Dispatchers.IO) {
+            val docCount = dao.countDocumentsForCustomer(customerId)
+            if (docCount > 0) {
+                throw IllegalStateException("لا يمكن حذف العميل لوجود مستندات تاريخية مرتبطة به.")
+            }
+            supabaseClient.from("customers").delete {
+                filter {
+                    eq("id", customerId)
+                }
+            }
+            dao.deleteCustomer(userId, customerId)
+        }
     }
 
     suspend fun createProduct(product: Product): Result<Unit> = runCatching {
-        createProductLocal(product).getOrThrow()
+        val userId = requireUserId()
+        val generatedId = product.id ?: java.util.UUID.randomUUID().toString()
+        val remoteProduct = product.copy(id = generatedId, userId = userId)
+        withContext(Dispatchers.IO) {
+            supabaseClient.from("products").insert(remoteProduct)
+            val entity = app.tijario.data.local.ProductEntity(
+                id = generatedId,
+                userId = userId,
+                kind = when (remoteProduct.kind) {
+                    app.tijario.data.model.ProductKind.Product -> "product"
+                    app.tijario.data.model.ProductKind.Service -> "service"
+                },
+                name = remoteProduct.name,
+                description = remoteProduct.description,
+                price = java.math.BigDecimal.valueOf(remoteProduct.price),
+                currency = remoteProduct.currency,
+                stockQuantity = remoteProduct.stockQuantity,
+                category = remoteProduct.category,
+                syncedAt = System.currentTimeMillis(),
+                syncStatus = "SYNCED",
+                localRevision = 1,
+                serverRevision = null,
+                serverUpdatedAt = System.currentTimeMillis(),
+                lastSyncedAt = System.currentTimeMillis(),
+                syncErrorCode = null,
+                isDeleted = false
+            )
+            dao.upsertProduct(entity)
+        }
     }
 
     suspend fun updateProduct(product: Product): Result<Unit> = runCatching {
-        updateProductLocal(product).getOrThrow()
+        val userId = requireUserId()
+        val productId = product.id ?: error("Product ID required for update")
+        withContext(Dispatchers.IO) {
+            supabaseClient.from("products").update(product) {
+                filter {
+                    eq("id", productId)
+                }
+            }
+            val existing = dao.getProduct(userId, productId)
+            val entity = app.tijario.data.local.ProductEntity(
+                id = productId,
+                userId = userId,
+                kind = when (product.kind) {
+                    app.tijario.data.model.ProductKind.Product -> "product"
+                    app.tijario.data.model.ProductKind.Service -> "service"
+                },
+                name = product.name,
+                description = product.description,
+                price = java.math.BigDecimal.valueOf(product.price),
+                currency = product.currency,
+                stockQuantity = product.stockQuantity,
+                category = product.category,
+                syncedAt = System.currentTimeMillis(),
+                syncStatus = "SYNCED",
+                localRevision = (existing?.localRevision ?: 0) + 1,
+                serverRevision = existing?.serverRevision,
+                serverUpdatedAt = System.currentTimeMillis(),
+                lastSyncedAt = System.currentTimeMillis(),
+                syncErrorCode = null,
+                isDeleted = false
+            )
+            dao.upsertProduct(entity)
+        }
     }
 
     suspend fun deleteProduct(productId: String): Result<Unit> = runCatching {
-        deleteProductLocal(productId).getOrThrow()
+        val userId = requireUserId()
+        withContext(Dispatchers.IO) {
+            val count = dao.countDocumentItemsForProduct(productId)
+            if (count > 0) {
+                throw IllegalStateException("لا يمكن حذف المنتج لوجود مستندات مرتبطة به.")
+            }
+            supabaseClient.from("products").delete {
+                filter {
+                    eq("id", productId)
+                }
+            }
+            dao.deleteProduct(userId, productId)
+        }
     }
 
     suspend fun saveBusinessSettings(settings: BusinessSettings): Result<Unit> = runCatching {
-        updateBusinessSettingsLocal(settings).getOrThrow()
-        val userId = currentUserId()
-        if (userId != null) {
-            sync(userId).getOrThrow()
+        val userId = requireUserId()
+        withContext(Dispatchers.IO) {
+            val remoteSettings = settings.copy(userId = userId)
+            supabaseClient.from("business_settings").upsert(remoteSettings)
+            val existing = dao.getBusinessSettings(userId)
+            val entity = app.tijario.data.local.BusinessSettingsEntity(
+                userId = userId,
+                remoteId = existing?.remoteId ?: settings.id,
+                businessName = settings.businessName,
+                whatsappNumber = settings.whatsappNumber,
+                country = settings.country,
+                city = settings.city,
+                currency = settings.currency,
+                logoUrl = settings.logoUrl,
+                instagramUrl = settings.instagramUrl,
+                invoiceNote = settings.invoiceNote,
+                termsText = settings.termsText,
+                syncedAt = System.currentTimeMillis(),
+                localRevision = (existing?.localRevision ?: 0) + 1,
+                syncStatus = "SYNCED",
+                serverRevision = existing?.serverRevision,
+                serverUpdatedAt = System.currentTimeMillis(),
+                lastSyncedAt = System.currentTimeMillis()
+            )
+            dao.upsertBusinessSettings(entity)
         }
     }
 
@@ -1170,10 +1323,23 @@ open class TijarioRepository(
             result
         }
 
-    suspend fun deleteDocument(documentId: String): ApiResult<CreateDocumentResponse> {
-        val result = deleteDocumentLocal(documentId)
-        return result
-    }
+    suspend fun deleteDocument(documentId: String): ApiResult<CreateDocumentResponse> =
+        withContext(Dispatchers.IO) {
+            val result = backendApiClient.deleteDocument(documentId)
+            if (!result.ok) return@withContext result
+
+            runCatching {
+                val userId = requireUserId()
+                database.withTransaction {
+                    dao.deleteDocumentItems(userId, documentId)
+                    dao.deleteDocument(userId, documentId)
+                }
+            }
+            runCatching { refreshDocuments() }
+            runCatching { refreshProducts() }
+            runCatching { fetchUserPlanUsage() }
+            result
+        }
 
     // Plans and usage
     suspend fun fetchUserPlanUsage(): Result<app.tijario.data.model.UserPlanUsage> =
@@ -1549,7 +1715,7 @@ open class TijarioRepository(
         withContext(Dispatchers.IO) {
             val now = System.currentTimeMillis()
             val staleTime = now - (5 * 60 * 1000)
-            val staleItems = dao.getPendingOutbox(userId).filter { 
+            val staleItems = dao.getPendingOutbox(userId).filter {
                 it.status == "PROCESSING" &&
                     (it.processingStartedAt ?: it.createdAt) < staleTime
             }
@@ -1728,7 +1894,7 @@ open class TijarioRepository(
                                 "document" -> {
                                     dao.getDocument(userId, outboxItem.entityId)?.let { doc ->
                                         dao.upsertDocument(doc.copy(syncStatus = "CONFLICT"))
-                                        
+
                                         val newId = java.util.UUID.randomUUID().toString()
                                         val newDoc = doc.copy(
                                             id = newId,
@@ -1976,7 +2142,7 @@ open class TijarioRepository(
                 dao.deleteLeasesForUser(userId)
                 dao.deleteLedgerForUser(userId)
             }
-            
+
             app.tijario.features.business.logo.LogoAssetManager(context).getLocalLogoFile(userId)?.delete()
             val userPdfDir = File(context.filesDir, "documents/pdfs/$userId")
             if (userPdfDir.exists()) {

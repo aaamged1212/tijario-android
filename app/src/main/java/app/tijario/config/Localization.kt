@@ -578,6 +578,7 @@ object Localization {
         "billing_restoring" to mapOf(AppLanguage.AR to "جارٍ الاستعادة...", AppLanguage.EN to "Restoring..."),
         "billing_retry" to mapOf(AppLanguage.AR to "إعادة المحاولة", AppLanguage.EN to "Retry"),
         "billing_current_active" to mapOf(AppLanguage.AR to "اشتراكك الحالي نشط.", AppLanguage.EN to "Your current subscription is active."),
+        "upgrade_required" to mapOf(AppLanguage.AR to "قم بالترقية لاستخدام هذا القالب", AppLanguage.EN to "Upgrade required"),
     )
 
     fun getString(key: String, lang: AppLanguage): String {
