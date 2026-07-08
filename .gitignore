@@ -4,6 +4,10 @@ local.properties
 # Gradle
 .gradle/
 build/
+*.aab
+*.apk
+app/release/
+app/build/
 **/build/
 app/release/
 

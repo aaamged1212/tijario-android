@@ -202,9 +202,6 @@ interface TijarioDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertLedger(ledger: LocalUsageLedgerEntity)
 
-    @Query("SELECT * FROM customers_cache WHERE user_id = :userId AND whatsapp_number = :whatsappNumber LIMIT 1")
-    suspend fun getCustomerByWhatsapp(userId: String, whatsappNumber: String): CustomerEntity?
-
     @Query("SELECT * FROM documents_cache WHERE user_id = :userId AND id = :documentId LIMIT 1")
     fun observeDocument(userId: String, documentId: String): Flow<DocumentEntity?>
 

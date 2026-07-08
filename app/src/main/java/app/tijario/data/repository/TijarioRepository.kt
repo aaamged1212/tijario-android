@@ -753,29 +753,25 @@ open class TijarioRepository(
             val dateStr = LocalDate.now(ZoneOffset.UTC).format(DateTimeFormatter.ISO_LOCAL_DATE)
             val existingDocs = dao.observeDocuments(userId).first()
 
-            // Resolve or Create Customer inline
-            val customerEntity = dao.getCustomerByWhatsapp(userId, request.customer.whatsappNumber) ?: run {
-                val newCustId = java.util.UUID.randomUUID().toString()
-                val newCust = app.tijario.data.local.CustomerEntity(
-                    id = newCustId,
-                    userId = userId,
-                    name = request.customer.name,
-                    whatsappNumber = request.customer.whatsappNumber,
-                    city = request.customer.city,
-                    notes = null,
-                    syncedAt = 0L,
-                    syncStatus = "LOCAL_ONLY",
-                    localRevision = 1,
-                    serverRevision = null,
-                    serverUpdatedAt = null,
-                    lastSyncedAt = null,
-                    syncErrorCode = null,
-                    isDeleted = false
-                )
-                dao.upsertCustomer(newCust)
-                enqueueOutbox(userId, "customer", newCustId, "CREATE")
-                newCust
-            }
+            val newCustId = java.util.UUID.randomUUID().toString()
+            val customerEntity = app.tijario.data.local.CustomerEntity(
+                id = newCustId,
+                userId = userId,
+                name = request.customer.name,
+                whatsappNumber = request.customer.whatsappNumber,
+                city = request.customer.city,
+                notes = null,
+                syncedAt = 0L,
+                syncStatus = "LOCAL_ONLY",
+                localRevision = 1,
+                serverRevision = null,
+                serverUpdatedAt = null,
+                lastSyncedAt = null,
+                syncErrorCode = null,
+                isDeleted = false
+            )
+            dao.upsertCustomer(customerEntity)
+            enqueueOutbox(userId, "customer", newCustId, "CREATE")
 
             val itemsEntities = request.items.mapIndexed { index, item ->
                 val lineTotal = BigDecimal.valueOf(item.quantity.toLong()).multiply(BigDecimal.valueOf(item.unitPrice))
@@ -1592,11 +1588,7 @@ open class TijarioRepository(
                             val doc = dao.getDocument(userId, op.entityId)
                             val items = dao.getDocumentItems(userId, op.entityId)
                             if (doc != null) {
-                                buildDocumentSyncPayload(
-                                    doc,
-                                    items,
-                                    dao.getCustomer(userId, doc.customerId)?.whatsappNumber,
-                                )
+                                buildDocumentSyncPayload(doc, items)
                             } else {
                                 buildJsonObject {}
                             }
@@ -2066,11 +2058,9 @@ internal fun buildDocumentItemSyncPayload(item: app.tijario.data.local.DocumentI
 internal fun buildDocumentSyncPayload(
     doc: app.tijario.data.local.DocumentEntity,
     items: List<app.tijario.data.local.DocumentItemEntity>,
-    customerWhatsappNumber: String? = null,
 ): kotlinx.serialization.json.JsonElement =
     buildJsonObject {
         put("customer_id", doc.customerId)
-        put("customer_whatsapp_number", customerWhatsappNumber)
         put("type", doc.type)
         put("document_number", doc.documentNumber)
         put("status", doc.status)

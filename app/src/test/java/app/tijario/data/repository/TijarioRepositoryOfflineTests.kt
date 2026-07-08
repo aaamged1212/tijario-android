@@ -7,9 +7,13 @@ import app.tijario.data.local.CustomerEntity
 import app.tijario.data.local.ProductEntity
 import app.tijario.data.local.SyncOutboxEntity
 import app.tijario.data.model.Customer
+import app.tijario.data.model.DocumentType
 import app.tijario.data.model.Product
 import app.tijario.data.model.ProductKind
 import app.tijario.data.remote.BackendApiClient
+import app.tijario.data.remote.CreateDocumentRequest
+import app.tijario.data.remote.DocumentCustomerInput
+import app.tijario.data.remote.DocumentItemInput
 import io.github.jan.supabase.SupabaseClient
 import androidx.room.withTransaction
 import io.mockk.coEvery
@@ -17,6 +21,7 @@ import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -88,6 +93,39 @@ class TijarioRepositoryOfflineTests {
         assertEquals("customer", slotOutbox.captured.entityType)
         assertEquals("CREATE", slotOutbox.captured.operation)
         assertEquals(result.id, slotOutbox.captured.entityId)
+    }
+
+    @Test
+    fun createDocumentLocal_doesNotMergeCustomerByWhatsapp() = runBlocking {
+        every { dao.observeDocuments(userId) } returns flowOf(emptyList())
+        coEvery { dao.getPendingOutbox(userId) } returns emptyList()
+        coEvery { dao.upsertOutbox(any()) } returns Unit
+        coEvery { dao.insertDocumentItems(any()) } returns Unit
+        coEvery { dao.getLedgerByDocId(userId, any()) } returns null
+        coEvery { dao.getPendingLedger(userId) } returns emptyList()
+        coEvery { dao.getLease(userId, any(), any()) } returns null
+        coEvery { dao.upsertLedger(any()) } returns Unit
+
+        val customerSlot = slot<CustomerEntity>()
+        val documentSlot = slot<app.tijario.data.local.DocumentEntity>()
+        coEvery { dao.upsertCustomer(capture(customerSlot)) } returns Unit
+        coEvery { dao.upsertDocument(capture(documentSlot)) } answers {
+            coEvery { dao.getDocument(userId, documentSlot.captured.id) } returns documentSlot.captured
+            Unit
+        }
+
+        val result = repository.createDocumentLocal(
+            CreateDocumentRequest(
+                type = DocumentType.Invoice,
+                customer = DocumentCustomerInput("New recipient", "1234567"),
+                items = listOf(DocumentItemInput(name = "Service", quantity = 1, unitPrice = 10.0)),
+                currency = "SAR",
+            ),
+        )
+
+        assertTrue(result.ok)
+        assertEquals("1234567", customerSlot.captured.whatsappNumber)
+        assertEquals(customerSlot.captured.id, documentSlot.captured.customerId)
     }
 
     @Test
