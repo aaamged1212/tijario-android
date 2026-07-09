@@ -1199,6 +1199,35 @@ fun OnboardingScreen(
                         }
                     )
 
+                    TijarioTextField(
+                        label = t("business_address"),
+                        value = form.address,
+                        onValueChange = { form = form.copy(address = it) },
+                        leadingIcon = {
+                            Icon(Icons.Filled.LocationCity, contentDescription = null, tint = Color(0xFF64748B))
+                        }
+                    )
+
+                    TijarioTextField(
+                        label = t("business_email"),
+                        value = form.email,
+                        onValueChange = { form = form.copy(email = it) },
+                        error = form.emailError,
+                        leadingIcon = {
+                            Icon(Icons.Filled.Email, contentDescription = null, tint = Color(0xFF64748B))
+                        }
+                    )
+
+                    TijarioTextField(
+                        label = t("business_website"),
+                        value = form.websiteUrl,
+                        onValueChange = { form = form.copy(websiteUrl = it) },
+                        error = form.websiteError,
+                        leadingIcon = {
+                            Icon(Icons.Filled.Language, contentDescription = null, tint = Color(0xFF64748B))
+                        }
+                    )
+
                     // Currency Dropdown
                     Box(modifier = Modifier.fillMaxWidth()) {
                         ExposedDropdownMenuBox(
@@ -1259,6 +1288,9 @@ fun OnboardingScreen(
                                             whatsappNumber = form.whatsapp,
                                             country = form.country,
                                             city = form.city.ifBlank { null },
+                                            address = form.address.ifBlank { null },
+                                            email = form.email.ifBlank { null },
+                                            websiteUrl = form.websiteUrl.ifBlank { null },
                                             currency = form.currency,
                                             termsText = form.terms.ifBlank { null }
                                         )

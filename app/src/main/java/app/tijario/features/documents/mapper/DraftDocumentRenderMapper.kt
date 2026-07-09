@@ -61,6 +61,9 @@ object DraftDocumentRenderMapper {
                 contactNumber = businessSettings?.whatsappNumber.orEmpty(),
                 country = businessSettings?.country,
                 city = businessSettings?.city,
+                address = businessSettings?.address,
+                email = businessSettings?.email,
+                websiteUrl = businessSettings?.websiteUrl,
                 logoUrl = businessSettings?.logoUrl,
             ),
             customer = DocumentPartyInfo(

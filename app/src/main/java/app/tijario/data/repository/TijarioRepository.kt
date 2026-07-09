@@ -150,6 +150,7 @@ open class TijarioRepository(
                 total = entity.total.toDouble(),
                 currency = entity.currency,
                 templateId = entity.templateId,
+                documentLanguage = entity.documentLanguage,
                 notes = entity.notes,
                 termsText = entity.termsText,
                 customer = customer,
@@ -401,6 +402,7 @@ open class TijarioRepository(
                     documentNumber = remote.documentNumber,
                     templateId = remote.templateId,
                     documentTitle = remote.documentTitle,
+                    documentLanguage = remote.documentLanguage,
                     status = remote.status,
                     paymentStatus = remote.paymentStatus,
                     amountPaid = remote.amountPaid?.let { BigDecimal.valueOf(it) },
@@ -821,6 +823,7 @@ open class TijarioRepository(
                 documentNumber = docNum,
                 templateId = request.templateId,
                 documentTitle = request.documentTitle,
+                documentLanguage = request.documentLanguage,
                 status = "draft",
                 paymentStatus = request.paymentStatus,
                 amountPaid = request.amountPaid?.let { BigDecimal.valueOf(it) },
@@ -854,24 +857,6 @@ open class TijarioRepository(
                     reserveDocumentQuotaLedger(userId, docId)
                     enqueueOutbox(userId, "document", docId, "CREATE")
 
-                    // Deduct stock if it's an invoice
-                    if (request.type == DocumentType.Invoice) {
-                        itemsEntities.forEach { item ->
-                            if (item.productId != null) {
-                                val product = dao.getProduct(userId, item.productId)
-                                if (product != null && product.stockQuantity != null) {
-                                    val newStock = (product.stockQuantity - item.quantity).coerceAtLeast(0)
-                                    dao.upsertProduct(product.copy(
-                                        stockQuantity = newStock,
-                                        syncStatus = if (product.syncStatus == "LOCAL_ONLY") "LOCAL_ONLY" else "PENDING_SYNC",
-                                        localRevision = product.localRevision + 1
-                                    ))
-                                    val outboxOp = if (product.syncStatus == "LOCAL_ONLY") "CREATE" else "UPDATE"
-                                    enqueueOutbox(userId, "product", product.id, outboxOp, product.serverRevision)
-                                }
-                            }
-                        }
-                    }
                 }
             }
 
@@ -937,6 +922,7 @@ open class TijarioRepository(
                 termsText = request.termsText,
                 templateId = request.templateId,
                 documentTitle = request.documentTitle,
+                documentLanguage = request.documentLanguage,
                 localRevision = nextRev,
                 syncStatus = nextStatus,
                 // Invalidate PDF metadata since document content changed
@@ -948,49 +934,10 @@ open class TijarioRepository(
 
             withContext(Dispatchers.IO) {
                 database.withTransaction {
-                    // Reverse old deductions if it was an invoice
-                    if (existing.type == "invoice") {
-                        val oldItems = dao.getDocumentItems(userId, documentId)
-                        oldItems.forEach { item ->
-                            if (item.productId != null) {
-                                val product = dao.getProduct(userId, item.productId)
-                                if (product != null && product.stockQuantity != null) {
-                                    val newStock = product.stockQuantity + item.quantity
-                                    dao.upsertProduct(product.copy(
-                                        stockQuantity = newStock,
-                                        syncStatus = if (product.syncStatus == "LOCAL_ONLY") "LOCAL_ONLY" else "PENDING_SYNC",
-                                        localRevision = product.localRevision + 1
-                                    ))
-                                    val outboxOp = if (product.syncStatus == "LOCAL_ONLY") "CREATE" else "UPDATE"
-                                    enqueueOutbox(userId, "product", product.id, outboxOp, product.serverRevision)
-                                }
-                            }
-                        }
-                    }
-
                     // Replace all document items atomically
                     dao.deleteDocumentItems(userId, documentId)
                     dao.insertDocumentItems(itemsEntities)
                     dao.upsertDocument(docEntity)
-
-                    // Apply new deductions if it is an invoice
-                    if (request.type == DocumentType.Invoice) {
-                        itemsEntities.forEach { item ->
-                            if (item.productId != null) {
-                                val product = dao.getProduct(userId, item.productId)
-                                if (product != null && product.stockQuantity != null) {
-                                    val newStock = (product.stockQuantity - item.quantity).coerceAtLeast(0)
-                                    dao.upsertProduct(product.copy(
-                                        stockQuantity = newStock,
-                                        syncStatus = if (product.syncStatus == "LOCAL_ONLY") "LOCAL_ONLY" else "PENDING_SYNC",
-                                        localRevision = product.localRevision + 1
-                                    ))
-                                    val outboxOp = if (product.syncStatus == "LOCAL_ONLY") "CREATE" else "UPDATE"
-                                    enqueueOutbox(userId, "product", product.id, outboxOp, product.serverRevision)
-                                }
-                            }
-                        }
-                    }
 
                     val outboxOp = if (existing.syncStatus == "LOCAL_ONLY") "CREATE" else "UPDATE"
                     enqueueOutbox(userId, "document", documentId, outboxOp, existing.serverRevision)
@@ -1013,26 +960,6 @@ open class TijarioRepository(
 
             withContext(Dispatchers.IO) {
                 database.withTransaction {
-                    // Restore stock if it was an invoice
-                    if (existing.type == "invoice") {
-                        val items = dao.getDocumentItems(userId, documentId)
-                        items.forEach { item ->
-                            if (item.productId != null) {
-                                val product = dao.getProduct(userId, item.productId)
-                                if (product != null && product.stockQuantity != null) {
-                                    val newStock = product.stockQuantity + item.quantity
-                                    dao.upsertProduct(product.copy(
-                                        stockQuantity = newStock,
-                                        syncStatus = if (product.syncStatus == "LOCAL_ONLY") "LOCAL_ONLY" else "PENDING_SYNC",
-                                        localRevision = product.localRevision + 1
-                                    ))
-                                    val outboxOp = if (product.syncStatus == "LOCAL_ONLY") "CREATE" else "UPDATE"
-                                    enqueueOutbox(userId, "product", product.id, outboxOp, product.serverRevision)
-                                }
-                            }
-                        }
-                    }
-
                     if (existing.syncStatus == "LOCAL_ONLY" && !mustSoftDelete) {
                         dao.deleteDocumentItems(userId, documentId)
                         dao.deleteDocument(userId, documentId)
@@ -1072,6 +999,9 @@ open class TijarioRepository(
                     whatsappNumber = settings.whatsappNumber,
                     country = settings.country,
                     city = settings.city,
+                    address = settings.address,
+                    email = settings.email,
+                    websiteUrl = settings.websiteUrl,
                     currency = settings.currency,
                     logoUrl = settings.logoUrl,
                     instagramUrl = settings.instagramUrl,
@@ -1263,6 +1193,9 @@ open class TijarioRepository(
                 whatsappNumber = settings.whatsappNumber,
                 country = settings.country,
                 city = settings.city,
+                address = settings.address,
+                email = settings.email,
+                websiteUrl = settings.websiteUrl,
                 currency = settings.currency,
                 logoUrl = settings.logoUrl,
                 instagramUrl = settings.instagramUrl,
@@ -1305,6 +1238,7 @@ open class TijarioRepository(
                 backendApiClient.fetchCompleteDocument(documentId).data?.let { cacheCompleteDocumentSnapshot(it) }
                     ?: refreshAll(force = true)
             }
+            runCatching { refreshProducts() }
             runCatching { fetchUserPlanUsage() }
             result
         }
@@ -1319,6 +1253,7 @@ open class TijarioRepository(
                 backendApiClient.fetchCompleteDocument(resolvedDocumentId).data?.let { cacheCompleteDocumentSnapshot(it) }
                     ?: refreshAll(force = true)
             }
+            runCatching { refreshProducts() }
             runCatching { fetchUserPlanUsage() }
             result
         }
@@ -1472,6 +1407,7 @@ open class TijarioRepository(
             type = if (doc.type == "quote") DocumentType.Quote else DocumentType.Invoice,
             documentNumber = doc.documentNumber,
             documentTitle = doc.documentTitle,
+            documentLanguage = doc.documentLanguage,
             status = doc.status,
             paymentStatus = doc.paymentStatus,
             amountPaid = doc.amountPaid?.toDouble(),
@@ -1767,6 +1703,9 @@ open class TijarioRepository(
                                     put("whatsapp_number", bs.whatsappNumber)
                                     put("country", bs.country)
                                     put("city", bs.city)
+                                    put("address", bs.address)
+                                    put("email", bs.email)
+                                    put("website_url", bs.websiteUrl)
                                     put("currency", bs.currency)
                                     put("instagram_url", bs.instagramUrl)
                                     put("invoice_note", bs.invoiceNote)
@@ -2010,6 +1949,9 @@ open class TijarioRepository(
                                 whatsappNumber = item.whatsapp_number,
                                 country = item.country,
                                 city = item.city,
+                                address = item.address,
+                                email = item.email,
+                                websiteUrl = item.website_url,
                                 currency = item.currency,
                                 logoUrl = item.logo_url,
                                 instagramUrl = item.instagram_url,
@@ -2033,6 +1975,7 @@ open class TijarioRepository(
                                 documentNumber = item.document_number,
                                 templateId = item.template_id,
                                 documentTitle = item.document_title,
+                                documentLanguage = item.document_language,
                                 status = item.status,
                                 paymentStatus = item.payment_status,
                                 amountPaid = null,
@@ -2246,6 +2189,7 @@ internal fun buildDocumentSyncPayload(
         put("terms_text", doc.termsText)
         put("template_id", doc.templateId)
         put("document_title", doc.documentTitle)
+        put("document_language", doc.documentLanguage)
         putJsonArray("items") {
             items.sortedBy { it.sortOrder }.forEach { item ->
                 add(buildDocumentItemSyncPayload(item))

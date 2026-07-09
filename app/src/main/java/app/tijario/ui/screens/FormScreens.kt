@@ -1,8 +1,11 @@
 package app.tijario.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -65,6 +68,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.StrokeCap
@@ -110,6 +114,7 @@ import app.tijario.ui.state.DocumentFormState
 import app.tijario.ui.state.DocumentItemState
 import app.tijario.ui.state.TijarioDataViewModel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import android.net.Uri
 import java.io.File
 import java.security.MessageDigest
@@ -164,6 +169,59 @@ internal fun mergeSelectedProductIntoItems(
             quantity = "1"
         )
         appended to appended.lastIndex
+    }
+}
+
+@Composable
+private fun DocumentFormBottomActions(
+    isPreview: Boolean,
+    isLoading: Boolean,
+    onTogglePreview: () -> Unit,
+    onSave: () -> Unit,
+) {
+    BoxWithConstraints(modifier = Modifier.padding(10.dp)) {
+        val compact = maxWidth < 340.dp
+        val secondaryButton: @Composable (Modifier) -> Unit = { modifier ->
+            OutlinedButton(
+                onClick = onTogglePreview,
+                modifier = modifier.height(46.dp),
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary),
+            ) {
+                Text(if (isPreview) t("edit") else t("btn_preview"), fontWeight = FontWeight.Bold)
+            }
+        }
+        val saveButton: @Composable (Modifier) -> Unit = { modifier ->
+            Button(
+                onClick = onSave,
+                enabled = !isLoading,
+                modifier = modifier.height(46.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(22.dp))
+                } else {
+                    Text(t("btn_save"), fontWeight = FontWeight.Bold, color = Color.White)
+                }
+            }
+        }
+
+        if (compact) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                secondaryButton(Modifier.fillMaxWidth())
+                saveButton(Modifier.fillMaxWidth())
+            }
+        } else {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                secondaryButton(Modifier.weight(1f))
+                saveButton(Modifier.weight(1.6f))
+            }
+        }
     }
 }
 
@@ -793,6 +851,9 @@ fun BusinessSettingsScreen(
                 whatsapp = settings.whatsappNumber,
                 country = settings.country,
                 city = settings.city ?: "",
+                address = settings.address ?: "",
+                email = settings.email ?: "",
+                websiteUrl = settings.websiteUrl ?: "",
                 currency = settings.currency,
                 terms = settings.termsText ?: "",
                 lang = language
@@ -842,6 +903,32 @@ fun BusinessSettingsScreen(
                                 value = form.city,
                                 onValueChange = { form = form.copy(city = it) },
                                 leadingIcon = { Icon(Icons.Filled.LocationOn, contentDescription = null, tint = Color(0xFF0D9488)) }
+                            )
+                        }
+                        "address" -> {
+                            TijarioTextField(
+                                label = t("business_address"),
+                                value = form.address,
+                                onValueChange = { form = form.copy(address = it) },
+                                leadingIcon = { Icon(Icons.Filled.LocationOn, contentDescription = null, tint = Color(0xFF0D9488)) }
+                            )
+                        }
+                        "email" -> {
+                            TijarioTextField(
+                                label = t("business_email"),
+                                value = form.email,
+                                onValueChange = { form = form.copy(email = it) },
+                                error = form.emailError,
+                                leadingIcon = { Icon(Icons.Filled.Description, contentDescription = null, tint = Color(0xFF0D9488)) }
+                            )
+                        }
+                        "website" -> {
+                            TijarioTextField(
+                                label = t("business_website"),
+                                value = form.websiteUrl,
+                                onValueChange = { form = form.copy(websiteUrl = it) },
+                                error = form.websiteError,
+                                leadingIcon = { Icon(Icons.Filled.Public, contentDescription = null, tint = Color(0xFF0D9488)) }
                             )
                         }
                         "currency" -> {
@@ -1080,6 +1167,33 @@ fun BusinessSettingsScreen(
 
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = 4.dp))
 
+                    SettingsItemRow(
+                        icon = Icons.Filled.LocationOn,
+                        title = t("business_address"),
+                        value = form.address,
+                        onClick = { activeDialog = "address" }
+                    )
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = 4.dp))
+
+                    SettingsItemRow(
+                        icon = Icons.Filled.Description,
+                        title = t("business_email"),
+                        value = form.email,
+                        onClick = { activeDialog = "email" }
+                    )
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = 4.dp))
+
+                    SettingsItemRow(
+                        icon = Icons.Filled.Public,
+                        title = t("business_website"),
+                        value = form.websiteUrl,
+                        onClick = { activeDialog = "website" }
+                    )
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = 4.dp))
+
                     // Row 6: العملة
                     val displayCurrency = when (form.currency.uppercase()) {
                         "YER" -> if (language == AppLanguage.AR) "ريال يمني - YER" else "Yemeni Rial - YER"
@@ -1111,6 +1225,9 @@ fun BusinessSettingsScreen(
                                 whatsappNumber = form.whatsapp,
                                 country = form.country,
                                 city = form.city.ifBlank { null },
+                                address = form.address.ifBlank { null },
+                                email = form.email.ifBlank { null },
+                                websiteUrl = form.websiteUrl.ifBlank { null },
                                 currency = form.currency,
                                 termsText = form.terms.ifBlank { null },
                             ) ?: app.tijario.data.model.BusinessSettings(
@@ -1119,6 +1236,9 @@ fun BusinessSettingsScreen(
                                 whatsappNumber = form.whatsapp,
                                 country = form.country,
                                 city = form.city.ifBlank { null },
+                                address = form.address.ifBlank { null },
+                                email = form.email.ifBlank { null },
+                                websiteUrl = form.websiteUrl.ifBlank { null },
                                 currency = form.currency,
                                 termsText = form.terms.ifBlank { null },
                             )
@@ -1814,7 +1934,7 @@ fun EditItemDialog(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun DocumentFormScreen(
     dataViewModel: TijarioDataViewModel,
@@ -1831,7 +1951,14 @@ fun DocumentFormScreen(
     onNavigateToBusinessSettings: () -> Unit = {},
 ) {
     val language = LocalLanguage.current
-    var form by rememberSaveable(stateSaver = DocumentFormStateSaver) { mutableStateOf(DocumentFormState(lang = language)) }
+    var form by rememberSaveable(stateSaver = DocumentFormStateSaver) {
+        mutableStateOf(
+            DocumentFormState(
+                lang = language,
+                documentLanguage = if (language == AppLanguage.EN) "EN" else "AR",
+            )
+        )
+    }
     var isLoadingDocument by rememberSaveable { mutableStateOf(documentId != null) }
     var selectedTab by remember { mutableStateOf(0) } // 0 = edit, 1 = preview
     var isLoading by remember { mutableStateOf(false) }
@@ -1848,6 +1975,7 @@ fun DocumentFormScreen(
         isTemplateAvailableForSelection(isTemplateEntitlementLoaded, allowedTemplateIds, templateId)
     val businessSettings = uiState.businessSettings
     val scope = rememberCoroutineScope()
+    val notesBringIntoViewRequester = remember { BringIntoViewRequester() }
     val editDocumentId = documentId?.takeIf { it.isNotBlank() }
     val isEditMode = editDocumentId != null
 
@@ -1972,6 +2100,7 @@ fun DocumentFormScreen(
                     extraFeesLabel = form.extraFeesLabel.ifBlank { null },
                     taxName = form.finalTaxName.ifBlank { null },
                     taxRate = Validation.parseNonNegativeMoney(form.finalTaxRate) ?: 0.0,
+                    documentLanguage = form.documentLanguage.lowercase(),
                 )
                 val result = if (editDocumentId != null) {
                     dataViewModel.updateDocument(editDocumentId, req)
@@ -1997,7 +2126,15 @@ fun DocumentFormScreen(
                         onDocumentSaved(savedDocumentId)
                     }
                 } else {
-                    submitError = result.localizedDisplayMessage(language)
+                    submitError = if (
+                        result.code.equals("insufficient_stock", ignoreCase = true) &&
+                        result.availableStock != null
+                    ) {
+                        Localization.getString("insufficient_stock_available", language)
+                            .format(result.availableStock)
+                    } else {
+                        result.localizedDisplayMessage(language)
+                    }
                 }
             } catch (e: Exception) {
                 submitError = LocalizedErrorMapper.map(null, e.message, language)
@@ -2128,67 +2265,12 @@ fun DocumentFormScreen(
                         shadowElevation = 0.dp,
                         tonalElevation = 0.dp,
                     ) {
-                        Row(
-                            modifier = Modifier.padding(10.dp),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            if (selectedTab == 0) {
-                                OutlinedButton(
-                                    onClick = { selectedTab = 1 },
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .height(46.dp),
-                                    shape = RoundedCornerShape(12.dp),
-                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
-                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
-                                ) {
-                                    Text(t("btn_preview"), fontWeight = FontWeight.Bold)
-                                }
-                                Button(
-                                    onClick = { submitDocument() },
-                                    enabled = !isLoading,
-                                    modifier = Modifier
-                                        .weight(1.6f)
-                                        .height(46.dp),
-                                    shape = RoundedCornerShape(12.dp),
-                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                                ) {
-                                    if (isLoading) {
-                                        CircularProgressIndicator(color = Color.White, modifier = Modifier.size(22.dp))
-                                    } else {
-                                        Text(t("btn_save"), fontWeight = FontWeight.Bold, color = Color.White)
-                                    }
-                                }
-                            } else {
-                                OutlinedButton(
-                                    onClick = { selectedTab = 0 },
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .height(46.dp),
-                                    shape = RoundedCornerShape(12.dp),
-                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
-                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
-                                ) {
-                                    Text(t("edit"), fontWeight = FontWeight.Bold)
-                                }
-                                Button(
-                                    onClick = { submitDocument() },
-                                    enabled = !isLoading,
-                                    modifier = Modifier
-                                        .weight(1.6f)
-                                        .height(46.dp),
-                                    shape = RoundedCornerShape(12.dp),
-                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                                ) {
-                                    if (isLoading) {
-                                        CircularProgressIndicator(color = Color.White, modifier = Modifier.size(22.dp))
-                                    } else {
-                                        Text(t("btn_save"), fontWeight = FontWeight.Bold, color = Color.White)
-                                    }
-                                }
-                            }
-                        }
+                        DocumentFormBottomActions(
+                            isPreview = selectedTab == 1,
+                            isLoading = isLoading,
+                            onTogglePreview = { selectedTab = if (selectedTab == 0) 1 else 0 },
+                            onSave = { submitDocument() },
+                        )
                     }
                 }
             }
@@ -2757,6 +2839,16 @@ fun DocumentFormScreen(
                             label = t("notes"),
                             value = form.notes,
                             onValueChange = { form = form.copy(notes = it) },
+                            modifier = Modifier
+                                .bringIntoViewRequester(notesBringIntoViewRequester)
+                                .onFocusChanged { focusState ->
+                                    if (focusState.isFocused) {
+                                        scope.launch {
+                                            delay(150)
+                                            notesBringIntoViewRequester.bringIntoView()
+                                        }
+                                    }
+                                },
                             singleLine = false,
                             leadingIcon = { Icon(Icons.Filled.Note, contentDescription = null, tint = Color(0xFF64748B)) }
                         )

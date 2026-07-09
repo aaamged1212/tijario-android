@@ -25,11 +25,13 @@ class DocumentTaxContractTests {
             ),
             taxName = "VAT",
             taxRate = 15.0,
+            documentLanguage = "en",
         )
 
         val payload = json.encodeToJsonElement(CreateDocumentRequest.serializer(), request).jsonObject
         assertEquals("VAT", payload["tax_name"]?.jsonPrimitive?.content)
         assertEquals(15.0, payload["tax_rate"]?.jsonPrimitive?.double ?: -1.0, 0.0)
+        assertEquals("en", payload["document_language"]?.jsonPrimitive?.content)
     }
 
     @Test
@@ -57,6 +59,7 @@ class DocumentTaxContractTests {
               "total":115,
               "currency":"SAR",
               "template_id":"tijario-classic",
+              "document_language":"en",
               "notes":null,
               "terms_text":null,
               "customer": null,
@@ -69,5 +72,6 @@ class DocumentTaxContractTests {
         assertEquals("VAT", document.taxName)
         assertEquals(15.0, document.taxRate, 0.0)
         assertEquals(15.0, document.taxAmount, 0.0)
+        assertEquals("en", document.documentLanguage)
     }
 }

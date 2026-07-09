@@ -44,6 +44,9 @@ data class BusinessSettingsFormState(
     val whatsapp: String = "",
     val country: String = "السعودية",
     val city: String = "",
+    val address: String = "",
+    val email: String = "",
+    val websiteUrl: String = "",
     val currency: String = "SAR",
     val terms: String = "",
     val lang: AppLanguage = AppLanguage.AR,
@@ -53,8 +56,11 @@ data class BusinessSettingsFormState(
     val countryError: String? get() = Validation.required(country, "country", lang)
     val currencyError: String? get() = Validation.required(currency, "currency", lang)
     val cityError: String? get() = Validation.required(city, "city", lang)
+    val emailError: String? get() = Validation.optionalEmail(email, lang)
+    val websiteError: String? get() = Validation.optionalWebsite(websiteUrl, lang)
     val canSubmit: Boolean get() =
-        businessNameError == null && whatsappError == null && countryError == null && currencyError == null && cityError == null
+        businessNameError == null && whatsappError == null && countryError == null &&
+            currencyError == null && cityError == null && emailError == null && websiteError == null
 }
 
 data class CustomerFormState(

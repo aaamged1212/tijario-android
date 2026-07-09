@@ -1,16 +1,19 @@
 # Pending Release
 
-- **Pending Migration Path**: `supabase/migrations/20260708184437_allow_duplicate_customer_whatsapp.sql` (in Web Repo)
+## Unapplied Web-Repo Migrations
+- `supabase/migrations/20260708184437_allow_duplicate_customer_whatsapp.sql`
+- `supabase/migrations/20260709000137_qa_business_stock_document_language.sql`
+
+The QA migration is required before Android can persist business address/email/website, saved document language, or use the stock-aware document RPC behavior.
+
+## Status
 - **Migration Status**: NOT applied.
 - **Web/API Status**: NOT deployed.
 - **Android Update Status**: NOT uploaded. Android changes are local only.
-- **Android Release Artifact**: `app/release/app-release.aab` must not be uploaded or committed to git.
+- **Android Release Artifact**: `app/release/app-release.aab` remains present and git-ignored; do not upload or commit it.
 
-## Correct Release Order:
-1. Apply Supabase migration.
-2. Deploy compatible Web/API code (branch `fix/reduce-mobile-vercel-usage-sync-retries-local`).
-3. Verify Vercel logs to confirm:
-   - No `/api/mobile/sync/push` errors.
-   - No `document_create_failed`.
-   - No 500 spikes.
-4. Android update uploaded later if needed.
+## Correct Release Order
+1. Apply both Supabase migrations in timestamp order.
+2. Deploy compatible Web/API code from `fix/reduce-mobile-vercel-usage-sync-retries-local`.
+3. Verify Vercel logs and invoice create/update/delete, quote, inventory, language, and business-profile flows.
+4. Upload an Android update only after explicit approval and successful server verification.

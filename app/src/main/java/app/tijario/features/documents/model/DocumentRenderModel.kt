@@ -9,6 +9,9 @@ data class DocumentPartyInfo(
     val contactNumber: String,
     val country: String? = null,
     val city: String? = null,
+    val address: String? = null,
+    val email: String? = null,
+    val websiteUrl: String? = null,
     val logoUrl: String? = null,
 )
 

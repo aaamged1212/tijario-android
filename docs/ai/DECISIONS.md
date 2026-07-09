@@ -26,3 +26,12 @@
 - **Online-Only Writes**: Creating, updating, and deleting documents, customers, products, and business settings require internet and must persist remotely before showing final success.
 - **Cached Reads**: Local SQLite Room cache is used strictly for reading/displaying previously synced data.
 - **No Offline CRUD Queue**: No local-only success states. If remote save fails or the device is offline, show an error without caching or pretending the data was saved remotely.
+
+## 6. Inventory Ownership
+- Invoice inventory is mutated only by trusted Web/database RPCs.
+- Android sends stable product IDs and quantities, maps stock errors, and refreshes product cache after successful document mutations.
+- Quotes and manual document lines do not affect inventory.
+
+## 7. Persisted Document Presentation
+- Saved `document_language` controls reopened preview/PDF language independently from the current app language.
+- Optional business address, email, and website are cached locally and rendered only when present.

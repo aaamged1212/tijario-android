@@ -11,6 +11,7 @@ data class ApiResult<T>(
     val ok: Boolean,
     val code: String? = null,
     val message: String? = null,
+    val availableStock: Int? = null,
     val data: T? = null,
 ) {
     val displayMessage: String
@@ -54,6 +55,7 @@ data class CreateDocumentRequest(
     @SerialName("extra_fees_label") val extraFeesLabel: String? = null,
     @SerialName("tax_name") val taxName: String? = null,
     @SerialName("tax_rate") val taxRate: Double = 0.0,
+    @SerialName("document_language") val documentLanguage: String = "ar",
 )
 
 @Serializable

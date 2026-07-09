@@ -148,6 +148,23 @@ class DocumentEngineTests {
     }
 
     @Test
+    fun generatedDocumentIncludesBusinessContactFieldsAndOpposingHeaderLayout() {
+        val html = renderer.render(
+            SavedDocumentRenderMapper.map(
+                document = DocumentFixtures.saved().copy(documentLanguage = "en"),
+                businessSettings = DocumentFixtures.business,
+                language = AppLanguage.EN,
+            )
+        )
+
+        assertTrue(html.contains("Address: ${DocumentFixtures.business.address}"))
+        assertTrue(html.contains("Email: ${DocumentFixtures.business.email}"))
+        assertTrue(html.contains("Website: ${DocumentFixtures.business.websiteUrl}"))
+        assertTrue(html.contains("grid-template-columns:minmax(0,1fr) minmax(160px,.75fr)"))
+        assertTrue(html.contains(".title-block{justify-items:end;text-align:end;}"))
+    }
+
+    @Test
     fun everyTemplateShowsFullCustomerDetailsWithoutBusinessDetailsCard() {
         val base = SavedDocumentRenderMapper.map(
             document = DocumentFixtures.saved(),

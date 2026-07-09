@@ -6,6 +6,7 @@ import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -181,7 +182,7 @@ fun DocumentDetailScreen(
 
                 document != null -> {
                     val doc = document!!
-                    var documentLanguage by remember { mutableStateOf("AR") }
+                    val documentLanguage = if (doc.documentLanguage.equals("en", true)) "EN" else "AR"
                     val renderModel = remember(doc, businessSettings, selectedTemplateId, documentLanguage, documentMetadata) {
                         val mappedLang = if (documentLanguage == "EN") AppLanguage.EN else AppLanguage.AR
                         TijarioDocumentMapper.fromSaved(
@@ -253,14 +254,12 @@ fun DocumentDetailScreen(
                             )
                         }
 
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Button(
+                        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                            val compact = maxWidth < 340.dp
+                            val editButton: @Composable (Modifier) -> Unit = { modifier ->
+                                Button(
                                 onClick = { onEditClick(doc.id, doc.type) },
-                                modifier = Modifier.weight(0.35f),
+                                modifier = modifier,
                                 enabled = !isBusy,
                                 colors = androidx.compose.material3.ButtonDefaults.buttonColors(
                                     containerColor = MaterialTheme.colorScheme.secondaryContainer,
@@ -271,15 +270,31 @@ fun DocumentDetailScreen(
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text(t("edit"))
                             }
-
-                            Button(
+                            }
+                            val exportButton: @Composable (Modifier) -> Unit = { modifier ->
+                                Button(
                                 onClick = { showExportSheet = true },
-                                modifier = Modifier.weight(0.65f),
+                                modifier = modifier,
                                 enabled = !isBusy,
                             ) {
                                 Icon(Icons.Filled.Share, contentDescription = null)
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(if (isBusy) t("preparing_doc") else t("open_export_options"))
+                            }
+                            }
+                            if (compact) {
+                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    editButton(Modifier.fillMaxWidth())
+                                    exportButton(Modifier.fillMaxWidth())
+                                }
+                            } else {
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    editButton(Modifier.weight(0.35f))
+                                    exportButton(Modifier.weight(0.65f))
+                                }
                             }
                         }
                     }
@@ -369,7 +384,8 @@ fun DocumentDetailScreen(
 }
 
 fun CompleteDocument.toFormState(lang: AppLanguage): app.tijario.ui.state.DocumentFormState {
-    val isArabic = lang == AppLanguage.AR
+    val savedLanguage = if (documentLanguage.equals("en", true)) AppLanguage.EN else AppLanguage.AR
+    val isArabic = savedLanguage == AppLanguage.AR
     return app.tijario.ui.state.DocumentFormState(
         customerId = customerId,
         customerName = customer?.name ?: if (isArabic) "عميل غير معروف" else "Unknown customer",
@@ -405,5 +421,7 @@ fun CompleteDocument.toFormState(lang: AppLanguage): app.tijario.ui.state.Docume
         } else {
             if (isArabic) "عرض سعر" else "Quote"
         },
+        documentLanguage = if (isArabic) "AR" else "EN",
+        lang = lang,
     )
 }

@@ -28,6 +28,8 @@ object LocalizedErrorMapper {
         "document_number_collision" to "doc_error_save_failed",
         "document_create_failed" to "doc_error_save_failed",
         "document_update_failed" to "doc_error_update_failed",
+        "out_of_stock" to "out_of_stock",
+        "insufficient_stock" to "insufficient_stock",
         "SERVER_SAVE_FAILED" to "doc_error_server_save_failed",
         "server_save_failed" to "doc_error_server_save_failed",
         "SERVER_UPDATE_FAILED" to "doc_error_server_update_failed",
@@ -106,6 +108,8 @@ object LocalizedErrorMapper {
         "conflict" to "doc_error_conflict",
         "product or service not found" to "doc_error_saved_product_not_found",
         "saved product not found" to "doc_error_saved_product_not_found",
+        "out of stock" to "out_of_stock",
+        "exceeds available stock" to "insufficient_stock",
     )
 
     fun map(code: String?, message: String?, language: AppLanguage, operation: String? = null): String {

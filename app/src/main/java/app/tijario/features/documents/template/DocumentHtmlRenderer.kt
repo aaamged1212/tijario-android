@@ -54,7 +54,16 @@ class DocumentHtmlRenderer(
             append(logoMarkup(model.business))
             append("<div><h1 class=\"business-name\">${HtmlEscaper.escape(model.business.name)}</h1>")
             append("<div class=\"business-meta\">${labels.number}: ${HtmlEscaper.escape(model.business.contactNumber)}</div>")
-            append(locationLine(model.business.city, model.business.country))
+            append(locationLine(model.business.country, model.business.city))
+            model.business.address?.takeIf { it.isNotBlank() }?.let {
+                append("<div class=\"party-lines\">${labels.address}: ${HtmlEscaper.escape(it)}</div>")
+            }
+            model.business.email?.takeIf { it.isNotBlank() }?.let {
+                append("<div class=\"party-lines\">${labels.email}: ${HtmlEscaper.escape(it)}</div>")
+            }
+            model.business.websiteUrl?.takeIf { it.isNotBlank() }?.let {
+                append("<div class=\"party-lines\">${labels.website}: ${HtmlEscaper.escape(it)}</div>")
+            }
             append("</div></div>")
             append("<div class=\"title-block\"><h2 class=\"document-title\">${title(model)}</h2>")
             append("<div class=\"meta-grid\">")
@@ -173,6 +182,9 @@ class DocumentHtmlRenderer(
                 append("$idClass .header{border-bottom:3px solid var(--accent);padding-bottom:12px;}\n")
                 append("$idClass .document-title{background:var(--accent);color:var(--title-text);display:inline-block;padding:8px 18px;border-radius:0;}\n")
             }
+            append("$idClass .header{grid-template-columns:minmax(0,1fr) minmax(160px,.75fr);}\n")
+            append("$idClass .brand{justify-content:flex-start;text-align:start;}\n")
+            append("$idClass .title-block{justify-items:end;text-align:end;}\n")
         }
     }
 
@@ -188,6 +200,9 @@ class DocumentHtmlRenderer(
                 number = "الرقم",
                 customerInfo = "بيانات العميل",
                 city = "المدينة",
+                address = "العنوان",
+                email = "البريد الإلكتروني",
+                website = "الموقع الإلكتروني",
                 documentNumber = "رقم المستند",
                 issueDate = "تاريخ الإصدار",
                 status = "الحالة",
@@ -211,6 +226,9 @@ class DocumentHtmlRenderer(
                 number = "Number",
                 customerInfo = "Customer details",
                 city = "City",
+                address = "Address",
+                email = "Email",
+                website = "Website",
                 documentNumber = "Document number",
                 issueDate = "Issue date",
                 status = "Status",
@@ -269,8 +287,8 @@ class DocumentHtmlRenderer(
     private fun partyDetail(label: String, value: String): String =
         "<div class=\"party-detail\"><span>${HtmlEscaper.escape(label)}</span><strong>${HtmlEscaper.escape(value)}</strong></div>"
 
-    private fun locationLine(city: String?, country: String?): String {
-        val value = listOfNotNull(city?.takeIf { it.isNotBlank() }, country?.takeIf { it.isNotBlank() }).joinToString(" - ")
+    private fun locationLine(country: String?, city: String?): String {
+        val value = listOfNotNull(country?.takeIf { it.isNotBlank() }, city?.takeIf { it.isNotBlank() }).joinToString(" - ")
         return if (value.isBlank()) "" else "<div class=\"party-lines\">${HtmlEscaper.escape(value)}</div>"
     }
 
@@ -327,6 +345,9 @@ class DocumentHtmlRenderer(
         val number: String,
         val customerInfo: String,
         val city: String,
+        val address: String,
+        val email: String,
+        val website: String,
         val documentNumber: String,
         val issueDate: String,
         val status: String,

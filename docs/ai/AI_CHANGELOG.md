@@ -1,5 +1,12 @@
 # AI Changelog
 
+## 2026-07-09
+- **Agent**: Codex
+- **Action**: Implemented Android parity for optional business contact fields, persisted document language, server-authoritative inventory errors/cache refresh, responsive document actions, focused notes scrolling, and aligned document headers.
+- **Storage**: Added Room migration `11 -> 12` for business fields and `document_language`.
+- **Validation**: Kotlin compilation, Android unit tests, and `assembleDebug` pass.
+- **Safety Info**: Local modifications only. No commit, push, Supabase migration apply, APK/AAB upload, or closed-testing change.
+
 ## 2026-07-08
 - **Agent**: Antigravity / Gemini
 - **Action**: Created permanent AI handoff protocol system (docs/ai/* and root instruction files).
@@ -15,3 +22,4 @@
   4. Standalone Customers Sync: Added immediate sync triggers on customer/product database operations in `TijarioRepository.kt`.
 - **Safety Info**: Local modifications only. No git pushes, Vercel deployments, Supabase migrations applied, or Play Console uploads.
 - **Action**: Refactored Android MVP write model to Online-Only writes + cached reads (no offline CRUD queue, direct Supabase writes).
+- **Action**: Performed a strict final audit and local validation check of the uncommitted QA batch (63 files changed total). Verified builds and test suites successfully.

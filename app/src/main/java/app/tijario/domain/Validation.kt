@@ -17,6 +17,23 @@ object Validation {
             else -> null
         }
 
+    fun optionalEmail(value: String, lang: app.tijario.config.AppLanguage): String? =
+        if (value.isBlank()) null else email(value, lang)
+
+    fun optionalWebsite(value: String, lang: app.tijario.config.AppLanguage): String? {
+        if (value.isBlank()) return null
+        val normalized = if (value.startsWith("http://", true) || value.startsWith("https://", true)) {
+            value
+        } else {
+            "https://$value"
+        }
+        return if (runCatching { java.net.URI(normalized).host }.getOrNull().isNullOrBlank()) {
+            app.tijario.config.Localization.getString("validation_website_invalid", lang)
+        } else {
+            null
+        }
+    }
+
     fun password(value: String, lang: app.tijario.config.AppLanguage): String? =
         when {
             value.isEmpty() -> app.tijario.config.Localization.getString("validation_password_required", lang)

@@ -18,7 +18,8 @@ object SavedDocumentRenderMapper {
     fun map(
         document: CompleteDocument,
         businessSettings: BusinessSettings?,
-        language: AppLanguage = AppLanguage.AR,
+        language: AppLanguage =
+            if (document.documentLanguage.equals("en", ignoreCase = true)) AppLanguage.EN else AppLanguage.AR,
         templateId: String = DocumentTemplateRegistry.defaultTemplateId,
         metadata: app.tijario.data.local.LocalDocumentMetadataEntity? = null,
         showTijarioBranding: Boolean = true,
@@ -86,6 +87,9 @@ object SavedDocumentRenderMapper {
                 contactNumber = businessSettings?.whatsappNumber.orEmpty(),
                 country = businessSettings?.country,
                 city = businessSettings?.city,
+                address = businessSettings?.address,
+                email = businessSettings?.email,
+                websiteUrl = businessSettings?.websiteUrl,
                 logoUrl = businessSettings?.logoUrl,
             ),
             customer = DocumentPartyInfo(
