@@ -3,7 +3,7 @@
 - **Repo Name**: Android Repo
 - **Current Branch**: `fix/reduce-mobile-vercel-usage-sync-retries-local`
 - **Latest Commit**: `50e8890 fix: enforce online-only writes for Android MVP`
-- **Current Uncommitted Files Summary**: Modified repository writes to ONLINE-ONLY, audited large QA bugfix batch.
+- **Current Uncommitted Files Summary**: Added production-migration-runbook.md.
 
 ## Tijario status:
 - Google Play Closed Testing is active.
