@@ -121,4 +121,115 @@ class DocumentFormEditFlowTests {
         assertEquals("+966500000000", input.whatsappNumber)
         assertEquals("Riyadh", input.city)
     }
+
+    @Test
+    fun invoiceStockValidationOnlyAppliesToSavedProducts() {
+        val products = listOf(
+            Product(
+                id = "product-1",
+                kind = ProductKind.Product,
+                name = "Tracked Product",
+                price = 10.0,
+                stockQuantity = 5,
+            ),
+            Product(
+                id = "service-1",
+                kind = ProductKind.Service,
+                name = "Service",
+                price = 10.0,
+                stockQuantity = 1,
+            ),
+        )
+
+        assertEquals(
+            "Quantity exceeds available stock. Current stock: 5",
+            invoiceStockValidationMessage(
+                DocumentType.Invoice,
+                DocumentItemState(productId = "product-1", name = "Tracked Product", quantity = "6", unitPrice = "10"),
+                listOf(DocumentItemState(productId = "product-1", name = "Tracked Product", quantity = "6", unitPrice = "10")),
+                products,
+                app.tijario.config.AppLanguage.EN,
+            ),
+        )
+        assertEquals(
+            null,
+            invoiceStockValidationMessage(
+                DocumentType.Invoice,
+                DocumentItemState(productId = "service-1", name = "Service", quantity = "6", unitPrice = "10"),
+                listOf(DocumentItemState(productId = "service-1", name = "Service", quantity = "6", unitPrice = "10")),
+                products,
+                app.tijario.config.AppLanguage.EN,
+            ),
+        )
+        assertEquals(
+            null,
+            invoiceStockValidationMessage(
+                DocumentType.Quote,
+                DocumentItemState(productId = "product-1", name = "Tracked Product", quantity = "6", unitPrice = "10"),
+                listOf(DocumentItemState(productId = "product-1", name = "Tracked Product", quantity = "6", unitPrice = "10")),
+                products,
+                app.tijario.config.AppLanguage.EN,
+            ),
+        )
+    }
+
+    @Test
+    fun editInvoiceStockValidationAllowsOriginalReservedQuantity() {
+        val products = listOf(
+            Product(
+                id = "product-1",
+                kind = ProductKind.Product,
+                name = "Tracked Product",
+                price = 10.0,
+                stockQuantity = 1,
+            ),
+        )
+
+        assertEquals(
+            null,
+            firstInvoiceStockValidationMessage(
+                DocumentType.Invoice,
+                listOf(DocumentItemState(productId = "product-1", name = "Tracked Product", quantity = "5", unitPrice = "10")),
+                products,
+                app.tijario.config.AppLanguage.EN,
+                mapOf("product-1" to 4),
+            ),
+        )
+        assertEquals(
+            "Quantity exceeds available stock. Current stock: 5",
+            firstInvoiceStockValidationMessage(
+                DocumentType.Invoice,
+                listOf(DocumentItemState(productId = "product-1", name = "Tracked Product", quantity = "6", unitPrice = "10")),
+                products,
+                app.tijario.config.AppLanguage.EN,
+                mapOf("product-1" to 4),
+            ),
+        )
+    }
+
+    @Test
+    fun invoiceStockValidationAggregatesDuplicateProductRows() {
+        val products = listOf(
+            Product(
+                id = "product-1",
+                kind = ProductKind.Product,
+                name = "Tracked Product",
+                price = 10.0,
+                stockQuantity = 5,
+            ),
+        )
+
+        assertEquals(
+            "Quantity exceeds available stock. Current stock: 5",
+            firstInvoiceStockValidationMessage(
+                DocumentType.Invoice,
+                listOf(
+                    DocumentItemState(productId = "product-1", name = "Tracked Product", quantity = "3", unitPrice = "10"),
+                    DocumentItemState(productId = "product-1", name = "Tracked Product", quantity = "3", unitPrice = "10"),
+                ),
+                products,
+                app.tijario.config.AppLanguage.EN,
+            ),
+        )
+    }
 }

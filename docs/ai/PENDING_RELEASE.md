@@ -11,6 +11,7 @@ The QA migration is required before Android can persist business address/email/w
 - **Web/API Status**: NOT deployed.
 - **Android Update Status**: NOT uploaded. Android changes are local only.
 - **Android QA Hotfix Status**: Customer-id document payload, language selector, snackbar errors, and document-language title behavior are implemented locally only.
+- **Android QA Batch Status**: Conditional product stock, invoice stock pre-validation, onboarding dial-code normalization, recent-document ordering, and auth safe-area fixes are implemented locally only. No Room migration is required for this batch.
 - **Android Release Artifact**: `app/release/app-release.aab` remains present and git-ignored; do not upload or commit it.
 
 ## Correct Release Order

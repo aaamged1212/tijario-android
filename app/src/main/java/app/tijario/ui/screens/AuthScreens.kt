@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.LocationCity
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -43,6 +44,8 @@ import app.tijario.config.LocalLanguage
 import app.tijario.config.Localization
 import app.tijario.config.t
 import app.tijario.domain.LocalizedErrorMapper
+import app.tijario.domain.MvpDialCodeOptions
+import app.tijario.domain.normalizePhoneWithDialCode
 import app.tijario.data.remote.localizedDisplayMessage
 import app.tijario.ui.components.GoogleSignInButton
 import app.tijario.ui.components.StoreLogoPicker
@@ -129,6 +132,9 @@ fun LoginScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .imePadding()
                 .verticalScroll(rememberScrollState())
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -171,7 +177,7 @@ fun LoginScreen(
 
             // Card Form
             Card(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().widthIn(max = 520.dp),
                 shape = RoundedCornerShape(24.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
@@ -376,6 +382,9 @@ fun RegisterScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .imePadding()
                 .verticalScroll(rememberScrollState())
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -399,7 +408,7 @@ fun RegisterScreen(
             Spacer(modifier = Modifier.height(32.dp))
 
             Card(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().widthIn(max = 520.dp),
                 shape = RoundedCornerShape(24.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
@@ -722,6 +731,9 @@ fun VerifyEmailScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .imePadding()
                 .verticalScroll(rememberScrollState())
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -762,7 +774,7 @@ fun VerifyEmailScreen(
             Spacer(modifier = Modifier.height(32.dp))
 
             Card(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().widthIn(max = 520.dp),
                 shape = RoundedCornerShape(24.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
@@ -925,6 +937,9 @@ fun ForgotPasswordScreen(onBackToLogin: () -> Unit) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .imePadding()
                 .verticalScroll(rememberScrollState())
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -948,7 +963,7 @@ fun ForgotPasswordScreen(onBackToLogin: () -> Unit) {
             Spacer(modifier = Modifier.height(32.dp))
 
             Card(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().widthIn(max = 520.dp),
                 shape = RoundedCornerShape(24.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
@@ -1053,6 +1068,9 @@ fun OnboardingScreen(
 
     var countryMenuExpanded by remember { mutableStateOf(false) }
     var currencyMenuExpanded by remember { mutableStateOf(false) }
+    var phoneMenuExpanded by remember { mutableStateOf(false) }
+    var selectedDialCode by rememberSaveable { mutableStateOf(MvpDialCodeOptions.first().dialCode) }
+    var localWhatsappNumber by rememberSaveable { mutableStateOf("") }
     val logoPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) {
             selectedLogoUri = uri
@@ -1072,22 +1090,25 @@ fun OnboardingScreen(
                 )
             )
     ) {
-        AuthLanguageToggle(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(12.dp)
-                .statusBarsPadding()
-                .zIndex(1f)
-        )
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .imePadding()
                 .verticalScroll(rememberScrollState())
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+            verticalArrangement = Arrangement.Top
         ) {
-            Spacer(modifier = Modifier.height(32.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+            ) {
+                AuthLanguageToggle()
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
 
             Text(
                 text = t("onboarding_title"),
@@ -1105,7 +1126,7 @@ fun OnboardingScreen(
             Spacer(modifier = Modifier.height(32.dp))
 
             Card(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().widthIn(max = 560.dp),
                 shape = RoundedCornerShape(24.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
@@ -1143,15 +1164,66 @@ fun OnboardingScreen(
                         }
                     )
 
-                    TijarioTextField(
-                        label = t("whatsapp_phone"),
-                        value = form.whatsapp,
-                        onValueChange = { form = form.copy(whatsapp = it) },
-                        error = if (form.whatsapp.isNotEmpty()) form.whatsappError else null,
-                        leadingIcon = {
-                            Icon(Icons.Filled.Phone, contentDescription = null, tint = Color(0xFF64748B))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.Top,
+                    ) {
+                        Box(modifier = Modifier.weight(0.9f)) {
+                            ExposedDropdownMenuBox(
+                                expanded = phoneMenuExpanded,
+                                onExpandedChange = { phoneMenuExpanded = !phoneMenuExpanded },
+                            ) {
+                                TijarioTextField(
+                                    label = if (language == AppLanguage.AR) "رمز الدولة" else "Code",
+                                    value = MvpDialCodeOptions.firstOrNull { it.dialCode == selectedDialCode }
+                                        ?.label(language)
+                                        ?: selectedDialCode,
+                                    onValueChange = {},
+                                    trailingIcon = {
+                                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = phoneMenuExpanded)
+                                    },
+                                    modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable),
+                                    readOnly = true,
+                                )
+                                ExposedDropdownMenu(
+                                    expanded = phoneMenuExpanded,
+                                    onDismissRequest = { phoneMenuExpanded = false },
+                                ) {
+                                    MvpDialCodeOptions.forEach { option ->
+                                        DropdownMenuItem(
+                                            text = { Text(option.label(language)) },
+                                            onClick = {
+                                                selectedDialCode = option.dialCode
+                                                form = form.copy(
+                                                    whatsapp = normalizePhoneWithDialCode(
+                                                        option.dialCode,
+                                                        localWhatsappNumber,
+                                                    ),
+                                                )
+                                                phoneMenuExpanded = false
+                                            },
+                                        )
+                                    }
+                                }
+                            }
                         }
-                    )
+                        TijarioTextField(
+                            label = t("whatsapp_phone"),
+                            value = localWhatsappNumber,
+                            onValueChange = { value ->
+                                localWhatsappNumber = value
+                                form = form.copy(
+                                    whatsapp = normalizePhoneWithDialCode(selectedDialCode, value),
+                                )
+                            },
+                            error = if (localWhatsappNumber.isNotEmpty()) form.whatsappError else null,
+                            leadingIcon = {
+                                Icon(Icons.Filled.Phone, contentDescription = null, tint = Color(0xFF64748B))
+                            },
+                            modifier = Modifier.weight(1.1f),
+                        )
+                    }
 
                     // Country Dropdown
                     Box(modifier = Modifier.fillMaxWidth()) {

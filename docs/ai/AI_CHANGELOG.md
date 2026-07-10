@@ -2,6 +2,21 @@
 
 ## 2026-07-10
 - **Agent**: Codex
+- **Action**: Implemented Android QA batch for conditional product stock, live invoice stock validation, onboarding dial-code normalization, recent-document ordering, and auth safe-area fixes.
+- **Details**:
+  - `ProductKind.Product` requires positive stock; `Service` stock remains optional.
+  - Invoice item editing and submit block saved-product quantities above available stock, excluding services and manual lines.
+  - Invoice edit validation now adds original quantities from the same loaded invoice and aggregates duplicate product rows.
+  - Onboarding now composes WhatsApp from an MVP dial-code selector and local phone input.
+  - Recent document ordering now prefers sync/update timestamps over issue date.
+  - Auth/onboarding layouts use status/navigation/IME padding and constrained card widths.
+  - Onboarding language toggle now lives inside scroll content instead of overlaying fields.
+  - Added focused tests for validation, phone normalization, invoice stock rules, and document ordering source.
+- **Validation**: `testDebugUnitTest` and `assembleDebug` pass.
+- **Safety Info**: Local Android changes only. No push, Web source edit, Supabase migration apply, APK/AAB upload, or closed-testing change.
+
+## 2026-07-10
+- **Agent**: Codex
 - **Action**: Implemented Android-only document QA hotfixes for selected-customer identity, document language selection, document save error presentation, and default title behavior.
 - **Details**:
   - `DocumentCustomerInput` now serializes the selected customer `id`.

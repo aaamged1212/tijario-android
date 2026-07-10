@@ -2,7 +2,7 @@
 
 - **Current Active Agent**: none
 - **Last Agent**: Codex
-- **Last Task**: Implemented Android-only document QA hotfixes for customer id persistence, language selector stability, snackbar errors, and document-language default titles.
+- **Last Task**: Implemented Android QA batch for conditional product stock, edit-aware invoice stock validation, onboarding dial-code normalization, document ordering, and onboarding safe-area fixes.
 - **Status**: handed off
 - **Validation**:
   - `.\gradlew.bat testDebugUnitTest` passed.

@@ -2,6 +2,8 @@ package app.tijario.ui.state
 
 import app.tijario.domain.Validation
 import app.tijario.config.AppLanguage
+import app.tijario.config.Localization
+import app.tijario.data.model.ProductKind
 
 data class LoginFormState(
     val email: String = "",
@@ -169,13 +171,27 @@ data class ProductFormState(
     val description: String = "",
     val price: String = "",
     val stockQuantity: String = "",
-    val kind: app.tijario.data.model.ProductKind = app.tijario.data.model.ProductKind.Product,
+    val kind: ProductKind = ProductKind.Product,
     val currency: String = "SAR",
     val category: String = "",
     val lang: AppLanguage = AppLanguage.AR,
 ) {
     val nameError: String? get() = Validation.required(name, "field_fullname", lang)
     val priceError: String? get() = Validation.nonNegativeMoney(price, "product_price", lang)
-    val stockQuantityError: String? get() = Validation.nonNegativeInt(stockQuantity, "form_stock", lang)
-    val canSubmit: Boolean get() = nameError == null && price.isNotBlank() && priceError == null && stockQuantityError == null
+    val stockQuantityError: String? get() =
+        if (kind == ProductKind.Product) {
+            if (stockQuantity.isBlank()) {
+                val fieldName = Localization.getString("available_stock_required", lang)
+                String.format(Localization.getString("validation_required", lang), fieldName)
+            } else {
+                Validation.positiveInt(stockQuantity, "available_stock_required", lang)
+            }
+        } else {
+            Validation.nonNegativeInt(stockQuantity, "available_stock_optional", lang)
+        }
+    val canSubmit: Boolean get() =
+        nameError == null &&
+            price.isNotBlank() &&
+            priceError == null &&
+            stockQuantityError == null
 }

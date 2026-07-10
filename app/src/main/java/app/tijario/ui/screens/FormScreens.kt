@@ -93,6 +93,7 @@ import app.tijario.data.model.DocumentType
 import app.tijario.data.model.BusinessSettings
 import app.tijario.data.remote.localizedDisplayMessage
 import app.tijario.data.model.Product
+import app.tijario.data.model.ProductKind
 import app.tijario.domain.LocalizedErrorMapper
 import app.tijario.features.documents.template.DocumentTemplateRegistry
 import app.tijario.features.documents.model.DocumentPartyInfo
@@ -170,6 +171,49 @@ internal fun mergeSelectedProductIntoItems(
         )
         appended to appended.lastIndex
     }
+}
+
+internal fun invoiceStockValidationMessage(
+    documentType: DocumentType,
+    item: DocumentItemState,
+    items: List<DocumentItemState>,
+    products: List<Product>,
+    language: AppLanguage,
+    originalQuantitiesByProductId: Map<String, Int> = emptyMap(),
+): String? {
+    if (documentType != DocumentType.Invoice) return null
+    val productId = item.productId ?: return null
+    val product = products.firstOrNull { it.id == productId } ?: return null
+    if (product.kind != ProductKind.Product) return null
+    val currentStock = product.stockQuantity ?: return null
+    val requestedQuantity = quantityByProductId(items)[productId] ?: return null
+    val availableStock = currentStock + (originalQuantitiesByProductId[productId] ?: 0)
+
+    return if (requestedQuantity > availableStock) {
+        Localization.getString("invoice_quantity_exceeds_stock", language).format(availableStock)
+    } else {
+        null
+    }
+}
+
+internal fun quantityByProductId(items: List<DocumentItemState>): Map<String, Int> =
+    items.fold(mutableMapOf<String, Int>()) { totals, item ->
+        val productId = item.productId
+        val quantity = Validation.parsePositiveInt(item.quantity)
+        if (productId != null && quantity != null) {
+            totals[productId] = (totals[productId] ?: 0) + quantity
+        }
+        totals
+    }
+
+internal fun firstInvoiceStockValidationMessage(
+    documentType: DocumentType,
+    items: List<DocumentItemState>,
+    products: List<Product>,
+    language: AppLanguage,
+    originalQuantitiesByProductId: Map<String, Int> = emptyMap(),
+): String? = items.firstNotNullOfOrNull {
+    invoiceStockValidationMessage(documentType, it, items, products, language, originalQuantitiesByProductId)
 }
 
 internal fun defaultDocumentTitle(
@@ -635,10 +679,14 @@ fun ProductFormScreen(
                     )
 
                     TijarioTextField(
-                        label = t("available_stock_optional"),
+                        label = if (form.kind == ProductKind.Product) {
+                            Localization.getString("available_stock_required", language)
+                        } else {
+                            Localization.getString("available_stock_optional", language)
+                        },
                         value = form.stockQuantity,
                         onValueChange = { form = form.copy(stockQuantity = it) },
-                        error = if (form.stockQuantity.isNotEmpty()) form.stockQuantityError else null,
+                        error = if (form.stockQuantity.isNotEmpty() || form.kind == ProductKind.Product) form.stockQuantityError else null,
                         leadingIcon = { Icon(Icons.Filled.Numbers, contentDescription = null, tint = Color(0xFF64748B)) }
                     )
 
@@ -665,8 +713,8 @@ fun ProductFormScreen(
                             modifier = Modifier.weight(1f)
                         ) {
                             RadioButton(
-                                selected = form.kind == app.tijario.data.model.ProductKind.Product,
-                                onClick = { form = form.copy(kind = app.tijario.data.model.ProductKind.Product) }
+                                selected = form.kind == ProductKind.Product,
+                                onClick = { form = form.copy(kind = ProductKind.Product) }
                             )
                             Text(
                                 text = t("kind_product"),
@@ -680,8 +728,8 @@ fun ProductFormScreen(
                             modifier = Modifier.weight(1f)
                         ) {
                             RadioButton(
-                                selected = form.kind == app.tijario.data.model.ProductKind.Service,
-                                onClick = { form = form.copy(kind = app.tijario.data.model.ProductKind.Service) }
+                                selected = form.kind == ProductKind.Service,
+                                onClick = { form = form.copy(kind = ProductKind.Service) }
                             )
                             Text(
                                 text = t("kind_service"),
@@ -765,7 +813,11 @@ fun ProductFormScreen(
                                         name = form.name,
                                         description = form.description.ifBlank { null },
                                         price = Validation.parseNonNegativeMoney(form.price) ?: 0.0,
-                                        stockQuantity = Validation.parseNonNegativeInt(form.stockQuantity),
+                                        stockQuantity = if (form.kind == ProductKind.Product) {
+                                            Validation.parsePositiveInt(form.stockQuantity)
+                                        } else {
+                                            Validation.parseNonNegativeInt(form.stockQuantity)
+                                        },
                                         currency = form.currency,
                                         category = form.category.ifBlank { null }
                                     )
@@ -1802,6 +1854,11 @@ fun SelectTemplateDialog(
 @Composable
 fun EditItemDialog(
     item: app.tijario.ui.state.DocumentItemState,
+    documentType: DocumentType,
+    itemsForStockValidation: List<DocumentItemState>,
+    products: List<Product>,
+    language: AppLanguage,
+    originalQuantitiesByProductId: Map<String, Int> = emptyMap(),
     onDismiss: () -> Unit,
     onSave: (app.tijario.ui.state.DocumentItemState) -> Unit,
     onDelete: () -> Unit,
@@ -1816,6 +1873,18 @@ fun EditItemDialog(
     val parsedPrice = Validation.parseNonNegativeMoney(price) ?: 0.0
     val parsedQty = Validation.parsePositiveInt(quantity) ?: 1
     val totalAmount = parsedPrice * parsedQty
+    val draftItem = item.copy(quantity = quantity)
+    val draftItems = itemsForStockValidation.map { current ->
+        if (current.id == item.id) draftItem else current
+    }
+    val quantityStockError = invoiceStockValidationMessage(
+        documentType = documentType,
+        item = draftItem,
+        items = draftItems,
+        products = products,
+        language = language,
+        originalQuantitiesByProductId = originalQuantitiesByProductId,
+    )
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -1840,17 +1909,19 @@ fun EditItemDialog(
                             }
                             IconButton(
                                 onClick = {
-                                    onSave(
-                                        item.copy(
-                                            name = name,
-                                            unitPrice = price,
-                                            quantity = quantity,
-                                            description = description,
-                                            unitOfMeasure = unitOfMeasure,
+                                    if (quantityStockError == null) {
+                                        onSave(
+                                            item.copy(
+                                                name = name,
+                                                unitPrice = price,
+                                                quantity = quantity,
+                                                description = description,
+                                                unitOfMeasure = unitOfMeasure,
+                                            )
                                         )
-                                    )
+                                    }
                                 },
-                                enabled = name.isNotBlank() && price.isNotBlank() && quantity.isNotBlank()
+                                enabled = name.isNotBlank() && price.isNotBlank() && quantity.isNotBlank() && quantityStockError == null
                             ) {
                                 Icon(Icons.Filled.Check, contentDescription = "Save")
                             }
@@ -1915,7 +1986,8 @@ fun EditItemDialog(
                             TijarioTextField(
                                 label = t("item_qty_label"),
                                 value = quantity,
-                                onValueChange = { quantity = it }
+                                onValueChange = { quantity = it },
+                                error = quantityStockError,
                             )
 
                             TijarioTextField(
@@ -2023,6 +2095,7 @@ fun DocumentFormScreen(
     var editingItemIndex by remember { mutableStateOf<Int?>(null) }
     var pendingProductRowIndex by rememberSaveable { mutableStateOf<Int?>(null) }
     var loadedDocumentId by rememberSaveable { mutableStateOf<String?>(null) }
+    var originalQuantitiesByProductId by remember { mutableStateOf<Map<String, Int>>(emptyMap()) }
     var showInvoiceInfoDialog by remember { mutableStateOf(false) }
     var showTemplatePickerDialog by remember { mutableStateOf(false) }
     var showCurrencyDialog by remember { mutableStateOf(false) }
@@ -2072,6 +2145,9 @@ fun DocumentFormScreen(
                 documentTitle = defaultDocumentTitle(type, form.documentLanguage),
             )
         }
+        if (!isEditMode) {
+            originalQuantitiesByProductId = emptyMap()
+        }
     }
 
     LaunchedEffect(language) {
@@ -2110,6 +2186,16 @@ fun DocumentFormScreen(
         }
         if (!form.items.all { it.isValid }) {
             showDocumentError(Localization.getString("enter_item_details_correctly", language))
+            return
+        }
+        firstInvoiceStockValidationMessage(
+            type,
+            form.items,
+            uiState.products,
+            language,
+            originalQuantitiesByProductId,
+        )?.let {
+            showDocumentError(it)
             return
         }
         val totals = DocumentCalculator.calculate(
@@ -2228,7 +2314,7 @@ fun DocumentFormScreen(
                     existing.templateId?.takeIf { it.isNotBlank() }?.let { savedTemplateId ->
                         selectedTemplateId = DocumentTemplateRegistry.normalizeId(savedTemplateId)
                     }
-                    form = existing.toFormState(language).copy(
+                    val loadedForm = existing.toFormState(language).copy(
                         currency = metadata?.currency ?: existing.currency.ifBlank { null } ?: form.currency,
                         signatureData = metadata?.signatureData.orEmpty(),
                         paymentMethod = metadata?.paymentMethod.orEmpty(),
@@ -2236,6 +2322,8 @@ fun DocumentFormScreen(
                         finalTaxName = metadata?.taxName ?: form.finalTaxName,
                         lang = language
                     )
+                    form = loadedForm
+                    originalQuantitiesByProductId = quantityByProductId(loadedForm.items)
                     titleEditedByUser = form.documentTitle.isNotBlank() &&
                         !isDefaultDocumentTitle(type, form.documentTitle)
                     loadedDocumentId = currentEditDocumentId
@@ -2554,70 +2642,84 @@ fun DocumentFormScreen(
 
                         form.items.forEachIndexed { index, item ->
                             key(item.id) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
-                                        .clickable { editingItemIndex = index }
-                                        .padding(12.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    // Reordering controls
-                                    Column(
-                                        horizontalAlignment = Alignment.CenterHorizontally,
-                                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                                val stockError = invoiceStockValidationMessage(
+                                    documentType = type,
+                                    item = item,
+                                    items = form.items,
+                                    products = uiState.products,
+                                    language = language,
+                                    originalQuantitiesByProductId = originalQuantitiesByProductId,
+                                )
+                                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
+                                            .clickable { editingItemIndex = index }
+                                            .padding(12.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
-                                        Icon(
-                                            Icons.Filled.DragHandle,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                        Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                                            IconButton(
-                                                onClick = { moveItemUp(index) },
-                                                modifier = Modifier.size(24.dp),
-                                                enabled = index > 0
-                                            ) {
-                                                Icon(Icons.Filled.KeyboardArrowUp, contentDescription = "Move Up", modifier = Modifier.size(16.dp))
-                                            }
-                                            IconButton(
-                                                onClick = { moveItemDown(index) },
-                                                modifier = Modifier.size(24.dp),
-                                                enabled = index < form.items.size - 1
-                                            ) {
-                                                Icon(Icons.Filled.KeyboardArrowDown, contentDescription = "Move Down", modifier = Modifier.size(16.dp))
+                                        // Reordering controls
+                                        Column(
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
+                                            Icon(
+                                                Icons.Filled.DragHandle,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                            Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                                                IconButton(
+                                                    onClick = { moveItemUp(index) },
+                                                    modifier = Modifier.size(24.dp),
+                                                    enabled = index > 0
+                                                ) {
+                                                    Icon(Icons.Filled.KeyboardArrowUp, contentDescription = "Move Up", modifier = Modifier.size(16.dp))
+                                                }
+                                                IconButton(
+                                                    onClick = { moveItemDown(index) },
+                                                    modifier = Modifier.size(24.dp),
+                                                    enabled = index < form.items.size - 1
+                                                ) {
+                                                    Icon(Icons.Filled.KeyboardArrowDown, contentDescription = "Move Down", modifier = Modifier.size(16.dp))
+                                                }
                                             }
                                         }
-                                    }
 
-                                    // Item details (compact layout)
-                                    Column(modifier = Modifier.weight(1f)) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = item.name.ifBlank { t("item_name_label") },
+                                                fontWeight = FontWeight.SemiBold,
+                                                fontSize = 14.sp,
+                                                maxLines = 1
+                                            )
+                                            Text(
+                                                text = "${item.quantity.ifBlank { "0" }} x ${item.unitPrice.ifBlank { "0.00" }}",
+                                                fontSize = 12.sp,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+
+                                        val parsedPrice = Validation.parseNonNegativeMoney(item.unitPrice) ?: 0.0
+                                        val parsedQty = Validation.parsePositiveInt(item.quantity) ?: 1
+                                        val itemTotal = parsedPrice * parsedQty
+
                                         Text(
-                                            text = item.name.ifBlank { t("item_name_label") },
-                                            fontWeight = FontWeight.SemiBold,
-                                            fontSize = 14.sp,
-                                            maxLines = 1
+                                            text = String.format("%.2f", itemTotal),
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 14.sp
                                         )
+                                    }
+                                    if (stockError != null) {
                                         Text(
-                                            text = "${item.quantity.ifBlank { "0" }} x ${item.unitPrice.ifBlank { "0.00" }}",
+                                            text = stockError,
+                                            color = MaterialTheme.colorScheme.error,
                                             fontSize = 12.sp,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                     }
-
-                                    // Total amount
-                                    val parsedPrice = Validation.parseNonNegativeMoney(item.unitPrice) ?: 0.0
-                                    val parsedQty = Validation.parsePositiveInt(item.quantity) ?: 1
-                                    val sub = parsedPrice * parsedQty
-                                    val itemTotal = sub
-
-                                    Text(
-                                        text = String.format("%.2f", itemTotal),
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 14.sp
-                                    )
                                 }
                             }
                         }
@@ -3170,6 +3272,11 @@ fun DocumentFormScreen(
             key(form.items[index].id) {
                 EditItemDialog(
                     item = form.items[index],
+                    documentType = type,
+                    itemsForStockValidation = form.items,
+                    products = uiState.products,
+                    language = language,
+                    originalQuantitiesByProductId = originalQuantitiesByProductId,
                     onDismiss = { editingItemIndex = null },
                     onSave = { updated ->
                         form = form.copy(
