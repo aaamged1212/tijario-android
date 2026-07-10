@@ -129,6 +129,64 @@ class TijarioRepositoryOfflineTests {
     }
 
     @Test
+    fun createDocumentLocal_usesSelectedCustomerIdWithoutCreatingDuplicateCustomer() = runBlocking {
+        val existingCustomerId = "customer_existing_1"
+        val existingCustomer = CustomerEntity(
+            id = existingCustomerId,
+            userId = userId,
+            name = "Existing customer",
+            whatsappNumber = "1234567",
+            city = "Riyadh",
+            notes = null,
+            syncedAt = 1000L,
+            syncStatus = "SYNCED",
+            localRevision = 3,
+            serverRevision = "server-rev-1",
+            serverUpdatedAt = null,
+            lastSyncedAt = 1000L,
+            syncErrorCode = null,
+            isDeleted = false,
+        )
+        every { dao.observeDocuments(userId) } returns flowOf(emptyList())
+        coEvery { dao.getCustomer(userId, existingCustomerId) } returns existingCustomer
+        coEvery { dao.getPendingOutbox(userId) } returns emptyList()
+        coEvery { dao.insertDocumentItems(any()) } returns Unit
+        coEvery { dao.getLedgerByDocId(userId, any()) } returns null
+        coEvery { dao.getPendingLedger(userId) } returns emptyList()
+        coEvery { dao.getLease(userId, any(), any()) } returns null
+        coEvery { dao.upsertLedger(any()) } returns Unit
+
+        val customerSlot = slot<CustomerEntity>()
+        val documentSlot = slot<app.tijario.data.local.DocumentEntity>()
+        val outboxEntries = mutableListOf<SyncOutboxEntity>()
+        coEvery { dao.upsertCustomer(capture(customerSlot)) } returns Unit
+        coEvery { dao.upsertOutbox(capture(outboxEntries)) } returns Unit
+        coEvery { dao.upsertDocument(capture(documentSlot)) } answers {
+            coEvery { dao.getDocument(userId, documentSlot.captured.id) } returns documentSlot.captured
+            Unit
+        }
+
+        val result = repository.createDocumentLocal(
+            CreateDocumentRequest(
+                type = DocumentType.Invoice,
+                customer = DocumentCustomerInput(
+                    name = "Existing customer",
+                    whatsappNumber = "1234567",
+                    city = "Riyadh",
+                    id = existingCustomerId,
+                ),
+                items = listOf(DocumentItemInput(name = "Service", quantity = 1, unitPrice = 10.0)),
+                currency = "SAR",
+            ),
+        )
+
+        assertTrue(result.ok)
+        assertEquals(existingCustomerId, customerSlot.captured.id)
+        assertEquals(existingCustomerId, documentSlot.captured.customerId)
+        assertTrue(outboxEntries.none { it.entityType == "customer" && it.operation == "CREATE" })
+    }
+
+    @Test
     fun updateCustomerLocal_incrementsRevisionAndEnqueuesUpdate() = runBlocking {
         val existingId = "customer_99"
         val existing = CustomerEntity(

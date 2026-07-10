@@ -19,7 +19,11 @@ class DocumentTaxContractTests {
     fun createDocumentRequestSerializesTaxFields() {
         val request = CreateDocumentRequest(
             type = DocumentType.Invoice,
-            customer = DocumentCustomerInput(name = "Customer", whatsappNumber = "+966500000000"),
+            customer = DocumentCustomerInput(
+                name = "Customer",
+                whatsappNumber = "+966500000000",
+                id = "customer-1",
+            ),
             items = listOf(
                 DocumentItemInput(name = "Item", quantity = 1, unitPrice = 100.0),
             ),
@@ -29,6 +33,7 @@ class DocumentTaxContractTests {
         )
 
         val payload = json.encodeToJsonElement(CreateDocumentRequest.serializer(), request).jsonObject
+        assertEquals("customer-1", payload["customer"]?.jsonObject?.get("id")?.jsonPrimitive?.content)
         assertEquals("VAT", payload["tax_name"]?.jsonPrimitive?.content)
         assertEquals(15.0, payload["tax_rate"]?.jsonPrimitive?.double ?: -1.0, 0.0)
         assertEquals("en", payload["document_language"]?.jsonPrimitive?.content)

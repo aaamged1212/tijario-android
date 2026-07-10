@@ -2,6 +2,8 @@ package app.tijario.ui.screens
 
 import app.tijario.data.model.Product
 import app.tijario.data.model.ProductKind
+import app.tijario.data.model.DocumentType
+import app.tijario.ui.state.DocumentFormState
 import app.tijario.ui.state.DocumentItemState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -71,5 +73,52 @@ class DocumentFormEditFlowTests {
         assertEquals("Appended Product", updatedItems.last().name)
         assertEquals("25", updatedItems.last().unitPrice)
         assertEquals("1", updatedItems.last().quantity)
+    }
+
+    @Test
+    fun defaultDocumentTitleFollowsDocumentLanguage() {
+        assertEquals("فاتورة", defaultDocumentTitle(DocumentType.Invoice, "AR"))
+        assertEquals("Invoice", defaultDocumentTitle(DocumentType.Invoice, "EN"))
+        assertEquals("عرض سعر", defaultDocumentTitle(DocumentType.Quote, "AR"))
+        assertEquals("Quote", defaultDocumentTitle(DocumentType.Quote, "EN"))
+    }
+
+    @Test
+    fun documentLanguageChangeUpdatesOnlyDefaultTitle() {
+        assertEquals(
+            "Invoice",
+            documentTitleAfterLanguageChange(
+                type = DocumentType.Invoice,
+                currentTitle = "فاتورة",
+                nextDocumentLanguage = "EN",
+                titleEditedByUser = false,
+            ),
+        )
+        assertEquals(
+            "Custom title",
+            documentTitleAfterLanguageChange(
+                type = DocumentType.Invoice,
+                currentTitle = "Custom title",
+                nextDocumentLanguage = "AR",
+                titleEditedByUser = true,
+            ),
+        )
+    }
+
+    @Test
+    fun documentCustomerInputIncludesSelectedCustomerId() {
+        val input = buildDocumentCustomerInput(
+            DocumentFormState(
+                customerId = "customer-1",
+                customerName = "Customer",
+                customerWhatsapp = "+966500000000",
+                customerCity = "Riyadh",
+            ),
+        )
+
+        assertEquals("customer-1", input.id)
+        assertEquals("Customer", input.name)
+        assertEquals("+966500000000", input.whatsappNumber)
+        assertEquals("Riyadh", input.city)
     }
 }

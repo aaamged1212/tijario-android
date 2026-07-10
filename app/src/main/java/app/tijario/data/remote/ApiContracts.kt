@@ -35,6 +35,7 @@ data class DocumentCustomerInput(
     val name: String,
     @SerialName("whatsapp_number") val whatsappNumber: String,
     val city: String? = null,
+    @SerialName("id") val id: String? = null,
 )
 
 @Serializable

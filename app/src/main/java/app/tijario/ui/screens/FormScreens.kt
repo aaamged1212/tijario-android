@@ -172,6 +172,46 @@ internal fun mergeSelectedProductIntoItems(
     }
 }
 
+internal fun defaultDocumentTitle(
+    type: DocumentType,
+    documentLanguage: String,
+): String {
+    val normalizedLanguage = documentLanguage.uppercase()
+    return when (type) {
+        DocumentType.Invoice -> if (normalizedLanguage == "EN") "Invoice" else "فاتورة"
+        DocumentType.Quote -> if (normalizedLanguage == "EN") "Quote" else "عرض سعر"
+    }
+}
+
+internal fun isDefaultDocumentTitle(
+    type: DocumentType,
+    title: String,
+): Boolean {
+    val normalizedTitle = title.trim()
+    return normalizedTitle == defaultDocumentTitle(type, "AR") ||
+        normalizedTitle == defaultDocumentTitle(type, "EN")
+}
+
+internal fun documentTitleAfterLanguageChange(
+    type: DocumentType,
+    currentTitle: String,
+    nextDocumentLanguage: String,
+    titleEditedByUser: Boolean,
+): String =
+    if (!titleEditedByUser && (currentTitle.isBlank() || isDefaultDocumentTitle(type, currentTitle))) {
+        defaultDocumentTitle(type, nextDocumentLanguage)
+    } else {
+        currentTitle
+    }
+
+internal fun buildDocumentCustomerInput(form: DocumentFormState): app.tijario.data.remote.DocumentCustomerInput =
+    app.tijario.data.remote.DocumentCustomerInput(
+        name = form.customerName,
+        whatsappNumber = form.customerWhatsapp,
+        city = form.customerCity,
+        id = form.customerId,
+    )
+
 @Composable
 private fun DocumentFormBottomActions(
     isPreview: Boolean,
@@ -1962,7 +2002,7 @@ fun DocumentFormScreen(
     var isLoadingDocument by rememberSaveable { mutableStateOf(documentId != null) }
     var selectedTab by remember { mutableStateOf(0) } // 0 = edit, 1 = preview
     var isLoading by remember { mutableStateOf(false) }
-    var submitError by remember { mutableStateOf<String?>(null) }
+    var titleEditedByUser by rememberSaveable { mutableStateOf(false) }
     val context = LocalContext.current
     val templatePreferences = remember(context) { DocumentTemplatePreferences(context) }
     val invoiceOptionPreferences = remember(context) { DocumentInvoiceOptionPreferences(context) }
@@ -1975,6 +2015,7 @@ fun DocumentFormScreen(
         isTemplateAvailableForSelection(isTemplateEntitlementLoaded, allowedTemplateIds, templateId)
     val businessSettings = uiState.businessSettings
     val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
     val notesBringIntoViewRequester = remember { BringIntoViewRequester() }
     val editDocumentId = documentId?.takeIf { it.isNotBlank() }
     val isEditMode = editDocumentId != null
@@ -1989,6 +2030,30 @@ fun DocumentFormScreen(
     var showLocalPaymentDialog by remember { mutableStateOf(false) }
     var showLocalSignaturesDialog by remember { mutableStateOf(false) }
     var showLocalTermsDialog by remember { mutableStateOf(false) }
+    var showLanguageSheet by remember { mutableStateOf(false) }
+
+    fun showDocumentError(message: String) {
+        scope.launch {
+            snackbarHostState.currentSnackbarData?.dismiss()
+            snackbarHostState.showSnackbar(
+                message = message,
+                duration = SnackbarDuration.Long,
+            )
+        }
+    }
+
+    fun selectDocumentLanguage(nextDocumentLanguage: String) {
+        val normalizedLanguage = if (nextDocumentLanguage.equals("EN", ignoreCase = true)) "EN" else "AR"
+        form = form.copy(
+            documentLanguage = normalizedLanguage,
+            documentTitle = documentTitleAfterLanguageChange(
+                type = type,
+                currentTitle = form.documentTitle,
+                nextDocumentLanguage = normalizedLanguage,
+                titleEditedByUser = titleEditedByUser,
+            ),
+        )
+    }
 
     val nextDocNumber = remember(uiState.documents, type) {
         val typedDocs = uiState.documents.filter { it.type == type }
@@ -2004,10 +2069,7 @@ fun DocumentFormScreen(
     LaunchedEffect(isEditMode, language, type) {
         if (!isEditMode && form.documentTitle.isBlank()) {
             form = form.copy(
-                documentTitle = when (type) {
-                    app.tijario.data.model.DocumentType.Invoice -> if (language == AppLanguage.AR) "فاتورة" else "Invoice"
-                    app.tijario.data.model.DocumentType.Quote -> if (language == AppLanguage.AR) "عرض سعر" else "Quote"
-                }
+                documentTitle = defaultDocumentTitle(type, form.documentLanguage),
             )
         }
     }
@@ -2039,15 +2101,15 @@ fun DocumentFormScreen(
     fun submitDocument() {
         if (isLoading) return
         if (form.customerId == null) {
-            android.widget.Toast.makeText(context, Localization.getString("select_customer_first", language), android.widget.Toast.LENGTH_LONG).show()
+            showDocumentError(Localization.getString("select_customer_first", language))
             return
         }
         if (form.items.isEmpty()) {
-            android.widget.Toast.makeText(context, Localization.getString("add_one_item_min", language), android.widget.Toast.LENGTH_LONG).show()
+            showDocumentError(Localization.getString("add_one_item_min", language))
             return
         }
         if (!form.items.all { it.isValid }) {
-            android.widget.Toast.makeText(context, Localization.getString("enter_item_details_correctly", language), android.widget.Toast.LENGTH_LONG).show()
+            showDocumentError(Localization.getString("enter_item_details_correctly", language))
             return
         }
         val totals = DocumentCalculator.calculate(
@@ -2063,23 +2125,18 @@ fun DocumentFormScreen(
             amountPaidStr = form.amountPaid,
         )
         if (!totals.isValid) {
-            android.widget.Toast.makeText(context, Localization.getString("invalid_document_total", language), android.widget.Toast.LENGTH_LONG).show()
+            showDocumentError(Localization.getString("invalid_document_total", language))
             return
         }
 
         scope.launch {
             try {
                 isLoading = true
-                submitError = null
                 val req = app.tijario.data.remote.CreateDocumentRequest(
                     type = type,
                     paymentStatus = if (type == app.tijario.data.model.DocumentType.Invoice) form.paymentStatus else null,
                     amountPaid = if (type == app.tijario.data.model.DocumentType.Invoice && form.paymentStatus == "partial") Validation.parseNonNegativeMoney(form.amountPaid) else null,
-                    customer = app.tijario.data.remote.DocumentCustomerInput(
-                        name = form.customerName,
-                        whatsappNumber = form.customerWhatsapp,
-                        city = form.customerCity,
-                    ),
+                    customer = buildDocumentCustomerInput(form),
                     items = form.items.map { itm ->
                         app.tijario.data.remote.DocumentItemInput(
                             name = itm.name,
@@ -2126,7 +2183,7 @@ fun DocumentFormScreen(
                         onDocumentSaved(savedDocumentId)
                     }
                 } else {
-                    submitError = if (
+                    val message = if (
                         result.code.equals("insufficient_stock", ignoreCase = true) &&
                         result.availableStock != null
                     ) {
@@ -2135,9 +2192,10 @@ fun DocumentFormScreen(
                     } else {
                         result.localizedDisplayMessage(language)
                     }
+                    showDocumentError(message)
                 }
             } catch (e: Exception) {
-                submitError = LocalizedErrorMapper.map(null, e.message, language)
+                showDocumentError(LocalizedErrorMapper.map(null, e.message, language))
             } finally {
                 isLoading = false
             }
@@ -2162,7 +2220,6 @@ fun DocumentFormScreen(
         if (shouldLoadEditDocument(loadedDocumentId, editDocumentId)) {
             val currentEditDocumentId = editDocumentId ?: return@LaunchedEffect
             isLoadingDocument = true
-            submitError = null
             try {
                 val result = dataViewModel.fetchCompleteDocument(currentEditDocumentId)
                 val existing = result.getOrNull()
@@ -2179,9 +2236,11 @@ fun DocumentFormScreen(
                         finalTaxName = metadata?.taxName ?: form.finalTaxName,
                         lang = language
                     )
+                    titleEditedByUser = form.documentTitle.isNotBlank() &&
+                        !isDefaultDocumentTitle(type, form.documentTitle)
                     loadedDocumentId = currentEditDocumentId
                 } else {
-                    submitError = LocalizedErrorMapper.map(null, result.exceptionOrNull()?.message, language)
+                    showDocumentError(LocalizedErrorMapper.map(null, result.exceptionOrNull()?.message, language))
                 }
             } finally {
                 isLoadingDocument = false
@@ -2245,6 +2304,14 @@ fun DocumentFormScreen(
                     containerColor = MaterialTheme.colorScheme.surface,
                     titleContentColor = MaterialTheme.colorScheme.onSurface
                 )
+            )
+        },
+        snackbarHost = {
+            SnackbarHost(
+                hostState = snackbarHostState,
+                modifier = Modifier
+                    .navigationBarsPadding()
+                    .imePadding(),
             )
         },
         bottomBar = {
@@ -2351,11 +2418,10 @@ fun DocumentFormScreen(
                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                 ) {
                     Column {
-                        var showLanguageDropdown by remember { mutableStateOf(false) }
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { showLanguageDropdown = true }
+                                .clickable { showLanguageSheet = true }
                                 .padding(16.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
@@ -2374,25 +2440,6 @@ fun DocumentFormScreen(
                                 val currentLangStr = if (form.documentLanguage == "AR") t("language_arabic") else t("language_english")
                                 Text(currentLangStr, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
                                 Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                            DropdownMenu(
-                                expanded = showLanguageDropdown,
-                                onDismissRequest = { showLanguageDropdown = false }
-                            ) {
-                                DropdownMenuItem(
-                                    text = { Text(t("language_arabic")) },
-                                    onClick = {
-                                        form = form.copy(documentLanguage = "AR")
-                                        showLanguageDropdown = false
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text(t("language_english")) },
-                                    onClick = {
-                                        form = form.copy(documentLanguage = "EN")
-                                        showLanguageDropdown = false
-                                    }
-                                )
                             }
                         }
 
@@ -2853,9 +2900,6 @@ fun DocumentFormScreen(
                             leadingIcon = { Icon(Icons.Filled.Note, contentDescription = null, tint = Color(0xFF64748B)) }
                         )
 
-                        submitError?.let {
-                            Text(it, color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
-                        }
                     }
                 }
 
@@ -3157,6 +3201,7 @@ fun DocumentFormScreen(
             isEditMode = isEditMode,
             onDismiss = { showInvoiceInfoDialog = false },
             onSave = { docNum, date, terms, due, po, title ->
+                titleEditedByUser = title.isNotBlank() && !isDefaultDocumentTitle(type, title)
                 form = form.copy(
                     documentNumber = docNum,
                     creationDate = date,
@@ -3168,6 +3213,58 @@ fun DocumentFormScreen(
                 showInvoiceInfoDialog = false
             }
         )
+    }
+
+    if (showLanguageSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showLanguageSheet = false },
+            containerColor = MaterialTheme.colorScheme.surface,
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    text = t("invoice_language"),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                listOf(
+                    "AR" to t("language_arabic"),
+                    "EN" to t("language_english"),
+                ).forEach { (code, label) ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(14.dp))
+                            .clickable {
+                                selectDocumentLanguage(code)
+                                showLanguageSheet = false
+                            }
+                            .padding(horizontal = 12.dp, vertical = 14.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = label,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        RadioButton(
+                            selected = form.documentLanguage == code,
+                            onClick = {
+                                selectDocumentLanguage(code)
+                                showLanguageSheet = false
+                            },
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+        }
     }
 
     if (showTemplatePickerDialog) {

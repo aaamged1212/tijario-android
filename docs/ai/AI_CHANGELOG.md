@@ -1,5 +1,18 @@
 # AI Changelog
 
+## 2026-07-10
+- **Agent**: Codex
+- **Action**: Implemented Android-only document QA hotfixes for selected-customer identity, document language selection, document save error presentation, and default title behavior.
+- **Details**:
+  - `DocumentCustomerInput` now serializes the selected customer `id`.
+  - `DocumentFormScreen` sends `form.customerId` and keeps customer identity based on `customer.id`, not WhatsApp.
+  - Local fallback `createDocumentLocal()` reuses the requested customer id and does not enqueue duplicate customer creation.
+  - Document language now uses a `ModalBottomSheet` selector.
+  - Document validation/server errors show through `SnackbarHost` instead of inline payment-card text.
+  - Default invoice/quote titles follow `documentLanguage`; custom titles are preserved.
+- **Validation**: `testDebugUnitTest` and `assembleDebug` pass.
+- **Safety Info**: Local Android changes only. No push, Web edit, Supabase migration apply, APK/AAB upload, or closed-testing change.
+
 ## 2026-07-09
 - **Agent**: Codex
 - **Action**: Implemented Android parity for optional business contact fields, persisted document language, server-authoritative inventory errors/cache refresh, responsive document actions, focused notes scrolling, and aligned document headers.
