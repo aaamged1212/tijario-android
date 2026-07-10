@@ -1,6 +1,14 @@
 # AI Changelog
 
 ## 2026-07-10
+- **Agent**: Antigravity / Gemini
+- **Action**: Finalized release compliance for Android:
+  - Enabled Facebook Advertiser ID collection (`AdvertiserIDCollectionEnabled = true`) inside `AndroidManifest.xml`.
+  - Processed and verified merged release manifest for AD_ID and Meta configs.
+  - Created Android permissions audit, Play Store Data Safety draft, Facebook compliance doc, and Closed Testing release checklist.
+- **Safety Info**: Local modifications only. No git pushes, APK/AAB uploads, or Google Play store changes.
+
+## 2026-07-10
 - **Agent**: Codex
 - **Action**: Implemented Android QA batch for conditional product stock, live invoice stock validation, onboarding dial-code normalization, recent-document ordering, and auth safe-area fixes.
 - **Details**:

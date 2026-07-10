@@ -32,7 +32,7 @@
 
         <meta-data
             android:name="com.facebook.sdk.AdvertiserIDCollectionEnabled"
-            android:value="false" />
+            android:value="true" />
 
         <activity
             android:name=".MainActivity"
