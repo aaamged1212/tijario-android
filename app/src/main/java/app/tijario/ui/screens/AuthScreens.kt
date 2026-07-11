@@ -1,5 +1,9 @@
-﻿package app.tijario.ui.screens
+package app.tijario.ui.screens
 
+import android.content.Intent
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -19,27 +23,42 @@ import androidx.compose.material.icons.filled.LocationCity
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import android.util.Log
 import app.tijario.MainActivity
 import app.tijario.config.AppLanguage
+import app.tijario.config.AppPreferences
 import app.tijario.config.LocalLanguage
+import app.tijario.config.Localization
 import app.tijario.config.t
+import app.tijario.domain.LocalizedErrorMapper
+import app.tijario.domain.MvpDialCodeOptions
+import app.tijario.domain.normalizePhoneWithDialCode
+import app.tijario.data.remote.localizedDisplayMessage
 import app.tijario.ui.components.GoogleSignInButton
+import app.tijario.ui.components.StoreLogoPicker
+import app.tijario.ui.components.buildLogoUploadRequest
+import app.tijario.ui.components.clearBusinessLogoCache
 import app.tijario.ui.components.TijarioButton
 import app.tijario.ui.components.TijarioTextField
 import app.tijario.ui.state.BusinessSettingsFormState
 import app.tijario.ui.state.TijarioDataViewModel
 import app.tijario.ui.state.LoginFormState
 import app.tijario.ui.state.RegisterFormState
+import app.tijario.ui.state.AuthViewModel
+import app.tijario.ui.state.CentralAuthState
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.OtpType
 import io.github.jan.supabase.compose.auth.composeAuth
@@ -47,6 +66,7 @@ import io.github.jan.supabase.compose.auth.composable.rememberSignInWithGoogle
 import io.github.jan.supabase.compose.auth.composable.NativeSignInResult
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.Image
 import androidx.compose.ui.res.painterResource
@@ -54,10 +74,12 @@ import androidx.compose.ui.res.painterResource
 @Composable
 private fun AuthLanguageToggle(modifier: Modifier = Modifier) {
     val language = LocalLanguage.current
+    val context = LocalContext.current
     IconButton(
         onClick = {
             MainActivity.currentLanguage =
                 if (language == AppLanguage.AR) AppLanguage.EN else AppLanguage.AR
+            AppPreferences.setLanguage(context, MainActivity.currentLanguage)
         },
         modifier = modifier
             .size(38.dp)
@@ -74,14 +96,15 @@ private fun AuthLanguageToggle(modifier: Modifier = Modifier) {
 
 @Composable
 fun LoginScreen(
-    onLoginReady: () -> Unit,
+    authViewModel: AuthViewModel,
     onRegister: () -> Unit,
     onForgotPassword: () -> Unit,
 ) {
     val language = LocalLanguage.current
-    var form by remember { mutableStateOf(LoginFormState()) }
+    var form by remember(language) { mutableStateOf(LoginFormState(lang = language)) }
     var isLoading by remember { mutableStateOf(false) }
     var isGoogleLoading by remember { mutableStateOf(false) }
+    var googleAttemptId by remember { mutableIntStateOf(0) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     val googleSignInEnabled = remember { app.tijario.config.loadAppConfig().isGoogleSignInEnabled }
@@ -109,6 +132,9 @@ fun LoginScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .imePadding()
                 .verticalScroll(rememberScrollState())
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -151,7 +177,7 @@ fun LoginScreen(
 
             // Card Form
             Card(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().widthIn(max = 520.dp),
                 shape = RoundedCornerShape(24.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
@@ -222,9 +248,9 @@ fun LoginScreen(
                                         email = form.email
                                         password = form.password
                                     }
-                                    onLoginReady()
+                                    authViewModel.handleLoginSuccess()
                                 } catch (e: Exception) {
-                                    errorMessage = if (language == AppLanguage.AR) "فشل تسجيل الدخول: البريد الإلكتروني أو كلمة المرور غير صحيحة" else "Login failed: email or password is incorrect"
+                                    errorMessage = app.tijario.domain.ErrorMapper.map(e, language)
                                 } finally {
                                     isLoading = false
                                 }
@@ -251,20 +277,27 @@ fun LoginScreen(
 
                         val loginGoogleAction = app.tijario.config.Supabase.client.composeAuth.rememberSignInWithGoogle(
                             onResult = { result ->
-                                when (result) {
-                                    is NativeSignInResult.Success -> {
-                                        onLoginReady()
-                                    }
-                                    is NativeSignInResult.Error -> {
-                                        errorMessage = result.message
-                                    }
-                                    else -> {}
-                                }
+                                isGoogleLoading = false
+                                authViewModel.handleGoogleSignInResult(result)
+                            },
+                            fallback = {
+                                isGoogleLoading = false
+                                errorMessage = Localization.getString("google_login_error", language)
                             }
                         )
 
                         GoogleSignInButton(
                             onClick = {
+                                errorMessage = null
+                                isGoogleLoading = true
+                                val attemptId = ++googleAttemptId
+                                scope.launch {
+                                    delay(30_000)
+                                    if (isGoogleLoading && googleAttemptId == attemptId) {
+                                        isGoogleLoading = false
+                                        errorMessage = Localization.getString("google_login_timeout", language)
+                                    }
+                                }
                                 loginGoogleAction.startFlow()
                             },
                             enabled = !isLoading && !isGoogleLoading,
@@ -299,7 +332,8 @@ fun LoginScreen(
                         t("create_account"),
                         color = Color.White,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp
+                        fontSize = 14.sp,
+                        textDecoration = TextDecoration.Underline,
                     )
                 }
             }
@@ -311,15 +345,18 @@ fun LoginScreen(
 
 @Composable
 fun RegisterScreen(
+    authViewModel: AuthViewModel,
     onBackToLogin: () -> Unit,
     onVerifyEmail: (String) -> Unit,
 ) {
     val language = LocalLanguage.current
-    var form by remember { mutableStateOf(RegisterFormState()) }
+    var form by remember(language) { mutableStateOf(RegisterFormState(lang = language)) }
     var isLoading by remember { mutableStateOf(false) }
     var isGoogleLoading by remember { mutableStateOf(false) }
+    var googleAttemptId by remember { mutableIntStateOf(0) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     val googleSignInEnabled = remember { app.tijario.config.loadAppConfig().isGoogleSignInEnabled }
 
     Box(
@@ -345,6 +382,9 @@ fun RegisterScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .imePadding()
                 .verticalScroll(rememberScrollState())
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -368,7 +408,7 @@ fun RegisterScreen(
             Spacer(modifier = Modifier.height(32.dp))
 
             Card(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().widthIn(max = 520.dp),
                 shape = RoundedCornerShape(24.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
@@ -408,6 +448,17 @@ fun RegisterScreen(
                         }
                     )
 
+                    TijarioTextField(
+                        label = t("confirm_password"),
+                        value = form.confirmPassword,
+                        onValueChange = { form = form.copy(confirmPassword = it) },
+                        error = if (form.confirmPassword.isNotEmpty()) form.confirmPasswordError else null,
+                        isPassword = true,
+                        leadingIcon = {
+                            Icon(Icons.Filled.Lock, contentDescription = null, tint = Color(0xFF64748B))
+                        }
+                    )
+
                     errorMessage?.let {
                         Text(it, color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
                     }
@@ -426,11 +477,15 @@ fun RegisterScreen(
                                         password = form.password
                                         data = buildJsonObject {
                                             put("full_name", form.fullName)
+                                            put("name", form.fullName)
+                                            put("preferred_language", language.name.lowercase())
                                         }
                                     }
+                                    authViewModel.signUpEmail = form.email
+                                    authViewModel.signUpFullName = form.fullName
                                     onVerifyEmail(form.email)
                                 } catch (e: Exception) {
-                                    errorMessage = e.localizedMessage ?: if (language == AppLanguage.AR) "فشل إنشاء الحساب" else "Failed to create account"
+                                    errorMessage = app.tijario.domain.ErrorMapper.map(e, language)
                                 } finally {
                                     isLoading = false
                                 }
@@ -439,6 +494,51 @@ fun RegisterScreen(
                         enabled = form.canSubmit,
                         isLoading = isLoading
                     )
+
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Text(
+                            text = t("register_consent_prefix"),
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                        )
+                        Row(
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            TextButton(
+                                onClick = { openExternalPage(context, "https://tijario.site/terms") },
+                                contentPadding = PaddingValues(horizontal = 2.dp, vertical = 0.dp),
+                            ) {
+                                Text(
+                                    text = t("terms_cond"),
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    textDecoration = TextDecoration.Underline,
+                                )
+                            }
+                            Text(
+                                text = t("register_consent_and"),
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            TextButton(
+                                onClick = { openExternalPage(context, "https://tijario.site/privacy") },
+                                contentPadding = PaddingValues(horizontal = 2.dp, vertical = 0.dp),
+                            ) {
+                                Text(
+                                    text = t("privacy_policy"),
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    textDecoration = TextDecoration.Underline,
+                                )
+                            }
+                        }
+                    }
 
                     if (googleSignInEnabled) {
                         Row(
@@ -457,20 +557,27 @@ fun RegisterScreen(
 
                         val registerGoogleAction = app.tijario.config.Supabase.client.composeAuth.rememberSignInWithGoogle(
                             onResult = { result ->
-                                when (result) {
-                                    is NativeSignInResult.Success -> {
-                                        onBackToLogin()
-                                    }
-                                    is NativeSignInResult.Error -> {
-                                        errorMessage = result.message
-                                    }
-                                    else -> {}
-                                }
+                                isGoogleLoading = false
+                                authViewModel.handleGoogleSignInResult(result)
+                            },
+                            fallback = {
+                                isGoogleLoading = false
+                                errorMessage = Localization.getString("google_login_error", language)
                             }
                         )
 
                         GoogleSignInButton(
                             onClick = {
+                                errorMessage = null
+                                isGoogleLoading = true
+                                val attemptId = ++googleAttemptId
+                                scope.launch {
+                                    delay(30_000)
+                                    if (isGoogleLoading && googleAttemptId == attemptId) {
+                                        isGoogleLoading = false
+                                        errorMessage = Localization.getString("google_login_timeout", language)
+                                    }
+                                }
                                 registerGoogleAction.startFlow()
                             },
                             enabled = !isLoading && !isGoogleLoading,
@@ -504,7 +611,8 @@ fun RegisterScreen(
                         t("btn_login"),
                         color = Color.White,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp
+                        fontSize = 14.sp,
+                        textDecoration = TextDecoration.Underline,
                     )
                 }
             }
@@ -517,14 +625,88 @@ fun RegisterScreen(
 @Composable
 fun VerifyEmailScreen(
     email: String,
+    authViewModel: AuthViewModel,
     onBackToLogin: () -> Unit,
     onVerified: () -> Unit,
 ) {
     val language = LocalLanguage.current
+    val emailToUse = remember(email) {
+        if (email.isNotEmpty()) email
+        else (authViewModel.signUpEmail ?: app.tijario.config.Supabase.client.auth.currentSessionOrNull()?.user?.email ?: "")
+    }
     var token by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
+    var isResending by remember { mutableStateOf(false) }
+    var resendAttemptId by remember { mutableIntStateOf(0) }
+    var secondsLeft by remember(emailToUse) { mutableIntStateOf(60) }
+    var awaitingBootstrapRetry by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+
+    LaunchedEffect(emailToUse, resendAttemptId) {
+        if (emailToUse.isBlank()) {
+            secondsLeft = 0
+            return@LaunchedEffect
+        }
+
+        secondsLeft = 60
+        while (secondsLeft > 0) {
+            delay(1_000)
+            secondsLeft -= 1
+        }
+    }
+
+    suspend fun waitForAuthContext(timeoutMs: Long = 5_000L): Boolean {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        while (System.currentTimeMillis() < deadline) {
+            val session = app.tijario.config.Supabase.client.auth.currentSessionOrNull()
+            val currentUser = app.tijario.config.Supabase.client.auth.currentUserOrNull()
+            if (session != null && currentUser != null) return true
+            delay(250)
+        }
+        return app.tijario.config.Supabase.client.auth.currentSessionOrNull() != null &&
+            app.tijario.config.Supabase.client.auth.currentUserOrNull() != null
+    }
+
+    suspend fun bootstrapCurrentSession(): Boolean {
+        if (!waitForAuthContext()) {
+            if (app.tijario.BuildConfig.DEBUG) {
+                Log.w("VerifyEmailScreen", "Session unavailable after OTP")
+            }
+            errorMessage = if (language == AppLanguage.AR) "لم يتم العثور على جلسة صالحة بعد التحقق" else "No valid session found after verification"
+            return false
+        }
+
+        val currentUser = app.tijario.config.Supabase.client.auth.currentUserOrNull()
+        if (currentUser == null) {
+            if (app.tijario.BuildConfig.DEBUG) {
+                Log.w("VerifyEmailScreen", "Current user unavailable after OTP")
+            }
+            errorMessage = if (language == AppLanguage.AR) "تعذر تحديد المستخدم الحالي بعد التحقق" else "Unable to resolve the current user after verification"
+            return false
+        }
+
+        val resolvedName = authViewModel.signUpFullName ?: listOfNotNull(
+            currentUser.userMetadata?.get("full_name")?.toString(),
+            currentUser.userMetadata?.get("name")?.toString(),
+            currentUser.userMetadata?.get("preferred_username")?.toString(),
+        )
+            .map { it.replace("\"", "").trim() }
+            .firstOrNull { it.isNotBlank() }
+
+        val bootstrapResult = authViewModel.bootstrapUserAfterVerification(currentUser.id, resolvedName)
+        if (bootstrapResult.isFailure) {
+            if (app.tijario.BuildConfig.DEBUG) {
+                Log.e("VerifyEmailScreen", "Bootstrap failed", bootstrapResult.exceptionOrNull())
+            }
+            errorMessage = if (language == AppLanguage.AR) "نجح التحقق ولكن فشل إعداد الحساب، يرجى المحاولة لاحقًا" else "Verification succeeded but account setup failed"
+            awaitingBootstrapRetry = true
+            return false
+        }
+
+        awaitingBootstrapRetry = false
+        return true
+    }
 
     Box(
         modifier = Modifier
@@ -549,6 +731,9 @@ fun VerifyEmailScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .imePadding()
                 .verticalScroll(rememberScrollState())
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -564,19 +749,32 @@ fun VerifyEmailScreen(
             )
             Text(
                 text = if (language == AppLanguage.AR) {
-                    "أدخل رمز التأكيد الذي أرسل للبريد: $email"
+                    "أدخل رمز التأكيد الذي أرسل للبريد: $emailToUse"
                 } else {
-                    "Enter the verification code sent to: $email"
+                    "Enter the verification code sent to: $emailToUse"
                 },
                 color = Color.White.copy(alpha = 0.8f),
                 fontSize = 14.sp,
                 textAlign = TextAlign.Center
             )
 
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = if (secondsLeft > 0) {
+                    Localization.getString("verification_code_expires_in", language).format(secondsLeft)
+                } else {
+                    Localization.getString("verification_code_expired", language)
+                },
+                color = Color.White.copy(alpha = 0.75f),
+                fontSize = 12.sp,
+                textAlign = TextAlign.Center
+            )
+
             Spacer(modifier = Modifier.height(32.dp))
 
             Card(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().widthIn(max = 520.dp),
                 shape = RoundedCornerShape(24.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
@@ -588,7 +786,7 @@ fun VerifyEmailScreen(
                     TijarioTextField(
                         label = if (language == AppLanguage.AR) "رمز التأكيد" else "Verification code",
                         value = token,
-                        onValueChange = { token = it.filter(Char::isDigit).take(8) },
+                        onValueChange = { token = app.tijario.domain.OtpValidator.sanitize(it) },
                     )
 
                     errorMessage?.let {
@@ -596,32 +794,94 @@ fun VerifyEmailScreen(
                     }
 
                     TijarioButton(
-                        text = if (language == AppLanguage.AR) "تحقق" else "Verify",
+                        text = if (awaitingBootstrapRetry) {
+                            if (language == AppLanguage.AR) "إعادة محاولة إعداد الحساب" else "Retry account setup"
+                        } else if (language == AppLanguage.AR) "تحقق" else "Verify",
                         onClick = {
                             scope.launch {
                                 try {
                                     isLoading = true
                                     errorMessage = null
-                                    app.tijario.config.Supabase.client.auth.verifyEmailOtp(
-                                        type = OtpType.Email.SIGNUP,
-                                        email = email,
-                                        token = token,
-                                    )
+
+                                    if (!awaitingBootstrapRetry) {
+                                        val normalizedCode = app.tijario.domain.OtpValidator.sanitize(token)
+                                        if (!app.tijario.domain.OtpValidator.isValid(normalizedCode)) {
+                                            errorMessage = if (language == AppLanguage.AR) "رمز التحقق يجب أن يكون 8 أرقام" else "Verification code must be 8 digits"
+                                            return@launch
+                                        }
+                                        if (secondsLeft <= 0) {
+                                            errorMessage = Localization.getString("verification_code_expired", language)
+                                            return@launch
+                                        }
+
+                                        try {
+                                            app.tijario.config.Supabase.client.auth.verifyEmailOtp(
+                                                type = OtpType.Email.EMAIL,
+                                                email = emailToUse,
+                                                token = normalizedCode,
+                                            )
+                                        } catch (otpEx: Exception) {
+                                            if (app.tijario.BuildConfig.DEBUG) {
+                                                Log.e("VerifyEmailScreen", "OTP verification failed", otpEx)
+                                            }
+                                            errorMessage = app.tijario.domain.ErrorMapper.map(otpEx, language)
+                                            return@launch
+                                        }
+                                    }
+
+                                    if (!bootstrapCurrentSession()) {
+                                        return@launch
+                                    }
+
                                     onVerified()
                                 } catch (e: Exception) {
-                                    errorMessage = e.localizedMessage ?: if (language == AppLanguage.AR) {
-                                        "فشل التحقق من البريد"
-                                    } else {
-                                        "Failed to verify email"
-                                    }
+                                    errorMessage = app.tijario.domain.ErrorMapper.map(e, language)
                                 } finally {
                                     isLoading = false
                                 }
                             }
                         },
-                        enabled = token.length >= 8,
+                        enabled = emailToUse.isNotBlank() && !isLoading && (
+                            if (awaitingBootstrapRetry) true else app.tijario.domain.OtpValidator.isValid(token) && secondsLeft > 0
+                        ),
                         isLoading = isLoading
                     )
+
+                    if (!awaitingBootstrapRetry) {
+                        TijarioButton(
+                            text = if (isResending) {
+                                if (language == AppLanguage.AR) "جارٍ الإرسال..." else "Sending..."
+                            } else if (secondsLeft > 0) {
+                                Localization.getString("resend_code_wait", language).format(secondsLeft)
+                            } else {
+                                Localization.getString("resend_code", language)
+                            },
+                            onClick = {
+                                scope.launch {
+                                    try {
+                                        isResending = true
+                                        errorMessage = null
+                                        app.tijario.config.Supabase.client.auth.resendEmail(
+                                            OtpType.Email.SIGNUP,
+                                            emailToUse
+                                        )
+                                        token = ""
+                                        resendAttemptId += 1
+                                        errorMessage = Localization.getString("verification_code_resent", language)
+                                    } catch (e: Exception) {
+                                        if (app.tijario.BuildConfig.DEBUG) {
+                                            Log.e("VerifyEmailScreen", "Resend failed", e)
+                                        }
+                                        errorMessage = app.tijario.domain.ErrorMapper.map(e, language)
+                                    } finally {
+                                        isResending = false
+                                    }
+                                }
+                            },
+                            enabled = emailToUse.isNotBlank() && !isLoading && !isResending && secondsLeft <= 0,
+                            isLoading = isResending
+                        )
+                    }
 
                     OutlinedButton(
                         onClick = onBackToLogin,
@@ -677,6 +937,9 @@ fun ForgotPasswordScreen(onBackToLogin: () -> Unit) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .imePadding()
                 .verticalScroll(rememberScrollState())
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -700,7 +963,7 @@ fun ForgotPasswordScreen(onBackToLogin: () -> Unit) {
             Spacer(modifier = Modifier.height(32.dp))
 
             Card(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().widthIn(max = 520.dp),
                 shape = RoundedCornerShape(24.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
@@ -728,12 +991,12 @@ fun ForgotPasswordScreen(onBackToLogin: () -> Unit) {
                                         isLoading = true
                                         errorMessage = null
                                         val result = app.tijario.config.Supabase.apiClient.requestPasswordReset(
-                                            app.tijario.data.remote.ResetPasswordRequest(email = email)
+                                            app.tijario.data.remote.ResetPasswordRequest(email = email, source = "android")
                                         )
                                         if (result.ok) {
                                             isSubmitted = true
                                         } else {
-                                            errorMessage = result.displayMessage
+                                            errorMessage = result.localizedDisplayMessage(language)
                                         }
                                     } catch (e: Exception) {
                                         errorMessage = if (language == AppLanguage.AR) "تعذر إرسال رابط إعادة التعيين. حاول مرة أخرى." else "Unable to send reset link. Try again."
@@ -786,21 +1049,33 @@ fun OnboardingScreen(
     val countries = if (language == AppLanguage.AR) listOf("السعودية", "اليمن", "مصر", "الإمارات", "الكويت", "قطر", "عمان", "البحرين", "الأردن", "لبنان", "المغرب", "تونس", "الجزائر", "ليبيا", "السودان", "العراق", "سوريا", "فلسطين") else listOf("Saudi Arabia", "Yemen", "Egypt", "United Arab Emirates", "Kuwait", "Qatar", "Oman", "Bahrain", "Jordan", "Lebanon", "Morocco", "Tunisia", "Algeria", "Libya", "Sudan", "Iraq", "Syria", "Palestine")
     val currencies = listOf("SAR", "YER", "EGP", "AED", "KWD", "QAR", "OMR", "BHD", "JOD", "LBP", "MAD", "TND", "DZD", "LYD", "SDG", "IQD", "SYP", "USD", "EUR")
 
-    var form by remember {
+    var form by remember(language) {
         mutableStateOf(
             BusinessSettingsFormState(
                 country = try {
                     val currentCountry = java.util.Locale.getDefault().displayCountry
                     if (countries.any { it in currentCountry }) countries.first { it in currentCountry } else if (language == AppLanguage.AR) "السعودية" else "Saudi Arabia"
-                } catch (e: Exception) { if (language == AppLanguage.AR) "السعودية" else "Saudi Arabia" }
+                } catch (e: Exception) { if (language == AppLanguage.AR) "السعودية" else "Saudi Arabia" },
+                lang = language
             )
         )
     }
     var isLoading by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    var selectedLogoUri by remember { mutableStateOf<Uri?>(null) }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     var countryMenuExpanded by remember { mutableStateOf(false) }
     var currencyMenuExpanded by remember { mutableStateOf(false) }
+    var phoneMenuExpanded by remember { mutableStateOf(false) }
+    var selectedDialCode by rememberSaveable { mutableStateOf(MvpDialCodeOptions.first().dialCode) }
+    var localWhatsappNumber by rememberSaveable { mutableStateOf("") }
+    val logoPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) {
+            selectedLogoUri = uri
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -815,22 +1090,25 @@ fun OnboardingScreen(
                 )
             )
     ) {
-        AuthLanguageToggle(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(12.dp)
-                .statusBarsPadding()
-                .zIndex(1f)
-        )
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .imePadding()
                 .verticalScroll(rememberScrollState())
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+            verticalArrangement = Arrangement.Top
         ) {
-            Spacer(modifier = Modifier.height(32.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+            ) {
+                AuthLanguageToggle()
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
 
             Text(
                 text = t("onboarding_title"),
@@ -848,7 +1126,7 @@ fun OnboardingScreen(
             Spacer(modifier = Modifier.height(32.dp))
 
             Card(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().widthIn(max = 560.dp),
                 shape = RoundedCornerShape(24.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
@@ -857,6 +1135,25 @@ fun OnboardingScreen(
                     modifier = Modifier.padding(24.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        StoreLogoPicker(
+                            logoUrl = null,
+                            previewUri = selectedLogoUri,
+                            isUploading = isLoading,
+                            onClick = { logoPicker.launch("image/*") },
+                        )
+                        Text(
+                            text = t("onboarding_logo_hint"),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 12.sp,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+
                     TijarioTextField(
                         label = t("shop_name"),
                         value = form.businessName,
@@ -867,15 +1164,66 @@ fun OnboardingScreen(
                         }
                     )
 
-                    TijarioTextField(
-                        label = t("whatsapp_phone"),
-                        value = form.whatsapp,
-                        onValueChange = { form = form.copy(whatsapp = it) },
-                        error = if (form.whatsapp.isNotEmpty()) form.whatsappError else null,
-                        leadingIcon = {
-                            Icon(Icons.Filled.Phone, contentDescription = null, tint = Color(0xFF64748B))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.Top,
+                    ) {
+                        Box(modifier = Modifier.weight(0.9f)) {
+                            ExposedDropdownMenuBox(
+                                expanded = phoneMenuExpanded,
+                                onExpandedChange = { phoneMenuExpanded = !phoneMenuExpanded },
+                            ) {
+                                TijarioTextField(
+                                    label = if (language == AppLanguage.AR) "رمز الدولة" else "Code",
+                                    value = MvpDialCodeOptions.firstOrNull { it.dialCode == selectedDialCode }
+                                        ?.label(language)
+                                        ?: selectedDialCode,
+                                    onValueChange = {},
+                                    trailingIcon = {
+                                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = phoneMenuExpanded)
+                                    },
+                                    modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable),
+                                    readOnly = true,
+                                )
+                                ExposedDropdownMenu(
+                                    expanded = phoneMenuExpanded,
+                                    onDismissRequest = { phoneMenuExpanded = false },
+                                ) {
+                                    MvpDialCodeOptions.forEach { option ->
+                                        DropdownMenuItem(
+                                            text = { Text(option.label(language)) },
+                                            onClick = {
+                                                selectedDialCode = option.dialCode
+                                                form = form.copy(
+                                                    whatsapp = normalizePhoneWithDialCode(
+                                                        option.dialCode,
+                                                        localWhatsappNumber,
+                                                    ),
+                                                )
+                                                phoneMenuExpanded = false
+                                            },
+                                        )
+                                    }
+                                }
+                            }
                         }
-                    )
+                        TijarioTextField(
+                            label = t("whatsapp_phone"),
+                            value = localWhatsappNumber,
+                            onValueChange = { value ->
+                                localWhatsappNumber = value
+                                form = form.copy(
+                                    whatsapp = normalizePhoneWithDialCode(selectedDialCode, value),
+                                )
+                            },
+                            error = if (localWhatsappNumber.isNotEmpty()) form.whatsappError else null,
+                            leadingIcon = {
+                                Icon(Icons.Filled.Phone, contentDescription = null, tint = Color(0xFF64748B))
+                            },
+                            modifier = Modifier.weight(1.1f),
+                        )
+                    }
 
                     // Country Dropdown
                     Box(modifier = Modifier.fillMaxWidth()) {
@@ -915,11 +1263,40 @@ fun OnboardingScreen(
                     }
 
                     TijarioTextField(
-                        label = if (language == AppLanguage.AR) "المدينة" else "City",
+                        label = t("city"),
                         value = form.city,
                         onValueChange = { form = form.copy(city = it) },
                         leadingIcon = {
                             Icon(Icons.Filled.LocationCity, contentDescription = null, tint = Color(0xFF64748B))
+                        }
+                    )
+
+                    TijarioTextField(
+                        label = t("business_address"),
+                        value = form.address,
+                        onValueChange = { form = form.copy(address = it) },
+                        leadingIcon = {
+                            Icon(Icons.Filled.LocationCity, contentDescription = null, tint = Color(0xFF64748B))
+                        }
+                    )
+
+                    TijarioTextField(
+                        label = t("business_email"),
+                        value = form.email,
+                        onValueChange = { form = form.copy(email = it) },
+                        error = form.emailError,
+                        leadingIcon = {
+                            Icon(Icons.Filled.Email, contentDescription = null, tint = Color(0xFF64748B))
+                        }
+                    )
+
+                    TijarioTextField(
+                        label = t("business_website"),
+                        value = form.websiteUrl,
+                        onValueChange = { form = form.copy(websiteUrl = it) },
+                        error = form.websiteError,
+                        leadingIcon = {
+                            Icon(Icons.Filled.Language, contentDescription = null, tint = Color(0xFF64748B))
                         }
                     )
 
@@ -960,29 +1337,63 @@ fun OnboardingScreen(
                         }
                     }
 
+                    errorMessage?.let {
+                        Text(
+                            text = it,
+                            color = MaterialTheme.colorScheme.error,
+                            fontSize = 13.sp,
+                        )
+                    }
+
                     TijarioButton(
                         text = t("btn_save_continue"),
                         onClick = {
                             scope.launch {
                                 try {
                                     isLoading = true
+                                    errorMessage = null
                                     val currentUser = app.tijario.config.Supabase.client.auth.currentUserOrNull()
                                     if (currentUser != null) {
-                                        val settings = app.tijario.data.model.BusinessSettings(
+                                        val baseSettings = app.tijario.data.model.BusinessSettings(
                                             userId = currentUser.id,
                                             businessName = form.businessName,
                                             whatsappNumber = form.whatsapp,
                                             country = form.country,
                                             city = form.city.ifBlank { null },
+                                            address = form.address.ifBlank { null },
+                                            email = form.email.ifBlank { null },
+                                            websiteUrl = form.websiteUrl.ifBlank { null },
                                             currency = form.currency,
                                             termsText = form.terms.ifBlank { null }
                                         )
-                                        val result = dataViewModel.saveBusinessSettings(settings)
-                                        if (result.isSuccess) {
-                                            onDone()
+                                        val result = dataViewModel.saveBusinessSettings(baseSettings)
+                                        if (result.isFailure) {
+                                            errorMessage = LocalizedErrorMapper.map(null, result.exceptionOrNull()?.message, language)
+                                            return@launch
                                         }
+
+                                        if (selectedLogoUri != null) {
+                                            val uploadRequest = buildLogoUploadRequest(context, selectedLogoUri!!, language)
+                                            val uploadResult = app.tijario.config.Supabase.apiClient.uploadBusinessLogo(uploadRequest)
+                                            val uploadedUrl = uploadResult.data?.logoUrl
+                                            if (!uploadResult.ok || uploadedUrl.isNullOrBlank()) {
+                                                errorMessage = uploadResult.localizedDisplayMessage(language).ifBlank { Localization.getString("logo_upload_error", language) }
+                                                return@launch
+                                            }
+                                            clearBusinessLogoCache(context)
+                                            val logoSave = dataViewModel.saveBusinessSettings(baseSettings.copy(logoUrl = uploadedUrl))
+                                            if (logoSave.isFailure) {
+                                                errorMessage = LocalizedErrorMapper.map(null, logoSave.exceptionOrNull()?.message, language)
+                                                return@launch
+                                            }
+                                        }
+
+                                        onDone()
+                                    } else {
+                                        errorMessage = Localization.getString("save_settings_error", language)
                                     }
                                 } catch (e: Exception) {
+                                    errorMessage = LocalizedErrorMapper.map(null, e.message, language)
                                 } finally {
                                     isLoading = false
                                 }
@@ -996,6 +1407,14 @@ fun OnboardingScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
         }
+    }
+}
+
+private fun openExternalPage(context: android.content.Context, url: String) {
+    runCatching {
+        context.startActivity(
+            Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        )
     }
 }
 
@@ -1045,13 +1464,6 @@ fun IntroWalkthroughScreen(onFinished: () -> Unit) {
                 )
             )
     ) {
-        AuthLanguageToggle(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(12.dp)
-                .statusBarsPadding()
-                .zIndex(1f)
-        )
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -1059,23 +1471,35 @@ fun IntroWalkthroughScreen(onFinished: () -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // Top Bar: App Name & Skip Button
-            Row(
+            // Top Bar: App name, centered skip action, and separated language control.
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                    .padding(top = 16.dp)
+                    .heightIn(min = 48.dp),
             ) {
                 Text(
                     text = if (language == AppLanguage.AR) "تجاريو" else "Tijario",
                     color = Color.White,
                     fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.align(Alignment.CenterStart),
                 )
-                TextButton(onClick = onFinished) {
-                        Text(text = if (language == AppLanguage.AR) "تجاوز" else "Skip", color = Color.White.copy(alpha = 0.8f), fontSize = 14.sp)
+                TextButton(
+                    onClick = onFinished,
+                    modifier = Modifier.align(Alignment.Center),
+                ) {
+                    Text(
+                        text = if (language == AppLanguage.AR) "تجاوز" else "Skip",
+                        color = Color.White.copy(alpha = 0.88f),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        textDecoration = TextDecoration.Underline,
+                    )
                 }
+                AuthLanguageToggle(
+                    modifier = Modifier.align(Alignment.CenterEnd),
+                )
             }
 
             // Slide Content Card

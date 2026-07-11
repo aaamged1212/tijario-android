@@ -1,0 +1,12 @@
+.template-tijario-retail {
+  --accent: #0891B2;
+  --deep: #0E7490;
+}
+.template-tijario-retail .header {
+  grid-template-columns: 1fr;
+  border-inline-start: 8px solid var(--accent);
+  padding-inline-start: 14px;
+}
+.template-tijario-retail tbody tr:nth-child(even) {
+  background: #ECFEFF;
+}

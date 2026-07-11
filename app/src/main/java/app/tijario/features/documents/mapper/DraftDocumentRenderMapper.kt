@@ -1,0 +1,101 @@
+package app.tijario.features.documents.mapper
+
+import app.tijario.config.AppLanguage
+import app.tijario.data.model.BusinessSettings
+import app.tijario.data.model.DocumentType
+import app.tijario.domain.DocumentCalculator
+import app.tijario.domain.DocumentNumbering
+import app.tijario.domain.Validation
+import app.tijario.features.documents.model.DocumentPartyInfo
+import app.tijario.features.documents.model.DocumentRenderItem
+import app.tijario.features.documents.model.DocumentRenderModel
+import app.tijario.features.documents.model.DocumentRenderStatus
+import app.tijario.features.documents.model.DocumentTotals
+import app.tijario.features.documents.template.DocumentTemplateRegistry
+import app.tijario.ui.state.DocumentFormState
+import java.math.BigDecimal
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+
+object DraftDocumentRenderMapper {
+    fun map(
+        documentType: DocumentType,
+        form: DocumentFormState,
+        businessSettings: BusinessSettings?,
+        customerCity: String?,
+        language: AppLanguage = AppLanguage.AR,
+        templateId: String = DocumentTemplateRegistry.defaultTemplateId,
+        showTijarioBranding: Boolean = true,
+    ): DocumentRenderModel {
+        val calculation = DocumentCalculator.calculate(
+            form.items.map { DocumentCalculator.ItemInput(it.quantity, it.unitPrice) },
+            form.discount,
+            form.extraFees,
+            form.finalTaxRate,
+            form.amountPaid,
+        )
+        val items = form.items.map { item ->
+            val quantity = Validation.parsePositiveInt(item.quantity) ?: 0
+            val unitPrice = BigDecimal.valueOf(Validation.parseNonNegativeMoney(item.unitPrice) ?: 0.0)
+            DocumentRenderItem(
+                id = item.id,
+                name = item.name.ifBlank { if (language == AppLanguage.AR) "بند غير مسمى" else "Unnamed item" },
+                description = null,
+                quantity = quantity,
+                unitPrice = unitPrice,
+                lineTotal = unitPrice.multiply(BigDecimal(quantity)),
+            )
+        }
+        return DocumentRenderModel(
+            documentType = documentType,
+            documentNumber = form.documentNumber.takeIf { it.isNotBlank() } ?: DocumentNumbering.firstDocumentNumber(documentType),
+            issueDate = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date()),
+            updatedAt = "draft",
+            status = DocumentRenderStatus(
+                documentStatus = null,
+                paymentStatus = if (documentType == DocumentType.Invoice) form.paymentStatus else null,
+            ),
+            business = DocumentPartyInfo(
+                name = businessSettings?.businessName?.ifBlank { null } ?: if (language == AppLanguage.AR) "اسم النشاط" else "Business name",
+                contactNumber = businessSettings?.whatsappNumber.orEmpty(),
+                country = businessSettings?.country,
+                city = businessSettings?.city,
+                address = businessSettings?.address,
+                email = businessSettings?.email,
+                websiteUrl = businessSettings?.websiteUrl,
+                logoUrl = businessSettings?.logoUrl,
+            ),
+            customer = DocumentPartyInfo(
+                name = form.customerName.ifBlank { if (language == AppLanguage.AR) "عميل غير معروف" else "Unknown customer" },
+                contactNumber = form.customerWhatsapp,
+                city = customerCity,
+            ),
+            items = items,
+            totals = DocumentTotals(
+                subtotal = calculation.subtotal,
+                discount = calculation.discount,
+                extraFees = calculation.extraFees,
+                total = calculation.total,
+                amountPaid = Validation.parseNonNegativeMoney(form.amountPaid)?.let(BigDecimal::valueOf) ?: BigDecimal.ZERO,
+                amountRemaining = calculation.amountRemaining,
+                currency = form.currency,
+                finalTaxName = form.finalTaxName,
+                finalTaxRate = BigDecimal.valueOf(Validation.parseNonNegativeMoney(form.finalTaxRate) ?: 0.0),
+                finalTaxAmount = calculation.taxAmount
+            ),
+            invoiceNote = businessSettings?.invoiceNote,
+            documentNote = form.notes.ifBlank { null },
+            termsAndConditions = form.terms.ifBlank { businessSettings?.termsText },
+            language = language,
+            templateId = templateId,
+            templateVersion = DocumentTemplateRegistry.requireTemplate(templateId).version,
+            signatureData = form.signatureData.takeIf { it.isNotBlank() },
+            paymentMethod = form.paymentMethod.takeIf { it.isNotBlank() },
+            documentTitle = form.documentTitle.takeIf { it.isNotBlank() },
+            discountLabel = form.discountLabel.takeIf { it.isNotBlank() },
+            extraFeesLabel = form.extraFeesLabel.takeIf { it.isNotBlank() },
+            showTijarioBranding = showTijarioBranding,
+        )
+    }
+}

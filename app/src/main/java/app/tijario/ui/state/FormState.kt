@@ -1,13 +1,17 @@
 package app.tijario.ui.state
 
 import app.tijario.domain.Validation
+import app.tijario.config.AppLanguage
+import app.tijario.config.Localization
+import app.tijario.data.model.ProductKind
 
 data class LoginFormState(
     val email: String = "",
     val password: String = "",
+    val lang: AppLanguage = AppLanguage.AR,
 ) {
-    val emailError: String? get() = Validation.email(email)
-    val passwordError: String? get() = Validation.password(password)
+    val emailError: String? get() = Validation.email(email, lang)
+    val passwordError: String? get() = Validation.password(password, lang)
     val canSubmit: Boolean get() = emailError == null && passwordError == null
 }
 
@@ -15,11 +19,26 @@ data class RegisterFormState(
     val fullName: String = "",
     val email: String = "",
     val password: String = "",
+    val confirmPassword: String = "",
+    val lang: AppLanguage = AppLanguage.AR,
 ) {
-    val fullNameError: String? get() = Validation.required(fullName, "الاسم")
-    val emailError: String? get() = Validation.email(email)
-    val passwordError: String? get() = Validation.password(password)
-    val canSubmit: Boolean get() = fullNameError == null && emailError == null && passwordError == null
+    val fullNameError: String? get() = Validation.required(fullName, "field_fullname", lang)
+    val emailError: String? get() = Validation.email(email, lang)
+    val passwordError: String? get() = Validation.password(password, lang)
+    val confirmPasswordError: String? get() {
+        if (confirmPassword.isBlank()) {
+            return app.tijario.config.Localization.getString("validation_confirm_password_required", lang)
+        }
+        if (password.isNotBlank() && confirmPassword != password) {
+            return app.tijario.config.Localization.getString("validation_password_mismatch", lang)
+        }
+        return null
+    }
+    val canSubmit: Boolean get() =
+        fullNameError == null &&
+            emailError == null &&
+            passwordError == null &&
+            confirmPasswordError == null
 }
 
 data class BusinessSettingsFormState(
@@ -27,15 +46,23 @@ data class BusinessSettingsFormState(
     val whatsapp: String = "",
     val country: String = "السعودية",
     val city: String = "",
+    val address: String = "",
+    val email: String = "",
+    val websiteUrl: String = "",
     val currency: String = "SAR",
     val terms: String = "",
+    val lang: AppLanguage = AppLanguage.AR,
 ) {
-    val businessNameError: String? get() = Validation.required(businessName, "اسم المتجر")
-    val whatsappError: String? get() = Validation.whatsapp(whatsapp)
-    val countryError: String? get() = Validation.required(country, "الدولة")
-    val currencyError: String? get() = Validation.required(currency, "العملة")
+    val businessNameError: String? get() = Validation.required(businessName, "field_store_name", lang)
+    val whatsappError: String? get() = Validation.whatsapp(whatsapp, lang)
+    val countryError: String? get() = Validation.required(country, "country", lang)
+    val currencyError: String? get() = Validation.required(currency, "currency", lang)
+    val cityError: String? get() = Validation.required(city, "city", lang)
+    val emailError: String? get() = Validation.optionalEmail(email, lang)
+    val websiteError: String? get() = Validation.optionalWebsite(websiteUrl, lang)
     val canSubmit: Boolean get() =
-        businessNameError == null && whatsappError == null && countryError == null && currencyError == null
+        businessNameError == null && whatsappError == null && countryError == null &&
+            currencyError == null && cityError == null && emailError == null && websiteError == null
 }
 
 data class CustomerFormState(
@@ -43,46 +70,81 @@ data class CustomerFormState(
     val whatsapp: String = "",
     val city: String = "",
     val notes: String = "",
+    val lang: AppLanguage = AppLanguage.AR,
 ) {
-    val nameError: String? get() = Validation.required(name, "اسم العميل")
-    val whatsappError: String? get() = Validation.whatsapp(whatsapp)
+    val nameError: String? get() = Validation.required(name, "field_customer_name", lang)
+    val whatsappError: String? get() = Validation.whatsapp(whatsapp, lang)
     val canSubmit: Boolean get() = nameError == null && whatsappError == null
+}
+
+data class DocumentItemState(
+    val id: String = java.util.UUID.randomUUID().toString(),
+    val productId: String? = null,
+    val name: String = "",
+    val quantity: String = "",
+    val unitPrice: String = "",
+    val description: String = "",
+    val unitOfMeasure: String = "",
+    val discount: String = "",
+    val discountType: String = "Percentage", // Percentage or Fixed
+    val taxRate: String = "",
+    val lang: AppLanguage = AppLanguage.AR,
+) {
+    val nameError: String? get() = Validation.required(name, "field_item_name", lang)
+    val quantityError: String? get() = Validation.positiveInt(quantity, "form_quantity", lang)
+    val unitPriceError: String? get() = Validation.nonNegativeMoney(unitPrice, "form_unit_price", lang)
+    val isValid: Boolean get() = name.isNotBlank() && quantity.isNotBlank() && unitPrice.isNotBlank() && nameError == null && quantityError == null && unitPriceError == null
 }
 
 data class DocumentFormState(
     val customerId: String? = null,
     val customerName: String = "",
     val customerWhatsapp: String = "",
-    val productId: String? = null,
-    val itemName: String = "",
-    val quantity: String = "",
-    val unitPrice: String = "",
+    val customerCity: String? = null,
+    val items: List<DocumentItemState> = emptyList(),
     val discount: String = "",
     val extraFees: String = "",
+    val paymentStatus: String = "unpaid",
+    val amountPaid: String = "",
     val notes: String = "",
     val terms: String = "",
+    val documentNumber: String = "",
+    val issueDate: String = "",
+    val creationDate: String = "",
+    val dueTerms: String = "None",
+    val dueDate: String = "",
+    val poNumber: String = "",
+    val documentTitle: String = "",
+    val discountLabel: String = "",
+    val extraFeesLabel: String = "",
+    val finalTaxRate: String = "",
+    val finalTaxName: String = "الضريبة",
+    val documentLanguage: String = "AR", // "AR" or "EN"
+    val currency: String = "SAR",
+    val signatureData: String = "",
+    val paymentMethod: String = "",
+    val lang: AppLanguage = AppLanguage.AR,
 ) {
-    val customerNameError: String? get() = Validation.required(customerName, "اسم العميل")
-    val itemNameError: String? get() = Validation.required(itemName, "اسم البند")
-    val quantityError: String? get() = Validation.positiveInt(quantity, "الكمية")
-    val unitPriceError: String? get() = Validation.nonNegativeMoney(unitPrice, "سعر الوحدة")
-    val discountError: String? get() = Validation.nonNegativeMoney(discount, "الخصم")
-    val extraFeesError: String? get() = Validation.nonNegativeMoney(extraFees, "الرسوم الإضافية")
+    val customerNameError: String? get() = Validation.required(customerName, "field_customer_name", lang)
+    val discountError: String? get() = Validation.nonNegativeMoney(discount, "form_discount", lang)
+    val extraFeesError: String? get() = Validation.nonNegativeMoney(extraFees, "form_extra_fees", lang)
+    val finalTaxRateError: String? get() = Validation.nonNegativeMoney(finalTaxRate, "field_final_tax", lang)
+    val amountPaidError: String? get() = if (paymentStatus == "partial") Validation.nonNegativeMoney(amountPaid, "amount_paid", lang) else null
     val canSubmit: Boolean get() =
         customerId != null &&
             customerName.isNotEmpty() &&
-            itemName.isNotEmpty() &&
-            quantity.isNotBlank() &&
-            unitPrice.isNotBlank() &&
-            quantityError == null &&
-            unitPriceError == null &&
+            items.isNotEmpty() &&
+            items.all { it.isValid } &&
             discountError == null &&
-            extraFeesError == null
+            extraFeesError == null &&
+            finalTaxRateError == null &&
+            amountPaidError == null
 }
 
 data class AiReplyFormState(
     val caseType: String = "customer_inquiry",
     val customerName: String = "",
+    val customerMessage: String = "",
     val dialect: String = "gulf",
     val tone: String = "friendly",
     val length: String = "short",
@@ -98,8 +160,9 @@ data class AiCaptionFormState(
     val productOrService: String = "",
     val offer: String = "",
     val extraNote: String = "",
+    val lang: AppLanguage = AppLanguage.AR,
 ) {
-    val productOrServiceError: String? get() = Validation.required(productOrService, "المنتج أو الخدمة")
+    val productOrServiceError: String? get() = Validation.required(productOrService, "ai_prod_srv_label", lang)
     val canSubmit: Boolean get() = productOrServiceError == null
 }
 
@@ -107,10 +170,28 @@ data class ProductFormState(
     val name: String = "",
     val description: String = "",
     val price: String = "",
-    val kind: app.tijario.data.model.ProductKind = app.tijario.data.model.ProductKind.Product,
+    val stockQuantity: String = "",
+    val kind: ProductKind = ProductKind.Product,
     val currency: String = "SAR",
+    val category: String = "",
+    val lang: AppLanguage = AppLanguage.AR,
 ) {
-    val nameError: String? get() = Validation.required(name, "الاسم")
-    val priceError: String? get() = Validation.nonNegativeMoney(price, "السعر")
-    val canSubmit: Boolean get() = nameError == null && price.isNotBlank() && priceError == null
+    val nameError: String? get() = Validation.required(name, "field_fullname", lang)
+    val priceError: String? get() = Validation.nonNegativeMoney(price, "product_price", lang)
+    val stockQuantityError: String? get() =
+        if (kind == ProductKind.Product) {
+            if (stockQuantity.isBlank()) {
+                val fieldName = Localization.getString("available_stock_required", lang)
+                String.format(Localization.getString("validation_required", lang), fieldName)
+            } else {
+                Validation.positiveInt(stockQuantity, "available_stock_required", lang)
+            }
+        } else {
+            Validation.nonNegativeInt(stockQuantity, "available_stock_optional", lang)
+        }
+    val canSubmit: Boolean get() =
+        nameError == null &&
+            price.isNotBlank() &&
+            priceError == null &&
+            stockQuantityError == null
 }

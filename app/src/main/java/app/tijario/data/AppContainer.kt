@@ -12,6 +12,7 @@ object AppContainer {
     fun repository(context: Context): TijarioRepository =
         repositoryInstance ?: synchronized(this) {
             repositoryInstance ?: TijarioRepository(
+                context = context.applicationContext,
                 database = TijarioDatabase.getInstance(context),
                 supabaseClient = Supabase.client,
                 backendApiClient = Supabase.apiClient,

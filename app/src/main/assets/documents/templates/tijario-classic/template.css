@@ -1,0 +1,11 @@
+.template-tijario-classic .header {
+  grid-template-columns: 1.35fr .9fr;
+  border-bottom: 3px solid var(--accent);
+  padding-bottom: 12px;
+}
+.template-tijario-classic .title-block {
+  text-align: end;
+}
+.template-tijario-classic .party-card {
+  border-top: 4px solid var(--accent);
+}

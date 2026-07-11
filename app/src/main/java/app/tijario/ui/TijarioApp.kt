@@ -1,7 +1,9 @@
 package app.tijario.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -20,12 +22,17 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.ShoppingBag
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.ShoppingBag
+import androidx.compose.material.icons.outlined.People
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
@@ -36,7 +43,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.Button
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -45,13 +54,15 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -59,10 +70,11 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
 import android.net.Uri
+import app.tijario.MainActivity
 import app.tijario.config.loadAppConfig
 import app.tijario.config.t
 import app.tijario.ui.screens.AccountScreen
-import app.tijario.ui.screens.AiToolsScreen
+import app.tijario.features.ai.AiToolsScreen
 import app.tijario.ui.screens.BusinessSettingsScreen
 import app.tijario.ui.screens.CustomerFormScreen
 import app.tijario.ui.screens.ConfigurationRequiredScreen
@@ -77,28 +89,44 @@ import app.tijario.ui.screens.RegisterScreen
 import app.tijario.ui.screens.VerifyEmailScreen
 import app.tijario.ui.screens.ProductsScreen
 import app.tijario.ui.screens.ProductFormScreen
+import app.tijario.ui.screens.AccountSettingsScreen
+import app.tijario.ui.screens.AppSettingsScreen
+import app.tijario.ui.screens.ChangePasswordScreen
 import app.tijario.ui.screens.IntroWalkthroughScreen
+import app.tijario.ui.screens.DocumentDetailScreen
+import app.tijario.ui.screens.SettingsHomeScreen
+import app.tijario.ui.screens.UpgradePlanScreen
 import app.tijario.ui.state.TijarioDataViewModel
 import app.tijario.ui.state.TijarioDataViewModelFactory
-import io.github.jan.supabase.auth.auth
+import app.tijario.ui.state.AuthViewModel
+import app.tijario.ui.state.AuthViewModelFactory
+import app.tijario.ui.state.CentralAuthState
+import app.tijario.features.notifications.NotificationBellButton
+import app.tijario.features.notifications.NotificationDeepLinkState
+import app.tijario.features.notifications.NotificationPermissionPrompt
+import app.tijario.features.notifications.NotificationsScreen
+import app.tijario.features.notifications.NotificationsViewModel
+import app.tijario.features.notifications.NotificationsViewModelFactory
+import app.tijario.features.notifications.StartupAnnouncementDialog
+import app.tijario.config.AppPreferences
+import app.tijario.domain.LocalizedErrorMapper
 import kotlinx.coroutines.launch
-
-import androidx.compose.material.icons.filled.ShoppingBag
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 
 private data class RootTab(
     val route: String,
     val label: String,
-    val icon: ImageVector,
+    val iconFilled: ImageVector,
+    val iconOutlined: ImageVector,
 )
 
 private val rootTabs = listOf(
-    RootTab("dashboard", "tab_home", Icons.Filled.Home),
-    RootTab("documents", "tab_documents", Icons.Filled.Description),
-    RootTab("ai", "tab_ai", Icons.Filled.AutoAwesome),
-    RootTab("products", "tab_products", Icons.Filled.ShoppingBag),
-    RootTab("customers", "tab_customers", Icons.Filled.People),
+    RootTab("dashboard", "tab_home", Icons.Filled.Home, Icons.Outlined.Home),
+    RootTab("documents", "tab_documents", Icons.Filled.Description, Icons.Outlined.Description),
+    RootTab("ai", "tab_ai", Icons.Filled.AutoAwesome, Icons.Outlined.AutoAwesome),
+    RootTab("products", "tab_products", Icons.Filled.ShoppingBag, Icons.Outlined.ShoppingBag),
+    RootTab("customers", "tab_customers", Icons.Filled.People, Icons.Outlined.People),
 )
 
 @Composable
@@ -109,71 +137,91 @@ fun TijarioApp() {
         return
     }
 
-    val navController = rememberNavController()
     val context = LocalContext.current
-    val dataViewModel: TijarioDataViewModel = viewModel(
-        factory = TijarioDataViewModelFactory(context.applicationContext),
+    val authViewModel: AuthViewModel = viewModel(
+        factory = AuthViewModelFactory(context.applicationContext)
     )
-    val backStackEntry by navController.currentBackStackEntryAsState()
-    val currentDestination = backStackEntry?.destination
-    val currentRoute = currentDestination?.route
+    val dataViewModel: TijarioDataViewModel = viewModel(
+        factory = TijarioDataViewModelFactory(context.applicationContext)
+    )
+    val notificationsViewModel: NotificationsViewModel = viewModel(
+        factory = NotificationsViewModelFactory(context.applicationContext)
+    )
+
+    val authState by authViewModel.authState.collectAsStateWithLifecycle()
+    val dataUiState by dataViewModel.uiState.collectAsStateWithLifecycle()
+    val notificationsState by notificationsViewModel.state.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
+    val showStartupSplash =
+        authState is CentralAuthState.Initializing ||
+            (authState is CentralAuthState.AuthenticatedReady &&
+                dataUiState.isInitialLoading &&
+                !dataUiState.hasCachedData)
 
     // Shared states for selection
     var activeSelectedCustomer by remember { mutableStateOf<app.tijario.data.model.Customer?>(null) }
     var activeSelectedProduct by remember { mutableStateOf<app.tijario.data.model.Product?>(null) }
+    var activeSelectedProductRowIndex by remember { mutableStateOf<Int?>(null) }
 
-    // Auto login & session check
-    var startRoute by remember { mutableStateOf<String?>(null) }
-    var isCheckingSession by remember { mutableStateOf(true) }
-    var isAuthenticated by remember { mutableStateOf(false) }
-
-    val showSettingsShortcut = isAuthenticated &&
-        currentRoute != null &&
-        currentRoute !in listOf("login", "register", "verify-email", "forgot-password", "onboarding", "intro")
-
-    LaunchedEffect(Unit) {
-        scope.launch {
-            try {
-                app.tijario.config.Supabase.client.auth.awaitInitialization()
-                val session = app.tijario.config.Supabase.client.auth.currentSessionOrNull()
-                isAuthenticated = session != null
-                if (session != null) {
-                    dataViewModel.startForCurrentUser()
-                    if (dataViewModel.hasCachedBusinessSettingsForCurrentUser()) {
-                        startRoute = "main"
-                    } else {
-                        dataViewModel.refreshBusinessSettings()
-                        startRoute = if (dataViewModel.hasCachedBusinessSettingsForCurrentUser()) {
-                            "main"
-                        } else {
-                            "onboarding"
-                        }
-                    }
-                } else {
-                    startRoute = "intro"
-                }
-                } catch (e: Exception) {
-                isAuthenticated = false
-                    startRoute = "intro"
-                } finally {
-                    isCheckingSession = false
-                }
-            }
+    // Start data sync when authenticated
+    LaunchedEffect(authState) {
+        if (authState is CentralAuthState.AuthenticatedReady || authState is CentralAuthState.AuthenticatedNeedsOnboarding) {
+            dataViewModel.startForCurrentUser()
+        } else if (authState is CentralAuthState.Unauthenticated) {
+            notificationsViewModel.logout()
+        }
     }
 
-    if (isCheckingSession) {
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, authState) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (
+                event == Lifecycle.Event.ON_RESUME &&
+                (authState is CentralAuthState.AuthenticatedReady ||
+                    authState is CentralAuthState.AuthenticatedNeedsOnboarding)
+            ) {
+                dataViewModel.refreshPlanUsage(force = false)
+                notificationsViewModel.syncTopic(MainActivity.currentLanguage)
+            }
+        }
+
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    if (showStartupSplash) {
         SplashScreen()
         return
     }
 
-    Scaffold { paddingValues ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues),
-        ) {
-            NavHost(navController = navController, startDestination = startRoute ?: "intro") {
+    when (val state = authState) {
+        is CentralAuthState.Initializing -> Unit
+        is CentralAuthState.Unauthenticated, is CentralAuthState.AwaitingEmailVerification -> {
+            // Unauthenticated Graph
+            val navController = rememberNavController()
+            val authDeepLinkTarget = MainActivity.authDeepLinkTarget
+            val initialAuthRoute = when {
+                state is CentralAuthState.AwaitingEmailVerification -> "verify-email"
+                authDeepLinkTarget == "/login" -> "login"
+                else -> "intro"
+            }
+
+            LaunchedEffect(authDeepLinkTarget) {
+                if (authDeepLinkTarget == "/login") {
+                    navController.navigate("login") {
+                        popUpTo(navController.graph.startDestinationId) { inclusive = true }
+                        launchSingleTop = true
+                    }
+                    MainActivity.consumeAuthDeepLinkTarget()
+                }
+            }
+
+            NavHost(
+                navController = navController,
+                startDestination = initialAuthRoute,
+            ) {
                 composable("intro") {
                     IntroWalkthroughScreen(
                         onFinished = {
@@ -185,42 +233,18 @@ fun TijarioApp() {
                 }
                 composable("login") {
                     LoginScreen(
-                        onLoginReady = {
-                            scope.launch {
-                                try {
-                                    val session = app.tijario.config.Supabase.client.auth.currentSessionOrNull()
-                                    if (session != null) {
-                                        isAuthenticated = true
-                                        dataViewModel.startForCurrentUser(forceRefresh = true)
-                                        dataViewModel.refreshBusinessSettings()
-                                        if (dataViewModel.hasCachedBusinessSettingsForCurrentUser()) {
-                                            navController.navigate("main") {
-                                                popUpTo("login") { inclusive = true }
-                                            }
-                                        } else {
-                                            navController.navigate("onboarding") {
-                                                popUpTo("login") { inclusive = true }
-                                            }
-                                        }
-                                    } else {
-                                        navController.navigate("onboarding")
-                                    }
-                                } catch (e: Exception) {
-                                    navController.navigate("onboarding")
-                                }
-                            }
-                        },
+                        authViewModel = authViewModel,
                         onRegister = { navController.navigate("register") },
-                        onForgotPassword = { navController.navigate("forgot-password") },
+                        onForgotPassword = { navController.navigate("forgot-password") }
                     )
                 }
                 composable("register") {
                     RegisterScreen(
+                        authViewModel = authViewModel,
                         onBackToLogin = { navController.popBackStack() },
                         onVerifyEmail = { email ->
-                            navController.navigate("verify-email?email=${Uri.encode(email)}") {
-                                popUpTo("register") { inclusive = true }
-                            }
+                            authViewModel.setAwaitingVerification()
+                            navController.navigate("verify-email?email=${Uri.encode(email)}")
                         }
                     )
                 }
@@ -236,35 +260,94 @@ fun TijarioApp() {
                     val email = backStackEntry.arguments?.getString("email").orEmpty()
                     VerifyEmailScreen(
                         email = email,
+                        authViewModel = authViewModel,
                         onBackToLogin = {
-                            navController.navigate("login") {
-                                popUpTo("login") { inclusive = true }
-                            }
+                            authViewModel.logout()
                         },
                         onVerified = {
-                            navController.navigate("onboarding") {
-                                popUpTo("login") { inclusive = true }
-                            }
+                            authViewModel.handleVerificationSuccess()
                         }
                     )
                 }
-                composable("forgot-password") { ForgotPasswordScreen(onBackToLogin = { navController.popBackStack() }) }
-                composable("onboarding") {
-                    OnboardingScreen(
-                        dataViewModel = dataViewModel,
-                        onDone = {
-                            dataViewModel.startForCurrentUser(forceRefresh = true)
-                            navController.navigate("main") {
-                                popUpTo("onboarding") { inclusive = true }
-                                popUpTo("login") { inclusive = true }
-                            }
+                composable("verify-email") {
+                    VerifyEmailScreen(
+                        email = "",
+                        authViewModel = authViewModel,
+                        onBackToLogin = {
+                            authViewModel.logout()
                         },
+                        onVerified = {
+                            authViewModel.handleVerificationSuccess()
+                        }
                     )
                 }
-                composable("main") {
-                    val pagerState = rememberPagerState(pageCount = { 5 })
-                    val pagerScope = rememberCoroutineScope()
+                composable("forgot-password") {
+                    ForgotPasswordScreen(onBackToLogin = { navController.popBackStack() })
+                }
+            }
+        }
+        is CentralAuthState.AuthenticatedNeedsOnboarding -> {
+            OnboardingScreen(
+                dataViewModel = dataViewModel,
+                onDone = {
+                    scope.launch {
+                        authViewModel.checkCurrentSession()
+                    }
+                }
+            )
+        }
+        is CentralAuthState.AuthenticatedReady -> {
+            // Authenticated Graph
+            val navController = rememberNavController()
+            val pagerState = rememberPagerState(pageCount = { 5 })
+            val pagerScope = rememberCoroutineScope()
+            var showNotificationPrompt by remember {
+                mutableStateOf(!AppPreferences.wasNotificationExplained(context))
+            }
 
+            LaunchedEffect(dataUiState.userId) {
+                dataUiState.userId?.let { notificationsViewModel.start(it) }
+            }
+
+            LaunchedEffect(dataUiState.userId, MainActivity.currentLanguage) {
+                notificationsViewModel.syncTopic(MainActivity.currentLanguage)
+            }
+
+            val pendingAnnouncementId = NotificationDeepLinkState.pendingAnnouncementId
+            LaunchedEffect(pendingAnnouncementId) {
+                if (!pendingAnnouncementId.isNullOrBlank()) {
+                    navController.navigate("notifications?announcementId=$pendingAnnouncementId")
+                    NotificationDeepLinkState.consumeAnnouncementId()
+                }
+            }
+
+            notificationsState.startupAnnouncement?.let { startup ->
+                StartupAnnouncementDialog(
+                    announcement = startup,
+                    language = MainActivity.currentLanguage,
+                    onViewDetails = {
+                        notificationsViewModel.markRead(startup.id, "startup")
+                        notificationsViewModel.clearStartup()
+                        navController.navigate("notifications?announcementId=${startup.id}")
+                    },
+                    onDismiss = {
+                        notificationsViewModel.dismissStartup(startup.id)
+                    }
+                )
+            }
+
+            if (showNotificationPrompt) {
+                NotificationPermissionPrompt(
+                    onFinished = {
+                        AppPreferences.setPushEnabled(context, true)
+                        showNotificationPrompt = false
+                        notificationsViewModel.syncTopic(MainActivity.currentLanguage)
+                    }
+                )
+            }
+
+            NavHost(navController = navController, startDestination = "main") {
+                composable("main") {
                     Scaffold(
                         topBar = {
                             val currentPage = pagerState.currentPage
@@ -292,9 +375,9 @@ fun TijarioApp() {
 
                             Surface(
                                 modifier = Modifier.fillMaxWidth(),
-                                color = MaterialTheme.colorScheme.surface,
-                                tonalElevation = 2.dp,
-                                shadowElevation = 4.dp
+                                color = MaterialTheme.colorScheme.background,
+                                tonalElevation = 0.dp,
+                                shadowElevation = 0.dp
                             ) {
                                 Row(
                                     modifier = Modifier
@@ -330,27 +413,38 @@ fun TijarioApp() {
                                             )
                                         }
                                     }
-                                    IconButton(
-                                        onClick = { navController.navigate("account") },
-                                        colors = IconButtonDefaults.iconButtonColors(
-                                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                                        ),
-                                        modifier = Modifier
-                                            .size(44.dp)
-                                            .clip(CircleShape)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Filled.Settings,
-                                            contentDescription = "الإعدادات",
-                                            tint = MaterialTheme.colorScheme.primary
+                                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        NotificationBellButton(
+                                            unreadCount = notificationsState.unreadCount,
+                                            onClick = { navController.navigate("notifications") },
                                         )
+                                        IconButton(
+                                            onClick = { navController.navigate("settings") },
+                                            colors = IconButtonDefaults.iconButtonColors(
+                                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                            ),
+                                            modifier = Modifier
+                                                .size(44.dp)
+                                                .clip(CircleShape)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Filled.Settings,
+                                                contentDescription = t("settings"),
+                                                tint = MaterialTheme.colorScheme.primary
+                                            )
+                                        }
                                     }
                                 }
                             }
                         },
                         bottomBar = {
                             NavigationBar(
-                                containerColor = MaterialTheme.colorScheme.background,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(72.dp)
+                                    .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
+                                    .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f), RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)),
+                                containerColor = MaterialTheme.colorScheme.surface,
                                 tonalElevation = 0.dp
                             ) {
                                 rootTabs.forEachIndexed { index, tab ->
@@ -359,80 +453,119 @@ fun TijarioApp() {
                                         selected = selected,
                                         onClick = {
                                             pagerScope.launch {
-                                                pagerState.animateScrollToPage(index)
+                                                pagerState.scrollToPage(index)
                                             }
                                         },
-                                        icon = { Icon(tab.icon, contentDescription = t(tab.label), modifier = Modifier.size(26.dp)) },
+                                        icon = {
+                                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                                if (selected) {
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .width(20.dp)
+                                                            .height(3.dp)
+                                                            .clip(RoundedCornerShape(1.5.dp))
+                                                            .background(MaterialTheme.colorScheme.primary)
+                                                    )
+                                                    Spacer(modifier = Modifier.height(4.dp))
+                                                } else {
+                                                    Spacer(modifier = Modifier.height(7.dp))
+                                                }
+                                                Icon(
+                                                    imageVector = if (selected) tab.iconFilled else tab.iconOutlined,
+                                                    contentDescription = t(tab.label),
+                                                    modifier = Modifier.size(24.dp)
+                                                )
+                                            }
+                                        },
                                         label = {
                                             Text(
                                                 text = t(tab.label),
-                                                style = MaterialTheme.typography.labelMedium,
-                                                fontWeight = FontWeight.Bold,
-                                                fontSize = 14.sp
+                                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                                                fontSize = 11.sp
                                             )
                                         },
                                         colors = NavigationBarItemDefaults.colors(
-                                            selectedIconColor = Color.White,
+                                            selectedIconColor = MaterialTheme.colorScheme.primary,
                                             selectedTextColor = MaterialTheme.colorScheme.primary,
-                                            indicatorColor = MaterialTheme.colorScheme.primary,
                                             unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            indicatorColor = Color.Transparent
                                         )
                                     )
                                 }
                             }
                         }
-                    ) { pagerPadding ->
-                        HorizontalPager(
-                            state = pagerState,
+                    ) { paddingValues ->
+                        Box(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .padding(pagerPadding)
-                        ) { page ->
-                            when (page) {
-                                0 -> DashboardScreen(
-                                    dataViewModel = dataViewModel,
-                                    onNewQuote = { navController.navigate("new-quote") },
-                                    onNewInvoice = { navController.navigate("new-invoice") },
-                                    onAddProduct = { navController.navigate("product-form") },
-                                    onCustomers = {
-                                        pagerScope.launch {
-                                            pagerState.animateScrollToPage(4)
-                                        }
-                                    },
-                                    onAiTools = {
-                                        pagerScope.launch {
-                                            pagerState.animateScrollToPage(2)
-                                        }
-                                    },
-                                    onBusinessSettings = { navController.navigate("account") },
-                                    hideHeader = true
-                                )
-                                1 -> DocumentsScreen(
-                                    dataViewModel = dataViewModel,
-                                    onNewQuote = {
-                                        activeSelectedCustomer = null
-                                        activeSelectedProduct = null
-                                        navController.navigate("new-quote")
-                                    },
-                                    onNewInvoice = {
-                                        activeSelectedCustomer = null
-                                        activeSelectedProduct = null
-                                        navController.navigate("new-invoice")
-                                    },
-                                    hideHeader = true
-                                )
-                                2 -> AiToolsScreen(hideHeader = true)
-                                3 -> ProductsScreen(
-                                    dataViewModel = dataViewModel,
-                                    onCreateProduct = { navController.navigate("product-form") },
-                                    hideHeader = true
-                                )
-                                4 -> CustomersScreen(
-                                    dataViewModel = dataViewModel,
-                                    onCreateCustomer = { navController.navigate("customer-form") },
-                                    hideHeader = true
-                                )
+                                .padding(paddingValues)
+                        ) {
+                            HorizontalPager(
+                                state = pagerState,
+                                modifier = Modifier.fillMaxSize(),
+                                userScrollEnabled = true
+                            ) { page ->
+                                when (page) {
+                                    0 -> DashboardScreen(
+                                        dataViewModel = dataViewModel,
+                                        onNewQuote = {
+                                            activeSelectedCustomer = null
+                                            activeSelectedProduct = null
+                                            navController.navigate("new-quote")
+                                        },
+                                        onNewInvoice = {
+                                            activeSelectedCustomer = null
+                                            activeSelectedProduct = null
+                                            navController.navigate("new-invoice")
+                                        },
+                                        onAddProduct = { pagerScope.launch { pagerState.scrollToPage(3) } },
+                                        onCustomers = { pagerScope.launch { pagerState.scrollToPage(4) } },
+                                        onAiTools = { pagerScope.launch { pagerState.scrollToPage(2) } },
+                                        onBusinessSettings = { navController.navigate("business-settings") },
+                                        onViewAllDocuments = { pagerScope.launch { pagerState.scrollToPage(1) } },
+                                        onDocumentClick = { documentId ->
+                                            navController.navigate("document-detail?documentId=$documentId")
+                                        },
+                                        hideHeader = true
+                                    )
+                                    1 -> DocumentsScreen(
+                                        dataViewModel = dataViewModel,
+                                        onNewQuote = {
+                                            activeSelectedCustomer = null
+                                            activeSelectedProduct = null
+                                            navController.navigate("new-quote")
+                                        },
+                                        onNewInvoice = {
+                                            activeSelectedCustomer = null
+                                            activeSelectedProduct = null
+                                            navController.navigate("new-invoice")
+                                        },
+                                        onDocumentClick = { documentId ->
+                                            navController.navigate("document-detail?documentId=$documentId")
+                                        },
+                                        onEditDocument = { documentId, type ->
+                                            activeSelectedCustomer = null
+                                            activeSelectedProduct = null
+                                            val route = if (type == app.tijario.data.model.DocumentType.Invoice) "edit-invoice" else "edit-quote"
+                                            navController.navigate("$route?documentId=$documentId")
+                                        },
+                                        hideHeader = true
+                                    )
+                                    2 -> AiToolsScreen(dataViewModel = dataViewModel, hideHeader = true)
+                                    3 -> ProductsScreen(
+                                        dataViewModel = dataViewModel,
+                                        onCreateProduct = { navController.navigate("product-form") },
+                                        onEditProduct = { id -> navController.navigate("product-form?productId=$id") },
+                                        hideHeader = true
+                                    )
+                                    4 -> CustomersScreen(
+                                        dataViewModel = dataViewModel,
+                                        onCreateCustomer = { navController.navigate("customer-form") },
+                                        onEditCustomer = { id -> navController.navigate("customer-form?customerId=$id") },
+                                        hideHeader = true
+                                    )
+                                }
                             }
                         }
                     }
@@ -446,6 +579,23 @@ fun TijarioApp() {
                             activeSelectedCustomer = customer
                             navController.popBackStack()
                         }
+                    )
+                }
+                composable(
+                    route = "customer-form?customerId={customerId}",
+                    arguments = listOf(
+                        navArgument("customerId") {
+                            type = NavType.StringType
+                            nullable = true
+                            defaultValue = null
+                        }
+                    )
+                ) { backStackEntry ->
+                    val customerId = backStackEntry.arguments?.getString("customerId")
+                    CustomerFormScreen(
+                        dataViewModel = dataViewModel,
+                        customerId = customerId,
+                        onBack = { navController.popBackStack() }
                     )
                 }
                 composable("customer-form") {
@@ -464,6 +614,23 @@ fun TijarioApp() {
                         }
                     )
                 }
+                composable(
+                    route = "product-form?productId={productId}",
+                    arguments = listOf(
+                        navArgument("productId") {
+                            type = NavType.StringType
+                            nullable = true
+                            defaultValue = null
+                        }
+                    )
+                ) { backStackEntry ->
+                    val productId = backStackEntry.arguments?.getString("productId")
+                    ProductFormScreen(
+                        dataViewModel = dataViewModel,
+                        productId = productId,
+                        onBack = { navController.popBackStack() }
+                    )
+                }
                 composable("product-form") {
                     ProductFormScreen(
                         dataViewModel = dataViewModel,
@@ -473,7 +640,7 @@ fun TijarioApp() {
                 composable("business-settings") {
                     BusinessSettingsScreen(
                         dataViewModel = dataViewModel,
-                        onBack = { navController.popBackStack() },
+                        onBack = { navController.popBackStack() }
                     )
                 }
                 composable("new-quote") {
@@ -481,10 +648,24 @@ fun TijarioApp() {
                         dataViewModel = dataViewModel,
                         type = app.tijario.data.model.DocumentType.Quote,
                         onBack = { navController.popBackStack() },
+                        onDocumentSaved = { documentId ->
+                            navController.navigate("document-detail?documentId=$documentId") {
+                                popUpTo("new-quote") { inclusive = true }
+                            }
+                        },
                         onNavigateToSelectCustomer = { navController.navigate("customers") },
-                        onNavigateToSelectProduct = { navController.navigate("products") },
+                        onNavigateToSelectProduct = { rowIndex ->
+                            activeSelectedProductRowIndex = rowIndex
+                            navController.navigate("products")
+                        },
                         selectedCustomer = activeSelectedCustomer,
-                        selectedProduct = activeSelectedProduct
+                        selectedProduct = activeSelectedProduct,
+                        selectedProductRowIndex = activeSelectedProductRowIndex,
+                        onSelectedProductConsumed = {
+                            activeSelectedProduct = null
+                            activeSelectedProductRowIndex = null
+                        },
+                        onNavigateToBusinessSettings = { navController.navigate("business-settings") }
                     )
                 }
                 composable("new-invoice") {
@@ -492,50 +673,211 @@ fun TijarioApp() {
                         dataViewModel = dataViewModel,
                         type = app.tijario.data.model.DocumentType.Invoice,
                         onBack = { navController.popBackStack() },
+                        onDocumentSaved = { documentId ->
+                            navController.navigate("document-detail?documentId=$documentId") {
+                                popUpTo("new-invoice") { inclusive = true }
+                            }
+                        },
                         onNavigateToSelectCustomer = { navController.navigate("customers") },
-                        onNavigateToSelectProduct = { navController.navigate("products") },
+                        onNavigateToSelectProduct = { rowIndex ->
+                            activeSelectedProductRowIndex = rowIndex
+                            navController.navigate("products")
+                        },
                         selectedCustomer = activeSelectedCustomer,
-                        selectedProduct = activeSelectedProduct
+                        selectedProduct = activeSelectedProduct,
+                        selectedProductRowIndex = activeSelectedProductRowIndex,
+                        onSelectedProductConsumed = {
+                            activeSelectedProduct = null
+                            activeSelectedProductRowIndex = null
+                        },
+                        onNavigateToBusinessSettings = { navController.navigate("business-settings") }
+                    )
+                }
+                composable(
+                    route = "edit-quote?documentId={documentId}",
+                    arguments = listOf(
+                        navArgument("documentId") {
+                            type = NavType.StringType
+                            defaultValue = ""
+                        }
+                    )
+                ) { backStackEntry ->
+                    val documentId = backStackEntry.arguments?.getString("documentId").orEmpty()
+                    DocumentFormScreen(
+                        dataViewModel = dataViewModel,
+                        type = app.tijario.data.model.DocumentType.Quote,
+                        documentId = documentId,
+                        onBack = { navController.popBackStack() },
+                        onDocumentSaved = { savedDocumentId ->
+                            navController.navigate("document-detail?documentId=$savedDocumentId") {
+                                launchSingleTop = true
+                            }
+                        },
+                        onNavigateToSelectCustomer = { navController.navigate("customers") },
+                        onNavigateToSelectProduct = { rowIndex ->
+                            activeSelectedProductRowIndex = rowIndex
+                            navController.navigate("products")
+                        },
+                        selectedCustomer = activeSelectedCustomer,
+                        selectedProduct = activeSelectedProduct,
+                        selectedProductRowIndex = activeSelectedProductRowIndex,
+                        onSelectedProductConsumed = {
+                            activeSelectedProduct = null
+                            activeSelectedProductRowIndex = null
+                        },
+                        onNavigateToBusinessSettings = { navController.navigate("business-settings") }
+                    )
+                }
+                composable(
+                    route = "edit-invoice?documentId={documentId}",
+                    arguments = listOf(
+                        navArgument("documentId") {
+                            type = NavType.StringType
+                            defaultValue = ""
+                        }
+                    )
+                ) { backStackEntry ->
+                    val documentId = backStackEntry.arguments?.getString("documentId").orEmpty()
+                    DocumentFormScreen(
+                        dataViewModel = dataViewModel,
+                        type = app.tijario.data.model.DocumentType.Invoice,
+                        documentId = documentId,
+                        onBack = { navController.popBackStack() },
+                        onDocumentSaved = { savedDocumentId ->
+                            navController.navigate("document-detail?documentId=$savedDocumentId") {
+                                launchSingleTop = true
+                            }
+                        },
+                        onNavigateToSelectCustomer = { navController.navigate("customers") },
+                        onNavigateToSelectProduct = { rowIndex ->
+                            activeSelectedProductRowIndex = rowIndex
+                            navController.navigate("products")
+                        },
+                        selectedCustomer = activeSelectedCustomer,
+                        selectedProduct = activeSelectedProduct,
+                        selectedProductRowIndex = activeSelectedProductRowIndex,
+                        onSelectedProductConsumed = {
+                            activeSelectedProduct = null
+                            activeSelectedProductRowIndex = null
+                        },
+                        onNavigateToBusinessSettings = { navController.navigate("business-settings") }
+                    )
+                }
+                composable(
+                    route = "document-detail?documentId={documentId}",
+                    arguments = listOf(
+                        navArgument("documentId") {
+                            type = NavType.StringType
+                            defaultValue = ""
+                        }
+                    )
+                ) { backStackEntry ->
+                    val documentId = backStackEntry.arguments?.getString("documentId").orEmpty()
+                    DocumentDetailScreen(
+                        dataViewModel = dataViewModel,
+                        documentId = documentId,
+                        onBack = { navController.popBackStack() },
+                        onEditClick = { id, type ->
+                            val route = if (type == app.tijario.data.model.DocumentType.Invoice) "edit-invoice?documentId=$id" else "edit-quote?documentId=$id"
+                            navController.navigate(route)
+                        }
                     )
                 }
                 composable("account") {
                     AccountScreen(
                         dataViewModel = dataViewModel,
                         onLogout = {
-                            dataViewModel.clearSessionCache()
-                            isAuthenticated = false
-                            navController.navigate("login") {
-                                popUpTo(navController.graph.startDestinationId) {
-                                    inclusive = true
-                                }
-                            }
+                            notificationsViewModel.logout()
+                            authViewModel.logout()
                         },
                         onBack = {
                             navController.popBackStack()
+                        },
+                        onChangePassword = { navController.navigate("change-password") },
+                    )
+                }
+                composable("settings") {
+                    SettingsHomeScreen(
+                        dataViewModel = dataViewModel,
+                        onBack = { navController.popBackStack() },
+                        onStoreSettings = { navController.navigate("business-settings") },
+                        onAccountSettings = { navController.navigate("account-settings") },
+                        onAppSettings = { navController.navigate("app-settings") },
+                        onUpgrade = { navController.navigate("upgrade-plan") },
+                        onLogout = {
+                            notificationsViewModel.logout()
+                            authViewModel.logout()
+                        },
+                    )
+                }
+                composable(
+                    route = "notifications?announcementId={announcementId}",
+                    arguments = listOf(
+                        navArgument("announcementId") {
+                            type = NavType.StringType
+                            nullable = true
+                            defaultValue = null
+                        }
+                    )
+                ) { backStackEntry ->
+                    NotificationsScreen(
+                        viewModel = notificationsViewModel,
+                        initialAnnouncementId = backStackEntry.arguments?.getString("announcementId"),
+                        onBack = { navController.popBackStack() },
+                    )
+                }
+                composable("account-settings") {
+                    AccountSettingsScreen(
+                        dataViewModel = dataViewModel,
+                        onBack = { navController.popBackStack() },
+                        onChangePassword = { navController.navigate("change-password") },
+                        onLogout = { authViewModel.logout() },
+                        onDeleteAccount = {
+                            val userId = dataViewModel.currentUserId() ?: ""
+                            val res = app.tijario.config.Supabase.apiClient.deleteAccount()
+                            if (res.ok) {
+                                if (userId.isNotBlank()) {
+                                    dataViewModel.deleteAccountLocal(userId)
+                                }
+                                authViewModel.logout()
+                                Result.success(Unit)
+                            } else {
+                                Result.failure(Exception(res.message ?: "Failed to delete account"))
+                            }
                         }
                     )
                 }
+                composable("change-password") {
+                    ChangePasswordScreen(
+                        onBack = { navController.popBackStack() },
+                    )
+                }
+                composable("app-settings") {
+                    AppSettingsScreen(onBack = { navController.popBackStack() })
+                }
+                composable("upgrade-plan") {
+                    UpgradePlanScreen(
+                        dataViewModel = dataViewModel,
+                        onBack = { navController.popBackStack() }
+                    )
+                }
             }
-
-            if (showSettingsShortcut) {
-                IconButton(
-                    onClick = {
-                        navController.navigate("account") {
-                            launchSingleTop = true
-                        }
-                    },
-                    colors = IconButtonDefaults.iconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
-                        contentColor = MaterialTheme.colorScheme.primary,
-                    ),
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(12.dp)
-                        .size(44.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.96f)),
+        }
+        is CentralAuthState.Error -> {
+            val errorMessage = when (state.message) {
+                "فشل فحص حالة الجلسة" -> t("error_session_check_failed")
+                "حدث خطأ أثناء فحص البيانات بعد التحقق." -> t("error_after_verification_check")
+                else -> LocalizedErrorMapper.map(null, state.message, MainActivity.currentLanguage)
+            }
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    Icon(Icons.Filled.Settings, contentDescription = "الإعدادات")
+                    Text(text = errorMessage, color = MaterialTheme.colorScheme.error)
+                    Button(onClick = { authViewModel.checkCurrentSession() }) {
+                        Text(t("retry"))
+                    }
                 }
             }
         }
@@ -570,7 +912,7 @@ fun SplashScreen() {
                 Box(contentAlignment = androidx.compose.ui.Alignment.Center) {
                     Image(
                         painter = painterResource(id = app.tijario.R.drawable.logo_app),
-                        contentDescription = "شعار التطبيق",
+                        contentDescription = t("app_logo_desc"),
                         modifier = Modifier
                             .size(76.dp)
                             .clip(RoundedCornerShape(18.dp))
@@ -578,14 +920,14 @@ fun SplashScreen() {
                 }
             }
             Text(
-                text = "تجاريو",
+                text = t("app_name"),
                 color = Color.White,
                 fontSize = 32.sp,
                 fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
                 letterSpacing = 1.5.sp
             )
             Text(
-                text = "مستنداتك وفواتيرك بلمح البصر",
+                text = t("app_slogan"),
                 color = Color.White.copy(alpha = 0.7f),
                 fontSize = 14.sp
             )

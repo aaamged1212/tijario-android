@@ -6,6 +6,7 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import app.tijario.config.AppLanguage
 
 private val TijarioLightColors: ColorScheme = lightColorScheme(
     primary = TijarioPrimary,
@@ -26,11 +27,11 @@ private val TijarioDarkColors: ColorScheme = darkColorScheme(
     primary = TijarioPrimary,
     onPrimary = Color.White,
     secondary = TijarioDeepTeal,
-    background = Color(0xFF0F172A),
+    background = Color(0xFF0F0F10),
     onBackground = Color.White,
-    surface = Color(0xFF111827),
+    surface = Color(0xFF1A1A1C),
     onSurface = Color.White,
-    surfaceVariant = Color(0xFF1F2937),
+    surfaceVariant = Color(0xFF262629),
     onSurfaceVariant = Color.White,
     outline = Color.White,
     outlineVariant = Color.White,
@@ -40,11 +41,12 @@ private val TijarioDarkColors: ColorScheme = darkColorScheme(
 @Composable
 fun TijarioTheme(
     darkTheme: Boolean = false,
+    language: AppLanguage = AppLanguage.AR,
     content: @Composable () -> Unit,
 ) {
     MaterialTheme(
         colorScheme = if (darkTheme) TijarioDarkColors else TijarioLightColors,
-        typography = TijarioTypography,
+        typography = tijarioTypography(language),
         content = content,
     )
 }

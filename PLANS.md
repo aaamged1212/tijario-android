@@ -14,56 +14,28 @@ Build the native Android Tijario MVP as a Kotlin, Jetpack Compose, Material 3 ap
 6. Documents list/detail, quote/invoice submission contracts, PDF retrieval, and WhatsApp share.
 7. AI Reply and AI Caption through secure backend APIs.
 8. Validation, repair, release-readiness documentation, and PR preparation.
+9. **[Completed]** Stabilization phase.
+10. **[Completed]** Core MVP Completion phase:
+    - Feature-oriented structure refactoring (documents, customers, products, ai, account).
+    - Support multiple items in quotes/invoices with BigDecimal math.
+    - Full document detail screen and PDF sharing/viewing flows.
+    - Stable edit and owner-scoped deletion of customers and products.
+    - Authentic limits enforcement and usage checks from period_month.
+    - Structured AI Reply and Caption workflows with copy confirmations.
+11. **[In Progress]** Local Document Engine phase:
+    - Child branch: `feature/native-document-engine`.
+    - Replace Android's split Compose-preview/backend-PDF visual flow with one local canonical renderer.
+    - Use the external invoice-maker extraction only as a read-only architectural reference.
+    - Build original Tijario HTML/CSS templates under local Android assets.
+    - Route preview, local PDF, cached PDF, print, save, email, and sharesheet through the same canonical model.
+    - Keep backend document creation and official totals authoritative.
+    - Keep backend PDF endpoint available, but not as the primary Android renderer.
 
-## Dependencies
+## Verification Requirements
 
-- Existing Tijario Supabase project public URL and publishable/anon key, supplied outside Git.
-- Public Tijario API base URL, supplied outside Git.
-- Secure backend endpoints for authoritative document, AI, and PDF operations.
-- Local or Cloud Android toolchain: JDK, Android SDK, and Gradle.
-
-## Risk Level
-
-Medium. The Android client can be built independently, but true end-to-end completion depends on secure backend endpoints and an Android SDK toolchain.
-
-## Acceptance Criteria
-
-- Native Android project builds and launches.
-- Arabic RTL is default.
-- No server secrets are committed or embedded.
-- Direct Supabase operations stay within existing RLS.
-- Privileged operations use authenticated HTTPS backend APIs.
-- Approved MVP routes exist and handle loading, empty, success, and error states.
-
-## Validation Requirements
-
-- `./gradlew :app:assembleDebug`
-- `./gradlew :app:testDebugUnitTest`
-- `./gradlew :app:lintDebug`
-- Git secret scan over tracked files.
-- Manual Android UI pass for RTL navigation and core flows when an emulator/device is available.
-
-## Completed Milestones
-
-- Initial independent repository created on `main`.
-- Milestone 1 started on `feature/native-mvp-foundation`.
-- Android foundation files added: Gradle Kotlin DSL, app module, Compose theme, RTL shell, root navigation, MVP screen surfaces, data models, API contracts, and live documentation.
-- Milestone 2 started: secure backend API client and repositories added for document, PDF, AI Reply, and AI Caption calls.
-- Milestone 3 started: auth/onboarding/customer/business/document form surfaces and validation added, with Navigation Compose routes connected.
-- Mission mandate recorded from the pasted text in `docs/mission-mandate.md`.
-- Shared form state models added for auth, onboarding, customer, business settings, document, and AI forms.
-
-## Incomplete Milestones
-
-- Android toolchain validation.
-- Supabase integration implementation.
-- Backend API integration implementation.
-- End-to-end product flows.
-
-## Current Blocker
-
-`java` and `gradle` are not on PATH. Android Studio JBR exists at `C:\Program Files\Android\Android Studio\jbr`, but no Android SDK path was found in common local locations. No Gradle wrapper exists yet, so Android build validation cannot run in this environment.
-
-## Next Autonomous Action
-
-Continue independent data/repository/UI work while toolchain setup remains blocked, then run the first compile pass and repair build errors as soon as Gradle wrapper and Android SDK are available.
+- `.\gradlew.bat assembleDebug`
+- `.\gradlew.bat testDebugUnitTest`
+- `.\gradlew.bat lintDebug`
+- Git secret scan over tracked files
+- Document engine secret/proprietary asset scan
+- FileProvider and storage permission audit

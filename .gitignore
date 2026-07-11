@@ -4,7 +4,12 @@ local.properties
 # Gradle
 .gradle/
 build/
+*.aab
+*.apk
+app/release/
+app/build/
 **/build/
+app/release/
 
 # IDE
 .idea/
@@ -16,6 +21,8 @@ build/
 keystore.properties
 *.p12
 *.pfx
+firebase-service-account*.json
+service-account*.json
 
 # Environment files
 .env

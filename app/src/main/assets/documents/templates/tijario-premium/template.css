@@ -1,0 +1,15 @@
+.template-tijario-premium {
+  --accent: #92400E;
+  --deep: #78350F;
+  --soft: #FFFBEB;
+}
+.template-tijario-premium .document-page {
+  border-top: 10px solid var(--accent);
+}
+.template-tijario-premium .header {
+  grid-template-columns: 1.1fr .9fr;
+}
+.template-tijario-premium .meta-card,
+.template-tijario-premium .totals {
+  background: #FFFBEB;
+}

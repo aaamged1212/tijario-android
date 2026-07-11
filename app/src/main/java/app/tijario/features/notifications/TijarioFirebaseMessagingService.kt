@@ -1,0 +1,96 @@
+package app.tijario.features.notifications
+
+import android.Manifest
+import android.annotation.SuppressLint
+import android.app.PendingIntent
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.graphics.Color
+import android.os.Build
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
+import androidx.core.graphics.drawable.toBitmap
+import app.tijario.MainActivity
+import app.tijario.R
+import app.tijario.config.AppPreferences
+import com.google.firebase.messaging.FirebaseMessagingService
+import com.google.firebase.messaging.RemoteMessage
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+
+class TijarioFirebaseMessagingService : FirebaseMessagingService() {
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    @SuppressLint("MissingPermission")
+    override fun onMessageReceived(message: RemoteMessage) {
+        ensureAnnouncementNotificationChannel(this)
+
+        val title = message.notification?.title
+            ?: message.data["title"].orEmpty().ifBlank { "Tijario | تجاريو" }
+        val body = message.notification?.body ?: message.data["body"].orEmpty()
+        if (title.isBlank() && body.isBlank()) return
+
+        val announcementId = message.data["announcement_id"]
+            ?.trim()
+            .orEmpty()
+            .ifBlank { message.messageId?.trim().orEmpty() }
+            .ifBlank { "${title}|${body}".hashCode().toString() }
+
+        val deepLink = message.data["deep_link"]
+            ?.takeIf { it.startsWith("tijario://announcements") }
+            ?: "tijario://announcements/$announcementId"
+
+        val intent = Intent(this, MainActivity::class.java).apply {
+            action = Intent.ACTION_VIEW
+            data = android.net.Uri.parse(deepLink)
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+
+        val pendingIntent = PendingIntent.getActivity(
+            this,
+            announcementId.hashCode(),
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+
+        val notification = NotificationCompat.Builder(this, ANNOUNCEMENT_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_stat_tijario)
+            .setColor(Color.parseColor("#0F766E"))
+            .setContentTitle(title)
+            .setContentText(body)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .apply {
+                ContextCompat.getDrawable(this@TijarioFirebaseMessagingService, R.drawable.logo_app)
+                    ?.let { drawable ->
+                        setLargeIcon(drawable.toBitmap(width = 128, height = 128))
+                    }
+            }
+            .build()
+
+        if (canPostNotifications()) {
+            runCatching {
+                NotificationManagerCompat.from(this).notify(announcementId.hashCode(), notification)
+            }
+        }
+    }
+
+    override fun onNewToken(token: String) {
+        serviceScope.launch {
+            val language = AppPreferences.getLanguage(applicationContext)
+            NotificationTopicManager(applicationContext).syncForLanguage(language)
+        }
+    }
+
+    private fun canPostNotifications(): Boolean =
+        Build.VERSION.SDK_INT < 33 ||
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) ==
+            PackageManager.PERMISSION_GRANTED
+}

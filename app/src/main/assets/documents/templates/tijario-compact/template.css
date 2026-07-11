@@ -1,0 +1,14 @@
+.template-tijario-compact .document-page {
+  padding: 12mm;
+}
+.template-tijario-compact .header {
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.template-tijario-compact th,
+.template-tijario-compact td {
+  padding: 6px;
+}
+.template-tijario-compact .business-name {
+  font-size: 18px;
+}

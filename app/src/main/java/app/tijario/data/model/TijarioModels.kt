@@ -11,7 +11,10 @@ data class BusinessSettings(
     @SerialName("whatsapp_number") val whatsappNumber: String,
     val country: String,
     val city: String? = null,
-    val currency: String = "SAR",
+    val address: String? = null,
+    val email: String? = null,
+    @SerialName("website_url") val websiteUrl: String? = null,
+    val currency: String,
     @SerialName("logo_url") val logoUrl: String? = null,
     @SerialName("instagram_url") val instagramUrl: String? = null,
     @SerialName("invoice_note") val invoiceNote: String? = null,
@@ -37,6 +40,8 @@ data class Product(
     val description: String? = null,
     val price: Double,
     val currency: String = "SAR",
+    @SerialName("stock_quantity") val stockQuantity: Int? = null,
+    val category: String? = null,
 )
 
 @Serializable
@@ -51,9 +56,18 @@ data class DocumentSummary(
     @SerialName("customer_id") val customerId: String,
     val type: DocumentType,
     @SerialName("document_number") val documentNumber: String,
+    @SerialName("document_title") val documentTitle: String? = null,
     val status: String,
     @SerialName("payment_status") val paymentStatus: String? = null,
+    @SerialName("amount_paid") val amountPaid: Double? = null,
     @SerialName("issue_date") val issueDate: String,
+    @SerialName("discount_label") val discountLabel: String? = null,
+    @SerialName("extra_fees_label") val extraFeesLabel: String? = null,
+    @SerialName("tax_name") val taxName: String? = null,
+    @SerialName("tax_rate") val taxRate: Double = 0.0,
+    @SerialName("tax_amount") val taxAmount: Double = 0.0,
+    @SerialName("template_id") val templateId: String? = null,
+    @SerialName("document_language") val documentLanguage: String = "ar",
     val total: Double,
     val currency: String,
 )
@@ -71,9 +85,92 @@ data class UsageCounter(
 )
 
 @Serializable
+data class ProfileRowDto(
+    @SerialName("id") val id: String,
+    @SerialName("full_name") val fullName: String? = null,
+)
+
+@Serializable
+data class ProfileFullNameUpdateDto(
+    @SerialName("full_name") val fullName: String,
+)
+
+@Serializable
 data class Plan(
+    val id: String? = null,
     val code: String,
     val name: String,
     @SerialName("monthly_document_limit") val monthlyDocumentLimit: Int,
     @SerialName("monthly_ai_limit") val monthlyAiLimit: Int,
+)
+
+@Serializable
+data class UserPlanRowDto(
+    val id: String? = null,
+    @SerialName("user_id") val userId: String,
+    @SerialName("plan_id") val planId: String,
+)
+
+@Serializable
+data class UsageCounterRowDto(
+    @SerialName("documents_used") val documentsUsed: Int,
+    @SerialName("ai_used") val aiUsed: Int,
+)
+
+data class UserPlanUsage(
+    val planCode: String,
+    val planName: String,
+    val periodMonth: String,
+    val documentsUsed: Int,
+    val documentsLimit: Int,
+    val aiUsed: Int,
+    val aiLimit: Int,
+    val customersUsed: Int = 0,
+    val customersLimit: Int? = null,
+    val productsUsed: Int = 0,
+    val productsLimit: Int? = null,
+    val resetAt: String? = null,
+    val allowedTemplateIds: List<String> = emptyList(),
+    val removeTijarioBranding: Boolean = false,
+)
+
+@Serializable
+data class DocumentItem(
+    val id: String,
+    @SerialName("document_id") val documentId: String,
+    @SerialName("product_id") val productId: String? = null,
+    val name: String,
+    val description: String? = null,
+    val quantity: Int,
+    @SerialName("unit_price") val unitPrice: Double,
+)
+
+@Serializable
+data class CompleteDocument(
+    val id: String,
+    @SerialName("user_id") val userId: String,
+    @SerialName("customer_id") val customerId: String,
+    val type: DocumentType,
+    @SerialName("document_number") val documentNumber: String,
+    @SerialName("document_title") val documentTitle: String? = null,
+    val status: String,
+    @SerialName("payment_status") val paymentStatus: String? = null,
+    @SerialName("amount_paid") val amountPaid: Double? = null,
+    @SerialName("issue_date") val issueDate: String,
+    val subtotal: Double,
+    val discount: Double,
+    @SerialName("discount_label") val discountLabel: String? = null,
+    @SerialName("extra_fees") val extraFees: Double,
+    @SerialName("extra_fees_label") val extraFeesLabel: String? = null,
+    @SerialName("tax_name") val taxName: String? = null,
+    @SerialName("tax_rate") val taxRate: Double = 0.0,
+    @SerialName("tax_amount") val taxAmount: Double = 0.0,
+    val total: Double,
+    val currency: String,
+    @SerialName("template_id") val templateId: String? = null,
+    @SerialName("document_language") val documentLanguage: String = "ar",
+    val notes: String? = null,
+    @SerialName("terms_text") val termsText: String? = null,
+    val customer: Customer? = null,
+    val items: List<DocumentItem> = emptyList(),
 )
