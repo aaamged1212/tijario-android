@@ -17,11 +17,11 @@ Base: `main`
 - `BLOCKED` requires an external action or an executable CI/device environment before it can be closed.
 
 ## Current validation state
-- Current source head: `d5945d2ececec0091bdfc83516cffb233497e8da`.
+- Current source head: `a04ce2c78adcf0e6c3cdc89410b5d3d4c0cd585c`.
 - PR #3 remains open, mergeable, and draft against `main`.
-- Android CI run 151 on prior head `c5e8b39a867b36d85c2258f4d059498678b9e4c2` executed both jobs and failed during Gradle tasks.
-- The GitHub connector truncates the downloaded job logs before the actionable compiler/lint section. The CI workflow now extracts each focused diagnostic tail into a seven-day artifact so the next run can be inspected directly and the actual source failure can be fixed without guessing.
-- Therefore no clean compile/unit/lint/debug/release result is claimed yet.
+- Android CI run 155 exposed the first actionable compiler failure: a missing `enqueueOutbox` block boundary caused the remainder of `TijarioRepository` to be parsed as local functions.
+- Commit `a04ce2c78adcf0e6c3cdc89410b5d3d4c0cd585c` restores that boundary without changing outbox behavior; the next executable CI run must verify whether additional independent failures remain.
+- Run 158 for the bot-authored repair commit concluded `action_required` before jobs executed, so no clean compile/unit/lint/debug/release result is claimed yet.
 - Deterministic source inspection confirms `MainActivity` no longer exposes the former process-wide compatibility facade; runtime language, theme, and auth deep-link state are owned directly by `AppRuntimeState`.
 - Source audit currently reports no Kotlin force unwraps, no package-level PrintHelper usage, and no inline stdout/stacktrace usage.
 
@@ -30,14 +30,14 @@ Base: `main`
 - [x] Add Android CI workflow.
 - [x] Make Gradle failures diagnosable in CI with focused plain-console output.
 - [x] Persist focused Gradle failure diagnostics as downloadable workflow artifacts.
-- [ ] Record clean baseline CI result. **IN PROGRESS:** Actions execute; run 151 failed and the artifact-enabled diagnostic run is pending.
+- [ ] Record clean baseline CI result. **IN PROGRESS:** run 155 produced actionable diagnostics; the first syntax failure is fixed and awaits an executable CI run.
 
 ## Phase 1 — Release blockers
 - [x] Fix Room migration 6 -> 7 (`next_retry_at` column and index).
 - [x] Add migration test for the 6 -> 7 retry-column/index defect.
 - [x] Make server-returned document number authoritative in Android cache.
 - [x] Add document-number reconciliation unit tests.
-- [ ] Execute migration instrumentation tests and complete full build verification. **IN PROGRESS:** CI executes, but Gradle verification is not yet clean.
+- [ ] Execute migration instrumentation tests and complete full build verification. **IN PROGRESS:** host verification is not yet clean; device execution follows host success.
 
 ## Phase 2 — Account isolation
 - [x] Scope local taxes, payment methods, signatures, terms, and document metadata by user.
@@ -77,7 +77,7 @@ Base: `main`
 - [x] Remove the remaining `MainActivity` compatibility-facade properties and call sites; deterministic source inspection shows `MainActivity` now only owns Android lifecycle/deep-link dispatch.
 - [x] Replace package-level PrintHelper dependency and direct stdout/stacktrace diagnostics.
 - [ ] Split large screen/repository files incrementally after behavioral tests exist and pass. **BLOCKED:** broad structural refactoring is unsafe until compile and behavioral tests execute cleanly.
-- [ ] Remove remediation-only workflows/scripts after final validation so the branch retains only permanent CI and product assets. **BLOCKED:** final validation has not executed.
+- [ ] Remove remediation-only workflows/scripts after final validation so the branch retains only permanent CI and product assets. **IN PROGRESS:** the one-shot syntax-repair workflow is being removed immediately after applying its scoped commit; remaining diagnostic assets stay until validation completes.
 
 ## Remaining external dependencies
 The following cannot be completed safely inside this Android repository alone:
