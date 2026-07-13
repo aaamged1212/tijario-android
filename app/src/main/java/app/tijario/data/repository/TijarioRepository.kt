@@ -332,8 +332,8 @@ open class TijarioRepository(
                     syncedAt = syncedAt,
                     syncStatus = "SYNCED",
                     localRevision = existing?.localRevision ?: 1,
-                    serverRevision = remote.id,
-                    serverUpdatedAt = syncedAt,
+                    serverRevision = remote.updatedAt,
+                    serverUpdatedAt = parseServerInstantOrNull(remote.updatedAt.orEmpty())?.toEpochMilli() ?: syncedAt,
                     lastSyncedAt = syncedAt,
                     syncErrorCode = null,
                     isDeleted = false
@@ -370,8 +370,8 @@ open class TijarioRepository(
                     syncedAt = syncedAt,
                     syncStatus = "SYNCED",
                     localRevision = existing?.localRevision ?: 1,
-                    serverRevision = remote.id,
-                    serverUpdatedAt = syncedAt,
+                    serverRevision = remote.updatedAt,
+                    serverUpdatedAt = parseServerInstantOrNull(remote.updatedAt.orEmpty())?.toEpochMilli() ?: syncedAt,
                     lastSyncedAt = syncedAt,
                     syncErrorCode = null,
                     isDeleted = false
@@ -422,8 +422,8 @@ open class TijarioRepository(
                     termsText = existing?.termsText,
                     syncStatus = "SYNCED",
                     localRevision = existing?.localRevision ?: 1,
-                    serverRevision = remote.id,
-                    serverUpdatedAt = syncedAt,
+                    serverRevision = remote.updatedAt,
+                    serverUpdatedAt = parseServerInstantOrNull(remote.updatedAt.orEmpty())?.toEpochMilli() ?: syncedAt,
                     lastSyncedAt = syncedAt,
                     syncErrorCode = null,
                     isDeleted = false,
@@ -1356,13 +1356,19 @@ open class TijarioRepository(
             withContext(Dispatchers.IO) {
                 val localDoc = dao.getDocument(userId, documentId)
                 val localItems = dao.getDocumentItems(userId, documentId)
-                if (localDoc != null && localItems.isNotEmpty()) {
-                    return@withContext buildLocalCompleteDocument(userId, localDoc)
+                val localSnapshot = localDoc?.takeIf { localItems.isNotEmpty() }
+                val hasPendingLocalChanges = localSnapshot?.syncStatus?.let { it != "SYNCED" } == true
+                val cacheIsFresh = localSnapshot?.lastSyncedAt?.let {
+                    System.currentTimeMillis() - it < PULL_SYNC_TTL_MS
+                } == true
+                if (localSnapshot != null && (hasPendingLocalChanges || cacheIsFresh)) {
+                    return@withContext buildLocalCompleteDocument(userId, localSnapshot)
                 }
 
-                val remote = backendApiClient.fetchCompleteDocument(documentId)
-                if (!remote.ok || remote.data == null) {
-                    error(remote.message ?: remote.code ?: "document_not_found")
+                val remote = runCatching { backendApiClient.fetchCompleteDocument(documentId) }.getOrNull()
+                if (remote?.ok != true || remote.data == null) {
+                    if (localSnapshot != null) return@withContext buildLocalCompleteDocument(userId, localSnapshot)
+                    error(remote?.message ?: remote?.code ?: "document_not_found")
                 }
 
                 cacheCompleteDocumentSnapshot(remote.data)
@@ -1386,8 +1392,9 @@ open class TijarioRepository(
                             syncedAt = System.currentTimeMillis(),
                             syncStatus = "SYNCED",
                             localRevision = 1,
-                            serverRevision = document.id,
-                            serverUpdatedAt = System.currentTimeMillis(),
+                            serverRevision = customer.updatedAt,
+                            serverUpdatedAt = parseServerInstantOrNull(customer.updatedAt.orEmpty())?.toEpochMilli()
+                                ?: System.currentTimeMillis(),
                             lastSyncedAt = System.currentTimeMillis(),
                             syncErrorCode = null,
                             isDeleted = false,
@@ -1464,6 +1471,7 @@ open class TijarioRepository(
             termsText = doc.termsText,
             customer = customer,
             items = items,
+            updatedAt = doc.serverRevision,
         )
     }
 
@@ -1975,6 +1983,8 @@ open class TijarioRepository(
                                 notes = item.notes,
                                 syncStatus = "SYNCED",
                                 serverRevision = item.updated_at,
+                                serverUpdatedAt = parseServerInstantOrNull(item.updated_at)?.toEpochMilli(),
+                                lastSyncedAt = System.currentTimeMillis(),
                                 syncedAt = System.currentTimeMillis()
                             ))
                         }
@@ -1995,6 +2005,8 @@ open class TijarioRepository(
                                 category = item.category,
                                 syncStatus = "SYNCED",
                                 serverRevision = item.updated_at,
+                                serverUpdatedAt = parseServerInstantOrNull(item.updated_at)?.toEpochMilli(),
+                                lastSyncedAt = System.currentTimeMillis(),
                                 syncedAt = System.currentTimeMillis()
                             ))
                         }
@@ -2020,6 +2032,8 @@ open class TijarioRepository(
                                 termsText = item.terms_text,
                                 syncStatus = "SYNCED",
                                 serverRevision = item.updated_at,
+                                serverUpdatedAt = parseServerInstantOrNull(item.updated_at)?.toEpochMilli(),
+                                lastSyncedAt = System.currentTimeMillis(),
                                 syncedAt = System.currentTimeMillis()
                             ))
                         }
@@ -2039,7 +2053,7 @@ open class TijarioRepository(
                                 documentLanguage = item.document_language,
                                 status = item.status,
                                 paymentStatus = item.payment_status,
-                                amountPaid = null,
+                                amountPaid = item.amount_paid?.let { BigDecimal.valueOf(it) },
                                 issueDate = item.issue_date,
                                 subtotal = BigDecimal.valueOf(item.subtotal),
                                 discount = BigDecimal.valueOf(item.discount),
@@ -2055,6 +2069,8 @@ open class TijarioRepository(
                                 termsText = item.terms_text,
                                 syncStatus = "SYNCED",
                                 serverRevision = item.updated_at,
+                                serverUpdatedAt = parseServerInstantOrNull(item.updated_at)?.toEpochMilli(),
+                                lastSyncedAt = System.currentTimeMillis(),
                                 syncedAt = System.currentTimeMillis()
                             ))
                         }
@@ -2065,7 +2081,7 @@ open class TijarioRepository(
                             id = item.id,
                             documentId = item.document_id,
                             userId = userId,
-                            productId = null,
+                            productId = item.product_id,
                             name = item.name,
                             description = item.description,
                             quantity = item.quantity,
@@ -2102,7 +2118,7 @@ open class TijarioRepository(
             }
             }
 
-            val deviceId = android.os.Build.MODEL + "_" + android.os.Build.ID
+            val deviceId = AppPreferences.getInstallationId(context)
             val periodMonth = currentUtcPeriodMonth()
             val existingLease = dao.getLease(userId, deviceId, periodMonth)
             if (
@@ -2167,14 +2183,12 @@ open class TijarioRepository(
         if (doc.syncStatus == "SYNCED" || doc.localPdfRelativePath != null) return
         if (dao.getLedgerByDocId(userId, documentId) != null) return
         val periodMonth = currentUtcPeriodMonth()
-        val deviceId = android.os.Build.MODEL + "_" + android.os.Build.ID
+        val deviceId = AppPreferences.getInstallationId(context)
         val pendingLedgers = dao.getPendingLedger(userId).size
         val lease = dao.getLease(userId, deviceId, periodMonth)
-        val available = when {
-            lease != null && lease.expiresAt >= System.currentTimeMillis() ->
-                lease.allowedLimit - lease.consumedCount - pendingLedgers
-            else -> Int.MAX_VALUE
-        }
+            ?.takeIf { it.status == "ACTIVE" && it.expiresAt >= System.currentTimeMillis() }
+            ?: throw IllegalStateException("OFFLINE_LEASE_REQUIRED")
+        val available = lease.allowedLimit - lease.consumedCount - pendingLedgers
         if (available <= 0) {
             throw IllegalStateException("QUOTA_LIMIT_EXCEEDED")
         }
@@ -2184,7 +2198,7 @@ open class TijarioRepository(
             userId = userId,
             documentId = documentId,
             operationId = opId,
-            leaseId = lease?.id ?: "cached:$periodMonth",
+            leaseId = lease.id,
             periodMonth = periodMonth,
             status = "PENDING",
             createdAt = System.currentTimeMillis(),

@@ -438,6 +438,10 @@ fun BusinessSettings.toEntity(userIdFallback: String, syncedAt: Long = System.cu
         invoiceNote = invoiceNote,
         termsText = termsText,
         syncedAt = syncedAt,
+        syncStatus = "SYNCED",
+        serverRevision = updatedAt,
+        serverUpdatedAt = syncedAt,
+        lastSyncedAt = syncedAt,
     )
 
 fun BusinessSettingsEntity.toModel(): BusinessSettings =
@@ -456,6 +460,7 @@ fun BusinessSettingsEntity.toModel(): BusinessSettings =
         instagramUrl = instagramUrl,
         invoiceNote = invoiceNote,
         termsText = termsText,
+        updatedAt = serverRevision,
     )
 
 fun Customer.toEntity(userIdFallback: String, syncedAt: Long = System.currentTimeMillis()): CustomerEntity? {
@@ -468,6 +473,10 @@ fun Customer.toEntity(userIdFallback: String, syncedAt: Long = System.currentTim
         city = city,
         notes = notes,
         syncedAt = syncedAt,
+        syncStatus = "SYNCED",
+        serverRevision = updatedAt,
+        serverUpdatedAt = syncedAt,
+        lastSyncedAt = syncedAt,
     )
 }
 
@@ -479,6 +488,7 @@ fun CustomerEntity.toModel(): Customer =
         whatsappNumber = whatsappNumber,
         city = city,
         notes = notes,
+        updatedAt = serverRevision,
     )
 
 fun Product.toEntity(userIdFallback: String, syncedAt: Long = System.currentTimeMillis()): ProductEntity? {
@@ -494,6 +504,10 @@ fun Product.toEntity(userIdFallback: String, syncedAt: Long = System.currentTime
         stockQuantity = stockQuantity,
         category = category,
         syncedAt = syncedAt,
+        syncStatus = "SYNCED",
+        serverRevision = updatedAt,
+        serverUpdatedAt = syncedAt,
+        lastSyncedAt = syncedAt,
     )
 }
 
@@ -508,6 +522,7 @@ fun ProductEntity.toModel(): Product =
         currency = currency,
         stockQuantity = stockQuantity,
         category = category,
+        updatedAt = serverRevision,
     )
 
 fun DocumentSummary.toEntity(userId: String, syncedAt: Long = System.currentTimeMillis()): DocumentEntity =
@@ -533,6 +548,10 @@ fun DocumentSummary.toEntity(userId: String, syncedAt: Long = System.currentTime
         syncedAt = syncedAt,
         discountLabel = discountLabel,
         extraFeesLabel = extraFeesLabel,
+        syncStatus = "SYNCED",
+        serverRevision = updatedAt,
+        serverUpdatedAt = syncedAt,
+        lastSyncedAt = syncedAt,
     )
 
 fun DocumentEntity.toModel(): DocumentSummary =
@@ -556,6 +575,7 @@ fun DocumentEntity.toModel(): DocumentSummary =
         templateId = templateId,
         total = total.toDouble(),
         currency = currency,
+        updatedAt = serverRevision,
     )
 
 fun CompleteDocument.toEntity(userId: String, syncedAt: Long = System.currentTimeMillis()): DocumentEntity =
@@ -588,7 +608,7 @@ fun CompleteDocument.toEntity(userId: String, syncedAt: Long = System.currentTim
         termsText = termsText,
         syncStatus = "SYNCED",
         localRevision = 1,
-        serverRevision = id,
+        serverRevision = updatedAt,
         serverUpdatedAt = syncedAt,
         lastSyncedAt = syncedAt,
         syncErrorCode = null,

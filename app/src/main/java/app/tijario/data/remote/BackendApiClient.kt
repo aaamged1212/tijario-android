@@ -269,13 +269,10 @@ class BackendApiClient(
         val parsed = runCatching { apiJson.decodeFromString<T>(text) }.getOrNull()
         if (parsed != null) return parsed
 
-        return if (contentType.contains("application/json", ignoreCase = true)) {
-            throw IllegalStateException(
-                "Unexpected API response content type. ${responseDiagnostic(contentType, text)}",
-            )
-        } else {
-            fallback()
-        }
+        if (status.value in setOf(404, 405, 501)) return fallback()
+        throw IllegalStateException(
+            "Unexpected API response. status=${status.value}, ${responseDiagnostic(contentType, text)}",
+        )
     }
 
     private suspend inline fun <reified T> HttpResponse.decodeApiResultOrFallback(
@@ -307,12 +304,9 @@ class BackendApiClient(
     private fun url(path: String): String =
         "${config.apiBaseUrl.trimEnd('/')}/${path.trimStart('/')}"
 
-    private fun responseDiagnostic(contentType: String, body: String): String {
-        val preview = body.trim()
-            .replace(Regex("\\s+"), " ")
-            .take(120)
-        return "contentType=${contentType.ifBlank { "<empty>" }}, bodyPreview=${preview.ifBlank { "<empty>" }}"
-    }
+    private fun responseDiagnostic(contentType: String, body: String): String =
+        "contentType=${contentType.ifBlank { "<empty>" }}, bodyLength=${body.length}"
+
 }
 
 private fun AiV2ReplyRequest.toLegacyReplyRequest(): AiReplyRequest =
@@ -518,6 +512,7 @@ data class DocumentServerDto(
     val document_title: String? = null,
     val status: String,
     val payment_status: String?,
+    val amount_paid: Double? = null,
     val issue_date: String,
     val created_at: String? = null,
     val subtotal: Double,
@@ -539,6 +534,7 @@ data class DocumentServerDto(
 data class DocumentItemServerDto(
     val id: String,
     val document_id: String,
+    val product_id: String? = null,
     val name: String,
     val description: String?,
     val quantity: Int,

@@ -19,6 +19,7 @@ data class BusinessSettings(
     @SerialName("instagram_url") val instagramUrl: String? = null,
     @SerialName("invoice_note") val invoiceNote: String? = null,
     @SerialName("terms_text") val termsText: String? = null,
+    @SerialName("updated_at") val updatedAt: String? = null,
 )
 
 @Serializable
@@ -29,6 +30,7 @@ data class Customer(
     @SerialName("whatsapp_number") val whatsappNumber: String,
     val city: String? = null,
     val notes: String? = null,
+    @SerialName("updated_at") val updatedAt: String? = null,
 )
 
 @Serializable
@@ -42,6 +44,7 @@ data class Product(
     val currency: String = "SAR",
     @SerialName("stock_quantity") val stockQuantity: Int? = null,
     val category: String? = null,
+    @SerialName("updated_at") val updatedAt: String? = null,
 )
 
 @Serializable
@@ -71,6 +74,7 @@ data class DocumentSummary(
     @SerialName("document_language") val documentLanguage: String = "ar",
     val total: Double,
     val currency: String,
+    @SerialName("updated_at") val updatedAt: String? = null,
 )
 
 @Serializable
@@ -175,4 +179,5 @@ data class CompleteDocument(
     @SerialName("terms_text") val termsText: String? = null,
     val customer: Customer? = null,
     val items: List<DocumentItem> = emptyList(),
+    @SerialName("updated_at") val updatedAt: String? = null,
 )
