@@ -40,27 +40,14 @@ jobs:
       - name: Make Gradle wrapper executable
         run: chmod +x gradlew
 
-      - name: Extract remediation program
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          workflow = Path('.github/workflows/remediation-account-isolation.yml').read_text(encoding='utf-8').splitlines()
-          start = next(i for i, line in enumerate(workflow) if "python3 - <<'PY'" in line) + 1
-          end = next(i for i in range(start, len(workflow)) if workflow[i].strip() == 'PY')
-          program_lines = []
-          for line in workflow[start:end]:
-              program_lines.append(line[10:] if line.startswith('          ') else line)
-          Path('/tmp/account_isolation_remediation.py').write_text('\n'.join(program_lines) + '\n', encoding='utf-8')
-          PY
-
-      - name: Apply, verify, and record result
+      - name: Apply and verify remediation
         id: remediation
         shell: bash
         run: |
           mkdir -p docs/ai
           : > docs/ai/ACCOUNT_ISOLATION_RUN.log
           set +e
-          python3 /tmp/account_isolation_remediation.py >> docs/ai/ACCOUNT_ISOLATION_RUN.log 2>&1
+          python3 scripts/remediation/account_isolation.py . >> docs/ai/ACCOUNT_ISOLATION_RUN.log 2>&1
           script_status=$?
           if [ "$script_status" -eq 0 ]; then
             ./gradlew --no-daemon --stacktrace compileDebugKotlin testDebugUnitTest assembleDebugAndroidTest >> docs/ai/ACCOUNT_ISOLATION_RUN.log 2>&1
