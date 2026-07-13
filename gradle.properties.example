@@ -1,0 +1,7 @@
+# Copy these values to ~/.gradle/gradle.properties or pass them with -P.
+# Never commit service-role keys, signing credentials, database passwords, or backend secrets.
+
+TIJARIO_SUPABASE_URL=https://your-project.supabase.co
+TIJARIO_SUPABASE_ANON_KEY=your-public-anon-key
+TIJARIO_API_BASE_URL=https://your-api.example.com
+TIJARIO_GOOGLE_WEB_CLIENT_ID=your-web-client-id.apps.googleusercontent.com
