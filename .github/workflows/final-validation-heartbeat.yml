@@ -1,0 +1,88 @@
+name: Final Validation Heartbeat
+
+on:
+  push:
+    branches:
+      - fix/full-audit-remediation
+    paths:
+      - .github/workflows/final-validation-heartbeat.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: final-validation-heartbeat
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout remediation branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/full-audit-remediation
+          fetch-depth: 0
+
+      - name: Publish start marker
+        run: |
+          tested_commit=$(git rev-parse HEAD)
+          mkdir -p docs/ai
+          printf '# Validation heartbeat\n\n- Tested commit: `%s`\n- State: running\n' "$tested_commit" > docs/ai/VALIDATION_HEARTBEAT.md
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/ai/VALIDATION_HEARTBEAT.md
+          git commit -m "test(android): start validation heartbeat"
+          git push origin HEAD:fix/full-audit-remediation
+          echo "$tested_commit" > /tmp/tested_commit
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x gradlew
+
+      - name: Compile and run unit tests
+        id: verify
+        shell: bash
+        run: |
+          set +e
+          ./gradlew --no-daemon --stacktrace compileDebugKotlin testDebugUnitTest assembleDebugAndroidTest > /tmp/VALIDATION_HEARTBEAT.log 2>&1
+          status=$?
+          set -e
+          echo "$status" > /tmp/validation_status
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+
+      - name: Publish result on latest head
+        if: always()
+        run: |
+          tested_commit=$(cat /tmp/tested_commit)
+          status=$(cat /tmp/validation_status 2>/dev/null || echo 1)
+          git fetch origin fix/full-audit-remediation
+          git reset --hard origin/fix/full-audit-remediation
+          mkdir -p docs/ai
+          cp /tmp/VALIDATION_HEARTBEAT.log docs/ai/VALIDATION_HEARTBEAT.log || true
+          {
+            echo '# Validation heartbeat'
+            echo
+            echo "- Tested commit: \`$tested_commit\`"
+            echo "- Exit status: \`$status\`"
+            echo "- State: $([ "$status" = "0" ] && echo passed || echo failed)"
+          } > docs/ai/VALIDATION_HEARTBEAT.md
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/ai/VALIDATION_HEARTBEAT.md docs/ai/VALIDATION_HEARTBEAT.log
+          git commit -m "test(android): record validation heartbeat" || exit 0
+          git push origin HEAD:fix/full-audit-remediation
+
+      - name: Enforce result
+        if: always()
+        run: test "$(cat /tmp/validation_status 2>/dev/null || echo 1)" = "0"
