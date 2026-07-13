@@ -1,0 +1,44 @@
+name: Apply Sync Correctness
+
+on:
+  push:
+    branches:
+      - fix/full-audit-remediation
+    paths:
+      - .github/workflows/apply-sync-correctness.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apply-sync-correctness
+  cancel-in-progress: true
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout remediation branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/full-audit-remediation
+          fetch-depth: 0
+
+      - name: Apply deterministic remediation
+        run: python3 scripts/remediation/sync_correctness.py .
+
+      - name: Commit to remediation branch
+        run: |
+          if git diff --quiet; then
+            echo "Sync correctness is already applied."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/java/app/tijario/data/model/TijarioModels.kt
+          git add app/src/main/java/app/tijario/data/remote/BackendApiClient.kt
+          git add app/src/main/java/app/tijario/data/local/TijarioEntities.kt
+          git add app/src/main/java/app/tijario/data/repository/TijarioRepository.kt
+          git commit -m "fix(android): harden sync revisions and offline quota"
+          git push origin HEAD:fix/full-audit-remediation
