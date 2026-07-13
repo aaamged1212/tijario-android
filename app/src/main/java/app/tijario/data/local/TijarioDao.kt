@@ -110,6 +110,9 @@ interface TijarioDao {
     @Query("DELETE FROM local_taxes")
     suspend fun clearLocalTaxes()
 
+    @Query("DELETE FROM local_taxes WHERE user_id = :userId")
+    suspend fun deleteLocalTaxesForUser(userId: String)
+
     @Query("SELECT * FROM local_payment_methods WHERE user_id = :userId ORDER BY name COLLATE NOCASE ASC")
     fun observeLocalPaymentMethods(userId: String): Flow<List<LocalPaymentMethodEntity>>
 
@@ -121,6 +124,9 @@ interface TijarioDao {
 
     @Query("DELETE FROM local_payment_methods")
     suspend fun clearLocalPaymentMethods()
+
+    @Query("DELETE FROM local_payment_methods WHERE user_id = :userId")
+    suspend fun deleteLocalPaymentMethodsForUser(userId: String)
 
     @Query("SELECT * FROM local_signatures WHERE user_id = :userId ORDER BY name COLLATE NOCASE ASC")
     fun observeLocalSignatures(userId: String): Flow<List<LocalSignatureEntity>>
@@ -134,6 +140,9 @@ interface TijarioDao {
     @Query("DELETE FROM local_signatures")
     suspend fun clearLocalSignatures()
 
+    @Query("DELETE FROM local_signatures WHERE user_id = :userId")
+    suspend fun deleteLocalSignaturesForUser(userId: String)
+
     @Query("SELECT * FROM local_terms WHERE user_id = :userId ORDER BY title COLLATE NOCASE ASC")
     fun observeLocalTerms(userId: String): Flow<List<LocalTermsEntity>>
 
@@ -146,6 +155,9 @@ interface TijarioDao {
     @Query("DELETE FROM local_terms")
     suspend fun clearLocalTerms()
 
+    @Query("DELETE FROM local_terms WHERE user_id = :userId")
+    suspend fun deleteLocalTermsForUser(userId: String)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertDocumentMetadata(metadata: LocalDocumentMetadataEntity)
 
@@ -157,6 +169,9 @@ interface TijarioDao {
 
     @Query("DELETE FROM local_document_metadata")
     suspend fun clearLocalDocumentMetadata()
+
+    @Query("DELETE FROM local_document_metadata WHERE user_id = :userId")
+    suspend fun deleteLocalDocumentMetadataForUser(userId: String)
 
     // V7 Sync state queries
     @Query("SELECT * FROM sync_state WHERE user_id = :userId LIMIT 1")

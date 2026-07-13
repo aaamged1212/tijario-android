@@ -280,19 +280,18 @@ class BackendApiClient(
     ): ApiResult<T> {
         val contentType = headers[HttpHeaders.ContentType].orEmpty()
         val text = bodyAsText()
-        return runCatching {
-            apiJson.decodeFromString<ApiResult<T>>(text)
-        }.getOrElse {
-            if (contentType.contains("application/json", ignoreCase = true)) {
-                ApiResult(
-                    ok = false,
-                    code = "invalid_api_response",
-                    message = "تعذر قراءة رد الخادم. حاول مرة أخرى بعد قليل.",
-                )
+        val parsed = runCatching { apiJson.decodeFromString<ApiResult<T>>(text) }.getOrNull()
+        if (parsed != null) return parsed
+        if (status.value in setOf(404, 405, 501)) return fallback()
+        return ApiResult(
+            ok = false,
+            code = if (contentType.contains("application/json", ignoreCase = true)) {
+                "invalid_api_response"
             } else {
-                fallback()
-            }
-        }
+                "unexpected_api_response"
+            },
+            message = "تعذر قراءة رد الخادم. حاول مرة أخرى بعد قليل.",
+        )
     }
 
     private suspend fun io.ktor.client.request.HttpRequestBuilder.attachBearerToken() {

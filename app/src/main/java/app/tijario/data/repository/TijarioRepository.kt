@@ -255,7 +255,7 @@ open class TijarioRepository(
         } else {
             val first = pending.first()
             when {
-            first.operation == "CREATE" && (operation == "CREATE" || operation == "UPDATE") -> {
+                first.operation == "CREATE" && (operation == "CREATE" || operation == "UPDATE") -> {
                 // CREATE + CREATE or CREATE + UPDATE -> Keep CREATE
             }
             first.operation == "UPDATE" && operation == "UPDATE" -> {
@@ -306,7 +306,6 @@ open class TijarioRepository(
                     deletedMinimalPayload = null
                 )
                 dao.upsertOutbox(entry)
-            }
             }
         }
         SyncScheduler(context).triggerSync(userId)
@@ -2158,6 +2157,11 @@ open class TijarioRepository(
                 dao.deleteCustomers(userId)
                 dao.deleteProducts(userId)
                 dao.deleteDocuments(userId)
+                dao.deleteLocalTaxesForUser(userId)
+                dao.deleteLocalPaymentMethodsForUser(userId)
+                dao.deleteLocalSignaturesForUser(userId)
+                dao.deleteLocalTermsForUser(userId)
+                dao.deleteLocalDocumentMetadataForUser(userId)
                 dao.deleteOutboxForUser(userId)
                 dao.deleteLeasesForUser(userId)
                 dao.deleteLedgerForUser(userId)
