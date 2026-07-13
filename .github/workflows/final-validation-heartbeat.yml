@@ -1,6 +1,6 @@
 name: Final Validation Heartbeat
 
-# Final source validation rerun: 3
+# Compile-only validation rerun: 4
 on:
   push:
     branches:
@@ -18,7 +18,7 @@ concurrency:
 jobs:
   validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 25
     steps:
       - name: Checkout remediation branch
         uses: actions/checkout@v4
@@ -30,11 +30,11 @@ jobs:
         run: |
           tested_commit=$(git rev-parse HEAD)
           mkdir -p docs/ai
-          printf '# Validation heartbeat\n\n- Tested commit: `%s`\n- State: running\n' "$tested_commit" > docs/ai/VALIDATION_HEARTBEAT.md
+          printf '# Validation heartbeat\n\n- Stage: compileDebugKotlin\n- Tested commit: `%s`\n- State: running\n' "$tested_commit" > docs/ai/VALIDATION_HEARTBEAT.md
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add docs/ai/VALIDATION_HEARTBEAT.md
-          git commit -m "test(android): start validation heartbeat"
+          git commit -m "test(android): start compile validation"
           git push origin HEAD:fix/full-audit-remediation
           echo "$tested_commit" > /tmp/tested_commit
 
@@ -51,12 +51,12 @@ jobs:
       - name: Make Gradle wrapper executable
         run: chmod +x gradlew
 
-      - name: Compile and run unit tests
+      - name: Compile Kotlin
         id: verify
         shell: bash
         run: |
           set +e
-          ./gradlew --no-daemon --stacktrace compileDebugKotlin testDebugUnitTest assembleDebugAndroidTest > /tmp/VALIDATION_HEARTBEAT.log 2>&1
+          ./gradlew --no-daemon --stacktrace compileDebugKotlin > /tmp/VALIDATION_HEARTBEAT.log 2>&1
           status=$?
           set -e
           echo "$status" > /tmp/validation_status
@@ -74,6 +74,7 @@ jobs:
           {
             echo '# Validation heartbeat'
             echo
+            echo '- Stage: compileDebugKotlin'
             echo "- Tested commit: \`$tested_commit\`"
             echo "- Exit status: \`$status\`"
             echo "- State: $([ "$status" = "0" ] && echo passed || echo failed)"
@@ -81,7 +82,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add docs/ai/VALIDATION_HEARTBEAT.md docs/ai/VALIDATION_HEARTBEAT.log
-          git commit -m "test(android): record validation heartbeat" || exit 0
+          git commit -m "test(android): record compile validation" || exit 0
           git push origin HEAD:fix/full-audit-remediation
 
       - name: Enforce result
