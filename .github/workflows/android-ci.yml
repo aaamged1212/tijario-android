@@ -50,13 +50,28 @@ jobs:
             testDebugUnitTest \
             assembleDebugAndroidTest 2>&1 | tee gradle-fast-verify.log
 
-      - name: Print focused failure diagnostics
+      - name: Extract focused failure diagnostics
         if: failure()
         shell: bash
         run: |
           if [[ -f gradle-fast-verify.log ]]; then
-            grep -E -i -C 3 '(^e: |error:|FAILURE:|Execution failed for task|What went wrong|Caused by:)' gradle-fast-verify.log | tail -n 300 || true
+            grep -E -i -C 3 '(^e: |error:|FAILURE:|Execution failed for task|What went wrong|Caused by:)' gradle-fast-verify.log \
+              | tail -n 300 \
+              > gradle-fast-verify-diagnostics.log || true
           fi
+          if [[ ! -s gradle-fast-verify-diagnostics.log ]]; then
+            tail -n 300 gradle-fast-verify.log > gradle-fast-verify-diagnostics.log || true
+          fi
+          cat gradle-fast-verify-diagnostics.log
+
+      - name: Upload focused failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gradle-fast-verify-diagnostics
+          path: gradle-fast-verify-diagnostics.log
+          if-no-files-found: error
+          retention-days: 7
 
   release-verify:
     name: Lint and release assembly
@@ -89,10 +104,25 @@ jobs:
             assembleDebug \
             assembleRelease 2>&1 | tee gradle-release-verify.log
 
-      - name: Print focused failure diagnostics
+      - name: Extract focused failure diagnostics
         if: failure()
         shell: bash
         run: |
           if [[ -f gradle-release-verify.log ]]; then
-            grep -E -i -C 3 '(^e: |error:|FAILURE:|Execution failed for task|What went wrong|Caused by:)' gradle-release-verify.log | tail -n 300 || true
+            grep -E -i -C 3 '(^e: |error:|FAILURE:|Execution failed for task|What went wrong|Caused by:)' gradle-release-verify.log \
+              | tail -n 300 \
+              > gradle-release-verify-diagnostics.log || true
           fi
+          if [[ ! -s gradle-release-verify-diagnostics.log ]]; then
+            tail -n 300 gradle-release-verify.log > gradle-release-verify-diagnostics.log || true
+          fi
+          cat gradle-release-verify-diagnostics.log
+
+      - name: Upload focused failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gradle-release-verify-diagnostics
+          path: gradle-release-verify-diagnostics.log
+          if-no-files-found: error
+          retention-days: 7
