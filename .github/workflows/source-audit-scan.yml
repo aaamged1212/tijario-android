@@ -10,6 +10,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: source-audit-scan
+  cancel-in-progress: true
+
 jobs:
   scan:
     runs-on: ubuntu-latest
@@ -22,17 +26,21 @@ jobs:
           fetch-depth: 0
 
       - name: Scan source
+        id: scan
         shell: bash
         run: |
           mkdir -p docs/ai
+          force_unwraps=$(grep -R -n --include='*.kt' '!!' app/src/main/java || true)
+          print_helper=$(grep -R -n --include='*.kt' -E 'android\.print\.PrintHelper|PrintHelper\.runWrite|package android\.print' app/src/main/java || true)
+          stack_traces=$(grep -R -n --include='*.kt' -E 'printStackTrace\(|System\.out\.|println\(' app/src/main/java || true)
           {
             echo "# Remaining source audit scan"
             echo
             echo "## Force unwraps"
-            grep -R -n --include='*.kt' '!!' app/src/main/java || true
+            if [ -n "$force_unwraps" ]; then echo "$force_unwraps"; else echo "None."; fi
             echo
-            echo "## Print helper usage"
-            grep -R -n --include='*.kt' -E 'android\.print\.PrintHelper|PrintHelper\.runWrite|package android\.print' app/src/main/java || true
+            echo "## Package-level print helper usage"
+            if [ -n "$print_helper" ]; then echo "$print_helper"; else echo "None."; fi
             echo
             echo "## Empty or silent catches"
             grep -R -n --include='*.kt' -E 'catch \([^)]*\) \{[[:space:]]*\}|catch \([^)]*\)' app/src/main/java || true
@@ -40,14 +48,21 @@ jobs:
             echo "## Kotlin files by line count"
             find app/src/main/java -name '*.kt' -print0 | xargs -0 wc -l | sort -nr | head -40
             echo
-            echo "## Direct MainActivity global state usage"
+            echo "## MainActivity compatibility facade usage"
             grep -R -n --include='*.kt' 'MainActivity\.' app/src/main/java || true
             echo
-            echo "## Inline Android log/stacktrace usage"
-            grep -R -n --include='*.kt' -E 'printStackTrace\(|System\.out\.|println\(' app/src/main/java || true
+            echo "## Inline stdout/stacktrace usage"
+            if [ -n "$stack_traces" ]; then echo "$stack_traces"; else echo "None."; fi
           } > /tmp/SOURCE_AUDIT_SCAN.md
 
+          status=0
+          [ -z "$force_unwraps" ] || status=1
+          [ -z "$print_helper" ] || status=1
+          [ -z "$stack_traces" ] || status=1
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+
       - name: Commit scan on latest head
+        if: always()
         run: |
           git fetch origin fix/full-audit-remediation
           git reset --hard origin/fix/full-audit-remediation
@@ -56,5 +71,9 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add docs/ai/SOURCE_AUDIT_SCAN.md
-          git commit -m "audit(android): record remaining source smells" || exit 0
+          git commit -m "audit(android): refresh source smell scan" || exit 0
           git push origin HEAD:fix/full-audit-remediation
+
+      - name: Fail on unsafe patterns
+        if: steps.scan.outputs.status != '0'
+        run: exit 1
