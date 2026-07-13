@@ -11,7 +11,7 @@ permissions:
   contents: write
 
 jobs:
-  repair-room-migration:
+  repair-release-blockers:
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
@@ -35,38 +35,74 @@ jobs:
       - name: Make Gradle wrapper executable
         run: chmod +x gradlew
 
-      - name: Repair Room migration 6 to 7
+      - name: Repair Room migration and first outbox scheduling
         shell: python
         run: |
           from pathlib import Path
 
-          path = Path("app/src/main/java/app/tijario/data/local/TijarioDatabase.kt")
-          source = path.read_text(encoding="utf-8")
-          needle = """                        lock_expires_at INTEGER,
+          db_path = Path("app/src/main/java/app/tijario/data/local/TijarioDatabase.kt")
+          db_source = db_path.read_text(encoding="utf-8")
+          old_column_block = """                        lock_expires_at INTEGER,
                         last_error TEXT,"""
-          replacement = """                        lock_expires_at INTEGER,
+          new_column_block = """                        lock_expires_at INTEGER,
                         next_retry_at INTEGER NOT NULL DEFAULT 0,
                         last_error TEXT,"""
+          if old_column_block in db_source:
+              db_source = db_source.replace(old_column_block, new_column_block, 1)
+          elif new_column_block not in db_source:
+              raise SystemExit("Could not locate sync_outbox migration column block")
+          db_path.write_text(db_source, encoding="utf-8")
 
-          if source.count(needle) != 1:
-              raise SystemExit("Expected exactly one sync_outbox migration block to repair")
+          repo_path = Path("app/src/main/java/app/tijario/data/repository/TijarioRepository.kt")
+          repo_source = repo_path.read_text(encoding="utf-8")
+          old_first_entry = """            dao.upsertOutbox(entry)
+            return
+        }
 
-          path.write_text(source.replace(needle, replacement), encoding="utf-8")
+        val first = pending.first()
+        when {"""
+          new_first_entry = """            dao.upsertOutbox(entry)
+        } else {
+            val first = pending.first()
+            when {"""
+          if old_first_entry in repo_source:
+              repo_source = repo_source.replace(old_first_entry, new_first_entry, 1)
+              old_tail = """            }
+        }
+        SyncScheduler(context).triggerSync(userId)
+    }
 
-      - name: Compile migration tests
+    // Remote Cache Ingestion Policy"""
+              new_tail = """            }
+            }
+        }
+        SyncScheduler(context).triggerSync(userId)
+    }
+
+    // Remote Cache Ingestion Policy"""
+              if old_tail not in repo_source:
+                  raise SystemExit("Could not close outbox compaction else block")
+              repo_source = repo_source.replace(old_tail, new_tail, 1)
+          elif "        } else {\n            val first = pending.first()" not in repo_source:
+              raise SystemExit("Could not locate first outbox scheduling defect")
+          repo_path.write_text(repo_source, encoding="utf-8")
+
+      - name: Verify phase one
         run: >-
           ./gradlew --no-daemon --stacktrace
           compileDebugKotlin
+          testDebugUnitTest
           assembleDebugAndroidTest
 
-      - name: Commit migration repair
+      - name: Commit phase one fixes
         run: |
           if git diff --quiet; then
-            echo "Migration repair already applied."
+            echo "Phase one fixes already applied."
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add app/src/main/java/app/tijario/data/local/TijarioDatabase.kt
-          git commit -m "fix(android): repair Room migration 6 to 7"
+          git add app/src/main/java/app/tijario/data/repository/TijarioRepository.kt
+          git commit -m "fix(android): close migration and outbox blockers"
           git push origin HEAD:fix/full-audit-remediation
