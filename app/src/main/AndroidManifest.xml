@@ -33,13 +33,14 @@
             android:name="com.facebook.sdk.ClientToken"
             android:value="@string/facebook_client_token" />
 
+        <!-- Keep automatic collection disabled. Explicit events can be emitted only after the app's privacy/consent flow allows them. -->
         <meta-data
             android:name="com.facebook.sdk.AutoLogAppEventsEnabled"
-            android:value="true" />
+            android:value="false" />
 
         <meta-data
             android:name="com.facebook.sdk.AdvertiserIDCollectionEnabled"
-            android:value="true" />
+            android:value="false" />
 
         <activity
             android:name=".MainActivity"
