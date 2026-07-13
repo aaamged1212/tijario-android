@@ -1,0 +1,38 @@
+name: Apply PDF Renderer
+
+on:
+  push:
+    branches:
+      - fix/full-audit-remediation
+    paths:
+      - .github/workflows/apply-pdf-renderer.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout remediation branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/full-audit-remediation
+          fetch-depth: 0
+
+      - name: Apply deterministic remediation
+        run: python3 scripts/remediation/replace_print_helper.py .
+
+      - name: Commit to remediation branch
+        run: |
+          if git diff --quiet; then
+            echo "Official PDF renderer is already applied."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A app/src/main/java/android/print/PrintHelper.kt
+          git add app/src/main/java/app/tijario/features/documents/pdf/LocalPdfGenerator.kt
+          git commit -m "refactor(android): replace package-level print helper"
+          git push origin HEAD:fix/full-audit-remediation
