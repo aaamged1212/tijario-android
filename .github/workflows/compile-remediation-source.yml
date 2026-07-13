@@ -1,0 +1,79 @@
+name: Compile Remediation Source
+
+on:
+  push:
+    branches:
+      - fix/full-audit-remediation
+    paths:
+      - .github/workflows/compile-remediation-source.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: compile-remediation-source
+  cancel-in-progress: true
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout remediation branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/full-audit-remediation
+          fetch-depth: 0
+
+      - name: Record source commit
+        run: git rev-parse HEAD > /tmp/source_commit
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x gradlew
+
+      - name: Compile Kotlin
+        id: compile
+        shell: bash
+        run: |
+          set +e
+          ./gradlew --no-daemon --stacktrace compileDebugKotlin > /tmp/COMPILE_VALIDATION.log 2>&1
+          status=$?
+          set -e
+          echo "$status" > /tmp/compile_status
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+
+      - name: Publish compile result
+        if: always()
+        run: |
+          source_commit=$(cat /tmp/source_commit)
+          status=$(cat /tmp/compile_status 2>/dev/null || echo 1)
+          git fetch origin fix/full-audit-remediation
+          git reset --hard origin/fix/full-audit-remediation
+          mkdir -p docs/ai
+          cp /tmp/COMPILE_VALIDATION.log docs/ai/COMPILE_VALIDATION.log || true
+          {
+            echo '# Compile validation'
+            echo
+            echo "- Source commit: \`$source_commit\`"
+            echo "- Exit status: \`$status\`"
+            echo "- State: $([ "$status" = "0" ] && echo passed || echo failed)"
+          } > docs/ai/COMPILE_VALIDATION.md
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/ai/COMPILE_VALIDATION.md docs/ai/COMPILE_VALIDATION.log
+          git commit -m "test(android): record compile validation" || exit 0
+          git push origin HEAD:fix/full-audit-remediation
+
+      - name: Enforce compile result
+        if: always()
+        run: test "$(cat /tmp/compile_status 2>/dev/null || echo 1)" = "0"
