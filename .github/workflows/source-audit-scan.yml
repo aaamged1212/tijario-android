@@ -33,6 +33,9 @@ jobs:
           force_unwraps=$(grep -R -n --include='*.kt' '!!' app/src/main/java || true)
           print_helper=$(grep -R -n --include='*.kt' -E 'android\.print\.PrintHelper|PrintHelper\.runWrite|package android\.print' app/src/main/java || true)
           stack_traces=$(grep -R -n --include='*.kt' -E 'printStackTrace\(|System\.out\.|println\(' app/src/main/java || true)
+          activity_facade=$(grep -R -n --include='*.kt' 'MainActivity\.' app/src/main/java || true)
+          analytics_calls=$(grep -R -n --include='*.kt' 'TijarioAnalytics\.logEvent' app/src/main/java || true)
+          arabic_literals=$(grep -R -o --include='*.kt' '"[^"]*[ء-ي][^"]*"' app/src/main/java | wc -l | tr -d ' ')
           {
             echo "# Remaining source audit scan"
             echo
@@ -42,14 +45,20 @@ jobs:
             echo "## Package-level print helper usage"
             if [ -n "$print_helper" ]; then echo "$print_helper"; else echo "None."; fi
             echo
-            echo "## Empty or silent catches"
-            grep -R -n --include='*.kt' -E 'catch \([^)]*\) \{[[:space:]]*\}|catch \([^)]*\)' app/src/main/java || true
+            echo "## MainActivity global facade usage"
+            if [ -n "$activity_facade" ]; then echo "$activity_facade"; else echo "None."; fi
+            echo
+            echo "## Analytics event calls"
+            if [ -n "$analytics_calls" ]; then echo "$analytics_calls"; else echo "None."; fi
+            echo
+            echo "## Arabic string literal count"
+            echo "$arabic_literals"
+            echo
+            echo "## Catch blocks for review"
+            grep -R -n --include='*.kt' -E 'catch \([^)]*\)' app/src/main/java || true
             echo
             echo "## Kotlin files by line count"
             find app/src/main/java -name '*.kt' -print0 | xargs -0 wc -l | sort -nr | head -40
-            echo
-            echo "## MainActivity compatibility facade usage"
-            grep -R -n --include='*.kt' 'MainActivity\.' app/src/main/java || true
             echo
             echo "## Inline stdout/stacktrace usage"
             if [ -n "$stack_traces" ]; then echo "$stack_traces"; else echo "None."; fi
@@ -59,6 +68,7 @@ jobs:
           [ -z "$force_unwraps" ] || status=1
           [ -z "$print_helper" ] || status=1
           [ -z "$stack_traces" ] || status=1
+          [ -z "$activity_facade" ] || status=1
           echo "status=$status" >> "$GITHUB_OUTPUT"
 
       - name: Commit scan on latest head
@@ -71,7 +81,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add docs/ai/SOURCE_AUDIT_SCAN.md
-          git commit -m "audit(android): refresh source smell scan" || exit 0
+          git commit -m "audit(android): refresh final source scan" || exit 0
           git push origin HEAD:fix/full-audit-remediation
 
       - name: Fail on unsafe patterns
