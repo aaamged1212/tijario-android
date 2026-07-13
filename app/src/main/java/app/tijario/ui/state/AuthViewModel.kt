@@ -4,7 +4,7 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import app.tijario.MainActivity
+import app.tijario.config.AppRuntimeState
 import app.tijario.BuildConfig
 import app.tijario.config.Localization
 import app.tijario.domain.LocalizedErrorMapper
@@ -83,7 +83,7 @@ class AuthViewModel(
                     )
                 } else {
                     _authState.value = CentralAuthState.Error(
-                        LocalizedErrorMapper.map(null, e.message, MainActivity.currentLanguage)
+                        LocalizedErrorMapper.map(null, e.message, AppRuntimeState.currentLanguage)
                     )
                 }
             }
@@ -100,7 +100,7 @@ class AuthViewModel(
                         checkCurrentSession()
                     } else {
                         _authState.value = CentralAuthState.Error(
-                            Localization.getString("error_after_verification_check", MainActivity.currentLanguage)
+                            Localization.getString("error_after_verification_check", AppRuntimeState.currentLanguage)
                         )
                     }
                 }
@@ -109,7 +109,7 @@ class AuthViewModel(
                         android.util.Log.d("AuthViewModel", "Google Sign-In Error: ${result.message}")
                     }
                     _authState.value = CentralAuthState.Error(
-                        Localization.getString("google_login_error", MainActivity.currentLanguage)
+                        Localization.getString("google_login_error", AppRuntimeState.currentLanguage)
                     )
                 }
                 is io.github.jan.supabase.compose.auth.composable.NativeSignInResult.ClosedByUser -> {
@@ -117,7 +117,7 @@ class AuthViewModel(
                 }
                 is io.github.jan.supabase.compose.auth.composable.NativeSignInResult.NetworkError -> {
                     _authState.value = CentralAuthState.Error(
-                        Localization.getString("error_network", MainActivity.currentLanguage)
+                        Localization.getString("error_network", AppRuntimeState.currentLanguage)
                     )
                 }
             }
@@ -162,7 +162,7 @@ class AuthViewModel(
                 }
             } catch (e: Exception) {
                 _authState.value = CentralAuthState.Error(
-                    LocalizedErrorMapper.map(null, e.message, MainActivity.currentLanguage)
+                    LocalizedErrorMapper.map(null, e.message, AppRuntimeState.currentLanguage)
                 )
             }
         }

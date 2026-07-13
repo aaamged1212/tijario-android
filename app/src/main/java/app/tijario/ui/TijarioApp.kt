@@ -74,7 +74,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
 import android.net.Uri
-import app.tijario.MainActivity
+import app.tijario.config.AppRuntimeState
 import app.tijario.config.loadAppConfig
 import app.tijario.config.t
 import app.tijario.ui.screens.AccountScreen
@@ -196,7 +196,7 @@ private fun TijarioAppContent() {
                     authState is CentralAuthState.AuthenticatedNeedsOnboarding)
             ) {
                 dataViewModel.refreshPlanUsage(force = false)
-                notificationsViewModel.syncTopic(MainActivity.currentLanguage)
+                notificationsViewModel.syncTopic(AppRuntimeState.currentLanguage)
             }
         }
 
@@ -216,7 +216,7 @@ private fun TijarioAppContent() {
         is CentralAuthState.Unauthenticated, is CentralAuthState.AwaitingEmailVerification -> {
             // Unauthenticated Graph
             val navController = rememberNavController()
-            val authDeepLinkTarget = MainActivity.authDeepLinkTarget
+            val authDeepLinkTarget = AppRuntimeState.authDeepLinkTarget
             val initialAuthRoute = when {
                 state is CentralAuthState.AwaitingEmailVerification -> "verify-email"
                 authDeepLinkTarget == "/login" -> "login"
@@ -229,7 +229,7 @@ private fun TijarioAppContent() {
                         popUpTo(navController.graph.startDestinationId) { inclusive = true }
                         launchSingleTop = true
                     }
-                    MainActivity.consumeAuthDeepLinkTarget()
+                    AppRuntimeState.consumeAuthDeepLinkTarget()
                 }
             }
 
@@ -324,8 +324,8 @@ private fun TijarioAppContent() {
                 dataUiState.userId?.let { notificationsViewModel.start(it) }
             }
 
-            LaunchedEffect(dataUiState.userId, MainActivity.currentLanguage) {
-                notificationsViewModel.syncTopic(MainActivity.currentLanguage)
+            LaunchedEffect(dataUiState.userId, AppRuntimeState.currentLanguage) {
+                notificationsViewModel.syncTopic(AppRuntimeState.currentLanguage)
             }
 
             val pendingAnnouncementId = NotificationDeepLinkState.pendingAnnouncementId
@@ -339,7 +339,7 @@ private fun TijarioAppContent() {
             notificationsState.startupAnnouncement?.let { startup ->
                 StartupAnnouncementDialog(
                     announcement = startup,
-                    language = MainActivity.currentLanguage,
+                    language = AppRuntimeState.currentLanguage,
                     onViewDetails = {
                         notificationsViewModel.markRead(startup.id, "startup")
                         notificationsViewModel.clearStartup()
@@ -356,7 +356,7 @@ private fun TijarioAppContent() {
                     onFinished = {
                         AppPreferences.setPushEnabled(context, true)
                         showNotificationPrompt = false
-                        notificationsViewModel.syncTopic(MainActivity.currentLanguage)
+                        notificationsViewModel.syncTopic(AppRuntimeState.currentLanguage)
                     }
                 )
             }
@@ -447,7 +447,7 @@ private fun TijarioAppContent() {
                             }
                         },
                         bottomBar = {
-                            val selectedNavAccent = if (MainActivity.isDarkMode) Color(0xFF14B8A6) else Color(0xFF0D9488)
+                            val selectedNavAccent = if (AppRuntimeState.isDarkMode) Color(0xFF14B8A6) else Color(0xFF0D9488)
                             NavigationBar(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -900,7 +900,7 @@ private fun TijarioAppContent() {
             val errorMessage = when (state.message) {
                 "فشل فحص حالة الجلسة" -> t("error_session_check_failed")
                 "حدث خطأ أثناء فحص البيانات بعد التحقق." -> t("error_after_verification_check")
-                else -> LocalizedErrorMapper.map(null, state.message, MainActivity.currentLanguage)
+                else -> LocalizedErrorMapper.map(null, state.message, AppRuntimeState.currentLanguage)
             }
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Column(

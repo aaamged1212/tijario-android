@@ -18,31 +18,6 @@ import app.tijario.ui.TijarioApp
 import app.tijario.ui.theme.TijarioTheme
 
 class MainActivity : ComponentActivity() {
-    /**
-     * Compatibility facade for existing screens. Runtime values are owned by
-     * AppRuntimeState rather than the Activity companion/lifecycle.
-     */
-    companion object {
-        var currentLanguage: AppLanguage
-            get() = AppRuntimeState.currentLanguage
-            set(value) {
-                AppRuntimeState.currentLanguage = value
-            }
-
-        var isDarkMode: Boolean
-            get() = AppRuntimeState.isDarkMode
-            set(value) {
-                AppRuntimeState.isDarkMode = value
-            }
-
-        val authDeepLinkTarget: String?
-            get() = AppRuntimeState.authDeepLinkTarget
-
-        fun consumeAuthDeepLinkTarget() {
-            AppRuntimeState.consumeAuthDeepLinkTarget()
-        }
-    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)

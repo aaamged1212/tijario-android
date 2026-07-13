@@ -5,7 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import app.tijario.config.Supabase
-import app.tijario.MainActivity
+import app.tijario.config.AppRuntimeState
 import app.tijario.config.Localization
 import app.tijario.config.AppLanguage
 import app.tijario.data.local.TijarioDatabase
@@ -75,7 +75,7 @@ class NotificationsViewModel(
                             isLoading = false,
                             isOffline = true,
                             startupAnnouncement = startup,
-                            errorMessage = if (MainActivity.currentLanguage == AppLanguage.AR) {
+                            errorMessage = if (AppRuntimeState.currentLanguage == AppLanguage.AR) {
                                 Localization.getString("notifications_refresh_failed", AppLanguage.AR)
                             } else {
                                 Localization.getString("notifications_refresh_failed", AppLanguage.EN)

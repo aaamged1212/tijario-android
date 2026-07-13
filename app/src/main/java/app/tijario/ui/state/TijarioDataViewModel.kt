@@ -18,7 +18,7 @@ import app.tijario.data.remote.AiV2ReplyRequest
 import app.tijario.data.remote.AiV2ReportRequest
 import app.tijario.data.remote.AiV2Response
 import app.tijario.data.repository.TijarioRepository
-import app.tijario.MainActivity
+import app.tijario.config.AppRuntimeState
 import app.tijario.config.Localization
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -153,7 +153,7 @@ class TijarioDataViewModel(
                     uiStateMutable.update { state -> state.copy(planUsage = cachedUsage) }
                 } else if (planUsageStateMutable.value !is PlanUsageState.Success) {
                     planUsageStateMutable.value = PlanUsageState.Error(
-                    Localization.getString("billing_plan_refresh_failed", MainActivity.currentLanguage)
+                    Localization.getString("billing_plan_refresh_failed", AppRuntimeState.currentLanguage)
                     )
                 }
             }

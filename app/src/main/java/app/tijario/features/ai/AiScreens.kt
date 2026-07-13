@@ -68,7 +68,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import app.tijario.MainActivity
+import app.tijario.config.AppRuntimeState
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.tijario.config.AppLanguage
 import app.tijario.config.LocalLanguage
@@ -100,7 +100,7 @@ data class SaaSColorScheme(
 
 @Composable
 fun getSaaSColors(): SaaSColorScheme {
-    val isDark = MainActivity.isDarkMode
+    val isDark = AppRuntimeState.isDarkMode
     return if (isDark) {
         SaaSColorScheme(
             background = Color(0xFF0F1115),

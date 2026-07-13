@@ -37,7 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import android.util.Log
-import app.tijario.MainActivity
+import app.tijario.config.AppRuntimeState
 import app.tijario.config.AppLanguage
 import app.tijario.config.AppPreferences
 import app.tijario.config.LocalLanguage
@@ -76,9 +76,9 @@ private fun AuthLanguageToggle(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     IconButton(
         onClick = {
-            MainActivity.currentLanguage =
+            AppRuntimeState.currentLanguage =
                 if (language == AppLanguage.AR) AppLanguage.EN else AppLanguage.AR
-            AppPreferences.setLanguage(context, MainActivity.currentLanguage)
+            AppPreferences.setLanguage(context, AppRuntimeState.currentLanguage)
         },
         modifier = modifier
             .size(38.dp)

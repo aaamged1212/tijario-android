@@ -104,7 +104,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.tijario.config.AppLanguage
 import app.tijario.config.Localization
-import app.tijario.MainActivity
+import app.tijario.config.AppRuntimeState
 import app.tijario.config.Supabase
 import app.tijario.config.t
 import app.tijario.domain.LocalizedErrorMapper
@@ -905,7 +905,7 @@ fun AppSettingsScreen(onBack: () -> Unit) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     TextButton(
                         onClick = {
-                            MainActivity.currentLanguage = AppLanguage.AR
+                            AppRuntimeState.currentLanguage = AppLanguage.AR
                             AppPreferences.setLanguage(context, AppLanguage.AR)
                             showLangDialog = false
                         },
@@ -915,7 +915,7 @@ fun AppSettingsScreen(onBack: () -> Unit) {
                     }
                     TextButton(
                         onClick = {
-                            MainActivity.currentLanguage = AppLanguage.EN
+                            AppRuntimeState.currentLanguage = AppLanguage.EN
                             AppPreferences.setLanguage(context, AppLanguage.EN)
                             showLangDialog = false
                         },
@@ -1017,7 +1017,7 @@ fun AppSettingsScreen(onBack: () -> Unit) {
                             Column {
                                 Text(t("settings_theme"), fontWeight = FontWeight.Bold, fontSize = 14.sp)
                                 Text(
-                                    text = if (MainActivity.isDarkMode) t("theme_dark") else t("theme_light"),
+                                    text = if (AppRuntimeState.isDarkMode) t("theme_dark") else t("theme_light"),
                                     color = Color(0xFF0D9488),
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Medium
@@ -1025,9 +1025,9 @@ fun AppSettingsScreen(onBack: () -> Unit) {
                             }
                         }
                         Switch(
-                            checked = MainActivity.isDarkMode,
+                            checked = AppRuntimeState.isDarkMode,
                             onCheckedChange = {
-                                MainActivity.isDarkMode = it
+                                AppRuntimeState.isDarkMode = it
                                 AppPreferences.setDarkMode(context, it)
                             }
                         )
@@ -1636,7 +1636,7 @@ private fun PricingPlanCard(
     onPurchase: () -> Unit,
 ) {
     val isCurrent = plan.code == currentPlanCode
-    val isDarkTheme = MainActivity.isDarkMode
+    val isDarkTheme = AppRuntimeState.isDarkMode
     val accent = when (plan.code) {
         "free" -> Color(0xFF0D9488)
         "starter" -> Color(0xFF7C3AED)
@@ -2200,7 +2200,7 @@ private fun ComparisonCell(
     modifier: Modifier = Modifier,
     isHeader: Boolean = false,
 ) {
-    val isDarkTheme = MainActivity.isDarkMode
+    val isDarkTheme = AppRuntimeState.isDarkMode
     val accent = when (column) {
         ComparisonColumn.FEATURE -> Color(0xFF0F172A)
         ComparisonColumn.FREE -> Color(0xFF0D9488)

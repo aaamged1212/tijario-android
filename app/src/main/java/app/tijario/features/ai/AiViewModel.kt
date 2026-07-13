@@ -3,7 +3,7 @@ package app.tijario.features.ai
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import app.tijario.MainActivity
+import app.tijario.config.AppRuntimeState
 import app.tijario.config.AppLanguage
 import app.tijario.config.Localization
 import app.tijario.data.remote.AiV3CaptionRequest
@@ -176,44 +176,44 @@ class AiViewModel(
         }
 
     private fun failureMessage(error: Throwable, fallback: String): String {
-        val mapped = LocalizedErrorMapper.map(null, error.message, MainActivity.currentLanguage)
+        val mapped = LocalizedErrorMapper.map(null, error.message, AppRuntimeState.currentLanguage)
         return mapped.takeIf { it.isNotBlank() } ?: fallback
     }
 
     private fun localizedAiLimitReached(): String =
-        Localization.getString("ai_limit_reached", MainActivity.currentLanguage)
+        Localization.getString("ai_limit_reached", AppRuntimeState.currentLanguage)
 
-    private fun localizedReplyError(): String = if (MainActivity.currentLanguage == AppLanguage.AR) {
+    private fun localizedReplyError(): String = if (AppRuntimeState.currentLanguage == AppLanguage.AR) {
         "تعذر توليد الرد الآن."
     } else {
         "Could not generate the reply right now."
     }
 
-    private fun localizedCaptionError(): String = if (MainActivity.currentLanguage == AppLanguage.AR) {
+    private fun localizedCaptionError(): String = if (AppRuntimeState.currentLanguage == AppLanguage.AR) {
         "تعذر توليد الكابشن الآن."
     } else {
         "Could not generate the caption right now."
     }
 
-    private fun localizedRefineError(): String = if (MainActivity.currentLanguage == AppLanguage.AR) {
+    private fun localizedRefineError(): String = if (AppRuntimeState.currentLanguage == AppLanguage.AR) {
         "تعذر تحسين النص الآن."
     } else {
         "Could not refine the text right now."
     }
 
-    private fun localizedReportError(): String = if (MainActivity.currentLanguage == AppLanguage.AR) {
+    private fun localizedReportError(): String = if (AppRuntimeState.currentLanguage == AppLanguage.AR) {
         "تعذر إرسال البلاغ."
     } else {
         "Could not send the report."
     }
 
-    private fun localizedReportSuccess(): String = if (MainActivity.currentLanguage == AppLanguage.AR) {
+    private fun localizedReportSuccess(): String = if (AppRuntimeState.currentLanguage == AppLanguage.AR) {
         "تم إرسال البلاغ."
     } else {
         "Report sent."
     }
 
-    private fun localizedOfflineMessage(): String = if (MainActivity.currentLanguage == AppLanguage.AR) {
+    private fun localizedOfflineMessage(): String = if (AppRuntimeState.currentLanguage == AppLanguage.AR) {
         "الميزة تحتاج اتصالًا بالإنترنت. تحقق من الشبكة وحاول مرة أخرى."
     } else {
         "This feature needs an internet connection. Check your network and try again."

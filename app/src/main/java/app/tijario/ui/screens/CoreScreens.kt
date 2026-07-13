@@ -77,7 +77,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.foundation.border
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import app.tijario.MainActivity
+import app.tijario.config.AppRuntimeState
 import app.tijario.config.AppLanguage
 import app.tijario.config.AppPreferences
 import app.tijario.config.LocalLanguage
@@ -3153,16 +3153,16 @@ fun AccountScreen(
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             TextButton(onClick = {
-                                MainActivity.currentLanguage = AppLanguage.AR
+                                AppRuntimeState.currentLanguage = AppLanguage.AR
                                 AppPreferences.setLanguage(context, AppLanguage.AR)
                             }) {
-                                Text(t("language_arabic"), color = if (MainActivity.currentLanguage == AppLanguage.AR) MaterialTheme.colorScheme.primary else Color.Gray)
+                                Text(t("language_arabic"), color = if (AppRuntimeState.currentLanguage == AppLanguage.AR) MaterialTheme.colorScheme.primary else Color.Gray)
                             }
                             TextButton(onClick = {
-                                MainActivity.currentLanguage = AppLanguage.EN
+                                AppRuntimeState.currentLanguage = AppLanguage.EN
                                 AppPreferences.setLanguage(context, AppLanguage.EN)
                             }) {
-                                Text(t("language_english"), color = if (MainActivity.currentLanguage == AppLanguage.EN) MaterialTheme.colorScheme.primary else Color.Gray)
+                                Text(t("language_english"), color = if (AppRuntimeState.currentLanguage == AppLanguage.EN) MaterialTheme.colorScheme.primary else Color.Gray)
                             }
                         }
                     }
@@ -3174,9 +3174,9 @@ fun AccountScreen(
                             Text(t("settings_theme"), fontWeight = FontWeight.Bold)
                         }
                         Switch(
-                            checked = MainActivity.isDarkMode,
+                            checked = AppRuntimeState.isDarkMode,
                             onCheckedChange = {
-                                MainActivity.isDarkMode = it
+                                AppRuntimeState.isDarkMode = it
                                 AppPreferences.setDarkMode(context, it)
                             }
                         )
