@@ -339,42 +339,65 @@ data class LocalUsageLedgerEntity(
     val syncedAt: Long?
 )
 
-@Entity(tableName = "local_taxes")
+@Entity(
+    tableName = "local_taxes",
+    primaryKeys = ["user_id", "id"],
+    indices = [Index(value = ["user_id"])],
+)
 data class LocalTaxEntity(
-    @PrimaryKey
     val id: String,
     val name: String,
-    val rate: Double
+    val rate: Double,
+    @ColumnInfo(name = "user_id")
+    val userId: String = "",
 )
 
-@Entity(tableName = "local_payment_methods")
+@Entity(
+    tableName = "local_payment_methods",
+    primaryKeys = ["user_id", "id"],
+    indices = [Index(value = ["user_id"])],
+)
 data class LocalPaymentMethodEntity(
-    @PrimaryKey
     val id: String,
     val name: String,
-    val details: String? = null
+    val details: String? = null,
+    @ColumnInfo(name = "user_id")
+    val userId: String = "",
 )
 
-@Entity(tableName = "local_signatures")
+@Entity(
+    tableName = "local_signatures",
+    primaryKeys = ["user_id", "id"],
+    indices = [Index(value = ["user_id"])],
+)
 data class LocalSignatureEntity(
-    @PrimaryKey
     val id: String,
     val name: String,
     @ColumnInfo(name = "signature_data")
-    val signatureData: String
+    val signatureData: String,
+    @ColumnInfo(name = "user_id")
+    val userId: String = "",
 )
 
-@Entity(tableName = "local_terms")
+@Entity(
+    tableName = "local_terms",
+    primaryKeys = ["user_id", "id"],
+    indices = [Index(value = ["user_id"])],
+)
 data class LocalTermsEntity(
-    @PrimaryKey
     val id: String,
     val title: String,
-    val content: String
+    val content: String,
+    @ColumnInfo(name = "user_id")
+    val userId: String = "",
 )
 
-@Entity(tableName = "local_document_metadata")
+@Entity(
+    tableName = "local_document_metadata",
+    primaryKeys = ["user_id", "documentId"],
+    indices = [Index(value = ["user_id"])],
+)
 data class LocalDocumentMetadataEntity(
-    @PrimaryKey
     val documentId: String,
     val currency: String,
     @ColumnInfo(name = "signature_data")
@@ -392,7 +415,9 @@ data class LocalDocumentMetadataEntity(
     @ColumnInfo(name = "shipping_amount", defaultValue = "0.0")
     val shippingAmount: Double = 0.0,
     @ColumnInfo(name = "shipping_label")
-    val shippingLabel: String? = null
+    val shippingLabel: String? = null,
+    @ColumnInfo(name = "user_id")
+    val userId: String = "",
 )
 
 // Mapping extensions

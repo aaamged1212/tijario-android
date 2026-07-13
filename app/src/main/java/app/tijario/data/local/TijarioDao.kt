@@ -98,50 +98,65 @@ interface TijarioDao {
     @Query("SELECT COUNT(*) FROM documents_cache WHERE user_id = :userId AND sync_status = 'LOCAL_ONLY' AND is_deleted = 0")
     suspend fun countLocalOnlyDocuments(userId: String): Int
 
-    @Query("SELECT * FROM local_taxes ORDER BY name COLLATE NOCASE ASC")
-    fun observeLocalTaxes(): Flow<List<LocalTaxEntity>>
+    @Query("SELECT * FROM local_taxes WHERE user_id = :userId ORDER BY name COLLATE NOCASE ASC")
+    fun observeLocalTaxes(userId: String): Flow<List<LocalTaxEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertLocalTax(tax: LocalTaxEntity)
 
-    @Query("DELETE FROM local_taxes WHERE id = :id")
-    suspend fun deleteLocalTax(id: String)
+    @Query("DELETE FROM local_taxes WHERE user_id = :userId AND id = :id")
+    suspend fun deleteLocalTax(userId: String, id: String)
 
-    @Query("SELECT * FROM local_payment_methods ORDER BY name COLLATE NOCASE ASC")
-    fun observeLocalPaymentMethods(): Flow<List<LocalPaymentMethodEntity>>
+    @Query("DELETE FROM local_taxes")
+    suspend fun clearLocalTaxes()
+
+    @Query("SELECT * FROM local_payment_methods WHERE user_id = :userId ORDER BY name COLLATE NOCASE ASC")
+    fun observeLocalPaymentMethods(userId: String): Flow<List<LocalPaymentMethodEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertLocalPaymentMethod(method: LocalPaymentMethodEntity)
 
-    @Query("DELETE FROM local_payment_methods WHERE id = :id")
-    suspend fun deleteLocalPaymentMethod(id: String)
+    @Query("DELETE FROM local_payment_methods WHERE user_id = :userId AND id = :id")
+    suspend fun deleteLocalPaymentMethod(userId: String, id: String)
 
-    @Query("SELECT * FROM local_signatures ORDER BY name COLLATE NOCASE ASC")
-    fun observeLocalSignatures(): Flow<List<LocalSignatureEntity>>
+    @Query("DELETE FROM local_payment_methods")
+    suspend fun clearLocalPaymentMethods()
+
+    @Query("SELECT * FROM local_signatures WHERE user_id = :userId ORDER BY name COLLATE NOCASE ASC")
+    fun observeLocalSignatures(userId: String): Flow<List<LocalSignatureEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertLocalSignature(signature: LocalSignatureEntity)
 
-    @Query("DELETE FROM local_signatures WHERE id = :id")
-    suspend fun deleteLocalSignature(id: String)
+    @Query("DELETE FROM local_signatures WHERE user_id = :userId AND id = :id")
+    suspend fun deleteLocalSignature(userId: String, id: String)
 
-    @Query("SELECT * FROM local_terms ORDER BY title COLLATE NOCASE ASC")
-    fun observeLocalTerms(): Flow<List<LocalTermsEntity>>
+    @Query("DELETE FROM local_signatures")
+    suspend fun clearLocalSignatures()
+
+    @Query("SELECT * FROM local_terms WHERE user_id = :userId ORDER BY title COLLATE NOCASE ASC")
+    fun observeLocalTerms(userId: String): Flow<List<LocalTermsEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertLocalTerms(terms: LocalTermsEntity)
 
-    @Query("DELETE FROM local_terms WHERE id = :id")
-    suspend fun deleteLocalTerms(id: String)
+    @Query("DELETE FROM local_terms WHERE user_id = :userId AND id = :id")
+    suspend fun deleteLocalTerms(userId: String, id: String)
+
+    @Query("DELETE FROM local_terms")
+    suspend fun clearLocalTerms()
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertDocumentMetadata(metadata: LocalDocumentMetadataEntity)
 
-    @Query("SELECT * FROM local_document_metadata WHERE documentId = :documentId LIMIT 1")
-    suspend fun getDocumentMetadata(documentId: String): LocalDocumentMetadataEntity?
+    @Query("SELECT * FROM local_document_metadata WHERE user_id = :userId AND documentId = :documentId LIMIT 1")
+    suspend fun getDocumentMetadata(userId: String, documentId: String): LocalDocumentMetadataEntity?
 
-    @Query("SELECT * FROM local_document_metadata")
-    fun observeAllDocumentMetadata(): Flow<List<LocalDocumentMetadataEntity>>
+    @Query("SELECT * FROM local_document_metadata WHERE user_id = :userId")
+    fun observeAllDocumentMetadata(userId: String): Flow<List<LocalDocumentMetadataEntity>>
+
+    @Query("DELETE FROM local_document_metadata")
+    suspend fun clearLocalDocumentMetadata()
 
     // V7 Sync state queries
     @Query("SELECT * FROM sync_state WHERE user_id = :userId LIMIT 1")
@@ -213,4 +228,16 @@ interface TijarioDao {
 
     @Query("DELETE FROM local_usage_ledger WHERE user_id = :userId")
     suspend fun deleteLedgerForUser(userId: String)
+
+    @Query("DELETE FROM sync_state")
+    suspend fun clearSyncState()
+
+    @Query("DELETE FROM sync_outbox")
+    suspend fun clearOutbox()
+
+    @Query("DELETE FROM offline_quota_lease")
+    suspend fun clearLeases()
+
+    @Query("DELETE FROM local_usage_ledger")
+    suspend fun clearLedger()
 }

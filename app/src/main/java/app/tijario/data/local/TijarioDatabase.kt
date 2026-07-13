@@ -28,7 +28,7 @@ import java.math.BigDecimal
         AnnouncementEntity::class,
         AnnouncementReceiptOutboxEntity::class,
     ],
-    version = 14,
+    version = 15,
     exportSchema = true,
 )
 @TypeConverters(BigDecimalConverter::class)
@@ -224,6 +224,7 @@ abstract class TijarioDatabase : RoomDatabase() {
                         attempts INTEGER NOT NULL,
                         processing_started_at INTEGER,
                         lock_expires_at INTEGER,
+                        next_retry_at INTEGER NOT NULL DEFAULT 0,
                         last_error TEXT,
                         created_at INTEGER NOT NULL,
                         deleted_minimal_payload TEXT,
@@ -367,6 +368,27 @@ abstract class TijarioDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_14_15 = object : Migration(14, 15) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Legacy local-only rows have no owner. Removing them prevents cross-account disclosure.
+                db.execSQL("DROP TABLE IF EXISTS local_taxes")
+                db.execSQL("DROP TABLE IF EXISTS local_payment_methods")
+                db.execSQL("DROP TABLE IF EXISTS local_signatures")
+                db.execSQL("DROP TABLE IF EXISTS local_terms")
+                db.execSQL("DROP TABLE IF EXISTS local_document_metadata")
+                db.execSQL("CREATE TABLE IF NOT EXISTS local_taxes (user_id TEXT NOT NULL, id TEXT NOT NULL, name TEXT NOT NULL, rate REAL NOT NULL, PRIMARY KEY(user_id, id))")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_local_taxes_user_id ON local_taxes (user_id)")
+                db.execSQL("CREATE TABLE IF NOT EXISTS local_payment_methods (user_id TEXT NOT NULL, id TEXT NOT NULL, name TEXT NOT NULL, details TEXT, PRIMARY KEY(user_id, id))")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_local_payment_methods_user_id ON local_payment_methods (user_id)")
+                db.execSQL("CREATE TABLE IF NOT EXISTS local_signatures (user_id TEXT NOT NULL, id TEXT NOT NULL, name TEXT NOT NULL, signature_data TEXT NOT NULL, PRIMARY KEY(user_id, id))")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_local_signatures_user_id ON local_signatures (user_id)")
+                db.execSQL("CREATE TABLE IF NOT EXISTS local_terms (user_id TEXT NOT NULL, id TEXT NOT NULL, title TEXT NOT NULL, content TEXT NOT NULL, PRIMARY KEY(user_id, id))")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_local_terms_user_id ON local_terms (user_id)")
+                db.execSQL("CREATE TABLE IF NOT EXISTS local_document_metadata (user_id TEXT NOT NULL, documentId TEXT NOT NULL, currency TEXT NOT NULL, signature_data TEXT, payment_method TEXT, tax_rate REAL NOT NULL DEFAULT 0.0, tax_name TEXT NOT NULL DEFAULT 'Tax', discount_type TEXT NOT NULL DEFAULT 'fixed', discount_value TEXT, shipping_amount REAL NOT NULL DEFAULT 0.0, shipping_label TEXT, PRIMARY KEY(user_id, documentId))")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_local_document_metadata_user_id ON local_document_metadata (user_id)")
+            }
+        }
+
         fun getInstance(context: Context): TijarioDatabase =
             instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
@@ -374,7 +396,7 @@ abstract class TijarioDatabase : RoomDatabase() {
                     TijarioDatabase::class.java,
                     "tijario-local-cache.db",
                 )
-                    .addMigrations(MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14)
+                    .addMigrations(MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15)
                     .build()
                     .also { instance = it }
             }

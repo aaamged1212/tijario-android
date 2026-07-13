@@ -100,7 +100,7 @@ open class TijarioRepository(
     fun observeDocuments(userId: String): Flow<List<DocumentSummary>> =
         combine(
             dao.observeDocuments(userId),
-            dao.observeAllDocumentMetadata()
+            dao.observeAllDocumentMetadata(userId)
         ) { rows, metadataList ->
             val metadataMap = metadataList.associateBy { it.documentId }
             rows.filter { !it.isDeleted }.map { row ->
@@ -252,11 +252,9 @@ open class TijarioRepository(
                 deletedMinimalPayload = null
             )
             dao.upsertOutbox(entry)
-            return
-        }
-
-        val first = pending.first()
-        when {
+        } else {
+            val first = pending.first()
+            when {
             first.operation == "CREATE" && (operation == "CREATE" || operation == "UPDATE") -> {
                 // CREATE + CREATE or CREATE + UPDATE -> Keep CREATE
             }
@@ -308,6 +306,7 @@ open class TijarioRepository(
                     deletedMinimalPayload = null
                 )
                 dao.upsertOutbox(entry)
+            }
             }
         }
         SyncScheduler(context).triggerSync(userId)
@@ -1480,6 +1479,15 @@ open class TijarioRepository(
                 dao.clearCustomers()
                 dao.clearProducts()
                 dao.clearDocuments()
+                dao.clearLocalTaxes()
+                dao.clearLocalPaymentMethods()
+                dao.clearLocalSignatures()
+                dao.clearLocalTerms()
+                dao.clearLocalDocumentMetadata()
+                dao.clearSyncState()
+                dao.clearOutbox()
+                dao.clearLeases()
+                dao.clearLedger()
             }
         }
         lastFullRefreshUserId = null
@@ -1612,28 +1620,43 @@ open class TijarioRepository(
         runCatching { Instant.parse(value) }.getOrNull()
             ?: runCatching { OffsetDateTime.parse(value).toInstant() }.getOrNull()
 
-    fun observeLocalTaxes(): Flow<List<app.tijario.data.local.LocalTaxEntity>> = dao.observeLocalTaxes()
-    suspend fun upsertLocalTax(tax: app.tijario.data.local.LocalTaxEntity) = withContext(Dispatchers.IO) { dao.upsertLocalTax(tax) }
-    suspend fun deleteLocalTax(id: String) = withContext(Dispatchers.IO) { dao.deleteLocalTax(id) }
+    private fun currentUserIdOrThrow(): String =
+        supabaseClient.auth.currentUserOrNull()?.id ?: error("No authenticated user.")
 
-    fun observeLocalPaymentMethods(): Flow<List<app.tijario.data.local.LocalPaymentMethodEntity>> = dao.observeLocalPaymentMethods()
-    suspend fun upsertLocalPaymentMethod(method: app.tijario.data.local.LocalPaymentMethodEntity) = withContext(Dispatchers.IO) { dao.upsertLocalPaymentMethod(method) }
-    suspend fun deleteLocalPaymentMethod(id: String) = withContext(Dispatchers.IO) { dao.deleteLocalPaymentMethod(id) }
+    fun observeLocalTaxes(): Flow<List<app.tijario.data.local.LocalTaxEntity>> =
+        dao.observeLocalTaxes(currentUserIdOrThrow())
+    suspend fun upsertLocalTax(tax: app.tijario.data.local.LocalTaxEntity) = withContext(Dispatchers.IO) {
+        dao.upsertLocalTax(tax.copy(userId = requireUserId()))
+    }
+    suspend fun deleteLocalTax(id: String) = withContext(Dispatchers.IO) { dao.deleteLocalTax(requireUserId(), id) }
 
-    fun observeLocalSignatures(): Flow<List<app.tijario.data.local.LocalSignatureEntity>> = dao.observeLocalSignatures()
-    suspend fun upsertLocalSignature(sig: app.tijario.data.local.LocalSignatureEntity) = withContext(Dispatchers.IO) { dao.upsertLocalSignature(sig) }
-    suspend fun deleteLocalSignature(id: String) = withContext(Dispatchers.IO) { dao.deleteLocalSignature(id) }
+    fun observeLocalPaymentMethods(): Flow<List<app.tijario.data.local.LocalPaymentMethodEntity>> =
+        dao.observeLocalPaymentMethods(currentUserIdOrThrow())
+    suspend fun upsertLocalPaymentMethod(method: app.tijario.data.local.LocalPaymentMethodEntity) = withContext(Dispatchers.IO) {
+        dao.upsertLocalPaymentMethod(method.copy(userId = requireUserId()))
+    }
+    suspend fun deleteLocalPaymentMethod(id: String) = withContext(Dispatchers.IO) { dao.deleteLocalPaymentMethod(requireUserId(), id) }
 
-    fun observeLocalTerms(): Flow<List<app.tijario.data.local.LocalTermsEntity>> = dao.observeLocalTerms()
-    suspend fun upsertLocalTerms(terms: app.tijario.data.local.LocalTermsEntity) = withContext(Dispatchers.IO) { dao.upsertLocalTerms(terms) }
-    suspend fun deleteLocalTerms(id: String) = withContext(Dispatchers.IO) { dao.deleteLocalTerms(id) }
+    fun observeLocalSignatures(): Flow<List<app.tijario.data.local.LocalSignatureEntity>> =
+        dao.observeLocalSignatures(currentUserIdOrThrow())
+    suspend fun upsertLocalSignature(sig: app.tijario.data.local.LocalSignatureEntity) = withContext(Dispatchers.IO) {
+        dao.upsertLocalSignature(sig.copy(userId = requireUserId()))
+    }
+    suspend fun deleteLocalSignature(id: String) = withContext(Dispatchers.IO) { dao.deleteLocalSignature(requireUserId(), id) }
+
+    fun observeLocalTerms(): Flow<List<app.tijario.data.local.LocalTermsEntity>> =
+        dao.observeLocalTerms(currentUserIdOrThrow())
+    suspend fun upsertLocalTerms(terms: app.tijario.data.local.LocalTermsEntity) = withContext(Dispatchers.IO) {
+        dao.upsertLocalTerms(terms.copy(userId = requireUserId()))
+    }
+    suspend fun deleteLocalTerms(id: String) = withContext(Dispatchers.IO) { dao.deleteLocalTerms(requireUserId(), id) }
 
     suspend fun getDocumentMetadata(documentId: String): app.tijario.data.local.LocalDocumentMetadataEntity? = withContext(Dispatchers.IO) {
-        dao.getDocumentMetadata(documentId)
+        dao.getDocumentMetadata(requireUserId(), documentId)
     }
 
     suspend fun upsertDocumentMetadata(metadata: app.tijario.data.local.LocalDocumentMetadataEntity) = withContext(Dispatchers.IO) {
-        dao.upsertDocumentMetadata(metadata)
+        dao.upsertDocumentMetadata(metadata.copy(userId = requireUserId()))
     }
 
     suspend fun finalizeOrVerifyQuota(documentId: String): Result<Unit> = runCatching {
