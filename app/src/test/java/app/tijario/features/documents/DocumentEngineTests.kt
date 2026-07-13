@@ -12,6 +12,7 @@ import app.tijario.features.documents.template.DocumentTemplateRegistry
 import app.tijario.features.documents.template.DocumentTemplateValidator
 import app.tijario.features.documents.template.FileSystemDocumentTemplateLoader
 import app.tijario.features.documents.template.HtmlEscaper
+import app.tijario.domain.DocumentCalculator
 import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -73,10 +74,29 @@ class DocumentEngineTests {
             businessSettings = DocumentFixtures.business,
             customerCity = DocumentFixtures.customer.city,
         )
-        assertEquals("INV-0001", model.documentNumber)
+        assertEquals("INV-...", model.documentNumber)
         assertEquals("SAR", model.totals.currency)
         assertEquals(2, model.items.size)
         assertEquals("360.5", model.totals.total.stripTrailingZeros().toPlainString())
+    }
+
+    @Test
+    fun calculatorAppliesPercentageDiscountBeforeTaxAndShippingAfterTax() {
+        val result = DocumentCalculator.calculate(
+            items = listOf(DocumentCalculator.ItemInput(quantity = "1", unitPrice = "100")),
+            discountStr = "10",
+            extraFeesStr = "20",
+            taxRateStr = "10",
+            discountType = "percent",
+            shippingStr = "15",
+        )
+
+        assertEquals("100", result.subtotal.stripTrailingZeros().toPlainString())
+        assertEquals("10", result.discount.stripTrailingZeros().toPlainString())
+        assertEquals("110", result.taxBase.stripTrailingZeros().toPlainString())
+        assertEquals("11", result.taxAmount.stripTrailingZeros().toPlainString())
+        assertEquals("15", result.shipping.stripTrailingZeros().toPlainString())
+        assertEquals("136", result.total.stripTrailingZeros().toPlainString())
     }
 
     @Test
@@ -259,6 +279,28 @@ class DocumentEngineTests {
 
         assertTrue(html.contains("VAT (10.0%)"))
         assertTrue(html.contains("36.05"))
+    }
+
+    @Test
+    fun generatedDocumentRendersShippingAndNegativeDiscount() {
+        val model = SavedDocumentRenderMapper.map(
+            document = DocumentFixtures.saved().copy(discount = 25.0),
+            businessSettings = DocumentFixtures.business,
+            language = AppLanguage.EN,
+            metadata = app.tijario.data.local.LocalDocumentMetadataEntity(
+                documentId = DocumentFixtures.saved().id,
+                currency = "SAR",
+                signatureData = null,
+                paymentMethod = null,
+                shippingAmount = 18.0,
+                shippingLabel = "Delivery",
+            ),
+        )
+        val html = renderer.render(model)
+
+        assertTrue(html.contains("-SAR 25.00") || html.contains("-25.00"))
+        assertTrue(html.contains("Delivery"))
+        assertTrue(html.contains("18.00"))
     }
 
     @Test

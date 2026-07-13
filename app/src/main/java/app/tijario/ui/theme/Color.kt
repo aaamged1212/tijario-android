@@ -4,7 +4,7 @@ import androidx.compose.ui.graphics.Color
 
 val TijarioPrimary = Color(0xFF0D9488)
 val TijarioDeepTeal = Color(0xFF0F766E)
-val TijarioBackground = Color(0xFFF8FAFC)
+val TijarioBackground = Color(0xFFF9FAFB)
 val TijarioSurface = Color(0xFFFFFFFF)
 val TijarioSoftSurface = Color(0xFFF1F5F9)
 val TijarioText = Color(0xFF0F172A)

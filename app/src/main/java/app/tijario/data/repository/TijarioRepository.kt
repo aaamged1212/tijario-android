@@ -17,6 +17,7 @@ import app.tijario.data.model.ProfileFullNameUpdateDto
 import app.tijario.domain.DocumentNumbering
 import app.tijario.domain.DocumentCalculator
 import app.tijario.data.remote.ApiResult
+import app.tijario.data.remote.NextNumberResponse
 import app.tijario.data.remote.BackendApiClient
 import app.tijario.data.remote.CreateDocumentRequest
 import app.tijario.data.remote.CreateDocumentResponse
@@ -1236,6 +1237,11 @@ open class TijarioRepository(
         }
         syncStateMutable.value = syncStateMutable.value.copy(lastSyncedAt = syncedAt, errorMessage = null)
     }
+
+    suspend fun getNextDocumentNumber(type: String): ApiResult<NextNumberResponse> =
+        withContext(Dispatchers.IO) {
+            backendApiClient.getNextDocumentNumber(type)
+        }
 
     // Legacy Document Remote Bridges
     suspend fun createDocument(request: CreateDocumentRequest): ApiResult<CreateDocumentResponse> =

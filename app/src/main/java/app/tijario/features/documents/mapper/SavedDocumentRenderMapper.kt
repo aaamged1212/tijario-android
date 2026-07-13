@@ -41,11 +41,6 @@ object SavedDocumentRenderMapper {
                 lineTotal = unitPrice.multiply(BigDecimal(quantity)),
             )
         }
-        val paymentAmounts = PaymentAmountCalculator.calculate(
-            paymentStatus = if (document.type == DocumentType.Invoice) document.paymentStatus else null,
-            total = BigDecimal.valueOf(document.total),
-            amountPaid = document.amountPaid?.let(BigDecimal::valueOf),
-        )
         val fallbackCalculation = DocumentCalculator.calculate(
             document.items.map {
                 DocumentCalculator.ItemInput(
@@ -57,6 +52,15 @@ object SavedDocumentRenderMapper {
             extraFeesStr = document.extraFees.toString(),
             taxRateStr = document.taxRate.toString(),
             amountPaidStr = document.amountPaid?.toString() ?: "0",
+            discountType = metadata?.discountType ?: "fixed",
+            shippingStr = metadata?.shippingAmount?.toString() ?: "0",
+        )
+        val shipping = metadata?.shippingAmount?.let(BigDecimal::valueOf) ?: BigDecimal.ZERO
+        val displayTotal = BigDecimal.valueOf(document.total).add(shipping)
+        val paymentAmounts = PaymentAmountCalculator.calculate(
+            paymentStatus = if (document.type == DocumentType.Invoice) document.paymentStatus else null,
+            total = displayTotal,
+            amountPaid = document.amountPaid?.let(BigDecimal::valueOf),
         )
         val resolvedTaxRate = when {
             document.taxRate > 0.0 -> BigDecimal.valueOf(document.taxRate)
@@ -102,13 +106,14 @@ object SavedDocumentRenderMapper {
                 subtotal = BigDecimal.valueOf(document.subtotal),
                 discount = BigDecimal.valueOf(document.discount),
                 extraFees = BigDecimal.valueOf(document.extraFees),
-                total = BigDecimal.valueOf(document.total),
+                total = displayTotal,
                 amountPaid = paymentAmounts.paid,
                 amountRemaining = paymentAmounts.remaining,
                 currency = metadata?.currency ?: document.currency.ifBlank { null } ?: businessSettings?.currency ?: "SAR",
                 finalTaxName = resolvedTaxName,
                 finalTaxRate = resolvedTaxRate,
-                finalTaxAmount = resolvedTaxAmount
+                finalTaxAmount = resolvedTaxAmount,
+                shipping = shipping
             ),
             invoiceNote = businessSettings?.invoiceNote,
             documentNote = document.notes,
@@ -122,8 +127,12 @@ object SavedDocumentRenderMapper {
                 DocumentType.Invoice -> if (language == AppLanguage.AR) "فاتورة" else "Invoice"
                 DocumentType.Quote -> if (language == AppLanguage.AR) "عرض سعر" else "Quote"
             },
-            discountLabel = document.discountLabel?.takeIf { it.isNotBlank() },
+            discountLabel = document.discountLabel?.takeIf { it.isNotBlank() }
+                ?: if (metadata?.discountType.equals("percent", ignoreCase = true)) {
+                    if (language == AppLanguage.AR) "خصم %" else "Discount %"
+                } else null,
             extraFeesLabel = document.extraFeesLabel?.takeIf { it.isNotBlank() },
+            shippingLabel = metadata?.shippingLabel?.takeIf { it.isNotBlank() },
             showTijarioBranding = showTijarioBranding,
         )
     }

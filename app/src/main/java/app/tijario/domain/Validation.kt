@@ -44,7 +44,7 @@ object Validation {
     fun whatsapp(value: String, lang: app.tijario.config.AppLanguage): String? =
         when {
             value.trim().isEmpty() -> app.tijario.config.Localization.getString("validation_whatsapp_required", lang)
-            value.trim().length < 7 -> app.tijario.config.Localization.getString("validation_whatsapp_invalid", lang)
+            !isValidE164Phone(value) -> app.tijario.config.Localization.getString("validation_whatsapp_invalid", lang)
             else -> null
         }
 

@@ -4,7 +4,6 @@ import app.tijario.config.AppLanguage
 import app.tijario.data.model.BusinessSettings
 import app.tijario.data.model.DocumentType
 import app.tijario.domain.DocumentCalculator
-import app.tijario.domain.DocumentNumbering
 import app.tijario.domain.Validation
 import app.tijario.features.documents.model.DocumentPartyInfo
 import app.tijario.features.documents.model.DocumentRenderItem
@@ -34,6 +33,8 @@ object DraftDocumentRenderMapper {
             form.extraFees,
             form.finalTaxRate,
             form.amountPaid,
+            discountType = form.discountType,
+            shippingStr = form.shippingAmount,
         )
         val items = form.items.map { item ->
             val quantity = Validation.parsePositiveInt(item.quantity) ?: 0
@@ -49,7 +50,8 @@ object DraftDocumentRenderMapper {
         }
         return DocumentRenderModel(
             documentType = documentType,
-            documentNumber = form.documentNumber.takeIf { it.isNotBlank() } ?: DocumentNumbering.firstDocumentNumber(documentType),
+            documentNumber = form.documentNumber.takeIf { it.isNotBlank() }
+                ?: if (documentType == DocumentType.Invoice) "INV-..." else "Q-...",
             issueDate = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date()),
             updatedAt = "draft",
             status = DocumentRenderStatus(
@@ -82,7 +84,8 @@ object DraftDocumentRenderMapper {
                 currency = form.currency,
                 finalTaxName = form.finalTaxName,
                 finalTaxRate = BigDecimal.valueOf(Validation.parseNonNegativeMoney(form.finalTaxRate) ?: 0.0),
-                finalTaxAmount = calculation.taxAmount
+                finalTaxAmount = calculation.taxAmount,
+                shipping = calculation.shipping
             ),
             invoiceNote = businessSettings?.invoiceNote,
             documentNote = form.notes.ifBlank { null },
@@ -93,8 +96,12 @@ object DraftDocumentRenderMapper {
             signatureData = form.signatureData.takeIf { it.isNotBlank() },
             paymentMethod = form.paymentMethod.takeIf { it.isNotBlank() },
             documentTitle = form.documentTitle.takeIf { it.isNotBlank() },
-            discountLabel = form.discountLabel.takeIf { it.isNotBlank() },
+            discountLabel = form.discountLabel.takeIf { it.isNotBlank() }
+                ?: if (form.discountType.equals("percent", ignoreCase = true)) {
+                    if (language == AppLanguage.AR) "خصم %" else "Discount %"
+                } else null,
             extraFeesLabel = form.extraFeesLabel.takeIf { it.isNotBlank() },
+            shippingLabel = form.shippingLabel.takeIf { it.isNotBlank() },
             showTijarioBranding = showTijarioBranding,
         )
     }

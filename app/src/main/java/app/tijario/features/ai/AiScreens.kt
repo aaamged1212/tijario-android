@@ -4,7 +4,6 @@ import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -69,6 +68,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import app.tijario.MainActivity
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.tijario.config.AppLanguage
 import app.tijario.config.LocalLanguage
@@ -100,7 +100,7 @@ data class SaaSColorScheme(
 
 @Composable
 fun getSaaSColors(): SaaSColorScheme {
-    val isDark = MaterialTheme.colorScheme.background != Color(0xFFF8FAFC)
+    val isDark = MainActivity.isDarkMode
     return if (isDark) {
         SaaSColorScheme(
             background = Color(0xFF0F1115),
@@ -267,8 +267,6 @@ fun AiToolsScreen(
             if (!hideHeader) {
                 HeaderBlock()
             }
-
-            UsageBanner()
 
             if (limitReachedByCache || state is AiV3ScreenState.LimitReached) {
                 LimitBanner((state as? AiV3ScreenState.LimitReached)?.message)
@@ -500,7 +498,7 @@ private fun HeaderBlock() {
                 color = saaSColors.textPrimary
             )
             Text(
-                text = t("ai_subtitle"),
+                text = t("ai_online_only_short"),
                 style = MaterialTheme.typography.bodySmall,
                 color = saaSColors.textSecondary
             )

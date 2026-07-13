@@ -41,6 +41,7 @@ data class DocumentCustomerInput(
 @Serializable
 data class CreateDocumentRequest(
     val type: DocumentType,
+    @SerialName("operation_id") val operationId: String? = null,
     @SerialName("payment_status") val paymentStatus: String? = null,
     @SerialName("amount_paid") val amountPaid: Double? = null,
     val customer: DocumentCustomerInput,
@@ -514,4 +515,9 @@ data class GooglePlayVerifyResponse(
     val data: GooglePlayVerifyData? = null,
     val code: String? = null,
     val message: String? = null,
+)
+
+@Serializable
+data class NextNumberResponse(
+    @SerialName("documentNumber") val documentNumber: String,
 )

@@ -35,6 +35,7 @@ data class DocumentTotals(
     val finalTaxName: String = "Tax",
     val finalTaxRate: BigDecimal = BigDecimal.ZERO,
     val finalTaxAmount: BigDecimal = BigDecimal.ZERO,
+    val shipping: BigDecimal = BigDecimal.ZERO,
 )
 
 data class DocumentRenderStatus(
@@ -95,6 +96,7 @@ data class DocumentRenderModel(
     val documentTitle: String? = null,
     val discountLabel: String? = null,
     val extraFeesLabel: String? = null,
+    val shippingLabel: String? = null,
     val showTijarioBranding: Boolean = true,
 ) {
     val isRtl: Boolean get() = language == AppLanguage.AR

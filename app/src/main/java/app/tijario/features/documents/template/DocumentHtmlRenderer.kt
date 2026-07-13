@@ -315,12 +315,15 @@ class DocumentHtmlRenderer(
             append(totalsRow(labels.subtotal, model.totals.subtotal, model))
             val discountLabel = model.discountLabel?.takeIf { it.isNotBlank() } ?: labels.discount
             val extraFeesLabel = model.extraFeesLabel?.takeIf { it.isNotBlank() } ?: labels.extraFees
-            if (model.totals.discount > BigDecimal.ZERO) append(totalsRow(discountLabel, model.totals.discount, model))
+            val shippingLabel = model.shippingLabel?.takeIf { it.isNotBlank() }
+                ?: if (model.language == AppLanguage.AR) "الشحن" else "Shipping"
+            if (model.totals.discount > BigDecimal.ZERO) append(totalsRow(discountLabel, model.totals.discount, model, "-"))
             if (model.totals.extraFees > BigDecimal.ZERO) append(totalsRow(extraFeesLabel, model.totals.extraFees, model))
             if (model.totals.finalTaxAmount > BigDecimal.ZERO) {
                 val taxLabel = "${model.totals.finalTaxName} (${model.totals.finalTaxRate}%)"
                 append(totalsRow(taxLabel, model.totals.finalTaxAmount, model))
             }
+            if (model.totals.shipping > BigDecimal.ZERO) append(totalsRow(shippingLabel, model.totals.shipping, model))
             append("<div class=\"totals-row final\"><span>${labels.total}</span><strong>${DocumentFormatting.money(model.totals.total, model.totals.currency, model.language)}</strong></div>")
             if (model.documentType == DocumentType.Invoice) {
                 if (model.totals.amountPaid > BigDecimal.ZERO) {
@@ -333,12 +336,13 @@ class DocumentHtmlRenderer(
             append("</aside>")
         }
 
-    private fun totalsRow(label: String, value: BigDecimal, model: DocumentRenderModel): String =
-        "<div class=\"totals-row\"><span>${HtmlEscaper.escape(label)}</span><strong>${DocumentFormatting.money(value, model.totals.currency, model.language)}</strong></div>"
+    private fun totalsRow(label: String, value: BigDecimal, model: DocumentRenderModel, prefix: String = ""): String =
+        "<div class=\"totals-row\"><span>${HtmlEscaper.escape(label)}</span><strong>$prefix${DocumentFormatting.money(value, model.totals.currency, model.language)}</strong></div>"
 
     private fun note(label: String, value: String?): String? =
         value?.takeIf { it.isNotBlank() }?.let {
-            "<section class=\"notes\"><h3 class=\"section-title\">${HtmlEscaper.escape(label)}</h3><div class=\"note-body\">${HtmlEscaper.escape(it)}</div></section>"
+            val body = HtmlEscaper.escape(it).replace("\n", "<br>")
+            "<section class=\"notes\"><h3 class=\"section-title\">${HtmlEscaper.escape(label)}</h3><div class=\"note-body\">$body</div></section>"
         }
 
     private data class Labels(

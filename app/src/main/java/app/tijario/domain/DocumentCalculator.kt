@@ -15,6 +15,7 @@ object DocumentCalculator {
         val extraFees: BigDecimal,
         val taxBase: BigDecimal,
         val taxAmount: BigDecimal,
+        val shipping: BigDecimal,
         val total: BigDecimal,
         val amountRemaining: BigDecimal,
         val isValid: Boolean,
@@ -26,6 +27,8 @@ object DocumentCalculator {
         extraFeesStr: String,
         taxRateStr: String = "0",
         amountPaidStr: String = "0",
+        discountType: String = "fixed",
+        shippingStr: String = "0",
     ): CalculationResult {
         var subtotal = BigDecimal.ZERO
         for (item in items) {
@@ -36,8 +39,14 @@ object DocumentCalculator {
             }
         }
 
-        val discount = parseMoney(discountStr) ?: BigDecimal.ZERO
+        val discountInput = parseMoney(discountStr) ?: BigDecimal.ZERO
+        val discount = if (discountType.equals("percent", ignoreCase = true) || discountType.equals("percentage", ignoreCase = true)) {
+            subtotal.multiply(discountInput.divide(BigDecimal("100"), 6, RoundingMode.HALF_UP))
+        } else {
+            discountInput
+        }
         val extraFees = parseMoney(extraFeesStr) ?: BigDecimal.ZERO
+        val shipping = parseMoney(shippingStr) ?: BigDecimal.ZERO
         val rawTaxBase = subtotal.subtract(discount).add(extraFees).setScale(2, RoundingMode.HALF_UP)
         val isValid = rawTaxBase >= BigDecimal.ZERO
         val zero = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP)
@@ -49,7 +58,7 @@ object DocumentCalculator {
         } else {
             zero
         }
-        val total = if (isValid) taxBase.add(taxAmount).setScale(2, RoundingMode.HALF_UP) else zero
+        val total = if (isValid) taxBase.add(taxAmount).add(shipping).setScale(2, RoundingMode.HALF_UP) else zero
         val amountPaid = parseMoney(amountPaidStr) ?: BigDecimal.ZERO
         val amountRemaining = if (isValid) {
             total.subtract(amountPaid).max(BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP)
@@ -63,6 +72,7 @@ object DocumentCalculator {
             extraFees = extraFees.setScale(2, RoundingMode.HALF_UP),
             taxBase = taxBase,
             taxAmount = taxAmount,
+            shipping = shipping.setScale(2, RoundingMode.HALF_UP),
             total = total,
             amountRemaining = amountRemaining,
             isValid = isValid,

@@ -25,15 +25,53 @@ val MvpDialCodeOptions = listOf(
 )
 
 fun normalizePhoneWithDialCode(dialCode: String, localNumber: String): String {
-    val normalizedDialCode = "+${dialCode.filter(Char::isDigit)}"
-    val normalizedLocalNumber = localNumber
-        .replace(Regex("[\\s-]"), "")
-        .trimStart('+')
-        .filter(Char::isDigit)
+    val dialDigits = normalizePhoneDigits(dialCode).filter(Char::isDigit)
+    val input = normalizePhoneDigits(localNumber).trim()
+    val inputDigits = input.filter(Char::isDigit)
+    if (dialDigits.isBlank() || inputDigits.isBlank()) return ""
 
-    if (normalizedDialCode == "+" || normalizedLocalNumber.isBlank()) {
-        return ""
+    if (input.startsWith('+') && MvpDialCodeOptions.any {
+            inputDigits.startsWith(it.dialCode.filter(Char::isDigit))
+        }
+    ) return "+$inputDigits"
+    if (inputDigits.startsWith(dialDigits)) return "+$inputDigits"
+
+    return "+$dialDigits${inputDigits.trimStart('0')}"
+}
+
+data class PhoneNumberParts(
+    val dialCode: String,
+    val localNumber: String,
+)
+
+fun splitPhoneNumber(
+    value: String,
+    options: List<DialCodeOption> = MvpDialCodeOptions,
+): PhoneNumberParts {
+    val normalized = normalizePhoneDigits(value)
+    val digits = normalized.filter(Char::isDigit)
+    val option = options
+        .sortedByDescending { it.dialCode.length }
+        .firstOrNull { digits.startsWith(it.dialCode.filter(Char::isDigit)) }
+        ?: options.first()
+    val dialDigits = option.dialCode.filter(Char::isDigit)
+    return PhoneNumberParts(
+        dialCode = option.dialCode,
+        localNumber = digits.removePrefix(dialDigits),
+    )
+}
+
+fun isValidE164Phone(value: String): Boolean =
+    Regex("^\\+[1-9]\\d{6,14}$").matches(normalizePhoneDigits(value))
+
+private fun normalizePhoneDigits(value: String): String = buildString(value.length) {
+    value.forEach { char ->
+        append(
+            when (char) {
+                in '٠'..'٩' -> '0' + (char.code - '٠'.code)
+                in '۰'..'۹' -> '0' + (char.code - '۰'.code)
+                else -> char
+            }
+        )
     }
-
-    return normalizedDialCode + normalizedLocalNumber
 }

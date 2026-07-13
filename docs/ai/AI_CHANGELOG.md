@@ -1,12 +1,92 @@
 # AI Changelog
 
+## 2026-07-13
+- **Agent**: Codex
+- **Action**: Completed Android final source-control closeout preparation for the adaptive UI and document workflow batch.
+- **Details**:
+  - Verified Room schema versions `13` and `14`.
+  - Added missing Room migration test coverage for `13 -> 14` local document metadata fields.
+  - Re-ran the full Android validation sequence requested for commit readiness.
+- **Validation**: `compileDebugKotlin`, `testDebugUnitTest`, `lintDebug --no-daemon`, `assembleDebug`, `:app:processReleaseMainManifest`, `assembleDebugAndroidTest`, and `git diff --check` passed.
+- **Safety Info**: No Vercel deployment, Supabase migration, APK/AAB upload, or Google Play action.
+
+## 2026-07-13
+- **Agent**: Codex
+- **Action**: Implemented Android document info and export action follow-up fixes.
+- **Details**:
+  - Added a calendar picker to the creation-date field while preserving current-date defaulting for new documents.
+  - Generated draft invoice/quote numbers locally from cached documents with `INV-00001` / `Q-00001` style formatting.
+  - Added quote-specific document title localization.
+  - Changed the tax option icon to a government-building icon.
+  - Added print and email to the document long-press action sheet and made non-delete icons theme foreground colored.
+  - Deferred shipping, percentage discount, and multi-select document options because they require persisted server/database support.
+- **Validation**: `compileDebugKotlin`, `testDebugUnitTest`, `assembleDebug`, and `git diff --check` passed. `lintDebug` was attempted twice and timed out before producing a pass/fail result.
+- **Safety Info**: Local Android changes only. No commit, push, deployment, migration, APK/AAB upload, or Google Play action.
+
+## 2026-07-13
+- **Agent**: Codex
+- **Action**: Implemented Android document form UI follow-up fixes.
+- **Details**:
+  - Quote document info now uses quote-specific title and number labels.
+  - Document number editing keeps `INV-` / `Q-` fixed and lets users edit only the numeric suffix.
+  - Draft numbers display `INV-...` or `Q-...` until the server number is available.
+  - Due date field includes a calendar picker and keeps numeric keyboard editing.
+  - Dashboard latest-document tabs center labels.
+  - Documents, Customers, and Products FABs are positioned above the root bottom tab bar.
+- **Validation**: `compileDebugKotlin`, `testDebugUnitTest`, `assembleDebug`, and `git diff --check` passed.
+- **Safety Info**: Local Android changes only. No commit, push, deployment, migration, APK/AAB upload, or Google Play action.
+
+## 2026-07-13
+- **Agent**: Codex
+- **Action**: Implemented Android UI cleanup for App Settings, numeric inputs, Dashboard, AI light mode, store phone country handling, and create-quote preview.
+- **Details**:
+  - Removed the extra App Settings title icon and language/theme divider.
+  - Reworked notification settings into an aligned single row.
+  - Applied numeric keyboards to amount, price, quantity, stock, and tax-rate fields.
+  - Fixed Store Settings phone dialog title and synced phone country-code changes to country.
+  - Fixed AI light-mode palette detection.
+  - Removed global bottom padding above root bottom tabs.
+  - Added invoice/quote tabs to Dashboard latest documents and routed "view all" to the matching Documents tab.
+  - Replaced misleading draft document number fallback with `...` and current-date fallback.
+  - Added missing UI localization keys.
+- **Validation**: `compileDebugKotlin`, `testDebugUnitTest`, `assembleDebug`, `lintDebug`, and `git diff --check` passed.
+- **Safety Info**: Local Android changes only. No commit, push, deployment, migration, APK/AAB upload, or Google Play action.
+
+## 2026-07-12
+- **Agent**: Codex
+- **Action**: Implemented Android UI polish fixes for the reported app screens.
+- **Details**:
+  - Localized customer picker and PDF download labels.
+  - Removed the Store Settings verified-store badge.
+  - Added plus badges to non-AI quick actions.
+  - Changed notification/settings icons to theme-aware foreground colors.
+  - Restored country-code phone fields in customer, store settings, and onboarding flows.
+  - Improved Customer/Product card hierarchy and full-price display.
+  - Moved the AI online-only note under the AI title.
+  - Prevented create-quote UI from showing a fixed first number while waiting for next-number resolution.
+  - Placed discount and extra-fee reason fields beside their amount fields.
+  - Aligned app background and selected bottom navigation accent with the AI screen palette.
+- **Validation**: `compileDebugKotlin`, `testDebugUnitTest`, `assembleDebug`, `lintDebug`, and `git diff --check` pass.
+- **Safety Info**: Local Android changes only. No commit, push, deployment, migration, APK/AAB upload, or Google Play action.
+
+## 2026-07-12
+- **Agent**: Antigravity (Google DeepMind)
+- **Action**: Implemented Batch A (Document Numbering Safety & Idempotency P0):
+  - Fixed sync push API (`push/route.ts`) to validate and forward `operation_id` to Supabase `create_document_with_usage` RPC.
+  - Implemented client-side deterministic fallback UUID for legacy or invalid operations.
+  - Enforced server-side `operation_id` validation as UUID format in Next.js Server Actions.
+  - Fixed Android `DocumentFormStateSaver` to persist and restore `operationId` across process recreation and screen rotations.
+  - Added Javascript regex-based tests for numbering constraints and Android Kotlin unit tests.
+  - Web UI improvements and Android Adaptive UI changes remain pending (audit completed in Session 1).
+- **Safety Info**: Local modifications only. No push, deploy, migrations applied, or Play Store uploads.
+
 ## 2026-07-10
 - **Agent**: Antigravity / Gemini
 - **Action**: Finalized release compliance for Android:
   - Enabled Facebook Advertiser ID collection (`AdvertiserIDCollectionEnabled = true`) inside `AndroidManifest.xml`.
   - Processed and verified merged release manifest for AD_ID and Meta configs.
   - Created Android permissions audit, Play Store Data Safety draft, Facebook compliance doc, and Closed Testing release checklist.
-- **Safety Info**: Local modifications only. No git pushes, APK/AAB uploads, or Google Play store changes.
+  - **Safety Info**: Local modifications only. No git pushes, APK/AAB uploads, or Google Play store changes.
 
 ## 2026-07-10
 - **Agent**: Codex
@@ -60,3 +140,33 @@
 - **Action**: Refactored Android MVP write model to Online-Only writes + cached reads (no offline CRUD queue, direct Supabase writes).
 - **Action**: Performed a strict final audit and local validation check of the uncommitted QA batch (63 files changed total). Verified builds and test suites successfully.
 - **Action**: Created the complete production migration and release runbook (docs/release/production-migration-runbook.md) outlining safety checklists, rollback strategies, and sequential migration scripts order.
+
+## 2026-07-12 - Session 1 (Codex)
+- Added shared container-width layout classes and adaptive root navigation/dashboard/list/form/settings behavior.
+- Persisted document `created_at` in Room v13 and used it only for Dashboard latest-document ordering, with legacy fallback.
+- Unified E.164 phone entry, added logout confirmation, and hardened linked-customer deletion feedback.
+- Added focused unit tests and a Room 12-to-13 migration test; all local validation passed.
+
+## 2026-07-12 - Session 2 (Antigravity)
+- Added unified long-press `ModalBottomSheet` action sheets for Documents (Share PDF, Download PDF, Edit, Delete).
+- Removed redundant "الأحدث" filter chip and changed document tab labels to Arabic.
+- Fixed list-FAB overlap by adding `contentPadding` to Document, Customer, and Product lists.
+- Added Delete Customer action inside the Customer Edit screen with link-checking protection.
+- Fixed Web Next-Number API ESLint warning.
+
+## 2026-07-12 - Session 3 (Codex)
+- Completed Android UI recovery and interface refinement locally on `fix/android-adaptive-ui-qa-v1-1-2`.
+- Integrated `newestDocuments(...)` into Dashboard and Documents ordering.
+- Restored adaptive Dashboard quick actions, improved Customer/Product/Document cards, and added localized long-press action sheets.
+- Added in-form searchable Customer/Product bottom sheets for document creation/editing.
+- Adjusted top/bottom navigation icon colors and added focused localization coverage.
+- Validation passed: `testDebugUnitTest`, `lintDebug`, `assembleDebug`, `:app:processReleaseMainManifest`, and `assembleDebugAndroidTest`.
+- Safety Info: Local Android changes only. No commit, push, Web edit, Supabase migration apply, APK/AAB upload, or closed-testing change.
+
+## 2026-07-13 - Session 8 (Codex)
+- Implemented Android local document options for shipping, percentage/flat discount, bottom-sheet option editing, and multi-select taxes/payment methods/terms.
+- Updated document calculations so tax is calculated after discount and extra fees, while shipping is added after tax.
+- Persisted local option metadata in Room v14 and rendered shipping/negative discount/multi-line options in preview/PDF/saved documents.
+- Added focused document calculation/render tests.
+- Validation passed: `compileDebugKotlin`, `testDebugUnitTest`, `assembleDebug`, and `git diff --check`; `lintDebug` timed out after 4 minutes.
+- Safety Info: Local Android changes only. No commit, push, Web edit, Supabase migration apply, APK/AAB upload, or closed-testing change.

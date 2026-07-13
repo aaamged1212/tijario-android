@@ -1,17 +1,191 @@
-# Agent Handoff (Android Repo)
+# Agent Handoff (Android & Web Repos)
 
-- **Last Agent**: Antigravity / Gemini
-- **Date/Time**: 2026-07-10 05:55:00
-- **Repo**: Android Repo (`tjario-android`)
-- **Branch**: `fix/reduce-mobile-vercel-usage-sync-retries-local`
-- **Current Uncommitted Files**:
-  - app/src/main/AndroidManifest.xml
-  - docs/release/android-permissions-audit.md (untracked)
-  - docs/release/google-play-data-safety.md (untracked)
-  - docs/release/facebook-sdk-compliance.md (untracked)
-  - docs/release/android-closed-testing-release-checklist.md (untracked)
-- **Summary of Local Antigravity/Gemini Changes**:
-  - Enabled Facebook Advertiser ID collection (`AdvertiserIDCollectionEnabled = true`) inside `AndroidManifest.xml`.
-  - Re-merged and processed manifest to verify `com.google.android.gms.permission.AD_ID` and `android.permission.ACCESS_ADSERVICES_AD_ID` permissions are preserved.
-  - Drafted comprehensive release docs: permissions audit, data safety answers, Facebook compliance map, and closed-testing release checklists.
-- **Safety Status**: Safe. No remote pushes, APK/AAB uploads, or Google Play store configuration changes executed.
+## 2026-07-13 (Session 9 - Android final source-control closeout prep)
+- **Agent**: Codex
+- **Branch**:
+  - Android: `fix/android-adaptive-ui-qa-v1-1-2`
+  - Web: unchanged/read-only.
+- **Action**: Completed final local validation prep for committing the accumulated Android adaptive UI and document workflow changes.
+- **Details**:
+  - Confirmed Room schema files `13.json` and `14.json` exist and are valid Room schema JSON versions.
+  - Added focused `13 -> 14` Room migration coverage for local document metadata option fields.
+  - Re-ran the full requested Android validation sequence after the test update.
+- **Validation**:
+  - `.\gradlew.bat compileDebugKotlin --console plain` passed.
+  - `.\gradlew.bat testDebugUnitTest --console plain` passed.
+  - `.\gradlew.bat lintDebug --console plain --no-daemon` passed.
+  - `.\gradlew.bat assembleDebug --console plain` passed.
+  - `.\gradlew.bat :app:processReleaseMainManifest --console plain` passed.
+  - `.\gradlew.bat assembleDebugAndroidTest --console plain` passed.
+  - `git diff --check` passed with only CRLF normalization warnings.
+- **Safety Status**: No deployment, Supabase migration, APK/AAB upload, or Google Play action. Local `.agents/skills/` and `.agents/skill-backups/` remain untracked and excluded from the intended commit.
+- **Remaining Risks**:
+  - Device/emulator visual QA is still required for adaptive layouts, bottom sheets, and document preview/PDF output.
+  - Android-local document options remain local-only until Web/API/Supabase persistence is explicitly added later.
+
+## 2026-07-13 (Session 8 - Android local document options follow-up)
+- **Agent**: Codex
+- **Branch**:
+  - Android: `fix/android-adaptive-ui-qa-v1-1-2`
+  - Web: unchanged/read-only.
+- **Action**: Implemented the requested Android-only local document option behavior.
+- **Details**:
+  - Added local shipping amount/reason to document form state, Room metadata, migration `13 -> 14`, draft/saved render mappers, and HTML/PDF totals.
+  - Added fixed/percentage discount mode; Android calculates the final discount amount before sending document save/update and stores the original local discount value/type in metadata for reopen/edit.
+  - Kept official local calculation order: subtotal - discount + extra fees, then tax, then shipping.
+  - Discount now renders with a minus sign in preview/PDF/saved document output.
+  - Converted discount, extra fees, shipping, currency, taxes, payment methods, terms, and signatures to bottom-sheet surfaces; signatures remain single-select because the renderer supports one signature image.
+  - Local taxes, payment methods, and terms support multi-select and render as ordered line-separated text in the document.
+  - Added focused document calculation/render tests for percentage discount, shipping, and negative discount output.
+- **Validation**:
+  - `.\gradlew.bat compileDebugKotlin --console plain` passed.
+  - `.\gradlew.bat testDebugUnitTest --console plain` passed.
+  - `.\gradlew.bat assembleDebug --console plain` passed.
+  - `git diff --check` passed with only existing CRLF warnings.
+  - `.\gradlew.bat lintDebug --console plain` timed out after 4 minutes without a pass/fail result.
+- **Safety Status**: Local Android changes only. No commit, push, deployment, Supabase migration, APK/AAB upload, or Google Play action.
+- **Remaining Risks**:
+  - Device/emulator visual QA is still required for the bottom sheets and document preview/PDF.
+  - Shipping and discount-type metadata are local-only; they will not restore after app data is cleared unless backend persistence is added later.
+
+## 2026-07-13 (Session 7 - Document info and export action follow-up)
+- **Agent**: Codex
+- **Branch**:
+  - Android: `fix/android-adaptive-ui-qa-v1-1-2`
+  - Web: unchanged/read-only.
+- **Action**: Implemented the safe Android-only subset of the latest document UI follow-up locally.
+- **Details**:
+  - Creation date in the document info dialog now has a calendar picker while keeping the current-date default for new documents.
+  - New invoice/quote draft numbers are generated locally from cached app documents with fixed `INV-` / `Q-` prefixes and five-digit suffixes, starting at `00001`.
+  - Quote document title field now uses a quote-specific localized label.
+  - Tax option uses a government-building icon.
+  - Documents long-press actions now include print and email alongside share/download/edit/delete, with normal icons following theme foreground color and delete remaining red.
+  - Shipping, percentage discount, and multi-select payment/terms/tax options were not implemented as Android-only preview features because they need persisted Web/API/Supabase fields before they can survive save/reopen/PDF.
+- **Validation**:
+  - `.\gradlew.bat compileDebugKotlin --console plain` passed.
+  - `.\gradlew.bat testDebugUnitTest --console plain` passed.
+  - `.\gradlew.bat assembleDebug --console plain` passed.
+  - `git diff --check` passed with only existing CRLF warnings.
+  - `.\gradlew.bat lintDebug --console plain` was attempted twice and timed out before producing a pass/fail result.
+- **Safety Status**: Local Android changes only. No commit, push, deployment, Supabase migration, APK/AAB upload, or Google Play action.
+- **Pending Tasks**:
+  - Device/emulator visual QA for creation-date picker, local next-number display, and document long-press export actions.
+  - Web/API/Supabase contract work is required before shipping, discount type, and multi-select document options can be implemented without becoming preview-only.
+
+## 2026-07-13 (Session 6 - Document form UI follow-up)
+- **Agent**: Codex
+- **Branch**:
+  - Android: `fix/android-adaptive-ui-qa-v1-1-2`
+  - Web: unchanged/read-only.
+- **Action**: Implemented the requested Android document/UI follow-up locally.
+- **Details**:
+  - Document info dialog now receives the document type and shows Quote Info / quote number labels for quotes.
+  - New document number editing keeps the `INV-` or `Q-` prefix fixed and editable input is limited to the numeric suffix.
+  - Draft document cards/previews now show `INV-...` or `Q-...` until the server next-number response fills the full number.
+  - Due date field keeps numeric editing and includes a calendar picker that writes a `yyyy-MM-dd` value.
+  - Dashboard latest-document invoice/quote chips center their labels.
+  - Floating add buttons on Documents, Customers, and Products are raised above the root bottom tab bar.
+- **Validation**:
+  - `.\gradlew.bat compileDebugKotlin --console plain` passed.
+  - `.\gradlew.bat testDebugUnitTest --console plain` passed.
+  - `.\gradlew.bat assembleDebug --console plain` passed.
+  - `git diff --check` passed with only existing CRLF warnings.
+- **Safety Status**: Local Android changes only. No commit, push, deployment, Supabase migration, APK/AAB upload, or Google Play action.
+- **Pending Tasks**:
+  - Device/emulator visual QA for document info dialog number editing, due-date picker, centered dashboard tabs, and FAB position above the tab bar.
+
+## 2026-07-13 (Session 5 - UI issue cleanup)
+- **Agent**: Codex
+- **Branch**:
+  - Android: `fix/android-adaptive-ui-qa-v1-1-2`
+  - Web: unchanged/read-only.
+- **Action**: Implemented the requested Android UI cleanup batch locally.
+- **Details**:
+  - App Settings header no longer shows the extra settings icon; the language/theme divider was removed.
+  - Notifications in App Settings now renders as a normal settings row with aligned icon and switch, without description or system-settings button.
+  - Numeric document/product fields now request numeric or decimal keyboards.
+  - Store Settings phone edit dialog no longer uses the customer-edit title, and changing the store phone country code updates the store country selection.
+  - Onboarding phone country-code changes update the selected country.
+  - Tijario AI light-mode colors now follow the app dark-mode preference.
+  - Root pager content no longer receives global bottom padding above the bottom tab bar.
+  - Dashboard financial secondary metrics wrap on compact screens.
+  - Dashboard latest documents now has invoice/quote tabs and opens the matching Documents tab from "view all".
+  - Create-document preview no longer invents `INV-0001`/`Q-0001`; it shows `...` until the server next-number result is available, and date fallback uses the current date.
+  - Added missing UI localization keys for invoice/quote dashboard tabs, PDF export success, and invalid document totals.
+- **Validation**:
+  - `.\gradlew.bat compileDebugKotlin --console plain` passed.
+  - `.\gradlew.bat testDebugUnitTest --console plain` passed after updating the draft preview test to expect `...`.
+  - `.\gradlew.bat assembleDebug --console plain` passed.
+  - `.\gradlew.bat lintDebug --console plain` passed.
+  - `git diff --check` passed with only existing CRLF warnings.
+- **Safety Status**: Local Android changes only. No commit, push, deployment, Supabase migration, APK/AAB upload, or Google Play action.
+- **Pending Tasks**:
+  - Device/emulator visual QA for the updated App Settings row alignment, Dashboard compact metrics, latest-document tabs, AI light mode, and bottom-tab spacing.
+
+## 2026-07-12 (Session 4 - UI polish batch)
+- **Agent**: Codex
+- **Branch**:
+  - Android: `fix/android-adaptive-ui-qa-v1-1-2`
+  - Web: unchanged/read-only.
+- **Action**: Implemented the requested Android UI polish batch locally.
+- **Details**:
+  - Added localized labels for customer selection and PDF download actions.
+  - Removed the "verified store" badge from the Store Settings account card.
+  - Added plus badges to non-AI quick action icons.
+  - Changed notification and settings icons to theme-aware black/white tokens.
+  - Restored phone country-code selectors in customer, store settings, and onboarding flows, including store-based defaults for customer creation.
+  - Adjusted Customer and Product cards for clearer hierarchy and full-price rendering.
+  - Moved the AI online-only note under the Tijario AI title and removed the offline-app sentence.
+  - Prevented create-quote UI from showing a fixed first quote number while waiting for the server next-number response.
+  - Reordered discount and extra-fee fields so each amount sits next to its reason.
+  - Aligned app background and selected bottom navigation accent with the AI screen palette.
+- **Validation**:
+  - `.\gradlew.bat compileDebugKotlin --console plain` passed.
+  - `.\gradlew.bat testDebugUnitTest --console plain` passed.
+  - `.\gradlew.bat assembleDebug --console plain` passed.
+  - `.\gradlew.bat lintDebug --console plain` passed on retry after the first run timed out.
+  - `git diff --check` passed with only existing CRLF warnings.
+- **Safety Status**: Local Android changes only. No commit, push, deployment, Supabase migration, APK/AAB upload, or Google Play action.
+- **Pending Tasks**:
+  - Device/emulator visual QA for the updated light/dark theme, Arabic/English, customer/product cards, and document form flows.
+
+## 2026-07-12 (Session 3 - Batch B)
+- **Agent**: Codex
+- **Branch**:
+  - Android: `fix/android-adaptive-ui-qa-v1-1-2`
+  - Web: unchanged/read-only.
+- **Action**: Implemented Batch B Android UI Recovery & Final Interface Refinement locally.
+- **Details**:
+  - Restored Dashboard adaptive padding, quick-action grid, and latest-document ordering through `newestDocuments`.
+  - Updated Documents ordering and tabs to use localized labels and newest-document logic.
+  - Moved customer/product actions to long-press bottom sheets while keeping normal click for edit/select behavior.
+  - Added searchable in-form customer and product bottom sheets for document forms using local Room-backed state.
+  - Adjusted top app bar and bottom navigation icon colors to theme `onSurface` tokens.
+  - Added localization keys for recovered UI labels and a focused localization test.
+- **Validation**:
+  - `.\gradlew.bat compileDebugKotlin --console plain` passed.
+  - `.\gradlew.bat testDebugUnitTest --console plain` passed.
+  - `.\gradlew.bat lintDebug --console plain` passed on retry after first command timed out.
+  - `.\gradlew.bat assembleDebug :app:processReleaseMainManifest assembleDebugAndroidTest --console plain` passed.
+- **Safety Status**: Local changes only. No commit, push, deploy, Supabase migration, version bump, APK/AAB upload, or Google Play action.
+- **Pending Tasks**:
+  - Device/emulator visual QA for 280/320/360/412dp, Arabic/English, light/dark, and 130% font scale.
+  - Apply/deploy pending Web/Supabase work only in the approved release order.
+
+## 2026-07-12 (Session 2 - Batch A)
+- **Agent**: Antigravity (Google DeepMind)
+- **Branch**:
+  - Android: `fix/android-adaptive-ui-qa-v1-1-2`
+  - Web: `fix/document-number-allocation-collision`
+- **Action**: Implemented Batch A — Document Numbering Safety & Idempotency P0.
+- **Details**:
+  - Web: Fixed sync push endpoint (`push/route.ts`) to validate and forward `operation_id` to the database RPC `create_document_with_usage`.
+  - Web: Added `getDeterministicUuid` helper to ensure that missing or legacy operations receive a stable, deterministic UUID fallback.
+  - Web: Enforced server-side `operation_id` validation as a UUID format inside Next.js Server Actions (`actions.ts`).
+  - Web: Created `document-numbering-safety.test.mjs` containing 8 tests to assert the database and API behaviors.
+  - Android: Fixed `DocumentFormStateSaver` in `FormScreens.kt` to save and restore `operationId` across process recreation or screen rotations.
+  - Android: Added `DocumentNumberingIdempotencyTests.kt` verifying the stability of the UUID generation and model properties.
+- **Safety Status**: Safe. No git pushes, Vercel deployments, Supabase production migrations applied, or Google Play uploads.
+- **Pending Tasks**:
+  - Applying database migrations.
+  - UI Recovery for Phase 1.1 (Adaptive Dashboard, Cards, Product/Customer long-press sheets).

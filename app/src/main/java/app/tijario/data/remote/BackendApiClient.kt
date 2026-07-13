@@ -32,6 +32,9 @@ class BackendApiClient(
     private val accessTokenProvider: suspend () -> String? ,
     private val httpClient: HttpClient = defaultHttpClient(),
 ) {
+    suspend fun getNextDocumentNumber(type: String): ApiResult<NextNumberResponse> =
+        authorizedGet("api/mobile/documents/next-number?type=$type").decodeApiResult()
+
     suspend fun createDocument(request: CreateDocumentRequest): ApiResult<CreateDocumentResponse> =
         authorizedPost("api/mobile/documents", request).decodeApiResultWithDocumentLogging("api/mobile/documents")
 
@@ -507,6 +510,7 @@ data class DocumentServerDto(
     val status: String,
     val payment_status: String?,
     val issue_date: String,
+    val created_at: String? = null,
     val subtotal: Double,
     val discount: Double,
     val discount_label: String? = null,

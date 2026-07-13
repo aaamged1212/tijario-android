@@ -87,7 +87,7 @@ fun NotificationBellButton(
             Icon(
                 imageVector = Icons.Filled.Notifications,
                 contentDescription = t("notifications"),
-                tint = MaterialTheme.colorScheme.primary,
+                tint = MaterialTheme.colorScheme.onSurface,
             )
         }
     }

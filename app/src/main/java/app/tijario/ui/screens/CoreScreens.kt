@@ -7,6 +7,10 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -41,6 +45,8 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.Chat
+import androidx.compose.material.icons.automirrored.filled.Label
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
@@ -78,16 +84,19 @@ import app.tijario.config.Localization
 import app.tijario.config.t
 import app.tijario.domain.DashboardDateRangePreset
 import app.tijario.domain.DashboardStatsCalculator
+import app.tijario.domain.newestDocuments
 import app.tijario.domain.PaymentStatusMapper
 import app.tijario.domain.LocalizedErrorMapper
 import app.tijario.data.remote.localizedDisplayMessage
 import app.tijario.features.documents.export.DocumentExportManager
+import app.tijario.features.documents.export.DocumentExportAction
 import app.tijario.features.documents.mapper.TijarioDocumentMapper
 import app.tijario.features.documents.ui.DocumentTemplatePreferences
 import app.tijario.ui.components.StoreLogoPicker
 import app.tijario.ui.components.buildLogoUploadRequest
 import app.tijario.ui.components.clearBusinessLogoCache
 import app.tijario.ui.components.TijarioButton
+import app.tijario.ui.components.LocalAdaptiveLayoutInfo
 import app.tijario.ui.state.TijarioDataViewModel
 import kotlinx.coroutines.launch
 import app.tijario.ui.components.TijarioTextField
@@ -288,7 +297,7 @@ private fun formatDashboardDate(issueDate: String, language: AppLanguage): Strin
     }.getOrElse { rawDate }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun DashboardScreen(
     dataViewModel: TijarioDataViewModel,
@@ -298,12 +307,13 @@ fun DashboardScreen(
     onCustomers: () -> Unit,
     onAiTools: () -> Unit,
     onBusinessSettings: () -> Unit,
-    onViewAllDocuments: () -> Unit,
+    onViewAllDocuments: (app.tijario.data.model.DocumentType) -> Unit,
     onDocumentClick: (String) -> Unit,
     hideHeader: Boolean = false,
 ) {
     val uiState by dataViewModel.uiState.collectAsStateWithLifecycle()
     val language = LocalLanguage.current
+    val adaptive = LocalAdaptiveLayoutInfo.current
     val isArabic = language == AppLanguage.AR
     LaunchedEffect(Unit) {
         dataViewModel.refreshAll()
@@ -403,6 +413,14 @@ fun DashboardScreen(
     }
     val sparklineValues = remember(rangedDocuments, businessCurrency) {
         dashboardSparklineValues(rangedDocuments, businessCurrency)
+    }
+    val unpaidAmount = remember(rangedDocuments, businessCurrency) {
+        DashboardStatsCalculator.calculateOutstandingInvoiceAmount(rangedDocuments, businessCurrency)
+    }
+    val openQuotesAmount = remember(rangedDocuments, businessCurrency) {
+        rangedDocuments
+            .filter { it.type == app.tijario.data.model.DocumentType.Quote && (it.status?.lowercase() == "draft" || it.status?.lowercase() == "sent") && it.currency.uppercase() == businessCurrency.uppercase() }
+            .sumOf { it.total }
     }
     val isDocLimitReached = planUsage != null && planUsage.documentsLimit > 0 && planUsage.documentsUsed >= planUsage.documentsLimit
     var showLimitAlert by remember { mutableStateOf(false) }
@@ -576,8 +594,9 @@ fun DashboardScreen(
         }
     }
 
-    val latestDocuments = remember(uiState.documents) {
-        uiState.documents.sortedByDescending { it.issueDate }.take(5)
+    var latestDocumentsType by remember { mutableStateOf(app.tijario.data.model.DocumentType.Invoice) }
+    val latestDocuments = remember(uiState.documents, latestDocumentsType) {
+        newestDocuments(uiState.documents.filter { it.type == latestDocumentsType }, limit = 6)
     }
 
     Column(
@@ -585,8 +604,8 @@ fun DashboardScreen(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
             .verticalScroll(rememberScrollState())
-            .padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp)
+            .padding(adaptive.pageHorizontalPadding),
+        verticalArrangement = Arrangement.spacedBy(adaptive.sectionSpacing)
     ) {
         // Stats Navy Card Gradient with wavy graph - directly at the top
         Card(
@@ -691,16 +710,15 @@ fun DashboardScreen(
 
                     HorizontalDivider(color = Color.White.copy(alpha = 0.12f))
 
-                    Row(
+                    FlowRow(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        maxItemsInEachRow = if (adaptive.isCompact) 1 else 2,
                     ) {
                         // Unpaid Invoices
-                        val unpaidAmount = remember(rangedDocuments, businessCurrency) {
-                            DashboardStatsCalculator.calculateOutstandingInvoiceAmount(rangedDocuments, businessCurrency)
-                        }
                         Row(
+                            modifier = Modifier.weight(1f),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
@@ -732,20 +750,9 @@ fun DashboardScreen(
                             }
                         }
 
-                        Box(
-                            modifier = Modifier
-                                .height(32.dp)
-                                .width(1.dp)
-                                .background(Color.White.copy(alpha = 0.12f))
-                        )
-
                         // Open Quotes
-                        val openQuotesAmount = remember(rangedDocuments, businessCurrency) {
-                            rangedDocuments
-                                .filter { it.type == app.tijario.data.model.DocumentType.Quote && (it.status?.lowercase() == "draft" || it.status?.lowercase() == "sent") && it.currency.uppercase() == businessCurrency.uppercase() }
-                                .sumOf { it.total }
-                        }
                         Row(
+                            modifier = Modifier.weight(1f),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
@@ -789,189 +796,61 @@ fun DashboardScreen(
             color = MaterialTheme.colorScheme.onBackground
         )
 
-        // Actions grid first row
-        Row(
+        FlowRow(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = Arrangement.spacedBy(adaptive.cardSpacing),
+            verticalArrangement = Arrangement.spacedBy(adaptive.cardSpacing),
+            maxItemsInEachRow = if (adaptive.isCompact) 2 else 3,
         ) {
-            // New Invoice
-            Card(
+            QuickActionButton(
+                title = t("quick_invoice_short"),
+                icon = Icons.Filled.Receipt,
+                backgroundColor = Color(0xFFE6F4EA),
+                iconColor = Color(0xFF137333),
+                showPlus = true,
+                onClick = { if (isDocLimitReached) showLimitAlert = true else onNewInvoice() },
                 modifier = Modifier
                     .weight(1f)
-                    .clickable { if (isDocLimitReached) showLimitAlert = true else onNewInvoice() },
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Surface(
-                        color = Color(0xFFE6F4EA),
-                        shape = RoundedCornerShape(14.dp),
-                        modifier = Modifier.size(44.dp)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = Icons.Filled.Receipt,
-                                contentDescription = null,
-                                tint = Color(0xFF137333),
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
-                    }
-                    Text(t("new_invoice"), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                }
-            }
-
-            // New Quote
-            Card(
+            )
+            QuickActionButton(
+                title = t("quick_quote_short"),
+                icon = Icons.Filled.Description,
+                backgroundColor = Color(0xFFE8F0FE),
+                iconColor = Color(0xFF1A73E8),
+                showPlus = true,
+                onClick = { if (isDocLimitReached) showLimitAlert = true else onNewQuote() },
                 modifier = Modifier
                     .weight(1f)
-                    .clickable { if (isDocLimitReached) showLimitAlert = true else onNewQuote() },
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Surface(
-                        color = Color(0xFFE8F0FE),
-                        shape = RoundedCornerShape(14.dp),
-                        modifier = Modifier.size(44.dp)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = Icons.Filled.Description,
-                                contentDescription = null,
-                                tint = Color(0xFF1A73E8),
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
-                    }
-                    Text(t("new_quote"), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                }
-            }
-
-            // Add Customer
-            Card(
+            )
+            QuickActionButton(
+                title = t("quick_customer_short"),
+                icon = Icons.Filled.PersonAdd,
+                backgroundColor = Color(0xFFFCE8E6),
+                iconColor = Color(0xFFC5221F),
+                showPlus = true,
+                onClick = onCustomers,
                 modifier = Modifier
                     .weight(1f)
-                    .clickable { onCustomers() },
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Surface(
-                        color = Color(0xFFFCE8E6),
-                        shape = RoundedCornerShape(14.dp),
-                        modifier = Modifier.size(44.dp)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = Icons.Filled.PersonAdd,
-                                contentDescription = null,
-                                tint = Color(0xFFC5221F),
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
-                    }
-                    Text(t("add_customer"), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                }
-            }
-        }
-
-        // Actions grid second row
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            // Smart Assistant Card (Tijario AI Helper) - first in code so it renders on the right in RTL
-            Card(
+            )
+            QuickActionButton(
+                title = t("quick_product_short"),
+                icon = Icons.Filled.BusinessCenter,
+                backgroundColor = Color(0xFFE4F7EB),
+                iconColor = Color(0xFF0F9D58),
+                showPlus = true,
+                onClick = onAddProduct,
                 modifier = Modifier
-                    .weight(1.8f)
-                    .clickable { onAiTools() },
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Surface(
-                        color = Color(0xFFF3E8FF),
-                        shape = RoundedCornerShape(14.dp),
-                        modifier = Modifier.size(44.dp)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = Icons.Filled.AutoAwesome,
-                                contentDescription = null,
-                                tint = Color(0xFF9333EA),
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
-                    }
-                    Column {
-                        Text(t("tab_ai"), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                        Text(t("ai_assistant_sub"), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-            }
-
-            // Add Product / Service - second in code so it renders on the left in RTL
-            Card(
+                    .weight(1f)
+            )
+            QuickActionButton(
+                title = t("quick_ai_short"),
+                icon = Icons.Filled.AutoAwesome,
+                backgroundColor = Color(0xFFF3E8FF),
+                iconColor = Color(0xFF9333EA),
+                onClick = onAiTools,
                 modifier = Modifier
-                    .weight(1.2f)
-                    .clickable { onAddProduct() },
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Surface(
-                        color = Color(0xFFE4F7EB),
-                        shape = RoundedCornerShape(14.dp),
-                        modifier = Modifier.size(44.dp)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = Icons.Filled.BusinessCenter,
-                                contentDescription = null,
-                                tint = Color(0xFF0F9D58),
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
-                    }
-                    Text(t("new_product_service"), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                }
-            }
+                    .weight(1f)
+            )
         }
 
         // Latest Invoices / Quotes list Header
@@ -989,7 +868,7 @@ fun DashboardScreen(
             )
 
             // TextButton ("Ø¹Ø±Ø¶ Ø§Ù„ÙƒÙ„") second so it renders on the left in RTL
-            TextButton(onClick = onViewAllDocuments) {
+            TextButton(onClick = { onViewAllDocuments(latestDocumentsType) }) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -1004,6 +883,26 @@ fun DashboardScreen(
                     Text(t("view_all"), color = Color(0xFF0D9488), fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 }
             }
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            TijarioFilterChip(
+                selected = latestDocumentsType == app.tijario.data.model.DocumentType.Invoice,
+                onClick = { latestDocumentsType = app.tijario.data.model.DocumentType.Invoice },
+                label = t("tab_invoice"),
+                modifier = Modifier.weight(1f),
+                centerContent = true,
+            )
+            TijarioFilterChip(
+                selected = latestDocumentsType == app.tijario.data.model.DocumentType.Quote,
+                onClick = { latestDocumentsType = app.tijario.data.model.DocumentType.Quote },
+                label = t("tab_quote"),
+                modifier = Modifier.weight(1f),
+                centerContent = true,
+            )
         }
 
         // Invoices / Documents Card list
@@ -1223,7 +1122,8 @@ private fun QuickActionButton(
     backgroundColor: Color,
     iconColor: Color,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    showPlus: Boolean = false,
 ) {
     Card(
         modifier = modifier.clickable { onClick() },
@@ -1246,6 +1146,24 @@ private fun QuickActionButton(
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(icon, contentDescription = null, tint = iconColor, modifier = Modifier.size(22.dp))
+                    if (showPlus) {
+                        Surface(
+                            color = iconColor,
+                            shape = CircleShape,
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .size(15.dp),
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Filled.Add,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(10.dp),
+                                )
+                            }
+                        }
+                    }
                 }
             }
             Text(
@@ -1253,13 +1171,45 @@ private fun QuickActionButton(
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface,
-                textAlign = TextAlign.Center
+                textAlign = TextAlign.Center,
+                maxLines = 2,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
             )
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+private fun formatFullMoney(value: Double): String {
+    val formatter = java.text.DecimalFormat("#,##0.##").apply {
+        maximumFractionDigits = 2
+        minimumFractionDigits = if (value % 1.0 == 0.0) 0 else 2
+        isGroupingUsed = true
+    }
+    return formatter.format(value)
+}
+
+@Composable
+private fun ActionSheetRow(
+    icon: ImageVector,
+    text: String,
+    tint: Color = MaterialTheme.colorScheme.primary,
+    textColor: Color = MaterialTheme.colorScheme.onSurface,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(icon, contentDescription = null, tint = tint)
+        Text(text, style = MaterialTheme.typography.bodyLarge, color = textColor)
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun CustomersScreen(
     dataViewModel: TijarioDataViewModel,
@@ -1270,6 +1220,8 @@ fun CustomersScreen(
 ) {
     val language = LocalLanguage.current
     val isArabic = language == AppLanguage.AR
+    val haptic = LocalHapticFeedback.current
+    val adaptive = LocalAdaptiveLayoutInfo.current
     var searchQuery by remember { mutableStateOf("") }
     var selectedFilter by remember { mutableStateOf("all") } // "all", "active", "new", "top"
     
@@ -1317,6 +1269,7 @@ fun CustomersScreen(
     }
 
     var customerToDelete by remember { mutableStateOf<app.tijario.data.model.Customer?>(null) }
+    var customerForActions by remember { mutableStateOf<app.tijario.data.model.Customer?>(null) }
     var deleteErrorMessage by remember { mutableStateOf<String?>(null) }
     var isDeleting by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -1375,8 +1328,8 @@ fun CustomersScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(adaptive.pageHorizontalPadding),
+            verticalArrangement = Arrangement.spacedBy(adaptive.sectionSpacing)
         ) {
             // Header with custom layout matching image
             if (!hideHeader) {
@@ -1613,6 +1566,7 @@ fun CustomersScreen(
                 // Customers List
                 LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(bottom = 88.dp),
                     modifier = Modifier.weight(1f)
                 ) {
                     items(filteredCustomers) { customer ->
@@ -1624,9 +1578,21 @@ fun CustomersScreen(
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable {
-                                    onCustomerSelected?.invoke(customer)
-                                },
+                                .combinedClickable(
+                                    onClick = {
+                                        if (onCustomerSelected != null) {
+                                            onCustomerSelected(customer)
+                                        } else {
+                                            customer.id?.let { onEditCustomer?.invoke(it) }
+                                        }
+                                    },
+                                    onLongClick = if (onCustomerSelected == null) {
+                                        {
+                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            customerForActions = customer
+                                        }
+                                    } else null,
+                                ),
                             shape = RoundedCornerShape(16.dp),
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                             elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
@@ -1672,59 +1638,70 @@ fun CustomersScreen(
                                         }
                                     }
 
-                                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                        Text(
+                                            customer.name,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            fontSize = 18.sp,
+                                            maxLines = 1,
+                                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                        )
+                                        Text(
+                                            text = customer.whatsappNumber,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            fontSize = 12.sp,
+                                            maxLines = 1,
+                                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                        )
+                                    }
+                                }
+
+                                Column(
+                                    horizontalAlignment = Alignment.End,
+                                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                                ) {
+                                    Surface(
+                                        color = if (isCustomerActive) Color(0xFFE6F4EA) else MaterialTheme.colorScheme.surfaceVariant,
+                                        shape = RoundedCornerShape(999.dp),
+                                    ) {
                                         Row(
                                             verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
                                         ) {
-                                            Text(
-                                                customer.name,
-                                                fontWeight = FontWeight.Bold,
-                                                color = MaterialTheme.colorScheme.onSurface,
-                                                fontSize = 15.sp
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(5.dp)
+                                                    .background(
+                                                        if (isCustomerActive) Color(0xFF137333) else MaterialTheme.colorScheme.onSurfaceVariant,
+                                                        CircleShape,
+                                                    )
                                             )
-                                            
-                                            if (isCustomerActive) {
-                                                Surface(
-                                                    color = Color(0xFFE6F4EA),
-                                                    shape = RoundedCornerShape(4.dp),
-                                                    modifier = Modifier.padding(horizontal = 2.dp)
-                                                ) {
-                                                    Row(
-                                                        verticalAlignment = Alignment.CenterVertically,
-                                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                                    ) {
-                                                        Box(modifier = Modifier.size(5.dp).background(Color(0xFF137333), CircleShape))
-                                                        Text(
-                                                            text = t("customer_active"),
-                                                            color = Color(0xFF137333),
-                                                            fontSize = 10.sp,
-                                                            fontWeight = FontWeight.Bold
-                                                        )
-                                                    }
-                                                }
-                                            }
-                                        }
-
-                                        if (latestDoc != null) {
                                             Text(
-                                                text = t("latest_invoice").replace("%s", latestDoc.documentNumber),
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                fontSize = 11.sp
-                                            )
-                                        } else {
-                                            Text(
-                                                text = customer.whatsappNumber,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                fontSize = 11.sp
+                                                text = if (isCustomerActive) t("customer_active") else t("customer_inactive"),
+                                                color = if (isCustomerActive) Color(0xFF137333) else MaterialTheme.colorScheme.onSurfaceVariant,
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Bold
                                             )
                                         }
+                                    }
+                                    latestDoc?.let {
+                                        Text(
+                                            text = t(if (it.type == app.tijario.data.model.DocumentType.Invoice) "latest_invoice" else "latest_quote")
+                                                .replace("%s", it.documentNumber),
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            fontSize = 11.sp,
+                                            maxLines = 1,
+                                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                        )
                                     }
                                 }
 
                                 // Left inline action buttons block (Delete, Chat, Call, Edit)
                                 val context = LocalContext.current
+                                val showInlineCustomerActions = false
+                                if (showInlineCustomerActions) {
                                 Row(
                                     horizontalArrangement = Arrangement.spacedBy(2.dp),
                                     verticalAlignment = Alignment.CenterVertically
@@ -1737,7 +1714,7 @@ fun CustomersScreen(
                                         ) {
                                             Icon(
                                                 Icons.Filled.Edit,
-                                                contentDescription = "تعديل",
+                                                contentDescription = t("edit"),
                                                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                                                 modifier = Modifier.size(16.dp)
                                             )
@@ -1751,14 +1728,14 @@ fun CustomersScreen(
                                                 val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${customer.whatsappNumber}"))
                                                 context.startActivity(intent)
                                             } catch (e: Exception) {
-                                                android.widget.Toast.makeText(context, "تعذر تشغيل تطبيق الاتصال", android.widget.Toast.LENGTH_SHORT).show()
+                                                android.widget.Toast.makeText(context, Localization.getString("cant_open_phone", language), android.widget.Toast.LENGTH_SHORT).show()
                                             }
                                         },
                                         modifier = Modifier.size(32.dp)
                                     ) {
                                         Icon(
                                             Icons.Filled.Phone,
-                                            contentDescription = "اتصال",
+                                            contentDescription = t("call"),
                                             tint = Color(0xFF0F9D58),
                                             modifier = Modifier.size(16.dp)
                                         )
@@ -1778,8 +1755,8 @@ fun CustomersScreen(
                                         modifier = Modifier.size(32.dp)
                                     ) {
                                         Icon(
-                                            Icons.Filled.Chat,
-                                            contentDescription = "واتساب",
+                                            Icons.AutoMirrored.Filled.Chat,
+                                            contentDescription = t("whatsapp"),
                                             tint = Color(0xFF25D366),
                                             modifier = Modifier.size(16.dp)
                                         )
@@ -1800,6 +1777,7 @@ fun CustomersScreen(
                                         }
                                     }
                                 }
+                                }
                             }
                         }
                     }
@@ -1815,13 +1793,56 @@ fun CustomersScreen(
             shape = CircleShape,
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(24.dp)
+                .padding(end = 24.dp, bottom = 96.dp)
         ) {
             Icon(Icons.Filled.Add, contentDescription = null)
+        }
+
+        customerForActions?.let { customer ->
+            val context = LocalContext.current
+            ModalBottomSheet(
+                onDismissRequest = { customerForActions = null },
+                sheetState = rememberModalBottomSheetState(),
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    Text(customer.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    ActionSheetRow(Icons.Filled.Edit, t("edit"), MaterialTheme.colorScheme.primary) {
+                        customerForActions = null
+                        customer.id?.let { onEditCustomer?.invoke(it) }
+                    }
+                    ActionSheetRow(Icons.Filled.Phone, t("call"), Color(0xFF0F9D58)) {
+                        customerForActions = null
+                        runCatching {
+                            context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:${customer.whatsappNumber}")))
+                        }.onFailure {
+                            Toast.makeText(context, Localization.getString("cant_open_phone", language), Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                    ActionSheetRow(Icons.AutoMirrored.Filled.Chat, t("whatsapp"), Color(0xFF25D366)) {
+                        customerForActions = null
+                        runCatching {
+                            val formatted = customer.whatsappNumber.replace("[^0-9]".toRegex(), "")
+                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/$formatted")))
+                        }.onFailure {
+                            Toast.makeText(context, Localization.getString("cant_open_whatsapp", language), Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                    ActionSheetRow(Icons.Filled.Delete, t("delete"), MaterialTheme.colorScheme.error) {
+                        customerForActions = null
+                        customerToDelete = customer
+                    }
+                }
+            }
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun ProductsScreen(
     dataViewModel: TijarioDataViewModel,
@@ -1831,6 +1852,8 @@ fun ProductsScreen(
     hideHeader: Boolean = false
 ) {
     val language = LocalLanguage.current
+    val haptic = LocalHapticFeedback.current
+    val adaptive = LocalAdaptiveLayoutInfo.current
     var searchQuery by remember { mutableStateOf("") }
     val uiState by dataViewModel.uiState.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) {
@@ -1851,6 +1874,7 @@ fun ProductsScreen(
     }
 
     var productToDelete by remember { mutableStateOf<app.tijario.data.model.Product?>(null) }
+    var productForActions by remember { mutableStateOf<app.tijario.data.model.Product?>(null) }
     var deleteErrorMessage by remember { mutableStateOf<String?>(null) }
     var isDeleting by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -1909,8 +1933,8 @@ fun ProductsScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(adaptive.pageHorizontalPadding),
+            verticalArrangement = Arrangement.spacedBy(adaptive.sectionSpacing)
         ) {
             if (!hideHeader) {
                 Column {
@@ -1994,6 +2018,7 @@ fun ProductsScreen(
             } else {
                 LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(bottom = 88.dp),
                     modifier = Modifier.weight(1f)
                 ) {
                     items(filteredProducts) { item ->
@@ -2009,9 +2034,21 @@ fun ProductsScreen(
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable {
-                                    onProductSelected?.invoke(item)
-                                },
+                                .combinedClickable(
+                                    onClick = {
+                                        if (onProductSelected != null) {
+                                            onProductSelected(item)
+                                        } else {
+                                            item.id?.let { onEditProduct?.invoke(it) }
+                                        }
+                                    },
+                                    onLongClick = if (onProductSelected == null) {
+                                        {
+                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            productForActions = item
+                                        }
+                                    } else null,
+                                ),
                             shape = RoundedCornerShape(16.dp),
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -2051,44 +2088,61 @@ fun ProductsScreen(
                                             }
                                         }
                                     }
-                                    Column {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = if (item.kind == app.tijario.data.model.ProductKind.Service) t("kind_service") else t("kind_product"),
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            maxLines = 1,
+                                        )
                                         Text(
                                             item.name,
                                             fontWeight = FontWeight.Bold,
                                             color = MaterialTheme.colorScheme.onSurface,
-                                            fontSize = 15.sp
+                                            fontSize = 18.sp,
+                                            maxLines = 2,
+                                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                                         )
-                                        Text(
-                                            item.description ?: (if (item.kind == app.tijario.data.model.ProductKind.Service) t("kind_service") else t("kind_product")),
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            fontSize = 12.sp
-                                        )
-                                        item.stockQuantity?.let { stock ->
+                                        item.description?.takeIf { it.isNotBlank() }?.let {
                                             Text(
-                                                t("available_stock") + "$stock",
+                                                it,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                fontSize = 12.sp
+                                                fontSize = 12.sp,
+                                                maxLines = 2,
+                                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                                             )
                                         }
                                     }
                                 }
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                Column(
+                                    horizontalAlignment = Alignment.End,
+                                    verticalArrangement = Arrangement.spacedBy(4.dp),
                                 ) {
                                     Text(
-                                        "${item.price} ${businessCurrency.ifBlank { item.currency }}",
+                                        "${formatFullMoney(item.price)} ${businessCurrency.ifBlank { item.currency }}",
                                         color = MaterialTheme.colorScheme.primary,
                                         fontWeight = FontWeight.Bold,
-                                        fontSize = 15.sp
+                                        fontSize = 15.sp,
+                                        maxLines = 1,
                                     )
+                                    item.stockQuantity?.let { stock ->
+                                        Text(
+                                            t("available_stock") + "$stock",
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            fontSize = 11.sp,
+                                            maxLines = 1,
+                                        )
+                                    }
+                                    val showInlineProductActions = false
+                                    if (showInlineProductActions) {
                                     if (onProductSelected == null) {
                                         IconButton(
                                             onClick = {
                                                 onEditProduct?.invoke(item.id!!)
                                             }
                                         ) {
-                                            Icon(Icons.Filled.Edit, contentDescription = "تعديل", tint = MaterialTheme.colorScheme.primary)
+                                            Icon(Icons.Filled.Edit, contentDescription = t("edit"), tint = MaterialTheme.colorScheme.primary)
                                         }
                                         IconButton(
                                             onClick = {
@@ -2097,6 +2151,7 @@ fun ProductsScreen(
                                         ) {
                                             Icon(Icons.Filled.Delete, contentDescription = t("delete"), tint = MaterialTheme.colorScheme.error)
                                         }
+                                    }
                                     }
                                 }
                             }
@@ -2113,9 +2168,33 @@ fun ProductsScreen(
             shape = CircleShape,
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(24.dp)
+                .padding(end = 24.dp, bottom = 96.dp)
         ) {
             Icon(Icons.Filled.Add, contentDescription = null)
+        }
+
+        productForActions?.let { product ->
+            ModalBottomSheet(
+                onDismissRequest = { productForActions = null },
+                sheetState = rememberModalBottomSheetState(),
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    Text(product.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    ActionSheetRow(Icons.Filled.Edit, t("edit"), MaterialTheme.colorScheme.primary) {
+                        productForActions = null
+                        product.id?.let { onEditProduct?.invoke(it) }
+                    }
+                    ActionSheetRow(Icons.Filled.Delete, t("delete"), MaterialTheme.colorScheme.error) {
+                        productForActions = null
+                        productToDelete = product
+                    }
+                }
+            }
         }
     }
 }
@@ -2125,13 +2204,15 @@ fun TijarioFilterChip(
     selected: Boolean,
     onClick: () -> Unit,
     label: String,
+    modifier: Modifier = Modifier,
     leadingIcon: @Composable (() -> Unit)? = null,
     horizontalPadding: Dp = 14.dp,
     verticalPadding: Dp = 8.dp,
     textFontSize: TextUnit = 14.sp,
+    centerContent: Boolean = false,
 ) {
     Surface(
-        modifier = Modifier
+        modifier = modifier
             .clickable(onClick = onClick)
             .clip(RoundedCornerShape(20.dp)),
         color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
@@ -2142,9 +2223,10 @@ fun TijarioFilterChip(
         shape = RoundedCornerShape(20.dp)
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = horizontalPadding, vertical = verticalPadding),
+            modifier = (if (centerContent) Modifier.fillMaxWidth() else Modifier)
+                .padding(horizontal = horizontalPadding, vertical = verticalPadding),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+            horizontalArrangement = if (centerContent) Arrangement.Center else Arrangement.spacedBy(6.dp)
         ) {
             leadingIcon?.invoke()
             Text(
@@ -2157,6 +2239,7 @@ fun TijarioFilterChip(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun DocumentsScreen(
     dataViewModel: TijarioDataViewModel,
@@ -2164,13 +2247,17 @@ fun DocumentsScreen(
     onNewInvoice: () -> Unit,
     onDocumentClick: (String) -> Unit,
     onEditDocument: (String, app.tijario.data.model.DocumentType) -> Unit = { _, _ -> },
+    requestedDocumentType: app.tijario.data.model.DocumentType? = null,
     hideHeader: Boolean = false
 ) {
     val language = LocalLanguage.current
+    val haptic = LocalHapticFeedback.current
+    val adaptive = LocalAdaptiveLayoutInfo.current
     var selectedSection by remember { mutableStateOf(0) } // 0 = Invoices, 1 = Quotes
     var selectedFilter by remember { mutableStateOf("all") } // "all", "unpaid", "paid", "partial"
     var menuExpanded by remember { mutableStateOf(false) }
     var documentPendingDelete by remember { mutableStateOf<app.tijario.data.model.DocumentSummary?>(null) }
+    var docForActions by remember { mutableStateOf<app.tijario.data.model.DocumentSummary?>(null) }
     var busyDocumentId by remember { mutableStateOf<String?>(null) }
 
     val uiState by dataViewModel.uiState.collectAsStateWithLifecycle()
@@ -2178,6 +2265,11 @@ fun DocumentsScreen(
     val scope = rememberCoroutineScope()
     val exportManager = remember(context) { DocumentExportManager(context) }
     val templatePreferences = remember(context) { DocumentTemplatePreferences(context) }
+    LaunchedEffect(requestedDocumentType) {
+        requestedDocumentType?.let {
+            selectedSection = if (it == app.tijario.data.model.DocumentType.Invoice) 0 else 1
+        }
+    }
     LaunchedEffect(Unit) {
         dataViewModel.refreshAll()
     }
@@ -2198,25 +2290,47 @@ fun DocumentsScreen(
         matchesTab && matchesFilter
     }
 
-    // Sort documents (latest first by issueDate)
     val sortedDocs = remember(filteredDocs) {
-        filteredDocs.sortedByDescending { it.issueDate }
+        newestDocuments(filteredDocs)
     }
 
-    fun shareDocument(documentId: String) {
+    suspend fun renderModelForDocument(documentId: String) =
+        TijarioDocumentMapper.fromSaved(
+            document = dataViewModel.fetchCompleteDocument(documentId).getOrThrow(),
+            businessSettings = uiState.businessSettings,
+            language = language,
+            templateId = templatePreferences.getDefaultTemplateId(),
+            showTijarioBranding = uiState.planUsage?.removeTijarioBranding?.not() ?: true,
+        )
+
+    fun exportDocument(documentId: String, action: DocumentExportAction) {
         scope.launch {
             try {
                 busyDocumentId = documentId
-                val completeDocument = dataViewModel.fetchCompleteDocument(documentId).getOrThrow()
-                val renderModel = TijarioDocumentMapper.fromSaved(
-                    document = completeDocument,
-                    businessSettings = uiState.businessSettings,
-                    language = language,
-                    templateId = templatePreferences.getDefaultTemplateId(),
-                    showTijarioBranding = uiState.planUsage?.removeTijarioBranding?.not() ?: true,
-                )
-                val intent = exportManager.shareIntent(renderModel)
-                context.startActivity(Intent.createChooser(intent, Localization.getString("export_share_pdf", language)))
+                val renderModel = renderModelForDocument(documentId)
+                when (action) {
+                    DocumentExportAction.ViewPdf -> {
+                        context.startActivity(exportManager.viewIntent(renderModel))
+                    }
+                    DocumentExportAction.SaveToDevice -> {
+                        val fileUri = exportManager.saveToDownloads(renderModel)
+                        Toast.makeText(context, Localization.getString("export_success_pdf", language) + ": " + fileUri.path, Toast.LENGTH_LONG).show()
+                    }
+                    DocumentExportAction.Print -> {
+                        exportManager.printPdf(renderModel)
+                    }
+                    DocumentExportAction.Email -> {
+                        val intent = exportManager.emailIntent(renderModel)
+                        context.startActivity(Intent.createChooser(intent, Localization.getString("export_send_email", language)))
+                    }
+                    DocumentExportAction.SharePdf -> {
+                        val intent = exportManager.shareIntent(renderModel)
+                        context.startActivity(Intent.createChooser(intent, Localization.getString("export_share_pdf", language)))
+                    }
+                    DocumentExportAction.ShareText -> {
+                        context.startActivity(exportManager.textShareIntent(renderModel))
+                    }
+                }
             } catch (_: ActivityNotFoundException) {
                 Toast.makeText(context, Localization.getString("export_no_app_found", language), Toast.LENGTH_LONG).show()
             } catch (_: Exception) {
@@ -2225,6 +2339,10 @@ fun DocumentsScreen(
                 busyDocumentId = null
             }
         }
+    }
+
+    fun shareDocument(documentId: String) {
+        exportDocument(documentId, DocumentExportAction.SharePdf)
     }
 
     fun deleteDocument(documentId: String) {
@@ -2251,8 +2369,8 @@ fun DocumentsScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(adaptive.pageHorizontalPadding),
+            verticalArrangement = Arrangement.spacedBy(adaptive.sectionSpacing)
         ) {
             // Header with Icon next to Title
             if (!hideHeader) {
@@ -2309,7 +2427,7 @@ fun DocumentsScreen(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = t("section_invoices"),
+                        text = t("tab_invoices"),
                         fontWeight = FontWeight.Bold,
                         color = if (selectedSection == 0) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 14.sp
@@ -2328,14 +2446,14 @@ fun DocumentsScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
-                        imageVector = Icons.Filled.Label,
+                        imageVector = Icons.AutoMirrored.Filled.Label,
                         contentDescription = null,
                         tint = if (selectedSection == 1) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = t("section_quotes"),
+                        text = t("tab_quotes"),
                         fontWeight = FontWeight.Bold,
                         color = if (selectedSection == 1) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 14.sp
@@ -2409,20 +2527,7 @@ fun DocumentsScreen(
                         }
                     )
 
-                    // Latest indicator (just design / sort toggle)
-                    TijarioFilterChip(
-                        selected = true,
-                        onClick = { /* sorting is default active */ },
-                        label = t("filter_latest"),
-                        leadingIcon = {
-                            Icon(
-                                imageVector = Icons.Filled.Event,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp),
-                                tint = Color.White
-                            )
-                        }
-                    )
+
                 }
             }
 
@@ -2486,6 +2591,7 @@ fun DocumentsScreen(
                 // Document list
                 LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(bottom = 88.dp),
                     modifier = Modifier.weight(1f)
                 ) {
                     items(sortedDocs) { doc ->
@@ -2500,7 +2606,13 @@ fun DocumentsScreen(
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { onDocumentClick(doc.id) },
+                                .combinedClickable(
+                                    onClick = { onDocumentClick(doc.id) },
+                                    onLongClick = {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        docForActions = doc
+                                    }
+                                ),
                             shape = RoundedCornerShape(16.dp),
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -2591,7 +2703,9 @@ fun DocumentsScreen(
                                         modifier = Modifier.weight(1f)
                                     ) {
                                         var actionsMenuExpanded by remember { mutableStateOf(false) }
+                                        val showInlineDocumentActions = false
 
+                                        if (showInlineDocumentActions) {
                                         Box {
                                             IconButton(
                                                 onClick = { actionsMenuExpanded = true },
@@ -2638,6 +2752,7 @@ fun DocumentsScreen(
                                                     }
                                                 )
                                             }
+                                        }
                                         }
 
                                         if (doc.type == app.tijario.data.model.DocumentType.Invoice) {
@@ -2687,7 +2802,7 @@ fun DocumentsScreen(
         Box(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(24.dp)
+                .padding(end = 24.dp, bottom = 96.dp)
         ) {
             FloatingActionButton(
                 onClick = { menuExpanded = true },
@@ -2740,6 +2855,71 @@ fun DocumentsScreen(
                     }
                 },
             )
+        }
+
+        if (docForActions != null) {
+            val doc = docForActions!!
+            ModalBottomSheet(
+                onDismissRequest = { docForActions = null },
+                sheetState = rememberModalBottomSheetState()
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Text(
+                        text = doc.documentNumber,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+
+                    val normalActionColor = MaterialTheme.colorScheme.onSurface
+
+                    ActionSheetRow(Icons.Filled.Visibility, t("btn_preview"), normalActionColor) {
+                        docForActions = null
+                        onDocumentClick(doc.id)
+                    }
+
+                    ActionSheetRow(Icons.Filled.Share, t("export_share_pdf"), normalActionColor) {
+                        docForActions = null
+                        exportDocument(doc.id, DocumentExportAction.SharePdf)
+                    }
+
+                    ActionSheetRow(Icons.Filled.Download, t("export_download_pdf"), normalActionColor) {
+                        docForActions = null
+                        exportDocument(doc.id, DocumentExportAction.SaveToDevice)
+                    }
+
+                    ActionSheetRow(Icons.Filled.Print, if (language == AppLanguage.AR) "طباعة" else "Print", normalActionColor) {
+                        docForActions = null
+                        exportDocument(doc.id, DocumentExportAction.Print)
+                    }
+
+                    ActionSheetRow(Icons.Filled.Email, t("export_send_email"), normalActionColor) {
+                        docForActions = null
+                        exportDocument(doc.id, DocumentExportAction.Email)
+                    }
+
+                    ActionSheetRow(Icons.Filled.Edit, t("edit"), normalActionColor) {
+                        docForActions = null
+                        onEditDocument(doc.id, doc.type)
+                    }
+
+                    ActionSheetRow(
+                        Icons.Filled.Delete,
+                        t("delete"),
+                        MaterialTheme.colorScheme.error,
+                        textColor = MaterialTheme.colorScheme.error,
+                    ) {
+                        docForActions = null
+                        documentPendingDelete = doc
+                    }
+                }
+            }
         }
     }
 }

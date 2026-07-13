@@ -3,8 +3,6 @@
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
-import android.content.Intent
-import android.provider.Settings
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -38,6 +36,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.WorkspacePremium
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MailOutline
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PersonOutline
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Check
@@ -50,7 +49,6 @@ import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.ui.platform.LocalContext
-import android.net.Uri
 import java.io.File
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -119,6 +117,8 @@ import app.tijario.features.billing.GooglePlayBillingRepository
 import app.tijario.features.notifications.NotificationTopicManager
 import app.tijario.ui.state.TijarioDataViewModel
 import app.tijario.ui.state.PlanUsageState
+import app.tijario.ui.components.LocalAdaptiveLayoutInfo
+import app.tijario.ui.components.LogoutConfirmationDialog
 import io.github.jan.supabase.auth.auth
 import kotlinx.coroutines.launch
 
@@ -133,6 +133,8 @@ fun SettingsHomeScreen(
     onUpgrade: () -> Unit,
     onLogout: () -> Unit,
 ) {
+    val adaptive = LocalAdaptiveLayoutInfo.current
+    var showLogoutConfirmation by remember { mutableStateOf(false) }
     val uiState by dataViewModel.uiState.collectAsStateWithLifecycle()
     val planUsageState by dataViewModel.planUsageState.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { dataViewModel.refreshPlanUsage() }
@@ -156,7 +158,7 @@ fun SettingsHomeScreen(
                 .background(MaterialTheme.colorScheme.background)
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
-                .padding(20.dp),
+                .padding(horizontal = adaptive.pageHorizontalPadding, vertical = adaptive.sectionSpacing),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Box(
@@ -235,7 +237,7 @@ fun SettingsHomeScreen(
             SettingsOption(Icons.Filled.WorkspacePremium, t("upgrade_plan"), t("upgrade_plan_desc"), onUpgrade)
 
             Button(
-                onClick = onLogout,
+                onClick = { showLogoutConfirmation = true },
                 modifier = Modifier.fillMaxWidth().height(54.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.error.copy(alpha = 0.12f),
@@ -248,6 +250,17 @@ fun SettingsHomeScreen(
                 Text(t("logout"), fontWeight = FontWeight.Bold)
             }
         }
+    }
+
+    if (showLogoutConfirmation) {
+        LogoutConfirmationDialog(
+            visible = true,
+            onDismiss = { showLogoutConfirmation = false },
+            onConfirm = {
+                showLogoutConfirmation = false
+                onLogout()
+            },
+        )
     }
 }
 
@@ -282,6 +295,7 @@ fun AccountSettingsScreen(
     onLogout: () -> Unit,
     onDeleteAccount: suspend () -> Result<Unit> = { Result.success(Unit) },
 ) {
+    val adaptive = LocalAdaptiveLayoutInfo.current
     val snackbarHostState = remember { SnackbarHostState() }
     val noEmailMsg = t("no_email_associated")
     val unexpectedErrorMsg = t("unexpected_error")
@@ -320,6 +334,7 @@ fun AccountSettingsScreen(
     val profilePicFile = remember { File(context.filesDir, "personal_profile_pic.jpg") }
     var profilePicBitmap by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
+    var showLogoutConfirmation by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         email = Supabase.client.auth.currentUserOrNull()?.email.orEmpty()
@@ -504,7 +519,7 @@ fun AccountSettingsScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
-                .padding(20.dp),
+                .padding(horizontal = adaptive.pageHorizontalPadding, vertical = adaptive.sectionSpacing),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             // Welcome Header Blue Gradient Card
@@ -520,7 +535,7 @@ fun AccountSettingsScreen(
                                 colors = listOf(Color(0xFF081C36), Color(0xFF0F2D54))
                             )
                         )
-                        .padding(24.dp)
+                        .padding(adaptive.cardPadding)
                         .fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
@@ -620,7 +635,7 @@ fun AccountSettingsScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Icon(Icons.Filled.Person, contentDescription = null, tint = Color(0xFF0D9488), modifier = Modifier.size(20.dp))
+                        Icon(Icons.Filled.Person, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp))
                         Text(t("account_info"), fontWeight = FontWeight.Bold, fontSize = 14.sp)
                     }
                     
@@ -696,12 +711,12 @@ fun AccountSettingsScreen(
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Surface(
-                            color = Color(0xFFE6F4EA),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
                             shape = RoundedCornerShape(8.dp),
                             modifier = Modifier.size(36.dp)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
-                                Icon(Icons.Filled.Lock, contentDescription = null, tint = Color(0xFF137333), modifier = Modifier.size(18.dp))
+                                Icon(Icons.Filled.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(18.dp))
                             }
                         }
                         Column(modifier = Modifier.weight(1f)) {
@@ -739,7 +754,7 @@ fun AccountSettingsScreen(
                         modifier = Modifier.weight(1f)
                     ) {
                         Surface(
-                            color = Color(0xFFE6FFFA),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
                             shape = RoundedCornerShape(8.dp),
                             modifier = Modifier.size(36.dp)
                         ) {
@@ -747,7 +762,7 @@ fun AccountSettingsScreen(
                                 Icon(
                                     Icons.Filled.WorkspacePremium,
                                     contentDescription = null,
-                                    tint = Color(0xFF0F766E),
+                                    tint = MaterialTheme.colorScheme.onSurface,
                                     modifier = Modifier.size(18.dp)
                                 )
                             }
@@ -795,7 +810,7 @@ fun AccountSettingsScreen(
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { onLogout() },
+                    .clickable { showLogoutConfirmation = true },
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
@@ -824,6 +839,17 @@ fun AccountSettingsScreen(
                         }
                     }
                 }
+            }
+
+            if (showLogoutConfirmation) {
+                LogoutConfirmationDialog(
+                    visible = true,
+                    onDismiss = { showLogoutConfirmation = false },
+                    onConfirm = {
+                        showLogoutConfirmation = false
+                        onLogout()
+                    },
+                )
             }
 
             Card(
@@ -907,21 +933,7 @@ fun AppSettingsScreen(onBack: () -> Unit) {
         topBar = {
             TopAppBar(
                 title = {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Surface(
-                            color = Color(0xFFE4F2F1),
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.size(36.dp)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(Icons.Filled.Settings, contentDescription = null, tint = Color(0xFF0D9488), modifier = Modifier.size(18.dp))
-                            }
-                        }
-                        Text(t("app_settings"), fontWeight = FontWeight.Bold)
-                    }
+                    Text(t("app_settings"), fontWeight = FontWeight.Bold)
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
@@ -961,12 +973,12 @@ fun AppSettingsScreen(onBack: () -> Unit) {
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             Surface(
-                                color = Color(0xFFE8F0FE),
+                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
                                 shape = RoundedCornerShape(8.dp),
                                 modifier = Modifier.size(36.dp)
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
-                                    Icon(Icons.Filled.Language, contentDescription = null, tint = Color(0xFF1A73E8), modifier = Modifier.size(18.dp))
+                                    Icon(Icons.Filled.Language, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(18.dp))
                                 }
                             }
                             Column {
@@ -981,8 +993,6 @@ fun AppSettingsScreen(onBack: () -> Unit) {
                         }
                     }
 
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = 8.dp))
-
                     // Theme option row
                     Row(
                         modifier = Modifier
@@ -996,12 +1006,12 @@ fun AppSettingsScreen(onBack: () -> Unit) {
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             Surface(
-                                color = Color(0xFFF3E8FF),
+                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
                                 shape = RoundedCornerShape(8.dp),
                                 modifier = Modifier.size(36.dp)
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
-                                    Icon(Icons.Filled.DarkMode, contentDescription = null, tint = Color(0xFF9333EA), modifier = Modifier.size(18.dp))
+                                    Icon(Icons.Filled.DarkMode, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(18.dp))
                                 }
                             }
                             Column {
@@ -1023,11 +1033,7 @@ fun AppSettingsScreen(onBack: () -> Unit) {
                         )
                     }
 
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = 8.dp))
-
                     LocalNotificationSettingsSection()
-
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = 8.dp))
 
                     // Privacy policy row
                     Row(
@@ -1050,12 +1056,12 @@ fun AppSettingsScreen(onBack: () -> Unit) {
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             Surface(
-                                color = Color(0xFFE6F4EA),
+                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
                                 shape = RoundedCornerShape(8.dp),
                                 modifier = Modifier.size(36.dp)
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
-                                    Icon(Icons.Filled.Shield, contentDescription = null, tint = Color(0xFF137333), modifier = Modifier.size(18.dp))
+                                    Icon(Icons.Filled.Shield, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(18.dp))
                                 }
                             }
                             Column {
@@ -1083,52 +1089,44 @@ private fun LocalNotificationSettingsSection() {
     val topicManager = remember(context) { NotificationTopicManager(context) }
     var enabled by remember { mutableStateOf(AppPreferences.isPushEnabled(context)) }
 
-    Card(
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        modifier = Modifier.fillMaxWidth(),
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        Column(
-            modifier = Modifier.padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.weight(1f),
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier.size(36.dp),
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(t("notifications"), fontWeight = FontWeight.Bold)
-                    Text(
-                        t("notification_settings_desc"),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        Icons.Filled.Notifications,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.size(18.dp),
                     )
                 }
-                Switch(
-                    checked = enabled,
-                    onCheckedChange = {
-                        enabled = it
-                        AppPreferences.setPushEnabled(context, it)
-                        scope.launch {
-                            runCatching { topicManager.syncForLanguage(language) }
-                        }
-                    },
-                )
             }
-            OutlinedButton(
-                onClick = {
-                    context.startActivity(
-                        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                            data = Uri.parse("package:${context.packageName}")
-                        }
-                    )
-                },
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(t("open_system_settings"))
-            }
+            Text(t("notifications"), fontWeight = FontWeight.Bold, fontSize = 14.sp)
         }
+        Switch(
+            checked = enabled,
+            onCheckedChange = {
+                enabled = it
+                AppPreferences.setPushEnabled(context, it)
+                scope.launch {
+                    runCatching { topicManager.syncForLanguage(language) }
+                }
+            },
+        )
     }
 }
 
@@ -2386,18 +2384,19 @@ private fun PricingFaqSection(isArabic: Boolean) {
 
 @Composable
 private fun SettingsOption(icon: ImageVector, title: String, subtitle: String, onClick: () -> Unit) {
+    val adaptive = LocalAdaptiveLayoutInfo.current
     Card(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
     ) {
-        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Surface(color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f), shape = RoundedCornerShape(14.dp), modifier = Modifier.size(44.dp)) {
-                Box(contentAlignment = Alignment.Center) { Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
+        Row(modifier = Modifier.padding(adaptive.cardPadding), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(adaptive.cardSpacing)) {
+            Surface(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f), shape = RoundedCornerShape(14.dp), modifier = Modifier.size(44.dp)) {
+                Box(contentAlignment = Alignment.Center) { Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface) }
             }
             Column(modifier = Modifier.weight(1f)) {
-                Text(title, fontWeight = FontWeight.Bold)
-                Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                Text(title, fontWeight = FontWeight.Bold, maxLines = 1)
+                Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, maxLines = if (adaptive.isExtraCompact) 2 else 3)
             }
         }
     }
@@ -2408,7 +2407,7 @@ private fun SettingsToggleRow(icon: ImageVector, title: String, trailing: @Compo
     Card(shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) {
         Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface)
                 Text(title, fontWeight = FontWeight.Bold)
             }
             trailing()

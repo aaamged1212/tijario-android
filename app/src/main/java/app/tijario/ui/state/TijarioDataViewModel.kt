@@ -10,6 +10,7 @@ import app.tijario.data.model.Customer
 import app.tijario.data.model.DocumentSummary
 import app.tijario.data.model.Product
 import app.tijario.data.remote.ApiResult
+import app.tijario.data.remote.NextNumberResponse
 import app.tijario.data.remote.CreateDocumentRequest
 import app.tijario.data.remote.CreateDocumentResponse
 import app.tijario.data.remote.AiV2CaptionRequest
@@ -221,6 +222,9 @@ class TijarioDataViewModel(
 
     suspend fun cacheBusinessSettings(settings: BusinessSettings): Result<Unit> =
         repository.cacheBusinessSettings(settings)
+
+    suspend fun getNextDocumentNumber(type: String): ApiResult<NextNumberResponse> =
+        repository.getNextDocumentNumber(type)
 
     suspend fun createDocument(request: CreateDocumentRequest): ApiResult<CreateDocumentResponse> {
         val result = repository.createDocument(request)

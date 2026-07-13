@@ -3,6 +3,8 @@ package app.tijario.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -17,6 +19,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.Image
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.sp
@@ -57,6 +60,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.Lifecycle
@@ -113,6 +117,9 @@ import app.tijario.domain.LocalizedErrorMapper
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.activity.compose.BackHandler
+import app.tijario.ui.components.LocalAdaptiveLayoutInfo
+import app.tijario.ui.components.ProvideAdaptiveLayout
 
 private data class RootTab(
     val route: String,
@@ -131,6 +138,13 @@ private val rootTabs = listOf(
 
 @Composable
 fun TijarioApp() {
+    ProvideAdaptiveLayout {
+        TijarioAppContent()
+    }
+}
+
+@Composable
+private fun TijarioAppContent() {
     val config = loadAppConfig()
     if (!config.isComplete) {
         ConfigurationRequiredScreen()
@@ -161,6 +175,7 @@ fun TijarioApp() {
     // Shared states for selection
     var activeSelectedCustomer by remember { mutableStateOf<app.tijario.data.model.Customer?>(null) }
     var activeSelectedProduct by remember { mutableStateOf<app.tijario.data.model.Product?>(null) }
+    var requestedDocumentsType by remember { mutableStateOf<app.tijario.data.model.DocumentType?>(null) }
     var activeSelectedProductRowIndex by remember { mutableStateOf<Int?>(null) }
 
     // Start data sync when authenticated
@@ -348,22 +363,20 @@ fun TijarioApp() {
 
             NavHost(navController = navController, startDestination = "main") {
                 composable("main") {
+                    val adaptive = LocalAdaptiveLayoutInfo.current
+                    val layoutDirection = LocalLayoutDirection.current
+                    BackHandler(enabled = pagerState.currentPage != 0) {
+                        pagerScope.launch { pagerState.animateScrollToPage(0) }
+                    }
                     Scaffold(
                         topBar = {
                             val currentPage = pagerState.currentPage
                             val titleText = when (currentPage) {
-                                0 -> t("welcome")
+                                0 -> t("tab_home")
                                 1 -> t("documents_title")
-                                2 -> t("ai_title")
-                                3 -> t("products_title")
+                                2 -> t("tab_ai")
+                                3 -> t("tab_products")
                                 else -> t("customers_title")
-                            }
-                            val subtitleText = when (currentPage) {
-                                0 -> t("dash_subtitle")
-                                1 -> t("documents_subtitle")
-                                2 -> t("ai_subtitle")
-                                3 -> t("products_subtitle")
-                                else -> t("customers_subtitle")
                             }
                             val pageIcon = when (currentPage) {
                                 0 -> Icons.Filled.Home
@@ -383,54 +396,50 @@ fun TijarioApp() {
                                     modifier = Modifier
                                         .statusBarsPadding()
                                         .fillMaxWidth()
-                                        .padding(horizontal = 20.dp, vertical = 14.dp),
+                                        .padding(
+                                            horizontal = adaptive.pageHorizontalPadding,
+                                            vertical = if (adaptive.isExtraCompact) 8.dp else 12.dp,
+                                        ),
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(if (adaptive.isExtraCompact) 6.dp else 10.dp),
                                         modifier = Modifier.weight(1f)
                                     ) {
                                         Icon(
                                             imageVector = pageIcon,
                                             contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(32.dp)
+                                            tint = MaterialTheme.colorScheme.onSurface,
+                                            modifier = Modifier.size(adaptive.iconSize)
                                         )
-                                        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                                            Text(
-                                                text = titleText,
-                                                style = MaterialTheme.typography.titleLarge,
-                                                fontWeight = FontWeight.Bold,
-                                                color = MaterialTheme.colorScheme.onSurface
-                                            )
-                                            Text(
-                                                text = subtitleText,
-                                                style = MaterialTheme.typography.bodySmall,
-                                                fontWeight = FontWeight.Medium,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                        }
+                                        Text(
+                                            text = titleText,
+                                            fontSize = adaptive.titleFontSize,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            modifier = Modifier.weight(1f),
+                                            maxLines = 1,
+                                            softWrap = false,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
                                     }
-                                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
                                         NotificationBellButton(
                                             unreadCount = notificationsState.unreadCount,
                                             onClick = { navController.navigate("notifications") },
                                         )
                                         IconButton(
                                             onClick = { navController.navigate("settings") },
-                                            colors = IconButtonDefaults.iconButtonColors(
-                                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                                            ),
                                             modifier = Modifier
-                                                .size(44.dp)
+                                                .size(if (adaptive.isExtraCompact) 40.dp else 44.dp)
                                                 .clip(CircleShape)
                                         ) {
                                             Icon(
                                                 imageVector = Icons.Filled.Settings,
                                                 contentDescription = t("settings"),
-                                                tint = MaterialTheme.colorScheme.primary
+                                                tint = MaterialTheme.colorScheme.onSurface
                                             )
                                         }
                                     }
@@ -438,10 +447,11 @@ fun TijarioApp() {
                             }
                         },
                         bottomBar = {
+                            val selectedNavAccent = if (MainActivity.isDarkMode) Color(0xFF14B8A6) else Color(0xFF0D9488)
                             NavigationBar(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(72.dp)
+                                    .height(if (adaptive.isExtraCompact) 64.dp else 72.dp)
                                     .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
                                     .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f), RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)),
                                 containerColor = MaterialTheme.colorScheme.surface,
@@ -464,7 +474,7 @@ fun TijarioApp() {
                                                             .width(20.dp)
                                                             .height(3.dp)
                                                             .clip(RoundedCornerShape(1.5.dp))
-                                                            .background(MaterialTheme.colorScheme.primary)
+                                                            .background(selectedNavAccent)
                                                     )
                                                     Spacer(modifier = Modifier.height(4.dp))
                                                 } else {
@@ -477,18 +487,32 @@ fun TijarioApp() {
                                                 )
                                             }
                                         },
-                                        label = {
+                                        label = if (adaptive.showInactiveBottomLabels || selected) {
+                                            {
                                             Text(
-                                                text = t(tab.label),
+                                                text = if (adaptive.isCompact && tab.label == "tab_documents") {
+                                                    t("tab_documents_short")
+                                                } else {
+                                                    t(tab.label)
+                                                },
                                                 fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                                                fontSize = 11.sp
+                                                fontSize = when {
+                                                    adaptive.isExtraCompact -> 9.sp
+                                                    adaptive.isCompact -> 10.sp
+                                                    else -> 11.sp
+                                                },
+                                                maxLines = 1,
+                                                softWrap = false,
+                                                overflow = TextOverflow.Ellipsis,
                                             )
-                                        },
+                                            }
+                                        } else null,
+                                        alwaysShowLabel = adaptive.showInactiveBottomLabels,
                                         colors = NavigationBarItemDefaults.colors(
-                                            selectedIconColor = MaterialTheme.colorScheme.primary,
-                                            selectedTextColor = MaterialTheme.colorScheme.primary,
-                                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            selectedIconColor = selectedNavAccent,
+                                            selectedTextColor = selectedNavAccent,
+                                            unselectedIconColor = MaterialTheme.colorScheme.onSurface,
+                                            unselectedTextColor = MaterialTheme.colorScheme.onSurface,
                                             indicatorColor = Color.Transparent
                                         )
                                     )
@@ -499,7 +523,12 @@ fun TijarioApp() {
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .padding(paddingValues)
+                                .padding(
+                                    start = paddingValues.calculateStartPadding(layoutDirection),
+                                    top = paddingValues.calculateTopPadding(),
+                                    end = paddingValues.calculateEndPadding(layoutDirection),
+                                    bottom = 0.dp,
+                                )
                         ) {
                             HorizontalPager(
                                 state = pagerState,
@@ -523,7 +552,10 @@ fun TijarioApp() {
                                         onCustomers = { pagerScope.launch { pagerState.scrollToPage(4) } },
                                         onAiTools = { pagerScope.launch { pagerState.scrollToPage(2) } },
                                         onBusinessSettings = { navController.navigate("business-settings") },
-                                        onViewAllDocuments = { pagerScope.launch { pagerState.scrollToPage(1) } },
+                                        onViewAllDocuments = { type ->
+                                            requestedDocumentsType = type
+                                            pagerScope.launch { pagerState.scrollToPage(1) }
+                                        },
                                         onDocumentClick = { documentId ->
                                             navController.navigate("document-detail?documentId=$documentId")
                                         },
@@ -550,6 +582,7 @@ fun TijarioApp() {
                                             val route = if (type == app.tijario.data.model.DocumentType.Invoice) "edit-invoice" else "edit-quote"
                                             navController.navigate("$route?documentId=$documentId")
                                         },
+                                        requestedDocumentType = requestedDocumentsType,
                                         hideHeader = true
                                     )
                                     2 -> AiToolsScreen(dataViewModel = dataViewModel, hideHeader = true)

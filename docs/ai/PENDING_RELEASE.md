@@ -3,19 +3,22 @@
 ## Unapplied Web-Repo Migrations
 - `supabase/migrations/20260708184437_allow_duplicate_customer_whatsapp.sql`
 - `supabase/migrations/20260709000137_qa_business_stock_document_language.sql`
+- `supabase/migrations/20260712090000_document_numbering_counters.sql`
 
-The QA migration is required before Android can persist business address/email/website, saved document language, or use the stock-aware document RPC behavior.
+The counters migration is required to manage sequential document numbers without concurrency collisions.
 
 ## Status
 - **Migration Status**: NOT applied.
 - **Web/API Status**: NOT deployed.
-- **Android Update Status**: NOT uploaded. Android changes are local only.
-- **Android QA Hotfix Status**: Customer-id document payload, language selector, snackbar errors, and document-language title behavior are implemented locally only.
-- **Android QA Batch Status**: Conditional product stock, invoice stock pre-validation, onboarding dial-code normalization, recent-document ordering, and auth safe-area fixes are implemented locally only. No Room migration is required for this batch.
+- **Android Update Status**: NOT uploaded. Android changes are Gradle-verified and ready for source control handoff.
+- **Batch A status**: Document numbering idempotency and operation_id sync propagation are completed locally.
+- **Adaptive UI QA Status**: Batch B UI recovery plus the Android UI polish follow-up are implemented locally and Gradle-verified. Dashboard/Documents now use `newestDocuments`, quick actions are adaptive, Customer/Product/Document cards have localized long-press sheets, document forms use searchable Customer/Product pickers, and the reported label/icon/phone/quote-number/product-card polish issues are addressed in code. The Android local document-options follow-up adds local shipping, percentage discount, and multi-select taxes/payment/terms without Web/API or Supabase changes.
+- **Validation Status**: `compileDebugKotlin`, `testDebugUnitTest`, `lintDebug --no-daemon`, `assembleDebug`, `:app:processReleaseMainManifest`, `assembleDebugAndroidTest`, and `git diff --check` passed.
+- **Manual QA Pending**: Verify next-document number previews, sync idempotency, form state restoration after screen rotation, local document option bottom sheets, shipping/discount preview/PDF output, and visual QA on real compact/common Android devices in Arabic and English, including light/dark settings icons and phone country-code selectors.
 - **Android Release Artifact**: `app/release/app-release.aab` remains present and git-ignored; do not upload or commit it.
 
 ## Correct Release Order
-1. Apply both Supabase migrations in timestamp order.
-2. Deploy compatible Web/API code from `fix/reduce-mobile-vercel-usage-sync-retries-local`.
-3. Verify Vercel logs and invoice create/update/delete, quote, inventory, language, and business-profile flows.
+1. Apply all three Supabase migrations in timestamp order.
+2. Deploy compatible Web/API code from `fix/document-number-allocation-collision`.
+3. Verify Vercel logs and sync idempotency under retries.
 4. Upload an Android update only after explicit approval and successful server verification.

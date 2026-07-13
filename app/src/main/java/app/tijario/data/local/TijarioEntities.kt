@@ -141,6 +141,8 @@ data class DocumentEntity(
     val amountPaid: BigDecimal?,
     @ColumnInfo(name = "issue_date")
     val issueDate: String,
+    @ColumnInfo(name = "created_at")
+    val createdAt: String? = null,
     @ColumnInfo(name = "tax_name")
     val taxName: String? = null,
     @ColumnInfo(name = "tax_rate", defaultValue = "0.0")
@@ -382,7 +384,15 @@ data class LocalDocumentMetadataEntity(
     @ColumnInfo(name = "tax_rate", defaultValue = "0.0")
     val taxRate: Double = 0.0,
     @ColumnInfo(name = "tax_name", defaultValue = "Tax")
-    val taxName: String = "Tax"
+    val taxName: String = "Tax",
+    @ColumnInfo(name = "discount_type", defaultValue = "fixed")
+    val discountType: String = "fixed",
+    @ColumnInfo(name = "discount_value")
+    val discountValue: String? = null,
+    @ColumnInfo(name = "shipping_amount", defaultValue = "0.0")
+    val shippingAmount: Double = 0.0,
+    @ColumnInfo(name = "shipping_label")
+    val shippingLabel: String? = null
 )
 
 // Mapping extensions
@@ -489,6 +499,7 @@ fun DocumentSummary.toEntity(userId: String, syncedAt: Long = System.currentTime
         paymentStatus = paymentStatus,
         amountPaid = amountPaid?.let { BigDecimal.valueOf(it) },
         issueDate = issueDate,
+        createdAt = createdAt,
         taxName = taxName,
         taxRate = BigDecimal.valueOf(taxRate),
         taxAmount = BigDecimal.valueOf(taxAmount),
@@ -511,6 +522,7 @@ fun DocumentEntity.toModel(): DocumentSummary =
         paymentStatus = paymentStatus,
         amountPaid = amountPaid?.toDouble(),
         issueDate = issueDate,
+        createdAt = createdAt,
         discountLabel = discountLabel,
         extraFeesLabel = extraFeesLabel,
         taxName = taxName,
@@ -535,6 +547,7 @@ fun CompleteDocument.toEntity(userId: String, syncedAt: Long = System.currentTim
         paymentStatus = paymentStatus,
         amountPaid = amountPaid?.let { BigDecimal.valueOf(it) },
         issueDate = issueDate,
+        createdAt = createdAt,
         taxName = taxName,
         taxRate = BigDecimal.valueOf(taxRate),
         taxAmount = BigDecimal.valueOf(taxAmount),

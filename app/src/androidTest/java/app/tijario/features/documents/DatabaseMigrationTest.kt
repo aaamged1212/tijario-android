@@ -29,6 +29,76 @@ class DatabaseMigrationTest {
     )
 
     @Test
+    fun migrateVersion12To13AddsCreatedAtWithoutLosingDocuments() {
+        val db12 = helper.createDatabase(TEST_DB, 12)
+        db12.execSQL(
+            """
+            INSERT INTO documents_cache (
+                id, user_id, customer_id, type, document_number, status, issue_date,
+                tax_rate, tax_amount, document_language, total, currency, synced_at,
+                subtotal, discount, extra_fees, sync_status, local_revision, is_deleted
+            ) VALUES (
+                'doc-created-at', 'user-1', 'customer-1', 'invoice', 'INV-13', 'draft', '2026-07-12',
+                '0.0', '0.0', 'ar', '10.0', 'SAR', 1,
+                '10.0', '0.0', '0.0', 'SYNCED', 1, 0
+            )
+            """.trimIndent()
+        )
+        db12.close()
+
+        val db13 = helper.runMigrationsAndValidate(
+            TEST_DB,
+            13,
+            true,
+            TijarioDatabase.MIGRATION_12_13,
+        )
+        val cursor = db13.query("SELECT id, created_at FROM documents_cache WHERE id = 'doc-created-at'")
+
+        assertTrue(cursor.moveToFirst())
+        assertEquals("doc-created-at", cursor.getString(cursor.getColumnIndexOrThrow("id")))
+        assertTrue(cursor.isNull(cursor.getColumnIndexOrThrow("created_at")))
+        cursor.close()
+        db13.close()
+    }
+
+    @Test
+    fun migrateVersion13To14AddsLocalDocumentOptionFields() {
+        val db13 = helper.createDatabase(TEST_DB, 13)
+        db13.execSQL(
+            """
+            INSERT INTO local_document_metadata (
+                documentId, currency, signature_data, payment_method, tax_rate, tax_name
+            ) VALUES (
+                'doc-options', 'SAR', NULL, 'cash', 15.0, 'VAT'
+            )
+            """.trimIndent()
+        )
+        db13.close()
+
+        val db14 = helper.runMigrationsAndValidate(
+            TEST_DB,
+            14,
+            true,
+            TijarioDatabase.MIGRATION_13_14,
+        )
+        val cursor = db14.query(
+            """
+            SELECT discount_type, discount_value, shipping_amount, shipping_label
+            FROM local_document_metadata
+            WHERE documentId = 'doc-options'
+            """.trimIndent()
+        )
+
+        assertTrue(cursor.moveToFirst())
+        assertEquals("fixed", cursor.getString(cursor.getColumnIndexOrThrow("discount_type")))
+        assertTrue(cursor.isNull(cursor.getColumnIndexOrThrow("discount_value")))
+        assertEquals(0.0, cursor.getDouble(cursor.getColumnIndexOrThrow("shipping_amount")), 0.0)
+        assertTrue(cursor.isNull(cursor.getColumnIndexOrThrow("shipping_label")))
+        cursor.close()
+        db14.close()
+    }
+
+    @Test
     fun migrateVersion6To7PreservesAllDataAndConvertsPricesToCanonicalStrings() {
         // 1. Create version 6 database
         val db6 = helper.createDatabase(TEST_DB, 6)

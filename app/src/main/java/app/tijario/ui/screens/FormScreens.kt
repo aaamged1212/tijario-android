@@ -7,18 +7,23 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Business
+import androidx.compose.material.icons.filled.BusinessCenter
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Note
 import androidx.compose.material.icons.filled.Numbers
 import androidx.compose.material.icons.filled.Percent
 import androidx.compose.material.icons.filled.LocalOffer
+import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
@@ -31,6 +36,7 @@ import androidx.compose.material.icons.filled.Domain
 import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Edit
@@ -45,6 +51,8 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.compose.material3.*
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.items
@@ -67,6 +75,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -79,6 +90,7 @@ import android.graphics.Canvas as AndroidCanvas
 import android.graphics.Paint as AndroidPaint
 import android.graphics.Path as AndroidPath
 import java.io.ByteArrayOutputStream
+import java.time.LocalDate
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.tijario.config.LocalLanguage
 import app.tijario.config.Localization
@@ -86,10 +98,11 @@ import app.tijario.config.t
 import app.tijario.ui.components.buildLogoUploadRequest
 import app.tijario.ui.components.clearBusinessLogoCache
 import app.tijario.ui.components.loadStoreLogoBitmap
-import app.tijario.domain.DocumentNumbering
 import app.tijario.domain.DocumentCalculator
 import app.tijario.domain.Validation
+import app.tijario.domain.splitPhoneNumber
 import app.tijario.data.model.DocumentType
+import app.tijario.data.model.DocumentSummary
 import app.tijario.data.model.BusinessSettings
 import app.tijario.data.remote.localizedDisplayMessage
 import app.tijario.data.model.Product
@@ -108,6 +121,7 @@ import app.tijario.features.documents.ui.DocumentTemplatePreferences
 import app.tijario.features.documents.ui.DocumentInvoiceOptionPreferences
 import app.tijario.ui.components.ModernDocumentPreview
 import app.tijario.ui.components.TijarioButton
+import app.tijario.ui.components.TijarioPhoneField
 import app.tijario.ui.components.TijarioTextField
 import app.tijario.ui.state.BusinessSettingsFormState
 import app.tijario.ui.state.CustomerFormState
@@ -130,6 +144,89 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+
+private val MoneyKeyboardOptions = KeyboardOptions(
+    keyboardType = KeyboardType.Decimal,
+    imeAction = ImeAction.Next,
+)
+
+private fun formatLocalMoney(value: java.math.BigDecimal, currency: String): String =
+    "${value.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString()} $currency"
+
+private fun selectedLinesCount(value: String): Int =
+    value.split('\n').map { it.trim() }.filter { it.isNotEmpty() }.size
+
+@Composable
+private fun DocumentOptionRow(
+    icon: ImageVector,
+    title: String,
+    value: String,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.weight(1f),
+        ) {
+            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            Text(title, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
+        }
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.weight(1f),
+        ) {
+            Text(
+                value,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 14.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+                textAlign = TextAlign.End,
+            )
+            Icon(
+                Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+private val QuantityKeyboardOptions = KeyboardOptions(
+    keyboardType = KeyboardType.Number,
+    imeAction = ImeAction.Next,
+)
+
+private fun todayDocumentDate(): String = LocalDate.now().toString()
+
+private fun documentNumberPrefix(type: DocumentType): String =
+    if (type == DocumentType.Invoice) "INV-" else "Q-"
+
+private fun documentNumberEditablePart(number: String, type: DocumentType): String =
+    number.removePrefix(documentNumberPrefix(type)).substringAfter("-", number.removePrefix(documentNumberPrefix(type)))
+
+private fun displayDraftDocumentNumber(number: String, type: DocumentType): String =
+    number.ifBlank { documentNumberPrefix(type) + "..." }
+
+private fun nextLocalDocumentNumber(documents: List<DocumentSummary>, type: DocumentType): String {
+    val next = documents.asSequence()
+        .filter { it.type == type }
+        .mapNotNull { Regex("(\\d+)$").find(it.documentNumber.trim())?.groupValues?.getOrNull(1)?.toIntOrNull() }
+        .maxOrNull()
+        ?.plus(1)
+        ?: 1
+    return documentNumberPrefix(type) + next.toString().padStart(5, '0')
+}
 
 internal fun isDocumentIdentityEditable(isEditMode: Boolean): Boolean = !isEditMode
 
@@ -317,11 +414,21 @@ fun CustomerFormScreen(
     onBack: () -> Unit,
 ) {
     val language = LocalLanguage.current
+    val uiState by dataViewModel.uiState.collectAsStateWithLifecycle()
     var form by remember(language) { mutableStateOf(CustomerFormState(lang = language)) }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+    var deleteErrorMsg by remember { mutableStateOf<String?>(null) }
+    var isDeletingCustomer by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val isEditMode = customerId != null
+    val defaultCustomerDialCode = remember(uiState.businessSettings?.whatsappNumber, uiState.businessSettings?.country, language) {
+        uiState.businessSettings?.whatsappNumber
+            ?.takeIf { it.isNotBlank() }
+            ?.let { splitPhoneNumber(it).dialCode }
+            ?: dialCodeForCountrySelection(uiState.businessSettings?.country.orEmpty(), language)
+    }
 
     LaunchedEffect(customerId) {
         if (customerId != null) {
@@ -381,12 +488,11 @@ fun CustomerFormScreen(
                         leadingIcon = { Icon(Icons.Filled.Person, contentDescription = null, tint = Color(0xFF64748B)) }
                     )
 
-                    TijarioTextField(
-                        label = t("whatsapp_phone"),
+                    TijarioPhoneField(
                         value = form.whatsapp,
                         onValueChange = { form = form.copy(whatsapp = it) },
                         error = if (form.whatsapp.isNotEmpty()) form.whatsappError else null,
-                        leadingIcon = { Icon(Icons.Filled.Phone, contentDescription = null, tint = Color(0xFF64748B)) }
+                        defaultDialCode = defaultCustomerDialCode,
                     )
 
                     TijarioTextField(
@@ -445,9 +551,74 @@ fun CustomerFormScreen(
                     errorMessage?.let {
                         Text(it, color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
                     }
+
+                    if (isEditMode) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedButton(
+                            onClick = {
+                                showDeleteConfirm = true
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.error)
+                        ) {
+                            Text("حذف العميل")
+                        }
+                    }
                 }
             }
         }
+    }
+
+    if (showDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false; deleteErrorMsg = null },
+            title = { Text("تأكيد الحذف", fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("هل أنت متأكد من رغبتك في حذف هذا العميل؟")
+                    deleteErrorMsg?.let {
+                        Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        scope.launch {
+                            try {
+                                val isLinked = dataViewModel.uiState.value.documents.any { it.customerId == customerId }
+                                if (isLinked) {
+                                    deleteErrorMsg = "لا يمكن حذف هذا العميل لأنه مرتبط بفواتير أو عروض أسعار."
+                                    return@launch
+                                }
+                                isDeletingCustomer = true
+                                val res = dataViewModel.deleteCustomer(customerId!!)
+                                if (res.isSuccess) {
+                                    showDeleteConfirm = false
+                                    onBack()
+                                } else {
+                                    deleteErrorMsg = LocalizedErrorMapper.map(null, res.exceptionOrNull()?.message, language)
+                                }
+                            } catch (e: Exception) {
+                                deleteErrorMsg = LocalizedErrorMapper.map(null, e.message, language)
+                            } finally {
+                                isDeletingCustomer = false
+                            }
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    if (isDeletingCustomer) CircularProgressIndicator(color = Color.White, modifier = Modifier.size(16.dp))
+                    else Text("حذف")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = false; deleteErrorMsg = null }) {
+                    Text("إلغاء")
+                }
+            }
+        )
     }
 }
 
@@ -540,6 +711,21 @@ private fun countryOptions(language: AppLanguage): List<String> = if (language =
         "Syria",
         "Palestine",
     )
+}
+
+private val formCountryDialCodes = listOf(
+    "+966", "+967", "+971", "+20", "+965", "+974", "+968", "+973", "+962",
+    "+961", "+212", "+216", "+213", "+218", "+249", "+964", "+963", "+970",
+)
+
+private fun dialCodeForCountrySelection(country: String, language: AppLanguage): String {
+    val index = countryOptions(language).indexOf(country)
+    return formCountryDialCodes.getOrElse(index) { "+966" }
+}
+
+private fun countryForDialCodeSelection(dialCode: String, language: AppLanguage): String? {
+    val index = formCountryDialCodes.indexOf(dialCode)
+    return countryOptions(language).getOrNull(index)
 }
 
 private fun currencyOptions(): List<String> = listOf(
@@ -675,6 +861,7 @@ fun ProductFormScreen(
                         value = form.price,
                         onValueChange = { form = form.copy(price = it) },
                         error = if (form.price.isNotEmpty()) form.priceError else null,
+                        keyboardOptions = MoneyKeyboardOptions,
                         leadingIcon = { Icon(Icons.Filled.PriceChange, contentDescription = null, tint = Color(0xFF64748B)) }
                     )
 
@@ -687,6 +874,7 @@ fun ProductFormScreen(
                         value = form.stockQuantity,
                         onValueChange = { form = form.copy(stockQuantity = it) },
                         error = if (form.stockQuantity.isNotEmpty() || form.kind == ProductKind.Product) form.stockQuantityError else null,
+                        keyboardOptions = QuantityKeyboardOptions,
                         leadingIcon = { Icon(Icons.Filled.Numbers, contentDescription = null, tint = Color(0xFF64748B)) }
                     )
 
@@ -957,7 +1145,7 @@ fun BusinessSettingsScreen(
     if (activeDialog != null) {
         AlertDialog(
             onDismissRequest = { activeDialog = null },
-            title = { Text(t("edit_customer"), fontWeight = FontWeight.Bold) },
+            title = { Text(t("tab_store_account"), fontWeight = FontWeight.Bold) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     when (activeDialog) {
@@ -967,17 +1155,24 @@ fun BusinessSettingsScreen(
                                 value = form.businessName,
                                 onValueChange = { form = form.copy(businessName = it) },
                                 error = if (form.businessName.isNotEmpty()) form.businessNameError else null,
-                                leadingIcon = { Icon(Icons.Filled.Business, contentDescription = null, tint = Color(0xFF0D9488)) }
+                                leadingIcon = { Icon(Icons.Filled.Business, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface) }
                             )
                         }
 
                         "phone" -> {
-                            TijarioTextField(
-                                label = t("whatsapp_phone"),
+                            TijarioPhoneField(
                                 value = form.whatsapp,
                                 onValueChange = { form = form.copy(whatsapp = it) },
                                 error = if (form.whatsapp.isNotEmpty()) form.whatsappError else null,
-                                leadingIcon = { Icon(Icons.Filled.Phone, contentDescription = null, tint = Color(0xFF0D9488)) }
+                                defaultDialCode = form.whatsapp
+                                    .takeIf { it.isNotBlank() }
+                                    ?.let { splitPhoneNumber(it).dialCode }
+                                    ?: dialCodeForCountrySelection(form.country, language),
+                                onDialCodeChange = { dialCode ->
+                                    countryForDialCodeSelection(dialCode, language)?.let { country ->
+                                        form = form.copy(country = country)
+                                    }
+                                },
                             )
                         }
                         "country" -> {
@@ -994,7 +1189,7 @@ fun BusinessSettingsScreen(
                                 label = t("city"),
                                 value = form.city,
                                 onValueChange = { form = form.copy(city = it) },
-                                leadingIcon = { Icon(Icons.Filled.LocationOn, contentDescription = null, tint = Color(0xFF0D9488)) }
+                                leadingIcon = { Icon(Icons.Filled.LocationOn, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface) }
                             )
                         }
                         "address" -> {
@@ -1002,7 +1197,7 @@ fun BusinessSettingsScreen(
                                 label = t("business_address"),
                                 value = form.address,
                                 onValueChange = { form = form.copy(address = it) },
-                                leadingIcon = { Icon(Icons.Filled.LocationOn, contentDescription = null, tint = Color(0xFF0D9488)) }
+                                leadingIcon = { Icon(Icons.Filled.LocationOn, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface) }
                             )
                         }
                         "email" -> {
@@ -1011,7 +1206,7 @@ fun BusinessSettingsScreen(
                                 value = form.email,
                                 onValueChange = { form = form.copy(email = it) },
                                 error = form.emailError,
-                                leadingIcon = { Icon(Icons.Filled.Description, contentDescription = null, tint = Color(0xFF0D9488)) }
+                                leadingIcon = { Icon(Icons.Filled.Description, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface) }
                             )
                         }
                         "website" -> {
@@ -1020,7 +1215,7 @@ fun BusinessSettingsScreen(
                                 value = form.websiteUrl,
                                 onValueChange = { form = form.copy(websiteUrl = it) },
                                 error = form.websiteError,
-                                leadingIcon = { Icon(Icons.Filled.Public, contentDescription = null, tint = Color(0xFF0D9488)) }
+                                leadingIcon = { Icon(Icons.Filled.Public, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface) }
                             )
                         }
                         "currency" -> {
@@ -1038,7 +1233,7 @@ fun BusinessSettingsScreen(
                                 value = form.terms,
                                 onValueChange = { form = form.copy(terms = it) },
                                 singleLine = false,
-                                leadingIcon = { Icon(Icons.Filled.Note, contentDescription = null, tint = Color(0xFF0D9488)) }
+                                leadingIcon = { Icon(Icons.Filled.Note, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface) }
                             )
                         }
                     }
@@ -1160,19 +1355,6 @@ fun BusinessSettingsScreen(
                                     fontSize = 18.sp,
                                     fontWeight = FontWeight.Bold
                                 )
-                                Surface(
-                                    color = Color.White.copy(alpha = 0.15f),
-                                    shape = RoundedCornerShape(6.dp)
-                                ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                    ) {
-                                        Icon(Icons.Filled.Shield, contentDescription = null, tint = Color(0xFF2DD4BF), modifier = Modifier.size(10.dp))
-                                        Text(t("verified_store"), color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                                    }
-                                }
                             }
                             Text(
                                 text = t("store_slogan"),
@@ -1396,12 +1578,12 @@ private fun SettingsItemRow(
             modifier = Modifier.weight(1f)
         ) {
             Surface(
-                color = Color(0xFFF1F5F9),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
                 shape = RoundedCornerShape(8.dp),
                 modifier = Modifier.size(40.dp)
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    Icon(icon, contentDescription = null, tint = Color(0xFF0F2D54), modifier = Modifier.size(20.dp))
+                    Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp))
                 }
             }
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -1440,7 +1622,11 @@ val DocumentFormStateSaver = listSaver<DocumentFormState, Any>(
             state.currency,
             state.signatureData,
             state.paymentMethod,
-            state.lang.name
+            state.lang.name,
+            state.operationId,
+            state.discountType,
+            state.shippingAmount,
+            state.shippingLabel
         )
         state.items.forEach { item ->
             list.add(item.id)
@@ -1457,7 +1643,9 @@ val DocumentFormStateSaver = listSaver<DocumentFormState, Any>(
         list
     },
     restore = { list ->
-        val hasLabels = list.size >= 26
+        val hasLocalOptions = list.size >= 30 && (list.size - 30) % 10 == 0
+        val hasLabels = hasLocalOptions || list.size >= 27
+        val headerSize = if (hasLocalOptions) 30 else if (hasLabels) 27 else 24
         val customerId = list[0] as String
         val customerName = list[1] as String
         val customerWhatsapp = list[2] as String
@@ -1484,9 +1672,13 @@ val DocumentFormStateSaver = listSaver<DocumentFormState, Any>(
         val signatureData = if (hasLabels) list[23] as String else list[21] as String
         val paymentMethod = if (hasLabels) list[24] as String else list[22] as String
         val lang = app.tijario.config.AppLanguage.valueOf(if (hasLabels) list[25] as String else list[23] as String)
+        val operationId = if (hasLabels) list[26] as String else java.util.UUID.randomUUID().toString()
+        val discountType = if (hasLocalOptions) list[27] as String else "fixed"
+        val shippingAmount = if (hasLocalOptions) list[28] as String else ""
+        val shippingLabel = if (hasLocalOptions) list[29] as String else ""
 
         val itemsList = mutableListOf<app.tijario.ui.state.DocumentItemState>()
-        val itemsData = list.subList(if (hasLabels) 26 else 24, list.size)
+        val itemsData = list.subList(headerSize, list.size)
         for (i in itemsData.indices step 10) {
             if (i + 9 < itemsData.size) {
                 itemsList.add(
@@ -1514,7 +1706,10 @@ val DocumentFormStateSaver = listSaver<DocumentFormState, Any>(
             customerCity = customerCity.takeIf { it.isNotEmpty() },
             items = itemsList,
             discount = discount,
+            discountType = discountType,
             extraFees = extraFees,
+            shippingAmount = shippingAmount,
+            shippingLabel = shippingLabel,
             paymentStatus = paymentStatus,
             amountPaid = amountPaid,
             notes = notes,
@@ -1534,7 +1729,8 @@ val DocumentFormStateSaver = listSaver<DocumentFormState, Any>(
             currency = currency,
             signatureData = signatureData,
             paymentMethod = paymentMethod,
-            lang = lang
+            lang = lang,
+            operationId = operationId
         )
     }
 )
@@ -1543,6 +1739,7 @@ val DocumentFormStateSaver = listSaver<DocumentFormState, Any>(
 @Composable
 fun InvoiceInfoDialog(
     form: app.tijario.ui.state.DocumentFormState,
+    documentType: DocumentType,
     isEditMode: Boolean,
     onDismiss: () -> Unit,
     onSave: (
@@ -1554,13 +1751,76 @@ fun InvoiceInfoDialog(
         documentTitle: String
     ) -> Unit
 ) {
-    var invoiceNumber by remember { mutableStateOf(form.documentNumber) }
-    var creationDate by remember { mutableStateOf(form.creationDate.ifBlank { "21-06-2026" }) }
+    val numberPrefix = documentNumberPrefix(documentType)
+    var documentNumberDigits by remember { mutableStateOf(documentNumberEditablePart(form.documentNumber, documentType)) }
+    var creationDate by remember { mutableStateOf(form.creationDate.ifBlank { todayDocumentDate() }) }
     var dueTerms by remember { mutableStateOf(form.dueTerms) }
     var dueDate by remember { mutableStateOf(form.dueDate) }
+    var showCreationDatePicker by remember { mutableStateOf(false) }
+    var showDueDatePicker by remember { mutableStateOf(false) }
     var poNumber by remember { mutableStateOf(form.poNumber) }
     var invoiceTitle by remember { mutableStateOf(form.documentTitle) }
     val identityLocked = !isDocumentIdentityEditable(isEditMode)
+
+    if (showCreationDatePicker) {
+        val initialDateMillis = runCatching { LocalDate.parse(creationDate) }.getOrNull()
+            ?.atStartOfDay(java.time.ZoneOffset.UTC)
+            ?.toInstant()
+            ?.toEpochMilli()
+            ?: LocalDate.now().atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli()
+        val pickerState = rememberDatePickerState(initialSelectedDateMillis = initialDateMillis)
+        DatePickerDialog(
+            onDismissRequest = { showCreationDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        pickerState.selectedDateMillis?.let { millis ->
+                            creationDate = java.time.Instant.ofEpochMilli(millis)
+                                .atZone(java.time.ZoneOffset.UTC)
+                                .toLocalDate()
+                                .toString()
+                        }
+                        showCreationDatePicker = false
+                    }
+                ) { Text(t("btn_ok")) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCreationDatePicker = false }) { Text(t("btn_cancel")) }
+            },
+        ) {
+            DatePicker(state = pickerState)
+        }
+    }
+
+    if (showDueDatePicker) {
+        val initialDateMillis = runCatching { LocalDate.parse(dueDate) }.getOrNull()
+            ?.atStartOfDay(java.time.ZoneOffset.UTC)
+            ?.toInstant()
+            ?.toEpochMilli()
+            ?: LocalDate.now().atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli()
+        val pickerState = rememberDatePickerState(initialSelectedDateMillis = initialDateMillis)
+        DatePickerDialog(
+            onDismissRequest = { showDueDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        pickerState.selectedDateMillis?.let { millis ->
+                            dueDate = java.time.Instant.ofEpochMilli(millis)
+                                .atZone(java.time.ZoneOffset.UTC)
+                                .toLocalDate()
+                                .toString()
+                        }
+                        showDueDatePicker = false
+                    }
+                ) { Text(t("btn_ok")) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDueDatePicker = false }) { Text(t("btn_cancel")) }
+            },
+        ) {
+            DatePicker(state = pickerState)
+        }
+    }
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -1573,7 +1833,7 @@ fun InvoiceInfoDialog(
             Scaffold(
                 topBar = {
                     TopAppBar(
-                        title = { Text(t("invoice_info_title"), fontWeight = FontWeight.Bold) },
+                        title = { Text(t(if (documentType == DocumentType.Invoice) "invoice_info_title" else "quote_info_title"), fontWeight = FontWeight.Bold) },
                         navigationIcon = {
                             IconButton(onClick = onDismiss) {
                                 Icon(Icons.Filled.ArrowBack, contentDescription = t("btn_back"))
@@ -1582,9 +1842,9 @@ fun InvoiceInfoDialog(
                         actions = {
                             IconButton(
                                 onClick = {
-                                    onSave(invoiceNumber, creationDate, dueTerms, dueDate, poNumber, invoiceTitle)
+                                    onSave(numberPrefix + documentNumberDigits, creationDate, dueTerms, dueDate, poNumber, invoiceTitle)
                                 },
-                                enabled = invoiceNumber.isNotBlank() && creationDate.isNotBlank()
+                                enabled = documentNumberDigits.isNotBlank() && creationDate.isNotBlank()
                             ) {
                                 Icon(Icons.Filled.Check, contentDescription = "Save")
                             }
@@ -1616,18 +1876,45 @@ fun InvoiceInfoDialog(
                             modifier = Modifier.padding(16.dp),
                             verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
-                            TijarioTextField(
-                                label = t("invoice_number") + " *",
-                                value = invoiceNumber,
-                                onValueChange = { if (!identityLocked) invoiceNumber = it },
-                                readOnly = identityLocked
-                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.Top,
+                            ) {
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+                                ) {
+                                    Text(
+                                        text = numberPrefix,
+                                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 18.dp),
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                    )
+                                }
+                                TijarioTextField(
+                                    label = t(if (documentType == DocumentType.Invoice) "invoice_number" else "quote_number") + " *",
+                                    value = documentNumberDigits,
+                                    onValueChange = { if (!identityLocked) documentNumberDigits = it },
+                                    readOnly = identityLocked,
+                                    keyboardOptions = QuantityKeyboardOptions,
+                                    modifier = Modifier.weight(1f),
+                                )
+                            }
 
                             TijarioTextField(
                                 label = t("creation_date") + " *",
                                 value = creationDate,
                                 onValueChange = { if (!identityLocked) creationDate = it },
-                                readOnly = identityLocked
+                                readOnly = identityLocked,
+                                keyboardOptions = QuantityKeyboardOptions,
+                                trailingIcon = {
+                                    if (!identityLocked) {
+                                        IconButton(onClick = { showCreationDatePicker = true }) {
+                                            Icon(Icons.Filled.DateRange, contentDescription = t("creation_date"))
+                                        }
+                                    }
+                                },
                             )
 
                             var showTermsDropdown by remember { mutableStateOf(false) }
@@ -1635,11 +1922,17 @@ fun InvoiceInfoDialog(
                             TijarioTextField(
                                 label = t("due_date"),
                                 value = dueDate,
-                                onValueChange = { dueDate = it }
+                                onValueChange = { dueDate = it },
+                                keyboardOptions = QuantityKeyboardOptions,
+                                trailingIcon = {
+                                    IconButton(onClick = { showDueDatePicker = true }) {
+                                        Icon(Icons.Filled.DateRange, contentDescription = t("due_date"))
+                                    }
+                                },
                             )
 
                             TijarioTextField(
-                                label = t("invoice_title_name"),
+                                label = t(if (documentType == DocumentType.Invoice) "invoice_title_name" else "quote_title_name"),
                                 value = invoiceTitle,
                                 onValueChange = { if (!identityLocked) invoiceTitle = it },
                                 readOnly = identityLocked
@@ -1980,7 +2273,8 @@ fun EditItemDialog(
                             TijarioTextField(
                                 label = t("item_price_label"),
                                 value = price,
-                                onValueChange = { price = it }
+                                onValueChange = { price = it },
+                                keyboardOptions = MoneyKeyboardOptions,
                             )
 
                             TijarioTextField(
@@ -1988,6 +2282,7 @@ fun EditItemDialog(
                                 value = quantity,
                                 onValueChange = { quantity = it },
                                 error = quantityStockError,
+                                keyboardOptions = QuantityKeyboardOptions,
                             )
 
                             TijarioTextField(
@@ -2075,6 +2370,7 @@ fun DocumentFormScreen(
     var selectedTab by remember { mutableStateOf(0) } // 0 = edit, 1 = preview
     var isLoading by remember { mutableStateOf(false) }
     var titleEditedByUser by rememberSaveable { mutableStateOf(false) }
+    var documentNumberEditedByUser by rememberSaveable { mutableStateOf(false) }
     val context = LocalContext.current
     val templatePreferences = remember(context) { DocumentTemplatePreferences(context) }
     val invoiceOptionPreferences = remember(context) { DocumentInvoiceOptionPreferences(context) }
@@ -2103,7 +2399,14 @@ fun DocumentFormScreen(
     var showLocalPaymentDialog by remember { mutableStateOf(false) }
     var showLocalSignaturesDialog by remember { mutableStateOf(false) }
     var showLocalTermsDialog by remember { mutableStateOf(false) }
+    var showDiscountSheet by remember { mutableStateOf(false) }
+    var showExtraFeesSheet by remember { mutableStateOf(false) }
+    var showShippingSheet by remember { mutableStateOf(false) }
     var showLanguageSheet by remember { mutableStateOf(false) }
+    var showCustomerPickerSheet by remember { mutableStateOf(false) }
+    var showProductPickerRowIndex by rememberSaveable { mutableStateOf<Int?>(null) }
+    var customerPickerQuery by rememberSaveable { mutableStateOf("") }
+    var productPickerQuery by rememberSaveable { mutableStateOf("") }
 
     fun showDocumentError(message: String) {
         scope.launch {
@@ -2128,14 +2431,19 @@ fun DocumentFormScreen(
         )
     }
 
-    val nextDocNumber = remember(uiState.documents, type) {
-        val typedDocs = uiState.documents.filter { it.type == type }
-        DocumentNumbering.nextDocumentNumber(typedDocs.map { it.documentNumber }, type)
+    val nextDraftDocumentNumber = remember(uiState.documents, type) {
+        nextLocalDocumentNumber(uiState.documents, type)
     }
+    var isLoadingNextDocumentNumber by rememberSaveable(isEditMode, type) { mutableStateOf(false) }
 
-    LaunchedEffect(nextDocNumber, isEditMode) {
-        if (!isEditMode && form.documentNumber.isBlank()) {
-            form = form.copy(documentNumber = nextDocNumber)
+    LaunchedEffect(isEditMode, type, nextDraftDocumentNumber, documentNumberEditedByUser) {
+        if (!isEditMode) {
+            if (!documentNumberEditedByUser) {
+                form = form.copy(documentNumber = nextDraftDocumentNumber)
+            }
+            isLoadingNextDocumentNumber = false
+        } else {
+            isLoadingNextDocumentNumber = false
         }
     }
 
@@ -2209,6 +2517,8 @@ fun DocumentFormScreen(
             extraFeesStr = form.extraFees,
             taxRateStr = form.finalTaxRate,
             amountPaidStr = form.amountPaid,
+            discountType = form.discountType,
+            shippingStr = form.shippingAmount,
         )
         if (!totals.isValid) {
             showDocumentError(Localization.getString("invalid_document_total", language))
@@ -2220,6 +2530,7 @@ fun DocumentFormScreen(
                 isLoading = true
                 val req = app.tijario.data.remote.CreateDocumentRequest(
                     type = type,
+                    operationId = form.operationId,
                     paymentStatus = if (type == app.tijario.data.model.DocumentType.Invoice) form.paymentStatus else null,
                     amountPaid = if (type == app.tijario.data.model.DocumentType.Invoice && form.paymentStatus == "partial") Validation.parseNonNegativeMoney(form.amountPaid) else null,
                     customer = buildDocumentCustomerInput(form),
@@ -2232,8 +2543,8 @@ fun DocumentFormScreen(
                             unitPrice = Validation.parseNonNegativeMoney(itm.unitPrice) ?: throw IllegalArgumentException("invalid price")
                         )
                     },
-                    discount = Validation.parseNonNegativeMoney(form.discount) ?: 0.0,
-                    extraFees = Validation.parseNonNegativeMoney(form.extraFees) ?: 0.0,
+                    discount = totals.discount.toDouble(),
+                    extraFees = totals.extraFees.toDouble(),
                     notes = form.notes.ifBlank { null },
                     termsText = form.terms.ifBlank { null },
                     currency = form.currency,
@@ -2263,7 +2574,11 @@ fun DocumentFormScreen(
                                 signatureData = form.signatureData.takeIf { it.isNotEmpty() },
                                 paymentMethod = form.paymentMethod.takeIf { it.isNotEmpty() },
                                 taxRate = Validation.parseNonNegativeMoney(form.finalTaxRate) ?: 0.0,
-                                taxName = form.finalTaxName.ifBlank { "Tax" }
+                                taxName = form.finalTaxName.ifBlank { "Tax" },
+                                discountType = form.discountType,
+                                discountValue = form.discount.takeIf { it.isNotBlank() },
+                                shippingAmount = Validation.parseNonNegativeMoney(form.shippingAmount) ?: 0.0,
+                                shippingLabel = form.shippingLabel.takeIf { it.isNotBlank() },
                             )
                         )
                         onDocumentSaved(savedDocumentId)
@@ -2320,6 +2635,10 @@ fun DocumentFormScreen(
                         paymentMethod = metadata?.paymentMethod.orEmpty(),
                         finalTaxRate = metadata?.taxRate?.toString() ?: form.finalTaxRate,
                         finalTaxName = metadata?.taxName ?: form.finalTaxName,
+                        discountType = metadata?.discountType ?: form.discountType,
+                        discount = metadata?.discountValue ?: form.discount,
+                        shippingAmount = metadata?.shippingAmount?.takeIf { it > 0.0 }?.toString().orEmpty(),
+                        shippingLabel = metadata?.shippingLabel.orEmpty(),
                         lang = language
                     )
                     form = loadedForm
@@ -2450,7 +2769,7 @@ fun DocumentFormScreen(
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // Info Top Card (e.g. INV-1132 / Created on 21-06-2026)
+                // Info Top Card (e.g. INV-1132 / Created on today's date)
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -2468,16 +2787,14 @@ fun DocumentFormScreen(
                     ) {
                         Column {
                             Text(
-                                text = form.documentNumber.ifBlank {
-                                    DocumentNumbering.firstDocumentNumber(type)
-                                },
+                                text = displayDraftDocumentNumber(form.documentNumber, type),
                                 fontWeight = FontWeight.ExtraBold,
                                 fontSize = 24.sp,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = String.format(t("created_on"), form.creationDate.ifBlank { "21-06-2026" }),
+                                text = String.format(t("created_on"), form.creationDate.ifBlank { todayDocumentDate() }),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontSize = 12.sp
                             )
@@ -2595,7 +2912,8 @@ fun DocumentFormScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable(enabled = isDocumentIdentityEditable(isEditMode)) {
-                                    onNavigateToSelectCustomer()
+                                    customerPickerQuery = ""
+                                    showCustomerPickerSheet = true
                                 }
                                 .padding(16.dp),
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -2728,7 +3046,8 @@ fun DocumentFormScreen(
                         OutlinedButton(
                             onClick = {
                                 pendingProductRowIndex = form.items.size
-                                onNavigateToSelectProduct(form.items.size)
+                                productPickerQuery = ""
+                                showProductPickerRowIndex = form.items.size
                             },
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -2772,76 +3091,64 @@ fun DocumentFormScreen(
                         modifier = Modifier.padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            TijarioTextField(
-                                label = t("form_discount"),
-                                value = form.discount,
-                                onValueChange = { form = form.copy(discount = it) },
-                                error = if (form.discount.isNotEmpty()) form.discountError else null,
-                                leadingIcon = { Icon(Icons.Filled.LocalOffer, contentDescription = null, tint = Color(0xFF64748B)) },
-                                modifier = Modifier.weight(1f)
-                            )
-                            TijarioTextField(
-                                label = t("form_extra_fees"),
-                                value = form.extraFees,
-                                onValueChange = { form = form.copy(extraFees = it) },
-                                error = if (form.extraFees.isNotEmpty()) form.extraFeesError else null,
-                                leadingIcon = { Icon(Icons.Filled.PriceChange, contentDescription = null, tint = Color(0xFF64748B)) },
-                                modifier = Modifier.weight(1.2f)
-                            )
+                        val liveCalculation = DocumentCalculator.calculate(
+                            form.items.map { item ->
+                                DocumentCalculator.ItemInput(
+                                    quantity = item.quantity,
+                                    unitPrice = item.unitPrice,
+                                )
+                            },
+                            discountStr = form.discount,
+                            extraFeesStr = form.extraFees,
+                            taxRateStr = form.finalTaxRate,
+                            amountPaidStr = form.amountPaid,
+                            discountType = form.discountType,
+                            shippingStr = form.shippingAmount,
+                        )
+                        val discountTitle = if (form.discountType.equals("percent", ignoreCase = true) && form.discount.isNotBlank()) {
+                            "${t("form_discount")} (${form.discount}%)"
+                        } else {
+                            t("form_discount")
                         }
+                        val discountValue = if (liveCalculation.discount > java.math.BigDecimal.ZERO) {
+                            "- ${formatLocalMoney(liveCalculation.discount, form.currency)}"
+                        } else {
+                            t("not_specified")
+                        }
+                        DocumentOptionRow(
+                            icon = Icons.Filled.LocalOffer,
+                            title = discountTitle,
+                            value = discountValue,
+                            onClick = { showDiscountSheet = true },
+                        )
 
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            TijarioTextField(
-                                label = Localization.getString("doc_discount_reason", language),
-                                value = form.discountLabel,
-                                onValueChange = { form = form.copy(discountLabel = it) },
-                                modifier = Modifier.weight(1f),
-                                leadingIcon = { Icon(Icons.Filled.LocalOffer, contentDescription = null, tint = Color(0xFF64748B)) }
-                            )
-                            TijarioTextField(
-                                label = Localization.getString("doc_extra_fee_reason", language),
-                                value = form.extraFeesLabel,
-                                onValueChange = { form = form.copy(extraFeesLabel = it) },
-                                modifier = Modifier.weight(1.2f),
-                                leadingIcon = { Icon(Icons.Filled.PriceChange, contentDescription = null, tint = Color(0xFF64748B)) }
-                            )
-                        }
-                        
                         HorizontalDivider(color = Color(0xFFF1F5F9))
 
-                        // Tax Selection Row (linked to LocalTaxesManagerDialog)
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { showLocalTaxesDialog = true }
-                                .padding(vertical = 8.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(Icons.Filled.Percent, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                                 Text(t("tax"), fontSize = 14.sp)
-                            }
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                val parsedTax = Validation.parseNonNegativeMoney(form.finalTaxRate) ?: 0.0
-                                val taxText = if (parsedTax > 0.0) "${form.finalTaxName} ($parsedTax%)" else t("no_tax")
-                                Text(taxText, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
-                                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                        }
+                        DocumentOptionRow(
+                            icon = Icons.Filled.PriceChange,
+                            title = t("form_extra_fees"),
+                            value = if (liveCalculation.extraFees > java.math.BigDecimal.ZERO) formatLocalMoney(liveCalculation.extraFees, form.currency) else t("not_specified"),
+                            onClick = { showExtraFeesSheet = true },
+                        )
+
+                        HorizontalDivider(color = Color(0xFFF1F5F9))
+
+                        val parsedTax = Validation.parseNonNegativeMoney(form.finalTaxRate) ?: 0.0
+                        DocumentOptionRow(
+                            icon = Icons.Filled.AccountBalance,
+                            title = t("tax"),
+                            value = if (parsedTax > 0.0) "${form.finalTaxName} ($parsedTax%)" else t("no_tax"),
+                            onClick = { showLocalTaxesDialog = true },
+                        )
+
+                        HorizontalDivider(color = Color(0xFFF1F5F9))
+
+                        DocumentOptionRow(
+                            icon = Icons.Filled.LocalShipping,
+                            title = Localization.getString("shipping", language),
+                            value = if (liveCalculation.shipping > java.math.BigDecimal.ZERO) formatLocalMoney(liveCalculation.shipping, form.currency) else t("not_specified"),
+                            onClick = { showShippingSheet = true },
+                        )
 
                         HorizontalDivider(color = Color(0xFFF1F5F9))
 
@@ -2857,9 +3164,14 @@ fun DocumentFormScreen(
                             extraFeesStr = form.extraFees,
                             taxRateStr = form.finalTaxRate,
                             amountPaidStr = form.amountPaid,
+                            discountType = form.discountType,
+                            shippingStr = form.shippingAmount,
                         )
                         val subtotalVal = calculations.subtotal.toDouble()
+                        val discountAmount = calculations.discount.toDouble()
+                        val extraFeesAmount = calculations.extraFees.toDouble()
                         val taxAmount = calculations.taxAmount.toDouble()
+                        val shippingAmount = calculations.shipping.toDouble()
                         val finalTotalVal = calculations.total.toDouble()
                         val hasInvalidTotals = !calculations.isValid
 
@@ -2876,6 +3188,34 @@ fun DocumentFormScreen(
                                 )
                                 Text(text = String.format("%.2f %s", subtotalVal, form.currency), fontSize = 14.sp)
                             }
+                            if (discountAmount > 0.0) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = form.discountLabel.ifBlank { discountTitle },
+                                        fontSize = 14.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Text(text = String.format("- %.2f %s", discountAmount, form.currency), fontSize = 14.sp)
+                                }
+                            }
+                            if (extraFeesAmount > 0.0) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = form.extraFeesLabel.ifBlank { t("form_extra_fees") },
+                                        fontSize = 14.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Text(text = String.format("%.2f %s", extraFeesAmount, form.currency), fontSize = 14.sp)
+                                }
+                            }
                             if (taxAmount > 0.0) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
@@ -2888,6 +3228,20 @@ fun DocumentFormScreen(
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                     Text(text = String.format("%.2f %s", taxAmount, form.currency), fontSize = 14.sp)
+                                }
+                            }
+                            if (shippingAmount > 0.0) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = form.shippingLabel.ifBlank { Localization.getString("shipping", language) },
+                                        fontSize = 14.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Text(text = String.format("%.2f %s", shippingAmount, form.currency), fontSize = 14.sp)
                                 }
                             }
                             Row(
@@ -2974,10 +3328,7 @@ fun DocumentFormScreen(
                                     label = t("amount_paid"),
                                     value = form.amountPaid,
                                     onValueChange = { form = form.copy(amountPaid = it) },
-                                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
-                                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Number,
-                                        imeAction = androidx.compose.ui.text.input.ImeAction.Next
-                                    ),
+                                    keyboardOptions = MoneyKeyboardOptions,
                                     error = form.amountPaidError,
                                     leadingIcon = { Icon(Icons.Filled.PriceChange, contentDescription = null, tint = Color(0xFF64748B)) }
                                 )
@@ -3080,7 +3431,12 @@ fun DocumentFormScreen(
                                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                val pmText = form.paymentMethod.ifBlank { t("not_specified") }
+                                val pmCount = selectedLinesCount(form.paymentMethod)
+                                val pmText = when {
+                                    pmCount == 0 -> t("not_specified")
+                                    pmCount == 1 -> form.paymentMethod.lineSequence().first().trim()
+                                    else -> if (language == AppLanguage.AR) "$pmCount طرق دفع" else "$pmCount payment methods"
+                                }
                                 Text(pmText, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
                                 Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
@@ -3109,8 +3465,10 @@ fun DocumentFormScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 val defaults = invoiceOptionPreferences.getDefaults()
+                                val termsCount = form.terms.split("\n\n").map { it.trim() }.filter { it.isNotEmpty() }.size
                                 val termsText = when {
                                     form.terms.isBlank() -> t("not_specified")
+                                    termsCount > 1 -> if (language == AppLanguage.AR) "$termsCount شروط" else "$termsCount terms"
                                     defaults.termsContent.isNotBlank() && form.terms == defaults.termsContent -> defaults.termsTitle.ifBlank { t("terms_cond") }
                                     else -> t("terms_cond")
                                 }
@@ -3295,7 +3653,8 @@ fun DocumentFormScreen(
                     onChooseProduct = {
                         editingItemIndex = null
                         pendingProductRowIndex = index
-                        onNavigateToSelectProduct(index)
+                        productPickerQuery = ""
+                        showProductPickerRowIndex = index
                     }
                 )
             }
@@ -3305,10 +3664,12 @@ fun DocumentFormScreen(
     if (showInvoiceInfoDialog) {
         InvoiceInfoDialog(
             form = form,
+            documentType = type,
             isEditMode = isEditMode,
             onDismiss = { showInvoiceInfoDialog = false },
             onSave = { docNum, date, terms, due, po, title ->
                 titleEditedByUser = title.isNotBlank() && !isDefaultDocumentTitle(type, title)
+                documentNumberEditedByUser = docNum != nextDraftDocumentNumber
                 form = form.copy(
                     documentNumber = docNum,
                     creationDate = date,
@@ -3388,6 +3749,57 @@ fun DocumentFormScreen(
         )
     }
 
+    if (showDiscountSheet) {
+        AmountOptionSheet(
+            title = t("form_discount"),
+            amountLabel = t("form_discount"),
+            reasonLabel = Localization.getString("doc_discount_reason", language),
+            amount = form.discount,
+            reason = form.discountLabel,
+            discountType = form.discountType,
+            showDiscountType = true,
+            onDismiss = { showDiscountSheet = false },
+            onSave = { amount, reason, type ->
+                form = form.copy(
+                    discount = amount,
+                    discountLabel = reason,
+                    discountType = type ?: "fixed",
+                )
+                showDiscountSheet = false
+            },
+        )
+    }
+
+    if (showExtraFeesSheet) {
+        AmountOptionSheet(
+            title = t("form_extra_fees"),
+            amountLabel = t("form_extra_fees"),
+            reasonLabel = Localization.getString("doc_extra_fee_reason", language),
+            amount = form.extraFees,
+            reason = form.extraFeesLabel,
+            onDismiss = { showExtraFeesSheet = false },
+            onSave = { amount, reason, _ ->
+                form = form.copy(extraFees = amount, extraFeesLabel = reason)
+                showExtraFeesSheet = false
+            },
+        )
+    }
+
+    if (showShippingSheet) {
+        AmountOptionSheet(
+            title = Localization.getString("shipping", language),
+            amountLabel = Localization.getString("shipping_amount", language),
+            reasonLabel = Localization.getString("shipping_reason", language),
+            amount = form.shippingAmount,
+            reason = form.shippingLabel,
+            onDismiss = { showShippingSheet = false },
+            onSave = { amount, reason, _ ->
+                form = form.copy(shippingAmount = amount, shippingLabel = reason)
+                showShippingSheet = false
+            },
+        )
+    }
+
     if (showCurrencyDialog) {
         CurrencyPickerDialog(
             currentCurrency = form.currency,
@@ -3402,10 +3814,10 @@ fun DocumentFormScreen(
     if (showLocalTaxesDialog) {
         LocalTaxesManagerDialog(
             dataViewModel = dataViewModel,
+            selectedNames = form.finalTaxName.split('\n').map { it.trim() }.filter { it.isNotEmpty() }.toSet(),
             onDismiss = { showLocalTaxesDialog = false },
             onApplyTax = { name, rate ->
                 form = form.copy(finalTaxName = name, finalTaxRate = rate)
-                showLocalTaxesDialog = false
             }
         )
     }
@@ -3413,11 +3825,11 @@ fun DocumentFormScreen(
     if (showLocalPaymentDialog) {
         LocalPaymentMethodsManagerDialog(
             dataViewModel = dataViewModel,
+            currentValue = form.paymentMethod,
             onDismiss = { showLocalPaymentDialog = false },
             onSelect = { pm ->
                 form = form.copy(paymentMethod = pm)
                 invoiceOptionPreferences.setPaymentMethod(pm)
-                showLocalPaymentDialog = false
             }
         )
     }
@@ -3437,13 +3849,232 @@ fun DocumentFormScreen(
     if (showLocalTermsDialog) {
         LocalTermsManagerDialog(
             dataViewModel = dataViewModel,
+            currentContent = form.terms,
             onDismiss = { showLocalTermsDialog = false },
             onSelect = { title, content ->
                 form = form.copy(terms = content)
                 invoiceOptionPreferences.setTerms(title, content)
-                showLocalTermsDialog = false
             }
         )
+    }
+
+    if (showCustomerPickerSheet) {
+        val filteredCustomers = remember(uiState.customers, customerPickerQuery) {
+            uiState.customers.filter {
+                it.name.contains(customerPickerQuery, ignoreCase = true) ||
+                    it.whatsappNumber.contains(customerPickerQuery)
+            }
+        }
+        ModalBottomSheet(
+            onDismissRequest = { showCustomerPickerSheet = false },
+            containerColor = MaterialTheme.colorScheme.surface,
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text(
+                    text = t("select_customer"),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                TijarioTextField(
+                    label = t("search_placeholder"),
+                    value = customerPickerQuery,
+                    onValueChange = { customerPickerQuery = it },
+                    leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+                )
+                LazyColumn(
+                    modifier = Modifier.heightIn(max = 420.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    items(filteredCustomers) { customer ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(14.dp))
+                                .clickable {
+                                    form = form.copy(
+                                        customerId = customer.id,
+                                        customerName = customer.name,
+                                        customerWhatsapp = customer.whatsappNumber,
+                                        customerCity = customer.city,
+                                    )
+                                    showCustomerPickerSheet = false
+                                }
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            Icon(Icons.Filled.Person, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            Column {
+                                Text(customer.name, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(customer.whatsappNumber, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    showProductPickerRowIndex?.let { rowIndex ->
+        val filteredProducts = remember(uiState.products, productPickerQuery) {
+            uiState.products.filter {
+                it.name.contains(productPickerQuery, ignoreCase = true) ||
+                    (it.description ?: "").contains(productPickerQuery, ignoreCase = true)
+            }
+        }
+        ModalBottomSheet(
+            onDismissRequest = { showProductPickerRowIndex = null },
+            containerColor = MaterialTheme.colorScheme.surface,
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text(t("select_product"), fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                TijarioTextField(
+                    label = t("search_products"),
+                    value = productPickerQuery,
+                    onValueChange = { productPickerQuery = it },
+                    leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+                )
+                LazyColumn(
+                    modifier = Modifier.heightIn(max = 420.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    items(filteredProducts) { product ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(14.dp))
+                                .clickable {
+                                    val (updatedItems, targetIndex) = mergeSelectedProductIntoItems(form.items, product, rowIndex)
+                                    form = form.copy(items = updatedItems)
+                                    editingItemIndex = targetIndex
+                                    pendingProductRowIndex = null
+                                    showProductPickerRowIndex = null
+                                }
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            Icon(Icons.Filled.BusinessCenter, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(product.name, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(product.description ?: t("kind_product"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                            Text("${product.price} ${product.currency}", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, maxLines = 1)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AmountOptionSheet(
+    title: String,
+    amountLabel: String,
+    reasonLabel: String,
+    amount: String,
+    reason: String,
+    onDismiss: () -> Unit,
+    onSave: (String, String, String?) -> Unit,
+    discountType: String = "fixed",
+    showDiscountType: Boolean = false,
+) {
+    val language = LocalLanguage.current
+    var localAmount by rememberSaveable { mutableStateOf(amount) }
+    var localReason by rememberSaveable { mutableStateOf(reason) }
+    var localDiscountType by rememberSaveable { mutableStateOf(discountType) }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.surface,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Text(
+                text = title,
+                fontWeight = FontWeight.Bold,
+                fontSize = 18.sp,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            if (showDiscountType) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    listOf(
+                        "fixed" to Localization.getString("discount_fixed", language),
+                        "percent" to Localization.getString("discount_percentage", language),
+                    ).forEach { (value, label) ->
+                        FilterChip(
+                            selected = localDiscountType.equals(value, ignoreCase = true),
+                            onClick = { localDiscountType = value },
+                            label = { Text(label) },
+                        )
+                    }
+                }
+            }
+            TijarioTextField(
+                label = amountLabel,
+                value = localAmount,
+                onValueChange = { localAmount = it },
+                keyboardOptions = MoneyKeyboardOptions,
+                leadingIcon = {
+                    Icon(
+                        if (showDiscountType && localDiscountType.equals("percent", ignoreCase = true)) Icons.Filled.Percent else Icons.Filled.AttachMoney,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                },
+            )
+            TijarioTextField(
+                label = reasonLabel,
+                value = localReason,
+                onValueChange = { localReason = it },
+                leadingIcon = {
+                    Icon(Icons.Filled.Note, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                },
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End),
+            ) {
+                TextButton(onClick = onDismiss) {
+                    Text(Localization.getString("btn_cancel", language))
+                }
+                Button(
+                    onClick = {
+                        onSave(
+                            localAmount.trim(),
+                            localReason.trim(),
+                            if (showDiscountType) localDiscountType else null,
+                        )
+                    },
+                ) {
+                    Text(Localization.getString("btn_save", language))
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+        }
     }
 }
 
@@ -3456,7 +4087,7 @@ fun CurrencyPickerDialog(
 ) {
     val currencies = listOf("SAR", "AED", "USD", "QAR", "KWD", "BHD", "OMR", "YER", "EGP")
     val isArabic = LocalLanguage.current == app.tijario.config.AppLanguage.AR
-    Dialog(onDismissRequest = onDismiss) {
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = MaterialTheme.colorScheme.surface) {
         Card(
             shape = RoundedCornerShape(16.dp),
             modifier = Modifier.fillMaxWidth().padding(16.dp),
@@ -3499,7 +4130,7 @@ fun CurrencyPickerDialog(
                 }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
+                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)
                 ) {
                     TextButton(onClick = onDismiss) {
                         Text(if (isArabic) "إلغاء" else "Cancel")
@@ -3514,6 +4145,7 @@ fun CurrencyPickerDialog(
 @Composable
 fun LocalTaxesManagerDialog(
     dataViewModel: TijarioDataViewModel,
+    selectedNames: Set<String>,
     onDismiss: () -> Unit,
     onApplyTax: (String, String) -> Unit
 ) {
@@ -3522,8 +4154,9 @@ fun LocalTaxesManagerDialog(
     val taxes by dataViewModel.observeLocalTaxes().collectAsState(initial = emptyList())
     var newTaxName by remember { mutableStateOf("") }
     var newTaxRate by remember { mutableStateOf("") }
+    var selected by remember(selectedNames) { mutableStateOf(selectedNames) }
 
-    Dialog(onDismissRequest = onDismiss) {
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = MaterialTheme.colorScheme.surface) {
         Card(
             shape = RoundedCornerShape(16.dp),
             modifier = Modifier.fillMaxWidth().padding(16.dp),
@@ -3554,7 +4187,8 @@ fun LocalTaxesManagerDialog(
                         onValueChange = { newTaxRate = it },
                         label = { Text(if (isArabic) "النسبة %" else "Rate %") },
                         modifier = Modifier.weight(1f),
-                        singleLine = true
+                        singleLine = true,
+                        keyboardOptions = MoneyKeyboardOptions
                     )
                 }
                 Button(
@@ -3597,7 +4231,15 @@ fun LocalTaxesManagerDialog(
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(8.dp))
                                 .background(MaterialTheme.colorScheme.surfaceVariant)
-                                .clickable { onApplyTax(tax.name, tax.rate.toString()) }
+                                .clickable {
+                                    val next = if (selected.contains(tax.name)) selected - tax.name else selected + tax.name
+                                    selected = next
+                                    val selectedTaxes = taxes.filter { next.contains(it.name) }
+                                    onApplyTax(
+                                        selectedTaxes.joinToString("\n") { it.name },
+                                        selectedTaxes.sumOf { it.rate }.toString()
+                                    )
+                                }
                                 .padding(12.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
@@ -3606,10 +4248,24 @@ fun LocalTaxesManagerDialog(
                                 Text(tax.name, fontWeight = FontWeight.Bold)
                                 Text("${tax.rate}%", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
-                            IconButton(onClick = {
-                                scope.launch { dataViewModel.deleteLocalTax(tax.id) }
-                            }) {
-                                Icon(Icons.Filled.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Checkbox(
+                                    checked = selected.contains(tax.name),
+                                    onCheckedChange = { checked ->
+                                        val next = if (checked) selected + tax.name else selected - tax.name
+                                        selected = next
+                                        val selectedTaxes = taxes.filter { next.contains(it.name) }
+                                        onApplyTax(
+                                            selectedTaxes.joinToString("\n") { it.name },
+                                            selectedTaxes.sumOf { it.rate }.toString()
+                                        )
+                                    }
+                                )
+                                IconButton(onClick = {
+                                    scope.launch { dataViewModel.deleteLocalTax(tax.id) }
+                                }) {
+                                    Icon(Icons.Filled.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                                }
                             }
                         }
                     }
@@ -3631,6 +4287,7 @@ fun LocalTaxesManagerDialog(
 @Composable
 fun LocalPaymentMethodsManagerDialog(
     dataViewModel: TijarioDataViewModel,
+    currentValue: String,
     onDismiss: () -> Unit,
     onSelect: (String) -> Unit
 ) {
@@ -3638,8 +4295,11 @@ fun LocalPaymentMethodsManagerDialog(
     val scope = rememberCoroutineScope()
     val methods by dataViewModel.observeLocalPaymentMethods().collectAsState(initial = emptyList())
     var newMethodName by remember { mutableStateOf("") }
+    var selected by remember(currentValue) {
+        mutableStateOf(currentValue.split('\n').map { it.trim() }.filter { it.isNotEmpty() }.toSet())
+    }
 
-    Dialog(onDismissRequest = onDismiss) {
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = MaterialTheme.colorScheme.surface) {
         Card(
             shape = RoundedCornerShape(16.dp),
             modifier = Modifier.fillMaxWidth().padding(16.dp),
@@ -3699,17 +4359,31 @@ fun LocalPaymentMethodsManagerDialog(
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(8.dp))
                                 .background(MaterialTheme.colorScheme.surfaceVariant)
-                                .clickable { onSelect(method.name) }
+                                .clickable {
+                                    val next = if (selected.contains(method.name)) selected - method.name else selected + method.name
+                                    selected = next
+                                    onSelect(next.joinToString("\n"))
+                                }
                                 .padding(12.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(method.name, fontWeight = FontWeight.Bold)
-                            if (methods.isNotEmpty()) {
-                                IconButton(onClick = {
-                                    scope.launch { dataViewModel.deleteLocalPaymentMethod(method.id) }
-                                }) {
-                                    Icon(Icons.Filled.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                            Text(method.name, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Checkbox(
+                                    checked = selected.contains(method.name),
+                                    onCheckedChange = { checked ->
+                                        val next = if (checked) selected + method.name else selected - method.name
+                                        selected = next
+                                        onSelect(next.joinToString("\n"))
+                                    }
+                                )
+                                if (methods.isNotEmpty()) {
+                                    IconButton(onClick = {
+                                        scope.launch { dataViewModel.deleteLocalPaymentMethod(method.id) }
+                                    }) {
+                                        Icon(Icons.Filled.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                                    }
                                 }
                             }
                         }
@@ -3732,6 +4406,7 @@ fun LocalPaymentMethodsManagerDialog(
 @Composable
 fun LocalTermsManagerDialog(
     dataViewModel: TijarioDataViewModel,
+    currentContent: String,
     onDismiss: () -> Unit,
     onSelect: (String, String) -> Unit
 ) {
@@ -3740,8 +4415,11 @@ fun LocalTermsManagerDialog(
     val termsList by dataViewModel.observeLocalTerms().collectAsState(initial = emptyList())
     var termTitle by remember { mutableStateOf("") }
     var termContent by remember { mutableStateOf("") }
+    var selectedContent by remember(currentContent) {
+        mutableStateOf(currentContent.split("\n\n").map { it.trim() }.filter { it.isNotEmpty() }.toSet())
+    }
 
-    Dialog(onDismissRequest = onDismiss) {
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = MaterialTheme.colorScheme.surface) {
         Card(
             shape = RoundedCornerShape(16.dp),
             modifier = Modifier.fillMaxWidth().padding(16.dp),
@@ -3809,7 +4487,15 @@ fun LocalTermsManagerDialog(
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(8.dp))
                                 .background(MaterialTheme.colorScheme.surfaceVariant)
-                                .clickable { onSelect(term.title, term.content) }
+                                .clickable {
+                                    val next = if (selectedContent.contains(term.content)) selectedContent - term.content else selectedContent + term.content
+                                    selectedContent = next
+                                    val selectedTerms = termsList.filter { next.contains(it.content) }
+                                    onSelect(
+                                        selectedTerms.joinToString(" + ") { it.title },
+                                        selectedTerms.joinToString("\n\n") { it.content }
+                                    )
+                                }
                                 .padding(12.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
@@ -3818,10 +4504,24 @@ fun LocalTermsManagerDialog(
                                 Text(term.title, fontWeight = FontWeight.Bold)
                                 Text(term.content, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                             }
-                            IconButton(onClick = {
-                                scope.launch { dataViewModel.deleteLocalTerms(term.id) }
-                            }) {
-                                Icon(Icons.Filled.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Checkbox(
+                                    checked = selectedContent.contains(term.content),
+                                    onCheckedChange = { checked ->
+                                        val next = if (checked) selectedContent + term.content else selectedContent - term.content
+                                        selectedContent = next
+                                        val selectedTerms = termsList.filter { next.contains(it.content) }
+                                        onSelect(
+                                            selectedTerms.joinToString(" + ") { it.title },
+                                            selectedTerms.joinToString("\n\n") { it.content }
+                                        )
+                                    }
+                                )
+                                IconButton(onClick = {
+                                    scope.launch { dataViewModel.deleteLocalTerms(term.id) }
+                                }) {
+                                    Icon(Icons.Filled.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                                }
                             }
                         }
                     }
@@ -3852,7 +4552,7 @@ fun LocalSignaturesManagerDialog(
     var sigName by remember { mutableStateOf("") }
     var drawMode by remember { mutableStateOf(false) }
 
-    Dialog(onDismissRequest = onDismiss) {
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = MaterialTheme.colorScheme.surface) {
         Card(
             shape = RoundedCornerShape(16.dp),
             modifier = Modifier.fillMaxWidth().padding(16.dp),

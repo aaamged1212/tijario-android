@@ -44,12 +44,11 @@ import app.tijario.config.LocalLanguage
 import app.tijario.config.Localization
 import app.tijario.config.t
 import app.tijario.domain.LocalizedErrorMapper
-import app.tijario.domain.MvpDialCodeOptions
-import app.tijario.domain.normalizePhoneWithDialCode
 import app.tijario.data.remote.localizedDisplayMessage
 import app.tijario.ui.components.GoogleSignInButton
 import app.tijario.ui.components.StoreLogoPicker
 import app.tijario.ui.components.buildLogoUploadRequest
+import app.tijario.ui.components.TijarioPhoneField
 import app.tijario.ui.components.clearBusinessLogoCache
 import app.tijario.ui.components.TijarioButton
 import app.tijario.ui.components.TijarioTextField
@@ -1047,6 +1046,7 @@ fun OnboardingScreen(
 ) {
     val language = LocalLanguage.current
     val countries = if (language == AppLanguage.AR) listOf("السعودية", "اليمن", "مصر", "الإمارات", "الكويت", "قطر", "عمان", "البحرين", "الأردن", "لبنان", "المغرب", "تونس", "الجزائر", "ليبيا", "السودان", "العراق", "سوريا", "فلسطين") else listOf("Saudi Arabia", "Yemen", "Egypt", "United Arab Emirates", "Kuwait", "Qatar", "Oman", "Bahrain", "Jordan", "Lebanon", "Morocco", "Tunisia", "Algeria", "Libya", "Sudan", "Iraq", "Syria", "Palestine")
+    val countryDialCodes = listOf("+966", "+967", "+20", "+971", "+965", "+974", "+968", "+973", "+962", "+961", "+212", "+216", "+213", "+218", "+249", "+964", "+963", "+970")
     val currencies = listOf("SAR", "YER", "EGP", "AED", "KWD", "QAR", "OMR", "BHD", "JOD", "LBP", "MAD", "TND", "DZD", "LYD", "SDG", "IQD", "SYP", "USD", "EUR")
 
     var form by remember(language) {
@@ -1068,9 +1068,6 @@ fun OnboardingScreen(
 
     var countryMenuExpanded by remember { mutableStateOf(false) }
     var currencyMenuExpanded by remember { mutableStateOf(false) }
-    var phoneMenuExpanded by remember { mutableStateOf(false) }
-    var selectedDialCode by rememberSaveable { mutableStateOf(MvpDialCodeOptions.first().dialCode) }
-    var localWhatsappNumber by rememberSaveable { mutableStateOf("") }
     val logoPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) {
             selectedLogoUri = uri
@@ -1164,66 +1161,18 @@ fun OnboardingScreen(
                         }
                     )
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.Top,
-                    ) {
-                        Box(modifier = Modifier.weight(0.9f)) {
-                            ExposedDropdownMenuBox(
-                                expanded = phoneMenuExpanded,
-                                onExpandedChange = { phoneMenuExpanded = !phoneMenuExpanded },
-                            ) {
-                                TijarioTextField(
-                                    label = if (language == AppLanguage.AR) "رمز الدولة" else "Code",
-                                    value = MvpDialCodeOptions.firstOrNull { it.dialCode == selectedDialCode }
-                                        ?.label(language)
-                                        ?: selectedDialCode,
-                                    onValueChange = {},
-                                    trailingIcon = {
-                                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = phoneMenuExpanded)
-                                    },
-                                    modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable),
-                                    readOnly = true,
-                                )
-                                ExposedDropdownMenu(
-                                    expanded = phoneMenuExpanded,
-                                    onDismissRequest = { phoneMenuExpanded = false },
-                                ) {
-                                    MvpDialCodeOptions.forEach { option ->
-                                        DropdownMenuItem(
-                                            text = { Text(option.label(language)) },
-                                            onClick = {
-                                                selectedDialCode = option.dialCode
-                                                form = form.copy(
-                                                    whatsapp = normalizePhoneWithDialCode(
-                                                        option.dialCode,
-                                                        localWhatsappNumber,
-                                                    ),
-                                                )
-                                                phoneMenuExpanded = false
-                                            },
-                                        )
-                                    }
-                                }
+                    TijarioPhoneField(
+                        value = form.whatsapp,
+                        onValueChange = { form = form.copy(whatsapp = it) },
+                        error = if (form.whatsapp.isNotEmpty()) form.whatsappError else null,
+                        defaultDialCode = countryDialCodes.getOrElse(countries.indexOf(form.country)) { "+966" },
+                        onDialCodeChange = { dialCode ->
+                            val index = countryDialCodes.indexOf(dialCode)
+                            if (index >= 0) {
+                                form = form.copy(country = countries[index])
                             }
-                        }
-                        TijarioTextField(
-                            label = t("whatsapp_phone"),
-                            value = localWhatsappNumber,
-                            onValueChange = { value ->
-                                localWhatsappNumber = value
-                                form = form.copy(
-                                    whatsapp = normalizePhoneWithDialCode(selectedDialCode, value),
-                                )
-                            },
-                            error = if (localWhatsappNumber.isNotEmpty()) form.whatsappError else null,
-                            leadingIcon = {
-                                Icon(Icons.Filled.Phone, contentDescription = null, tint = Color(0xFF64748B))
-                            },
-                            modifier = Modifier.weight(1.1f),
-                        )
-                    }
+                        },
+                    )
 
                     // Country Dropdown
                     Box(modifier = Modifier.fillMaxWidth()) {

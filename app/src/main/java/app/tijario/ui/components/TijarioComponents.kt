@@ -10,21 +10,30 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -36,9 +45,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.tijario.config.LocalLanguage
+import app.tijario.config.t
+import app.tijario.domain.MvpDialCodeOptions
+import app.tijario.domain.normalizePhoneWithDialCode
+import app.tijario.domain.splitPhoneNumber
 
 @Composable
 fun TijarioPage(
@@ -46,11 +62,12 @@ fun TijarioPage(
     subtitle: String,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    val adaptive = LocalAdaptiveLayoutInfo.current
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+            .padding(horizontal = adaptive.pageHorizontalPadding, vertical = adaptive.sectionSpacing),
+        verticalArrangement = Arrangement.spacedBy(adaptive.cardSpacing),
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(
@@ -131,7 +148,7 @@ fun TijarioTextField(
                 IconButton(onClick = { passwordVisible = !passwordVisible }) {
                     Icon(
                         imageVector = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
-                        contentDescription = if (passwordVisible) "إخفاء كلمة المرور" else "إظهار كلمة المرور"
+                        contentDescription = if (passwordVisible) t("hide_password") else t("show_password")
                     )
                 }
             }
@@ -149,6 +166,124 @@ fun TijarioTextField(
             focusedContainerColor = MaterialTheme.colorScheme.surface,
             unfocusedContainerColor = MaterialTheme.colorScheme.surface
         )
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun TijarioPhoneField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    error: String? = null,
+    modifier: Modifier = Modifier,
+    defaultDialCode: String = MvpDialCodeOptions.first().dialCode,
+    onDialCodeChange: ((String) -> Unit)? = null,
+) {
+    val language = LocalLanguage.current
+    val adaptive = LocalAdaptiveLayoutInfo.current
+    val safeDefaultDialCode = MvpDialCodeOptions.firstOrNull { it.dialCode == defaultDialCode }?.dialCode
+        ?: MvpDialCodeOptions.first().dialCode
+    val parts = if (value.isBlank()) {
+        app.tijario.domain.PhoneNumberParts(safeDefaultDialCode, "")
+    } else {
+        splitPhoneNumber(value)
+    }
+    val selectedOption = MvpDialCodeOptions.firstOrNull { it.dialCode == parts.dialCode }
+        ?: MvpDialCodeOptions.first()
+    var menuExpanded by remember { mutableStateOf(false) }
+
+    val dialCodeField: @Composable (Modifier) -> Unit = { fieldModifier ->
+        ExposedDropdownMenuBox(
+            expanded = menuExpanded,
+            onExpandedChange = { menuExpanded = !menuExpanded },
+            modifier = fieldModifier,
+        ) {
+            TijarioTextField(
+                label = t("country_code"),
+                value = selectedOption.label(language),
+                onValueChange = {},
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = menuExpanded) },
+                modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable),
+                readOnly = true,
+            )
+            ExposedDropdownMenu(
+                expanded = menuExpanded,
+                onDismissRequest = { menuExpanded = false },
+            ) {
+                MvpDialCodeOptions.forEach { option ->
+                    DropdownMenuItem(
+                        text = { Text(option.label(language), maxLines = 1) },
+                        onClick = {
+                            onDialCodeChange?.invoke(option.dialCode)
+                            onValueChange(normalizePhoneWithDialCode(option.dialCode, parts.localNumber))
+                            menuExpanded = false
+                        },
+                    )
+                }
+            }
+        }
+    }
+    val numberField: @Composable (Modifier) -> Unit = { fieldModifier ->
+        TijarioTextField(
+            label = t("whatsapp_phone"),
+            value = parts.localNumber,
+            onValueChange = { onValueChange(normalizePhoneWithDialCode(parts.dialCode, it)) },
+            error = error,
+            leadingIcon = { Icon(Icons.Filled.Phone, contentDescription = null) },
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Phone,
+                imeAction = ImeAction.Next,
+            ),
+            modifier = fieldModifier,
+        )
+    }
+
+    if (adaptive.isExtraCompact) {
+        Column(
+            modifier = modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            dialCodeField(Modifier.fillMaxWidth())
+            numberField(Modifier.fillMaxWidth())
+        }
+    } else {
+        Row(
+            modifier = modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.Top,
+        ) {
+            dialCodeField(Modifier.weight(0.9f))
+            numberField(Modifier.weight(1.1f))
+        }
+    }
+}
+
+@Composable
+fun LogoutConfirmationDialog(
+    visible: Boolean,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+    isLoading: Boolean = false,
+) {
+    if (!visible) return
+    AlertDialog(
+        onDismissRequest = { if (!isLoading) onDismiss() },
+        title = { Text(t("logout_confirm_title"), fontWeight = FontWeight.Bold) },
+        text = { Text(t("logout_confirm_message")) },
+        confirmButton = {
+            TextButton(onClick = onConfirm, enabled = !isLoading) {
+                if (isLoading) {
+                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                } else {
+                    Text(t("logout"))
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, enabled = !isLoading) {
+                Text(t("btn_cancel"))
+            }
+        },
     )
 }
 

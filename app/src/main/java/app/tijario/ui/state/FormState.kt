@@ -103,7 +103,10 @@ data class DocumentFormState(
     val customerCity: String? = null,
     val items: List<DocumentItemState> = emptyList(),
     val discount: String = "",
+    val discountType: String = "fixed",
     val extraFees: String = "",
+    val shippingAmount: String = "",
+    val shippingLabel: String = "",
     val paymentStatus: String = "unpaid",
     val amountPaid: String = "",
     val notes: String = "",
@@ -124,10 +127,12 @@ data class DocumentFormState(
     val signatureData: String = "",
     val paymentMethod: String = "",
     val lang: AppLanguage = AppLanguage.AR,
+    val operationId: String = java.util.UUID.randomUUID().toString(),
 ) {
     val customerNameError: String? get() = Validation.required(customerName, "field_customer_name", lang)
     val discountError: String? get() = Validation.nonNegativeMoney(discount, "form_discount", lang)
     val extraFeesError: String? get() = Validation.nonNegativeMoney(extraFees, "form_extra_fees", lang)
+    val shippingError: String? get() = Validation.nonNegativeMoney(shippingAmount, "shipping", lang)
     val finalTaxRateError: String? get() = Validation.nonNegativeMoney(finalTaxRate, "field_final_tax", lang)
     val amountPaidError: String? get() = if (paymentStatus == "partial") Validation.nonNegativeMoney(amountPaid, "amount_paid", lang) else null
     val canSubmit: Boolean get() =
@@ -137,6 +142,7 @@ data class DocumentFormState(
             items.all { it.isValid } &&
             discountError == null &&
             extraFeesError == null &&
+            shippingError == null &&
             finalTaxRateError == null &&
             amountPaidError == null
 }

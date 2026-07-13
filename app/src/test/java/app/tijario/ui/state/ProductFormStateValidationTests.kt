@@ -43,7 +43,7 @@ class ProductFormStateValidationTests {
 
     @Test
     fun phoneNumberIsNormalizedFromDialCodeAndLocalNumber() {
-        assertEquals("+9670771234567", normalizePhoneWithDialCode("+967", "077-123 4567"))
+        assertEquals("+967771234567", normalizePhoneWithDialCode("+967", "077-123 4567"))
         assertEquals("+966500000000", normalizePhoneWithDialCode("966", "+500 000 000"))
     }
 }
