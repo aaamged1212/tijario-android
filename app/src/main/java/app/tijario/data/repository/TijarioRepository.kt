@@ -1260,7 +1260,7 @@ open class TijarioRepository(
                 backendApiClient.fetchCompleteDocument(documentId).data?.let { remote ->
                     cacheCompleteDocumentSnapshot(
                         remote.copy(
-                            documentNumber = request.documentNumber?.takeIf { it.isNotBlank() } ?: remote.documentNumber,
+                            documentNumber = resolveCachedDocumentNumber(remote.documentNumber, request.documentNumber),
                             documentTitle = request.documentTitle ?: remote.documentTitle,
                             documentLanguage = request.documentLanguage,
                         )
@@ -1283,7 +1283,7 @@ open class TijarioRepository(
                 backendApiClient.fetchCompleteDocument(resolvedDocumentId).data?.let { remote ->
                     cacheCompleteDocumentSnapshot(
                         remote.copy(
-                            documentNumber = request.documentNumber?.takeIf { it.isNotBlank() } ?: remote.documentNumber,
+                            documentNumber = resolveCachedDocumentNumber(remote.documentNumber, request.documentNumber),
                             documentTitle = request.documentTitle ?: remote.documentTitle,
                             documentLanguage = request.documentLanguage,
                         )
