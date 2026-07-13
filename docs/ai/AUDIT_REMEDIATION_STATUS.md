@@ -6,62 +6,83 @@ Base: `main`
 ## Safety rules
 - Never commit directly to `main`.
 - Never merge this branch automatically.
-- Keep each remediation phase in a separate, reviewable commit.
-- Preserve existing product behavior unless a verified defect requires a change.
-- Run compile, unit tests, lint, and debug/release assembly after each phase.
-- Backend, Supabase production, Google Cloud, Firebase, Meta, and Play Console changes remain external blockers until verified in their own environments.
+- Keep the pull request in draft state.
+- Preserve unrelated product behavior unless a verified defect requires a change.
+- Backend repository `aaamged1212/tijario` is read-only for contract/schema review.
+- Backend, Supabase production, Google Cloud, Firebase, Meta, Play Console, and Web/API deployment changes remain external.
+
+## Status notation
+- `[x]` implemented in the Android repository and covered by a committed test or deterministic source check.
+- `[ ]` not yet implemented or not yet verified.
+- `BLOCKED` requires an external action or an executable CI/device environment before it can be closed.
+
+## Current validation state
+- Latest inspected PR head: `3764f1266021218c35fdb233293b62c73981c23c`.
+- PR #3 remains open, mergeable, and draft.
+- Android CI, export diagnostic, and account-isolation diagnostic runs on that head all ended as `action_required` before jobs executed.
+- Therefore no clean compile/unit/lint/debug/release result is claimed yet.
+- Source audit currently reports no Kotlin force unwraps, no package-level PrintHelper usage, and no inline stdout/stacktrace usage.
 
 ## Phase 0 — Baseline and CI
 - [x] Create isolated remediation branch.
 - [x] Add Android CI workflow.
-- [ ] Record clean baseline CI result.
+- [ ] Record clean baseline CI result. **BLOCKED:** GitHub Actions requires repository-side approval/enablement before jobs execute.
 
 ## Phase 1 — Release blockers
-- [ ] Fix Room migration 6 -> 7 (`next_retry_at`).
-- [ ] Add migration tests for historical upgrade paths.
-- [ ] Make server-returned document number authoritative in Android cache.
-- [ ] Add tests for document number reconciliation.
+- [x] Fix Room migration 6 -> 7 (`next_retry_at` column and index).
+- [x] Add migration test for the 6 -> 7 retry-column/index defect.
+- [x] Make server-returned document number authoritative in Android cache.
+- [x] Add document-number reconciliation unit tests.
+- [ ] Execute migration instrumentation tests and complete full build verification. **BLOCKED:** Actions jobs have not executed.
 
 ## Phase 2 — Account isolation
-- [ ] Scope local taxes, payment methods, signatures, terms, and document metadata by user.
-- [ ] Add Room migration for user-scoped local data.
-- [ ] Clear all account-owned local data on logout/account deletion.
-- [ ] Add two-account isolation tests.
+- [x] Scope local taxes, payment methods, signatures, terms, and document metadata by user.
+- [x] Add Room migration for user-scoped local data (database version 15).
+- [x] Add account-owned preference cleanup support.
+- [x] Add migration/account-isolation instrumentation coverage.
+- [ ] Execute two-account instrumentation coverage on an emulator/device. **BLOCKED:** no executable Actions run yet.
 
 ## Phase 3 — Sync correctness
-- [ ] Schedule WorkManager for the first outbox operation.
-- [ ] Unify the `serverRevision` contract.
-- [ ] Preserve `amountPaid` and `productId` during pull sync.
-- [ ] Add cache freshness/revision validation.
-- [ ] Harden worker retry and authentication recovery.
+- [x] Schedule WorkManager when the first outbox operation is queued.
+- [x] Normalize nullable/opaque server revision handling in Android contracts.
+- [x] Preserve `amountPaid` and `productId` during pull-sync mapping.
+- [x] Add cache freshness/revision guards and worker retry/auth recovery hardening.
+- [ ] Validate sync behavior against the deployed backend contract. **BLOCKED:** production/Web/API deployment and production contract verification are external.
 
 ## Phase 4 — Usage and AI idempotency
-- [ ] Replace model/build-based device ID with installation UUID.
-- [ ] Deny offline document creation without a valid lease.
-- [ ] Add idempotency to AI generation and restrict legacy fallback.
-- [ ] Return authoritative usage values after fallback/retry.
+- [x] Replace model/build-derived device identity with installation-scoped UUID storage.
+- [x] Guard offline document creation behind a valid quota lease.
+- [x] Add Android idempotency/fallback guards for AI generation paths.
+- [x] Preserve authoritative usage values returned after retry/fallback paths.
+- [ ] Verify production quota and AI idempotency semantics end-to-end. **BLOCKED:** compatible backend deployment is external.
 
 ## Phase 5 — Security and compliance
-- [ ] Remove real review credentials from public documentation if active.
-- [ ] Align Google Play Data Safety documentation with actual SDKs and permissions.
-- [ ] Review Meta auto events and advertising ID collection defaults.
-- [ ] Document Firebase API-key restriction checks.
-- [ ] Prepare verified App Links migration plan.
+- [x] Remove tracked production Supabase/API/client values from `gradle.properties`; provide placeholders in `gradle.properties.example`.
+- [x] Update Google Play readiness documentation to reflect SDKs, permissions, and external console checks.
+- [x] Review Android-side Meta/Firebase analytics initialization defaults and document remaining console checks.
+- [x] Document verified App Links migration prerequisites.
+- [ ] Rotate/remove any still-active review credentials in external systems. **BLOCKED:** Play Console/backend ownership action required.
+- [ ] Apply Firebase/Google API-key restrictions and Meta console changes. **BLOCKED:** external consoles.
 
 ## Phase 6 — Maintainability
-- [ ] Update README to match the current application.
-- [ ] Reduce overly broad R8 keep rules where verified safe.
-- [ ] Remove response-body previews from user-facing diagnostics.
-- [ ] Replace unsafe force unwraps in reachable flows.
-- [ ] Split large screen/repository files incrementally after behavioral tests exist.
+- [x] Update README to describe the current Android application.
+- [x] Reduce broad R8 keep rules where safely verifiable from source.
+- [x] Remove response-body previews from user-facing diagnostics.
+- [x] Replace reachable Kotlin force unwraps; source audit reports none remaining.
+- [x] Move process-wide language/theme/deep-link ownership to `AppRuntimeState`; `MainActivity` remains a temporary compatibility facade.
+- [x] Replace package-level PrintHelper dependency and direct stdout/stacktrace diagnostics.
+- [ ] Remove remaining `MainActivity` compatibility-facade call sites incrementally after executable behavioral validation.
+- [ ] Split large screen/repository files incrementally after behavioral tests exist and pass.
+- [ ] Remove remediation-only workflows/scripts after final validation so the branch retains only permanent CI and product assets.
 
-## External dependencies
+## Remaining external dependencies
 The following cannot be completed safely inside this Android repository alone:
+- Approving/enabling GitHub Actions so compile, unit, lint, debug/release assembly, and instrumentation jobs actually run.
 - Applying production Supabase migrations.
 - Deploying the compatible Web/API implementation.
-- Verifying production RLS and API revision semantics.
+- Verifying production RLS, revision, offline-quota, and AI-idempotency semantics.
 - Changing Google Cloud/Firebase API-key restrictions.
-- Updating Play Console Data Safety and review credentials.
+- Updating Play Console Data Safety, review credentials, and App Links association.
 - Updating Meta developer-console configuration.
 
-Android changes that depend on these systems must remain guarded and must not assume an undeployed backend contract.
+No production configuration has been changed, `main` has not been modified, and PR #3 must remain draft.
