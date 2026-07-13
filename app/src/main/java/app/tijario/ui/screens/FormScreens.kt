@@ -600,8 +600,9 @@ fun CustomerFormScreen(
                                     deleteErrorMsg = "لا يمكن حذف هذا العميل لأنه مرتبط بفواتير أو عروض أسعار."
                                     return@launch
                                 }
+                                val resolvedCustomerId = customerId ?: return@launch
                                 isDeletingCustomer = true
-                                val res = dataViewModel.deleteCustomer(customerId!!)
+                                val res = dataViewModel.deleteCustomer(resolvedCustomerId)
                                 if (res.isSuccess) {
                                     showDeleteConfirm = false
                                     onBack()
@@ -773,7 +774,8 @@ fun ProductFormScreen(
     val bitmap = remember(selectedImageUri, imageFile) {
         if (selectedImageUri != null) {
             try {
-                context.contentResolver.openInputStream(selectedImageUri!!)?.use { input ->
+                val imageUri = selectedImageUri ?: return@remember null
+                context.contentResolver.openInputStream(imageUri)?.use { input ->
                     BitmapFactory.decodeStream(input)?.asImageBitmap()
                 }
             } catch (e: Exception) {
@@ -1023,16 +1025,16 @@ fun ProductFormScreen(
                                         dataViewModel.createProduct(product)
                                     }
                                     if (result.isSuccess) {
-                                        if (selectedImageUri != null) {
+                                        selectedImageUri?.let { imageUri ->
                                             val dir = File(context.filesDir, "product_images")
                                             if (!dir.exists()) dir.mkdirs()
                                             val destFile = File(dir, "${product.id}.jpg")
-                                            context.contentResolver.openInputStream(selectedImageUri!!)?.use { input ->
+                                            context.contentResolver.openInputStream(imageUri)?.use { input ->
                                                 destFile.outputStream().use { output ->
                                                     input.copyTo(output)
                                                 }
                                             }
-                                        } else if (imageDeleted) {
+                                        } ?: if (imageDeleted) {
                                             val destFile = File(context.filesDir, "product_images/${product.id}.jpg")
                                             if (destFile.exists()) {
                                                 destFile.delete()
@@ -1319,12 +1321,14 @@ fun BusinessSettingsScreen(
                                 Box(contentAlignment = Alignment.Center) {
                                     when {
                                         isLogoUploading -> CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color(0xFF0D9488))
-                                        logoBitmap != null -> Image(
-                                            bitmap = logoBitmap!!.asImageBitmap(),
-                                            contentDescription = null,
-                                            modifier = Modifier.fillMaxSize(),
-                                            contentScale = ContentScale.Crop
-                                        )
+                                        logoBitmap != null -> logoBitmap?.let { bitmap ->
+                                            Image(
+                                                bitmap = bitmap.asImageBitmap(),
+                                                contentDescription = null,
+                                                modifier = Modifier.fillMaxSize(),
+                                                contentScale = ContentScale.Crop,
+                                            )
+                                        }
                                         else -> Icon(
                                             imageVector = Icons.Filled.Storefront,
                                             contentDescription = null,

@@ -1296,7 +1296,8 @@ fun CustomersScreen(
                             try {
                                 isDeleting = true
                                 deleteErrorMessage = null
-                                val res = dataViewModel.deleteCustomer(customerToDelete!!.id!!)
+                                val customerId = customerToDelete?.id ?: return@launch
+                                val res = dataViewModel.deleteCustomer(customerId)
                                 if (res.isSuccess) {
                                     customerToDelete = null
                                 } else {
@@ -1712,7 +1713,7 @@ fun CustomersScreen(
                                     // 1. Edit Button (Pencil)
                                     if (onCustomerSelected == null) {
                                         IconButton(
-                                            onClick = { onEditCustomer?.invoke(customer.id!!) },
+                                            onClick = { customer.id?.let { onEditCustomer?.invoke(it) } },
                                             modifier = Modifier.size(32.dp)
                                         ) {
                                             Icon(
@@ -1901,7 +1902,8 @@ fun ProductsScreen(
                             try {
                                 isDeleting = true
                                 deleteErrorMessage = null
-                                val res = dataViewModel.deleteProduct(productToDelete!!.id!!)
+                                val productId = productToDelete?.id ?: return@launch
+                                val res = dataViewModel.deleteProduct(productId)
                                 if (res.isSuccess) {
                                     productToDelete = null
                                 } else {
@@ -2142,7 +2144,7 @@ fun ProductsScreen(
                                     if (onProductSelected == null) {
                                         IconButton(
                                             onClick = {
-                                                onEditProduct?.invoke(item.id!!)
+                                                item.id?.let { onEditProduct?.invoke(it) }
                                             }
                                         ) {
                                             Icon(Icons.Filled.Edit, contentDescription = t("edit"), tint = MaterialTheme.colorScheme.primary)
@@ -2909,8 +2911,7 @@ fun DocumentsScreen(
             )
         }
 
-        if (docForActions != null) {
-            val doc = docForActions!!
+        docForActions?.let { doc ->
             ModalBottomSheet(
                 onDismissRequest = { docForActions = null },
                 sheetState = rememberModalBottomSheetState()

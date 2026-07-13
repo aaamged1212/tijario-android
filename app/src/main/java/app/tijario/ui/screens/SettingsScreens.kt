@@ -582,14 +582,14 @@ fun AccountSettingsScreen(
                             border = BorderStroke(2.dp, Color.White)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
-                                if (profilePicBitmap != null) {
+                                profilePicBitmap?.let { bitmap ->
                                     Image(
-                                        bitmap = profilePicBitmap!!.asImageBitmap(),
+                                        bitmap = bitmap.asImageBitmap(),
                                         contentDescription = null,
                                         modifier = Modifier.fillMaxSize(),
                                         contentScale = ContentScale.Crop
                                     )
-                                } else {
+                                } ?: run {
                                     Text(
                                         text = displayName.take(2),
                                         color = Color.White,

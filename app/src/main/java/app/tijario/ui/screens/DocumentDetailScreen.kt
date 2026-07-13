@@ -186,8 +186,7 @@ fun DocumentDetailScreen(
                     }
                 }
 
-                document != null -> {
-                    val doc = document!!
+                document != null -> document?.let { doc ->
                     val displayDoc = remember(doc) {
                         doc.copy(
                             documentNumber = invoiceOptionPreferences.getDocumentNumberOverride(doc.id)

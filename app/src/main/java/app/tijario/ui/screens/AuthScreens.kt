@@ -1321,8 +1321,8 @@ fun OnboardingScreen(
                                             return@launch
                                         }
 
-                                        if (selectedLogoUri != null) {
-                                            val uploadRequest = buildLogoUploadRequest(context, selectedLogoUri!!, language)
+                                        selectedLogoUri?.let { logoUri ->
+                                            val uploadRequest = buildLogoUploadRequest(context, logoUri, language)
                                             val uploadResult = app.tijario.config.Supabase.apiClient.uploadBusinessLogo(uploadRequest)
                                             val uploadedUrl = uploadResult.data?.logoUrl
                                             if (!uploadResult.ok || uploadedUrl.isNullOrBlank()) {
