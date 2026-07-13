@@ -55,9 +55,16 @@ jobs:
           } > docs/ai/FAST_VERIFICATION.md
           echo "status=$status" >> "$GITHUB_OUTPUT"
 
-      - name: Commit result
+      - name: Commit result on latest branch head
         if: always()
         run: |
+          cp docs/ai/FAST_VERIFICATION.md /tmp/FAST_VERIFICATION.md
+          cp docs/ai/FAST_VERIFICATION.log /tmp/FAST_VERIFICATION.log
+          git fetch origin fix/full-audit-remediation
+          git reset --hard origin/fix/full-audit-remediation
+          mkdir -p docs/ai
+          cp /tmp/FAST_VERIFICATION.md docs/ai/FAST_VERIFICATION.md
+          cp /tmp/FAST_VERIFICATION.log docs/ai/FAST_VERIFICATION.log
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add docs/ai/FAST_VERIFICATION.md docs/ai/FAST_VERIFICATION.log
