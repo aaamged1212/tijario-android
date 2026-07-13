@@ -15,6 +15,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: account-isolation-remediation
+  cancel-in-progress: true
+
 jobs:
   apply-and-capture:
     runs-on: ubuntu-latest
