@@ -42,11 +42,21 @@ jobs:
         uses: gradle/actions/wrapper-validation@v4
 
       - name: Compile and test
-        run: >-
-          ./gradlew --no-daemon --stacktrace
-          compileDebugKotlin
-          testDebugUnitTest
-          assembleDebugAndroidTest
+        shell: bash
+        run: |
+          set -o pipefail
+          ./gradlew --no-daemon --console=plain \
+            compileDebugKotlin \
+            testDebugUnitTest \
+            assembleDebugAndroidTest 2>&1 | tee gradle-fast-verify.log
+
+      - name: Print focused failure diagnostics
+        if: failure()
+        shell: bash
+        run: |
+          if [[ -f gradle-fast-verify.log ]]; then
+            grep -E -i -C 3 '(^e: |error:|FAILURE:|Execution failed for task|What went wrong|Caused by:)' gradle-fast-verify.log | tail -n 300 || true
+          fi
 
   release-verify:
     name: Lint and release assembly
@@ -71,8 +81,18 @@ jobs:
         run: chmod +x gradlew
 
       - name: Lint and assemble
-        run: >-
-          ./gradlew --no-daemon --stacktrace
-          lintDebug
-          assembleDebug
-          assembleRelease
+        shell: bash
+        run: |
+          set -o pipefail
+          ./gradlew --no-daemon --console=plain \
+            lintDebug \
+            assembleDebug \
+            assembleRelease 2>&1 | tee gradle-release-verify.log
+
+      - name: Print focused failure diagnostics
+        if: failure()
+        shell: bash
+        run: |
+          if [[ -f gradle-release-verify.log ]]; then
+            grep -E -i -C 3 '(^e: |error:|FAILURE:|Execution failed for task|What went wrong|Caused by:)' gradle-release-verify.log | tail -n 300 || true
+          fi
