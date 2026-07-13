@@ -1,0 +1,60 @@
+name: Source Audit Scan
+
+on:
+  push:
+    branches:
+      - fix/full-audit-remediation
+    paths:
+      - .github/workflows/source-audit-scan.yml
+
+permissions:
+  contents: write
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout remediation branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/full-audit-remediation
+          fetch-depth: 0
+
+      - name: Scan source
+        shell: bash
+        run: |
+          mkdir -p docs/ai
+          {
+            echo "# Remaining source audit scan"
+            echo
+            echo "## Force unwraps"
+            grep -R -n --include='*.kt' '!!' app/src/main/java || true
+            echo
+            echo "## Print helper usage"
+            grep -R -n --include='*.kt' -E 'android\.print\.PrintHelper|PrintHelper\.runWrite|package android\.print' app/src/main/java || true
+            echo
+            echo "## Empty or silent catches"
+            grep -R -n --include='*.kt' -E 'catch \([^)]*\) \{[[:space:]]*\}|catch \([^)]*\)' app/src/main/java || true
+            echo
+            echo "## Kotlin files by line count"
+            find app/src/main/java -name '*.kt' -print0 | xargs -0 wc -l | sort -nr | head -40
+            echo
+            echo "## Direct MainActivity global state usage"
+            grep -R -n --include='*.kt' 'MainActivity\.' app/src/main/java || true
+            echo
+            echo "## Inline Android log/stacktrace usage"
+            grep -R -n --include='*.kt' -E 'printStackTrace\(|System\.out\.|println\(' app/src/main/java || true
+          } > /tmp/SOURCE_AUDIT_SCAN.md
+
+      - name: Commit scan on latest head
+        run: |
+          git fetch origin fix/full-audit-remediation
+          git reset --hard origin/fix/full-audit-remediation
+          mkdir -p docs/ai
+          cp /tmp/SOURCE_AUDIT_SCAN.md docs/ai/SOURCE_AUDIT_SCAN.md
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/ai/SOURCE_AUDIT_SCAN.md
+          git commit -m "audit(android): record remaining source smells" || exit 0
+          git push origin HEAD:fix/full-audit-remediation
