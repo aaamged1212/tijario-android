@@ -118,6 +118,7 @@ import app.tijario.features.documents.preview.DocumentPreviewWebView
 import app.tijario.features.documents.ui.DocumentTemplatePicker
 import app.tijario.features.documents.ui.isTemplateAvailableForSelection
 import app.tijario.features.documents.ui.DocumentTemplatePreferences
+import app.tijario.features.documents.ui.AmountPreset
 import app.tijario.features.documents.ui.DocumentInvoiceOptionPreferences
 import app.tijario.ui.components.ModernDocumentPreview
 import app.tijario.ui.components.TijarioButton
@@ -209,23 +210,30 @@ private val QuantityKeyboardOptions = KeyboardOptions(
 
 private fun todayDocumentDate(): String = LocalDate.now().toString()
 
-private fun documentNumberPrefix(type: DocumentType): String =
+internal fun documentNumberPrefix(type: DocumentType): String =
     if (type == DocumentType.Invoice) "INV-" else "Q-"
 
-private fun documentNumberEditablePart(number: String, type: DocumentType): String =
+internal fun documentNumberEditablePart(number: String, type: DocumentType): String =
     number.removePrefix(documentNumberPrefix(type)).substringAfter("-", number.removePrefix(documentNumberPrefix(type)))
 
-private fun displayDraftDocumentNumber(number: String, type: DocumentType): String =
+internal fun displayDraftDocumentNumber(number: String, type: DocumentType): String =
     number.ifBlank { documentNumberPrefix(type) + "..." }
 
-private fun nextLocalDocumentNumber(documents: List<DocumentSummary>, type: DocumentType): String {
-    val next = documents.asSequence()
+internal fun nextLocalDocumentNumber(documents: List<DocumentSummary>, type: DocumentType): String {
+    val prefix = documentNumberPrefix(type)
+    val nextNumber = documents.asSequence()
         .filter { it.type == type }
-        .mapNotNull { Regex("(\\d+)$").find(it.documentNumber.trim())?.groupValues?.getOrNull(1)?.toIntOrNull() }
+        .mapNotNull { document ->
+            Regex("""(\d+)$""")
+                .find(document.documentNumber)
+                ?.groupValues
+                ?.getOrNull(1)
+                ?.toIntOrNull()
+        }
         .maxOrNull()
         ?.plus(1)
         ?: 1
-    return documentNumberPrefix(type) + next.toString().padStart(5, '0')
+    return prefix + nextNumber.toString().padStart(5, '0')
 }
 
 internal fun isDocumentIdentityEditable(isEditMode: Boolean): Boolean = !isEditMode
@@ -1752,14 +1760,16 @@ fun InvoiceInfoDialog(
     ) -> Unit
 ) {
     val numberPrefix = documentNumberPrefix(documentType)
-    var documentNumberDigits by remember { mutableStateOf(documentNumberEditablePart(form.documentNumber, documentType)) }
-    var creationDate by remember { mutableStateOf(form.creationDate.ifBlank { todayDocumentDate() }) }
+    var documentNumberDigits by remember(form.documentNumber, documentType) {
+        mutableStateOf(documentNumberEditablePart(form.documentNumber, documentType))
+    }
+    var creationDate by remember(form.creationDate) { mutableStateOf(form.creationDate.ifBlank { todayDocumentDate() }) }
     var dueTerms by remember { mutableStateOf(form.dueTerms) }
     var dueDate by remember { mutableStateOf(form.dueDate) }
     var showCreationDatePicker by remember { mutableStateOf(false) }
     var showDueDatePicker by remember { mutableStateOf(false) }
     var poNumber by remember { mutableStateOf(form.poNumber) }
-    var invoiceTitle by remember { mutableStateOf(form.documentTitle) }
+    var invoiceTitle by remember(form.documentTitle) { mutableStateOf(form.documentTitle) }
     val identityLocked = !isDocumentIdentityEditable(isEditMode)
 
     if (showCreationDatePicker) {
@@ -2431,19 +2441,23 @@ fun DocumentFormScreen(
         )
     }
 
-    val nextDraftDocumentNumber = remember(uiState.documents, type) {
+    var suggestedDocumentNumber by rememberSaveable(type) { mutableStateOf("") }
+    var isLoadingNextDocumentNumber by rememberSaveable(isEditMode, type) { mutableStateOf(false) }
+    val localDraftDocumentNumber = remember(uiState.documents, type) {
         nextLocalDocumentNumber(uiState.documents, type)
     }
-    var isLoadingNextDocumentNumber by rememberSaveable(isEditMode, type) { mutableStateOf(false) }
 
-    LaunchedEffect(isEditMode, type, nextDraftDocumentNumber, documentNumberEditedByUser) {
-        if (!isEditMode) {
-            if (!documentNumberEditedByUser) {
-                form = form.copy(documentNumber = nextDraftDocumentNumber)
-            }
+    LaunchedEffect(isEditMode, localDraftDocumentNumber) {
+        if (isEditMode) {
             isLoadingNextDocumentNumber = false
-        } else {
-            isLoadingNextDocumentNumber = false
+            return@LaunchedEffect
+        }
+        isLoadingNextDocumentNumber = false
+        val shouldApplyLocalNumber = !documentNumberEditedByUser &&
+            (form.documentNumber.isBlank() || form.documentNumber == suggestedDocumentNumber)
+        suggestedDocumentNumber = localDraftDocumentNumber
+        if (shouldApplyLocalNumber) {
+            form = form.copy(documentNumber = localDraftDocumentNumber)
         }
     }
 
@@ -2459,7 +2473,15 @@ fun DocumentFormScreen(
     }
 
     LaunchedEffect(language) {
-        form = form.copy(lang = language)
+        form = form.copy(
+            lang = language,
+            documentTitle = documentTitleAfterLanguageChange(
+                type = type,
+                currentTitle = form.documentTitle,
+                nextDocumentLanguage = form.documentLanguage,
+                titleEditedByUser = titleEditedByUser,
+            ),
+        )
     }
 
     fun moveItemUp(index: Int) {
@@ -2533,6 +2555,7 @@ fun DocumentFormScreen(
                     operationId = form.operationId,
                     paymentStatus = if (type == app.tijario.data.model.DocumentType.Invoice) form.paymentStatus else null,
                     amountPaid = if (type == app.tijario.data.model.DocumentType.Invoice && form.paymentStatus == "partial") Validation.parseNonNegativeMoney(form.amountPaid) else null,
+                    documentNumber = form.documentNumber.ifBlank { null },
                     customer = buildDocumentCustomerInput(form),
                     items = form.items.map { itm ->
                         app.tijario.data.remote.DocumentItemInput(
@@ -2567,6 +2590,8 @@ fun DocumentFormScreen(
                         onBack()
                     } else {
                         app.tijario.features.documents.pdf.PdfCacheManager(context).invalidate(savedDocumentId)
+                        invoiceOptionPreferences.setDocumentTitleOverride(savedDocumentId, form.documentTitle)
+                        invoiceOptionPreferences.setDocumentNumberOverride(savedDocumentId, form.documentNumber)
                         dataViewModel.upsertDocumentMetadata(
                             app.tijario.data.local.LocalDocumentMetadataEntity(
                                 documentId = savedDocumentId,
@@ -2630,6 +2655,11 @@ fun DocumentFormScreen(
                         selectedTemplateId = DocumentTemplateRegistry.normalizeId(savedTemplateId)
                     }
                     val loadedForm = existing.toFormState(language).copy(
+                        documentNumber = invoiceOptionPreferences.getDocumentNumberOverride(currentEditDocumentId)
+                            ?: existing.documentNumber,
+                        documentTitle = invoiceOptionPreferences.getDocumentTitleOverride(currentEditDocumentId)
+                            ?: existing.documentTitle
+                            ?: existing.toFormState(language).documentTitle,
                         currency = metadata?.currency ?: existing.currency.ifBlank { null } ?: form.currency,
                         signatureData = metadata?.signatureData.orEmpty(),
                         paymentMethod = metadata?.paymentMethod.orEmpty(),
@@ -2664,7 +2694,13 @@ fun DocumentFormScreen(
             form = form.copy(
                 paymentMethod = form.paymentMethod.ifBlank { defaults.paymentMethod },
                 terms = form.terms.ifBlank { defaults.termsContent.ifBlank { businessSettings?.termsText.orEmpty() } },
-                signatureData = form.signatureData.ifBlank { defaults.signatureData }
+                signatureData = form.signatureData.ifBlank { defaults.signatureData },
+                finalTaxName = if (form.finalTaxRate.isBlank() && defaults.taxName.isNotBlank()) {
+                    defaults.taxName
+                } else {
+                    form.finalTaxName
+                },
+                finalTaxRate = form.finalTaxRate.ifBlank { defaults.taxRate },
             )
         }
     }
@@ -3669,7 +3705,7 @@ fun DocumentFormScreen(
             onDismiss = { showInvoiceInfoDialog = false },
             onSave = { docNum, date, terms, due, po, title ->
                 titleEditedByUser = title.isNotBlank() && !isDefaultDocumentTitle(type, title)
-                documentNumberEditedByUser = docNum != nextDraftDocumentNumber
+                documentNumberEditedByUser = suggestedDocumentNumber.isBlank() || docNum != suggestedDocumentNumber
                 form = form.copy(
                     documentNumber = docNum,
                     creationDate = date,
@@ -3758,6 +3794,7 @@ fun DocumentFormScreen(
             reason = form.discountLabel,
             discountType = form.discountType,
             showDiscountType = true,
+            presets = invoiceOptionPreferences.getDiscountPresets(),
             onDismiss = { showDiscountSheet = false },
             onSave = { amount, reason, type ->
                 form = form.copy(
@@ -3765,6 +3802,7 @@ fun DocumentFormScreen(
                     discountLabel = reason,
                     discountType = type ?: "fixed",
                 )
+                invoiceOptionPreferences.addDiscountPreset(amount, reason, type ?: "fixed")
                 showDiscountSheet = false
             },
         )
@@ -3777,9 +3815,11 @@ fun DocumentFormScreen(
             reasonLabel = Localization.getString("doc_extra_fee_reason", language),
             amount = form.extraFees,
             reason = form.extraFeesLabel,
+            presets = invoiceOptionPreferences.getExtraFeesPresets(),
             onDismiss = { showExtraFeesSheet = false },
             onSave = { amount, reason, _ ->
                 form = form.copy(extraFees = amount, extraFeesLabel = reason)
+                invoiceOptionPreferences.addExtraFeesPreset(amount, reason)
                 showExtraFeesSheet = false
             },
         )
@@ -3818,6 +3858,7 @@ fun DocumentFormScreen(
             onDismiss = { showLocalTaxesDialog = false },
             onApplyTax = { name, rate ->
                 form = form.copy(finalTaxName = name, finalTaxRate = rate)
+                invoiceOptionPreferences.setTax(name, rate)
             }
         )
     }
@@ -3994,6 +4035,7 @@ private fun AmountOptionSheet(
     onSave: (String, String, String?) -> Unit,
     discountType: String = "fixed",
     showDiscountType: Boolean = false,
+    presets: List<AmountPreset> = emptyList(),
 ) {
     val language = LocalLanguage.current
     var localAmount by rememberSaveable { mutableStateOf(amount) }
@@ -4029,6 +4071,26 @@ private fun AmountOptionSheet(
                             selected = localDiscountType.equals(value, ignoreCase = true),
                             onClick = { localDiscountType = value },
                             label = { Text(label) },
+                        )
+                    }
+                }
+            }
+            if (presets.isNotEmpty()) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    presets.forEach { preset ->
+                        AssistChip(
+                            onClick = {
+                                localAmount = preset.amount
+                                localReason = preset.reason
+                                localDiscountType = preset.type
+                            },
+                            label = {
+                                Text(
+                                    listOf(preset.reason, preset.amount)
+                                        .filter { it.isNotBlank() }
+                                        .joinToString(" - ")
+                                )
+                            },
                         )
                     }
                 }

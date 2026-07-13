@@ -44,6 +44,7 @@ data class CreateDocumentRequest(
     @SerialName("operation_id") val operationId: String? = null,
     @SerialName("payment_status") val paymentStatus: String? = null,
     @SerialName("amount_paid") val amountPaid: Double? = null,
+    @SerialName("document_number") val documentNumber: String? = null,
     val customer: DocumentCustomerInput,
     val items: List<DocumentItemInput>,
     val discount: Double = 0.0,
@@ -520,4 +521,9 @@ data class GooglePlayVerifyResponse(
 @Serializable
 data class NextNumberResponse(
     @SerialName("documentNumber") val documentNumber: String,
+)
+
+data class DocumentPdfDownloadRequest(
+    val url: String,
+    val bearerToken: String,
 )

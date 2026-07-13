@@ -1257,7 +1257,15 @@ open class TijarioRepository(
                 )
 
             runCatching {
-                backendApiClient.fetchCompleteDocument(documentId).data?.let { cacheCompleteDocumentSnapshot(it) }
+                backendApiClient.fetchCompleteDocument(documentId).data?.let { remote ->
+                    cacheCompleteDocumentSnapshot(
+                        remote.copy(
+                            documentNumber = request.documentNumber?.takeIf { it.isNotBlank() } ?: remote.documentNumber,
+                            documentTitle = request.documentTitle ?: remote.documentTitle,
+                            documentLanguage = request.documentLanguage,
+                        )
+                    )
+                }
                     ?: refreshAll(force = true)
             }
             runCatching { refreshProducts() }
@@ -1272,7 +1280,15 @@ open class TijarioRepository(
 
             val resolvedDocumentId = result.data?.documentId?.takeIf { it.isNotBlank() } ?: documentId
             runCatching {
-                backendApiClient.fetchCompleteDocument(resolvedDocumentId).data?.let { cacheCompleteDocumentSnapshot(it) }
+                backendApiClient.fetchCompleteDocument(resolvedDocumentId).data?.let { remote ->
+                    cacheCompleteDocumentSnapshot(
+                        remote.copy(
+                            documentNumber = request.documentNumber?.takeIf { it.isNotBlank() } ?: remote.documentNumber,
+                            documentTitle = request.documentTitle ?: remote.documentTitle,
+                            documentLanguage = request.documentLanguage,
+                        )
+                    )
+                }
                     ?: refreshAll(force = true)
             }
             runCatching { refreshProducts() }

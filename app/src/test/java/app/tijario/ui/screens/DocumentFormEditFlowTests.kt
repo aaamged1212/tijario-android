@@ -3,6 +3,7 @@ package app.tijario.ui.screens
 import app.tijario.data.model.Product
 import app.tijario.data.model.ProductKind
 import app.tijario.data.model.DocumentType
+import app.tijario.data.model.DocumentSummary
 import app.tijario.ui.state.DocumentFormState
 import app.tijario.ui.state.DocumentItemState
 import org.junit.Assert.assertEquals
@@ -103,6 +104,62 @@ class DocumentFormEditFlowTests {
                 titleEditedByUser = true,
             ),
         )
+    }
+
+    @Test
+    fun documentLanguageChangePreservesCustomTitleEvenWhenAppLanguageChanges() {
+        assertEquals(
+            "Special Ramadan Invoice",
+            documentTitleAfterLanguageChange(
+                type = DocumentType.Invoice,
+                currentTitle = "Special Ramadan Invoice",
+                nextDocumentLanguage = "AR",
+                titleEditedByUser = true,
+            ),
+        )
+    }
+
+    @Test
+    fun draftDisplayKeepsOfficialDocumentNumberExactly() {
+        assertEquals("INV-00005", displayDraftDocumentNumber("INV-00005", DocumentType.Invoice))
+        assertEquals("INV-0005", displayDraftDocumentNumber("INV-0005", DocumentType.Invoice))
+        assertEquals("Q-00009", displayDraftDocumentNumber("Q-00009", DocumentType.Quote))
+    }
+
+    @Test
+    fun documentNumberEditablePartKeepsOnlyEditableDigits() {
+        assertEquals("00005", documentNumberEditablePart("INV-00005", DocumentType.Invoice))
+        assertEquals("00009", documentNumberEditablePart("Q-00009", DocumentType.Quote))
+    }
+
+    @Test
+    fun nextLocalDocumentNumberUsesTypeSpecificFiveDigitSequence() {
+        val documents = listOf(
+            DocumentSummary(
+                id = "invoice-1",
+                customerId = "customer-1",
+                type = DocumentType.Invoice,
+                documentNumber = "INV-00015",
+                status = "issued",
+                issueDate = "2026-07-13",
+                total = 100.0,
+                currency = "SAR",
+            ),
+            DocumentSummary(
+                id = "quote-1",
+                customerId = "customer-1",
+                type = DocumentType.Quote,
+                documentNumber = "Q-00002",
+                status = "issued",
+                issueDate = "2026-07-13",
+                total = 100.0,
+                currency = "SAR",
+            ),
+        )
+
+        assertEquals("INV-00016", nextLocalDocumentNumber(documents, DocumentType.Invoice))
+        assertEquals("Q-00003", nextLocalDocumentNumber(documents, DocumentType.Quote))
+        assertEquals("INV-00001", nextLocalDocumentNumber(emptyList(), DocumentType.Invoice))
     }
 
     @Test

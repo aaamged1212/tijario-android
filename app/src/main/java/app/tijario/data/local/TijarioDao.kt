@@ -56,7 +56,7 @@ interface TijarioDao {
     @Query("DELETE FROM products_cache WHERE user_id = :userId")
     suspend fun deleteProducts(userId: String)
 
-    @Query("SELECT * FROM documents_cache WHERE user_id = :userId ORDER BY COALESCE(server_updated_at, last_synced_at, synced_at) DESC, issue_date DESC, document_number DESC")
+    @Query("SELECT * FROM documents_cache WHERE user_id = :userId ORDER BY COALESCE(created_at, issue_date) DESC, synced_at DESC, document_number DESC")
     fun observeDocuments(userId: String): Flow<List<DocumentEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)

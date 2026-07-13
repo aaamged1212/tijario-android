@@ -1,5 +1,14 @@
 # AI Changelog
 
+## 2026-07-13 - Session 10 (Codex)
+- Fixed Android document edit/export behavior on `fix/android-document-edit-pdf-email-numbering`.
+- New-document draft numbers now use the Web next-number API instead of local cached numbering; saved document numbers remain exact across preview/reopen/PDF/share.
+- PDF download now uses Android `DownloadManager` with bearer-authenticated `/api/mobile/documents/{id}/pdf` and waits for completion before showing saved success.
+- Email export now filters to email apps via `mailto:` query targets and uses a `FileProvider` PDF attachment.
+- Preserved custom document titles across language changes and added focused form/number tests.
+- Validation passed: `compileDebugKotlin`, `testDebugUnitTest`, `lintDebug --no-daemon` on retry, `assembleDebug`, `:app:processReleaseMainManifest`, `assembleDebugAndroidTest`, and `git diff --check`.
+- Safety Info: No commit, push, Web edit, deployment, Supabase migration apply, APK/AAB upload, version bump, or Google Play action.
+
 ## 2026-07-13
 - **Agent**: Codex
 - **Action**: Completed Android final source-control closeout preparation for the adaptive UI and document workflow batch.
@@ -169,4 +178,34 @@
 - Persisted local option metadata in Room v14 and rendered shipping/negative discount/multi-line options in preview/PDF/saved documents.
 - Added focused document calculation/render tests.
 - Validation passed: `compileDebugKotlin`, `testDebugUnitTest`, `assembleDebug`, and `git diff --check`; `lintDebug` timed out after 4 minutes.
+- Safety Info: Local Android changes only. No commit, push, Web edit, Supabase migration apply, APK/AAB upload, or closed-testing change.
+
+## 2026-07-13 - Session 11 (Codex)
+- Added Android PDF download fallback: try authenticated DownloadManager first, then authenticated in-app PDF fetch written to Downloads through MediaStore.
+- Switched new invoice/quote draft number display back to immediate local five-digit `INV-` / `Q-` numbering from cached documents and kept exact zero padding in the info dialog.
+- Added `document_number` to Android mobile document save payload; Web/API may still need a separate change to honor it authoritatively.
+- Preserved edited document title/language in local cache after create/update so reopened preview/PDF does not revert to the previous title.
+- Stored the latest selected local tax and reused it automatically for future new documents.
+- Added focused local numbering unit coverage.
+- Validation passed: `compileDebugKotlin`, `testDebugUnitTest`, `assembleDebug`, and `git diff --check`; `lintDebug` timed out twice without a final result.
+- Safety Info: Local Android changes only. No commit, push, Web edit, Supabase migration apply, APK/AAB upload, or closed-testing change.
+
+## 2026-07-13 - Session 12 (Codex)
+- Reverted Android PDF download back to the locally generated app document PDF and changed the save destination to the public Downloads collection/directory.
+- Preserved manually edited document numbers in the local complete-document cache after save/update.
+- Added local quick-select presets for discount and extra-fee amount/reason pairs inside the existing bottom sheets.
+- Validation passed: `compileDebugKotlin`, `testDebugUnitTest`, `assembleDebug`, and `git diff --check`.
+- Safety Info: Local Android changes only. No commit, push, Web edit, Supabase migration apply, APK/AAB upload, or closed-testing change.
+
+## 2026-07-13 - Session 13 (Codex)
+- Tightened PDF download to use the local in-app PDF and save it through the public Downloads MediaStore collection/directory.
+- Applied manual document number/title overrides to the Documents list, document detail, preview, and export model.
+- Changed Room document ordering to newest `created_at` first with `issue_date` and `synced_at` fallbacks.
+- Validation passed: `compileDebugKotlin`, `testDebugUnitTest`, `assembleDebug`, and `git diff --check`.
+- Safety Info: Local Android changes only. No commit, push, Web edit, Supabase migration apply, APK/AAB upload, or closed-testing change.
+
+## 2026-07-13 - Session 14 (Codex)
+- Fixed legacy Android public Downloads saving by adding API 28-and-below write permission and runtime permission requests before local PDF save.
+- Added focused source coverage for the legacy permission contract.
+- Validation passed: `compileDebugKotlin`, `testDebugUnitTest`, and `assembleDebug`.
 - Safety Info: Local Android changes only. No commit, push, Web edit, Supabase migration apply, APK/AAB upload, or closed-testing change.

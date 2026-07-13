@@ -1,8 +1,11 @@
 package app.tijario.ui.screens
 
+import android.Manifest
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -66,12 +69,14 @@ import app.tijario.config.Localization
 import app.tijario.config.t
 import app.tijario.data.model.CompleteDocument
 import app.tijario.data.model.DocumentType
+import app.tijario.features.documents.export.DocumentDownloadManager
 import app.tijario.features.documents.export.DocumentExportAction
 import app.tijario.features.documents.export.DocumentExportManager
 import app.tijario.features.documents.mapper.TijarioDocumentMapper
 import app.tijario.features.documents.preview.DocumentPreviewWebView
 import app.tijario.features.documents.template.DocumentTemplateRegistry
 import app.tijario.features.documents.ui.DocumentExportSheet
+import app.tijario.features.documents.ui.DocumentInvoiceOptionPreferences
 import app.tijario.features.documents.ui.DocumentTemplatePicker
 import app.tijario.features.documents.ui.DocumentTemplatePreferences
 import app.tijario.domain.LocalizedErrorMapper
@@ -93,6 +98,7 @@ fun DocumentDetailScreen(
     val businessSettings = uiState.businessSettings
     val planUsage = uiState.planUsage
     val exportManager = remember(context) { DocumentExportManager(context) }
+    val invoiceOptionPreferences = remember(context) { DocumentInvoiceOptionPreferences(context) }
     val templatePreferences = remember(context) { DocumentTemplatePreferences(context) }
 
     var document by remember { mutableStateOf<CompleteDocument?>(null) }
@@ -182,17 +188,49 @@ fun DocumentDetailScreen(
 
                 document != null -> {
                     val doc = document!!
+                    val displayDoc = remember(doc) {
+                        doc.copy(
+                            documentNumber = invoiceOptionPreferences.getDocumentNumberOverride(doc.id)
+                                ?: doc.documentNumber,
+                            documentTitle = invoiceOptionPreferences.getDocumentTitleOverride(doc.id)
+                                ?: doc.documentTitle,
+                        )
+                    }
                     val documentLanguage = if (doc.documentLanguage.equals("en", true)) "EN" else "AR"
-                    val renderModel = remember(doc, businessSettings, selectedTemplateId, documentLanguage, documentMetadata) {
+                    val renderModel = remember(displayDoc, businessSettings, selectedTemplateId, documentLanguage, documentMetadata) {
                         val mappedLang = if (documentLanguage == "EN") AppLanguage.EN else AppLanguage.AR
                         TijarioDocumentMapper.fromSaved(
-                            document = doc,
+                            document = displayDoc,
                             businessSettings = businessSettings,
                             language = mappedLang,
                             templateId = selectedTemplateId,
                             metadata = documentMetadata,
                             showTijarioBranding = planUsage?.removeTijarioBranding?.not() ?: true,
                         )
+                    }
+                    fun saveCurrentPdfToDownloads() {
+                        scope.launch {
+                            try {
+                                isBusy = true
+                                Toast.makeText(context, Localization.getString("export_download_started", language), Toast.LENGTH_SHORT).show()
+                                exportManager.saveToDownloads(renderModel)
+                                Toast.makeText(context, Localization.getString("export_saved_downloads", language), Toast.LENGTH_LONG).show()
+                            } catch (e: Exception) {
+                                android.util.Log.e("TijarioExport", "Error saving document PDF", e)
+                                Toast.makeText(context, Localization.getString("export_download_failed", language), Toast.LENGTH_LONG).show()
+                            } finally {
+                                isBusy = false
+                            }
+                        }
+                    }
+                    val downloadPermissionLauncher = rememberLauncherForActivityResult(
+                        ActivityResultContracts.RequestPermission(),
+                    ) { granted ->
+                        if (granted) {
+                            saveCurrentPdfToDownloads()
+                        } else {
+                            Toast.makeText(context, Localization.getString("export_download_failed", language), Toast.LENGTH_LONG).show()
+                        }
                     }
 
                     Column(
@@ -211,7 +249,7 @@ fun DocumentDetailScreen(
                                 verticalArrangement = Arrangement.spacedBy(6.dp),
                             ) {
                                 Text(
-                                    text = if (doc.type == DocumentType.Invoice) t("invoice_num").replace("%s", doc.documentNumber) else t("quote_num").replace("%s", doc.documentNumber),
+                                    text = if (displayDoc.type == DocumentType.Invoice) t("invoice_num").replace("%s", displayDoc.documentNumber) else t("quote_num").replace("%s", displayDoc.documentNumber),
                                     fontSize = 18.sp,
                                     fontWeight = FontWeight.Bold,
                                 )
@@ -314,15 +352,22 @@ fun DocumentDetailScreen(
                                             }
 
                                             DocumentExportAction.SaveToDevice -> {
-                                                exportManager.saveToDownloads(renderModel)
-                                                Toast.makeText(context, Localization.getString("export_saved_downloads", language), Toast.LENGTH_LONG).show()
+                                                if (DocumentDownloadManager.needsLegacyWritePermission(context)) {
+                                                    downloadPermissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                                                } else {
+                                                    saveCurrentPdfToDownloads()
+                                                }
                                             }
 
                                             DocumentExportAction.Print -> exportManager.printPdf(renderModel)
 
                                             DocumentExportAction.Email -> {
                                                 val intent = exportManager.emailIntent(renderModel)
-                                                context.startActivity(Intent.createChooser(intent, Localization.getString("export_send_email", language)))
+                                                if (intent == null) {
+                                                    Toast.makeText(context, Localization.getString("export_no_email_app", language), Toast.LENGTH_LONG).show()
+                                                } else {
+                                                    context.startActivity(intent)
+                                                }
                                             }
 
                                             DocumentExportAction.SharePdf -> {
@@ -339,7 +384,12 @@ fun DocumentDetailScreen(
                                         Toast.makeText(context, Localization.getString("export_no_app_found", language), Toast.LENGTH_LONG).show()
                                     } catch (e: Exception) {
                                         android.util.Log.e("TijarioExport", "Error executing export action: ${action.name}", e)
-                                        Toast.makeText(context, Localization.getString("export_error_generic", language), Toast.LENGTH_LONG).show()
+                                        val message = if (action == DocumentExportAction.SaveToDevice) {
+                                            Localization.getString("export_download_failed", language)
+                                        } else {
+                                            Localization.getString("export_error_generic", language)
+                                        }
+                                        Toast.makeText(context, message, Toast.LENGTH_LONG).show()
                                     } finally {
                                         isBusy = false
                                     }

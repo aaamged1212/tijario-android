@@ -1,5 +1,74 @@
 # Agent Handoff (Android & Web Repos)
 
+## 2026-07-13 (Session 12 - Local PDF downloads and document option presets)
+- **Agent**: Codex
+- **Branch**:
+  - Android: `fix/android-document-edit-pdf-email-numbering`
+  - Web: unchanged/read-only.
+- **Action**: Implemented Android-only fixes for PDF download location, manual document-number persistence, and reusable discount/extra-fee options.
+- **Details**:
+  - PDF download now uses the locally generated in-app document PDF again, not the Web/server PDF, and saves to the public Downloads collection through MediaStore on Android 10+.
+  - Pre-Android 10 fallback writes to the public Downloads directory instead of the app-specific `Android/data/.../Downloads` directory.
+  - Manual `document_number` is sent in the mobile payload and also preserved in the local complete-document cache after save/update so reopened in-app preview/PDF shows the edited number.
+  - Discount and extra-fee bottom sheets now save the last used amount/reason as local presets and show saved presets as quick-select chips.
+- **Validation**:
+  - `.\gradlew.bat compileDebugKotlin --console plain --no-daemon` passed.
+  - `.\gradlew.bat testDebugUnitTest --console plain --no-daemon` passed.
+  - `.\gradlew.bat assembleDebug --console plain --no-daemon` passed.
+  - `git diff --check` passed with only CRLF warnings.
+- **Safety Status**: Local Android changes only. No commit, push, deployment, Supabase migration, version bump, APK/AAB upload, or Google Play action.
+- **Pending Tasks**:
+  - Real-device QA for PDF visibility in the phone Downloads folder, manual number persistence after save/reopen, and discount/extra-fee preset selection.
+
+## 2026-07-13 (Session 11 - PDF fallback, local numbering, title/tax defaults)
+- **Agent**: Codex
+- **Branch**:
+  - Android: `fix/android-document-edit-pdf-email-numbering`
+  - Web: unchanged/read-only.
+- **Action**: Implemented Android-only follow-up fixes for reported document PDF/title/number/tax-default issues.
+- **Details**:
+  - PDF download still tries the authenticated server PDF DownloadManager path first, then falls back to an in-app authenticated PDF fetch and writes the bytes to Downloads through MediaStore on Android 10+.
+  - New invoice/quote draft numbers are calculated immediately from cached local documents with `INV-` / `Q-` prefixes and five-digit suffixes, starting at `00001`; the info dialog now updates when the form number changes and preserves edited zero padding.
+  - Android now includes the visible `document_number` in the mobile create/update request payload; current Web create schema was inspected read-only and may still allocate/return the server number unless Web/API is updated to honor client-provided numbers.
+  - After create/update, cached complete documents keep the request document title/language so edited Arabic/English titles do not revert in local preview/PDF/reopen flows.
+  - The latest selected local tax name/rate is stored and applied automatically to future new documents.
+  - Added focused unit coverage for local type-specific document numbering.
+- **Validation**:
+  - `.\gradlew.bat compileDebugKotlin --console plain` passed.
+  - `.\gradlew.bat testDebugUnitTest --console plain` passed.
+  - `.\gradlew.bat assembleDebug --console plain` passed.
+  - `git diff --check` passed with only CRLF warnings.
+  - `.\gradlew.bat lintDebug --console plain` and `.\gradlew.bat lintDebug --console plain --no-daemon` both timed out before a pass/fail result.
+- **Safety Status**: Local Android changes only. No commit, push, deployment, Supabase migration, version bump, APK/AAB upload, or Google Play action.
+- **Pending Tasks**:
+  - Real-device QA for PDF download fallback, edit-title persistence, new invoice/quote number display, and automatic tax defaults.
+  - Re-run `lintDebug` when Gradle lint is responsive.
+
+## 2026-07-13 (Session 10 - Document edit/export fixes)
+- **Agent**: Codex
+- **Branch**:
+  - Android: `fix/android-document-edit-pdf-email-numbering`
+  - Web: inspected read-only on `main`; no Web files changed.
+- **Action**: Implemented Android-only fixes for document edit/export/number/title behavior.
+- **Details**:
+  - Document edit save path remains update-only when `editDocumentId` exists; Web audit confirmed `update_document_with_usage` does not update `usage_counters`.
+  - New-document draft number now comes from `/api/mobile/documents/next-number` instead of cached local numbering; saved/reopened/PDF/share paths keep the server `document_number` exactly.
+  - PDF download now uses Android `DownloadManager` against `/api/mobile/documents/{id}/pdf` with bearer auth and only shows saved success after DownloadManager reports completion.
+  - Email export now filters to real email apps via `ACTION_SENDTO mailto:` handlers, attaches the PDF through `FileProvider`, and shows a localized no-email-app message.
+  - Default document title updates only for blank/default titles; custom titles remain preserved.
+  - Added focused tests for edit form product merge behavior, title preservation, and exact document-number display.
+- **Validation**:
+  - `.\gradlew.bat compileDebugKotlin --console plain` passed.
+  - `.\gradlew.bat testDebugUnitTest --console plain` passed.
+  - `.\gradlew.bat lintDebug --console plain --no-daemon` passed on retry after an initial timeout.
+  - `.\gradlew.bat assembleDebug --console plain` passed.
+  - `.\gradlew.bat :app:processReleaseMainManifest --console plain` passed.
+  - `.\gradlew.bat assembleDebugAndroidTest --console plain` passed.
+  - `git diff --check` passed with only CRLF warnings.
+- **Safety Status**: Local Android changes only. No commit, push, deployment, Supabase migration, version bump, APK/AAB upload, or Google Play action.
+- **Pending Tasks**:
+  - Real-device QA for editing invoices with existing items, adding a sixth item, DownloadManager PDF completion, and email-app chooser filtering.
+
 ## 2026-07-13 (Session 9 - Android final source-control closeout prep)
 - **Agent**: Codex
 - **Branch**:
@@ -189,3 +258,42 @@
 - **Pending Tasks**:
   - Applying database migrations.
   - UI Recovery for Phase 1.1 (Adaptive Dashboard, Cards, Product/Customer long-press sheets).
+
+## 2026-07-13 (Session 13 - PDF downloads and document list identity)
+- **Agent**: Codex
+- **Branch**:
+  - Android: `fix/android-document-edit-pdf-email-numbering`
+  - Web: unchanged/read-only.
+- **Action**: Completed the Android follow-up for local PDF downloads, manual document number display, and newest document ordering.
+- **Details**:
+  - PDF download now writes the locally generated in-app document PDF to the public Downloads MediaStore collection/directory.
+  - Documents list, document detail, preview, and export paths now use the locally saved manual document number/title override when present.
+  - Room document list ordering now uses newest `created_at` first, with `issue_date` and `synced_at` as fallbacks.
+  - Updated source coverage for the Room ordering query.
+- **Validation**:
+  - `.\gradlew.bat compileDebugKotlin --console plain --no-daemon` passed.
+  - `.\gradlew.bat testDebugUnitTest --console plain --no-daemon` passed.
+  - `.\gradlew.bat assembleDebug --console plain --no-daemon` passed.
+  - `git diff --check` passed with existing CRLF warnings only.
+- **Safety Status**: Local Android changes only. No commit, push, Web edit, Supabase migration apply, APK/AAB upload, or closed-testing change.
+- **Pending Tasks**:
+  - Real-device QA for saving a PDF into the visible Downloads folder and verifying manual document number persistence after save/edit.
+
+## 2026-07-13 (Session 14 - Legacy Downloads permission)
+- **Agent**: Codex
+- **Branch**:
+  - Android: `fix/android-document-edit-pdf-email-numbering`
+  - Web: unchanged/read-only.
+- **Action**: Fixed the remaining PDF download failure path shown in device logs.
+- **Details**:
+  - Added legacy `WRITE_EXTERNAL_STORAGE` permission limited to API 28 and below.
+  - Added a shared legacy permission check in `DocumentDownloadManager`.
+  - Documents list and document detail now request the legacy write permission before saving to public Downloads on pre-Android 10 devices, then retry the same local PDF save.
+  - Android 10+ MediaStore Downloads path remains unchanged.
+- **Validation**:
+  - `.\gradlew.bat compileDebugKotlin --console plain --no-daemon` passed after fixing a local function ordering compile error.
+  - `.\gradlew.bat testDebugUnitTest --console plain --no-daemon` passed.
+  - `.\gradlew.bat assembleDebug --console plain --no-daemon` passed.
+- **Safety Status**: Local Android changes only. No commit, push, Web edit, Supabase migration apply, APK/AAB upload, or closed-testing change.
+- **Pending Tasks**:
+  - Real-device QA: tap Download PDF, accept storage permission if prompted, and confirm the generated app PDF appears in the public Downloads folder.

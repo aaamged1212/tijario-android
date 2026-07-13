@@ -100,6 +100,15 @@ class BackendApiClient(
     suspend fun fetchDocumentPdf(documentId: String): ByteArray =
         authorizedGet("api/mobile/documents/$documentId/pdf").body()
 
+    suspend fun documentPdfDownloadRequest(documentId: String): DocumentPdfDownloadRequest {
+        val token = accessTokenProvider()
+        require(!token.isNullOrBlank()) { "Missing authenticated Supabase access token." }
+        return DocumentPdfDownloadRequest(
+            url = url("api/mobile/documents/$documentId/pdf"),
+            bearerToken = token,
+        )
+    }
+
     suspend fun fetchCompleteDocument(documentId: String): ApiResult<app.tijario.data.model.CompleteDocument> =
         authorizedGet("api/mobile/documents/$documentId").decodeApiResult()
 

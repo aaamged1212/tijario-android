@@ -1,5 +1,6 @@
 package app.tijario.ui.screens
 
+import android.Manifest
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
@@ -88,9 +89,11 @@ import app.tijario.domain.newestDocuments
 import app.tijario.domain.PaymentStatusMapper
 import app.tijario.domain.LocalizedErrorMapper
 import app.tijario.data.remote.localizedDisplayMessage
+import app.tijario.features.documents.export.DocumentDownloadManager
 import app.tijario.features.documents.export.DocumentExportManager
 import app.tijario.features.documents.export.DocumentExportAction
 import app.tijario.features.documents.mapper.TijarioDocumentMapper
+import app.tijario.features.documents.ui.DocumentInvoiceOptionPreferences
 import app.tijario.features.documents.ui.DocumentTemplatePreferences
 import app.tijario.ui.components.StoreLogoPicker
 import app.tijario.ui.components.buildLogoUploadRequest
@@ -2265,6 +2268,20 @@ fun DocumentsScreen(
     val scope = rememberCoroutineScope()
     val exportManager = remember(context) { DocumentExportManager(context) }
     val templatePreferences = remember(context) { DocumentTemplatePreferences(context) }
+    val invoiceOptionPreferences = remember(context) { DocumentInvoiceOptionPreferences(context) }
+    var pendingDownloadDocumentId by remember { mutableStateOf<String?>(null) }
+    var permittedDownloadDocumentId by remember { mutableStateOf<String?>(null) }
+    val downloadPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        val documentId = pendingDownloadDocumentId
+        pendingDownloadDocumentId = null
+        if (granted && documentId != null) {
+            permittedDownloadDocumentId = documentId
+        } else {
+            Toast.makeText(context, Localization.getString("export_download_failed", language), Toast.LENGTH_LONG).show()
+        }
+    }
     LaunchedEffect(requestedDocumentType) {
         requestedDocumentType?.let {
             selectedSection = if (it == app.tijario.data.model.DocumentType.Invoice) 0 else 1
@@ -2296,7 +2313,14 @@ fun DocumentsScreen(
 
     suspend fun renderModelForDocument(documentId: String) =
         TijarioDocumentMapper.fromSaved(
-            document = dataViewModel.fetchCompleteDocument(documentId).getOrThrow(),
+            document = dataViewModel.fetchCompleteDocument(documentId).getOrThrow().let { document ->
+                document.copy(
+                    documentNumber = invoiceOptionPreferences.getDocumentNumberOverride(document.id)
+                        ?: document.documentNumber,
+                    documentTitle = invoiceOptionPreferences.getDocumentTitleOverride(document.id)
+                        ?: document.documentTitle,
+                )
+            },
             businessSettings = uiState.businessSettings,
             language = language,
             templateId = templatePreferences.getDefaultTemplateId(),
@@ -2313,15 +2337,25 @@ fun DocumentsScreen(
                         context.startActivity(exportManager.viewIntent(renderModel))
                     }
                     DocumentExportAction.SaveToDevice -> {
-                        val fileUri = exportManager.saveToDownloads(renderModel)
-                        Toast.makeText(context, Localization.getString("export_success_pdf", language) + ": " + fileUri.path, Toast.LENGTH_LONG).show()
+                        if (DocumentDownloadManager.needsLegacyWritePermission(context)) {
+                            pendingDownloadDocumentId = documentId
+                            downloadPermissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                            return@launch
+                        }
+                        Toast.makeText(context, Localization.getString("export_download_started", language), Toast.LENGTH_SHORT).show()
+                        exportManager.saveToDownloads(renderModel)
+                        Toast.makeText(context, Localization.getString("export_saved_downloads", language), Toast.LENGTH_LONG).show()
                     }
                     DocumentExportAction.Print -> {
                         exportManager.printPdf(renderModel)
                     }
                     DocumentExportAction.Email -> {
                         val intent = exportManager.emailIntent(renderModel)
-                        context.startActivity(Intent.createChooser(intent, Localization.getString("export_send_email", language)))
+                        if (intent == null) {
+                            Toast.makeText(context, Localization.getString("export_no_email_app", language), Toast.LENGTH_LONG).show()
+                        } else {
+                            context.startActivity(intent)
+                        }
                     }
                     DocumentExportAction.SharePdf -> {
                         val intent = exportManager.shareIntent(renderModel)
@@ -2334,7 +2368,12 @@ fun DocumentsScreen(
             } catch (_: ActivityNotFoundException) {
                 Toast.makeText(context, Localization.getString("export_no_app_found", language), Toast.LENGTH_LONG).show()
             } catch (_: Exception) {
-                Toast.makeText(context, Localization.getString("export_error_generic", language), Toast.LENGTH_LONG).show()
+                val message = if (action == DocumentExportAction.SaveToDevice) {
+                    Localization.getString("export_download_failed", language)
+                } else {
+                    Localization.getString("export_error_generic", language)
+                }
+                Toast.makeText(context, message, Toast.LENGTH_LONG).show()
             } finally {
                 busyDocumentId = null
             }
@@ -2343,6 +2382,13 @@ fun DocumentsScreen(
 
     fun shareDocument(documentId: String) {
         exportDocument(documentId, DocumentExportAction.SharePdf)
+    }
+
+    LaunchedEffect(permittedDownloadDocumentId) {
+        permittedDownloadDocumentId?.let { documentId ->
+            permittedDownloadDocumentId = null
+            exportDocument(documentId, DocumentExportAction.SaveToDevice)
+        }
     }
 
     fun deleteDocument(documentId: String) {
@@ -2595,6 +2641,8 @@ fun DocumentsScreen(
                     modifier = Modifier.weight(1f)
                 ) {
                     items(sortedDocs) { doc ->
+                        val displayDocumentNumber = invoiceOptionPreferences.getDocumentNumberOverride(doc.id)
+                            ?: doc.documentNumber
                         val customerName = customers.find { it.id == doc.customerId }?.name ?: t("unknown_customer")
                         val statusColor = when (doc.paymentStatus?.lowercase()) {
                             "paid" -> Color(0xFF22C55E)
@@ -2645,7 +2693,7 @@ fun DocumentsScreen(
                                         verticalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
                                         Text(
-                                            text = doc.documentNumber,
+                                            text = displayDocumentNumber,
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 16.sp,
                                             color = MaterialTheme.colorScheme.onSurface
@@ -2838,7 +2886,11 @@ fun DocumentsScreen(
             AlertDialog(
                 onDismissRequest = { documentPendingDelete = null },
                 title = { Text(t("delete_doc_title")) },
-                text = { Text(t("delete_doc_confirm") + " (${doc.documentNumber})") },
+                text = {
+                    val displayDocumentNumber = invoiceOptionPreferences.getDocumentNumberOverride(doc.id)
+                        ?: doc.documentNumber
+                    Text(t("delete_doc_confirm") + " ($displayDocumentNumber)")
+                },
                 confirmButton = {
                     TextButton(
                         onClick = {
@@ -2870,7 +2922,7 @@ fun DocumentsScreen(
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     Text(
-                        text = doc.documentNumber,
+                        text = invoiceOptionPreferences.getDocumentNumberOverride(doc.id) ?: doc.documentNumber,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface,

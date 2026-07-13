@@ -14,7 +14,7 @@ class DocumentExportManager(
     private val pdfGenerator: LocalPdfGenerator = LocalPdfGenerator(context),
 ) {
     private val shareFactory = DocumentShareIntentFactory(context)
-    private val emailFactory = DocumentEmailIntentFactory(shareFactory)
+    private val emailFactory = DocumentEmailIntentFactory(context, shareFactory)
     private val downloadManager = DocumentDownloadManager(context)
     private val printManager = DocumentPrintManager(context, pdfGenerator)
     private val cacheManager = PdfCacheManager(context)
@@ -30,7 +30,7 @@ class DocumentExportManager(
     suspend fun shareIntent(model: DocumentRenderModel): Intent =
         shareFactory.sharePdf(namedPdf(model))
 
-    suspend fun emailIntent(model: DocumentRenderModel): Intent =
+    suspend fun emailIntent(model: DocumentRenderModel): Intent? =
         emailFactory.email(model, namedPdf(model))
 
     fun textShareIntent(model: DocumentRenderModel): Intent =

@@ -1,8 +1,8 @@
 # Project State (Android & Web Repos)
 
-- **Android Repo Branch**: `fix/android-adaptive-ui-qa-v1-1-2`
-- **Web Repo Branch**: `fix/document-number-allocation-collision`
-- **Current Uncommitted Files Summary**: Batch A (Document Numbering Safety & Idempotence), Batch B Android UI Recovery, the Android UI polish follow-up, the 2026-07-13 UI cleanup batch, the document form UI follow-up, the document info/export action follow-up, and the Android local document-options follow-up are implemented locally and fully Gradle-verified.
+- **Android Repo Branch**: `fix/android-document-edit-pdf-email-numbering`
+- **Web Repo Branch**: `main` inspected read-only for update-quota behavior.
+- **Current Uncommitted Files Summary**: Android document edit/export follow-up fixes are implemented locally. Web was not modified.
 
 ## Tijario status:
 - Google Play Closed Testing is active.
@@ -34,8 +34,10 @@
   - Document form follow-up fixes cover quote-specific info labels, fixed `INV-`/`Q-` document number prefixes with editable numeric suffixes, due-date calendar picking, centered Dashboard latest-document chips, and FAB positioning above the bottom tab bar.
   - Document info/export action follow-up fixes cover creation-date calendar picking, local five-digit draft numbering from cached documents, quote title localization, government-building tax icon, and print/email actions in the document long-press sheet.
   - Android local document-options follow-up supports local shipping, fixed/percentage discount entry, multi-select local taxes/payment methods/terms, bottom-sheet option editing, negative discount display, and saved/reopened/PDF rendering through local document metadata. These fields are Android-local and will not restore cross-device after clearing app data unless Web/API/Supabase persistence is added later.
+  - Android document edit/export follow-up fixes keep edit saves on the update path, use local cached documents for immediate five-digit `INV-` / `Q-` draft numbers, preserve exact saved document numbers in the local cache/list/detail/export paths, download locally generated PDFs into the public Downloads collection, request legacy storage permission on API 28 and below, restrict email export to email apps, preserve edited document title/language in the local cache, reuse the latest selected tax for future new documents, and provide local quick-select presets for discount and extra-fee amount/reason pairs.
+  - Documents list ordering now prioritizes newest document `created_at`, then issue date/sync fallback, instead of update/sync time first.
   - Room schema files `13.json` and `14.json` are present; migration tests cover `12 -> 13` and `13 -> 14`.
-  - Local Gradle validation passed: `compileDebugKotlin`, `testDebugUnitTest`, `lintDebug --no-daemon`, `assembleDebug`, `:app:processReleaseMainManifest`, and `assembleDebugAndroidTest`.
+  - Latest local Gradle validation passed: `compileDebugKotlin`, `testDebugUnitTest`, and `assembleDebug`; `lintDebug` previously timed out twice before a pass/fail result.
   - Device/emulator visual QA is still pending.
 - Correct release order:
   migrations -> Web/API deploy -> verify logs and document flows -> Android update later.
