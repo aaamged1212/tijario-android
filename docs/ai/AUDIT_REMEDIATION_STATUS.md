@@ -17,10 +17,11 @@ Base: `main`
 - `BLOCKED` requires an external action or an executable CI/device environment before it can be closed.
 
 ## Current validation state
-- Latest inspected PR head: `3764f1266021218c35fdb233293b62c73981c23c`.
-- PR #3 remains open, mergeable, and draft.
-- Android CI, export diagnostic, and account-isolation diagnostic runs on that head all ended as `action_required` before jobs executed.
+- Latest inspected source head before this tracker-only update: `307e63c4a9eff174e694d266d94cae0b1d0aeba3`.
+- PR #3 remains open, mergeable, and draft against `main`.
+- Android CI run 145 on that head completed as `action_required` before jobs executed.
 - Therefore no clean compile/unit/lint/debug/release result is claimed yet.
+- Deterministic source inspection confirms `MainActivity` no longer exposes the former process-wide compatibility facade; runtime language, theme, and auth deep-link state are owned directly by `AppRuntimeState`.
 - Source audit currently reports no Kotlin force unwraps, no package-level PrintHelper usage, and no inline stdout/stacktrace usage.
 
 ## Phase 0 — Baseline and CI
@@ -69,11 +70,11 @@ Base: `main`
 - [x] Reduce broad R8 keep rules where safely verifiable from source.
 - [x] Remove response-body previews from user-facing diagnostics.
 - [x] Replace reachable Kotlin force unwraps; source audit reports none remaining.
-- [x] Move process-wide language/theme/deep-link ownership to `AppRuntimeState`; `MainActivity` remains a temporary compatibility facade.
+- [x] Move process-wide language/theme/deep-link ownership to `AppRuntimeState`.
+- [x] Remove the remaining `MainActivity` compatibility-facade properties and call sites; deterministic source inspection shows `MainActivity` now only owns Android lifecycle/deep-link dispatch.
 - [x] Replace package-level PrintHelper dependency and direct stdout/stacktrace diagnostics.
-- [ ] Remove remaining `MainActivity` compatibility-facade call sites incrementally after executable behavioral validation.
-- [ ] Split large screen/repository files incrementally after behavioral tests exist and pass.
-- [ ] Remove remediation-only workflows/scripts after final validation so the branch retains only permanent CI and product assets.
+- [ ] Split large screen/repository files incrementally after behavioral tests exist and pass. **BLOCKED:** broad structural refactoring is unsafe until compile and behavioral tests can execute.
+- [ ] Remove remediation-only workflows/scripts after final validation so the branch retains only permanent CI and product assets. **BLOCKED:** final validation has not executed.
 
 ## Remaining external dependencies
 The following cannot be completed safely inside this Android repository alone:
