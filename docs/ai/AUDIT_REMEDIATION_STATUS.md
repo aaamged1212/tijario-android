@@ -17,10 +17,10 @@ Base: `main`
 - `BLOCKED` requires an external action or an executable CI/device environment before it can be closed.
 
 ## Current validation state
-- Current source head: `c0aff1f8be3f475d39f73801129dc57051f0966a`.
+- Current source head: `d5945d2ececec0091bdfc83516cffb233497e8da`.
 - PR #3 remains open, mergeable, and draft against `main`.
-- Android CI run 147 on prior head `58c4996a2f63cbe995b5797094efe516b727b3f3` executed both jobs and failed during Gradle tasks.
-- The CI workflow now captures plain-console Gradle output and prints focused failure diagnostics so the next run can expose actionable compiler/lint errors without log truncation.
+- Android CI run 151 on prior head `c5e8b39a867b36d85c2258f4d059498678b9e4c2` executed both jobs and failed during Gradle tasks.
+- The GitHub connector truncates the downloaded job logs before the actionable compiler/lint section. The CI workflow now extracts each focused diagnostic tail into a seven-day artifact so the next run can be inspected directly and the actual source failure can be fixed without guessing.
 - Therefore no clean compile/unit/lint/debug/release result is claimed yet.
 - Deterministic source inspection confirms `MainActivity` no longer exposes the former process-wide compatibility facade; runtime language, theme, and auth deep-link state are owned directly by `AppRuntimeState`.
 - Source audit currently reports no Kotlin force unwraps, no package-level PrintHelper usage, and no inline stdout/stacktrace usage.
@@ -29,14 +29,15 @@ Base: `main`
 - [x] Create isolated remediation branch.
 - [x] Add Android CI workflow.
 - [x] Make Gradle failures diagnosable in CI with focused plain-console output.
-- [ ] Record clean baseline CI result. **IN PROGRESS:** Actions now execute; run 147 exposed Gradle failures and the diagnostic workflow update is awaiting its next run.
+- [x] Persist focused Gradle failure diagnostics as downloadable workflow artifacts.
+- [ ] Record clean baseline CI result. **IN PROGRESS:** Actions execute; run 151 failed and the artifact-enabled diagnostic run is pending.
 
 ## Phase 1 — Release blockers
 - [x] Fix Room migration 6 -> 7 (`next_retry_at` column and index).
 - [x] Add migration test for the 6 -> 7 retry-column/index defect.
 - [x] Make server-returned document number authoritative in Android cache.
 - [x] Add document-number reconciliation unit tests.
-- [ ] Execute migration instrumentation tests and complete full build verification. **IN PROGRESS:** CI now executes, but Gradle verification is not yet clean.
+- [ ] Execute migration instrumentation tests and complete full build verification. **IN PROGRESS:** CI executes, but Gradle verification is not yet clean.
 
 ## Phase 2 — Account isolation
 - [x] Scope local taxes, payment methods, signatures, terms, and document metadata by user.
