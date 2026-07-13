@@ -78,6 +78,7 @@ open class TijarioRepository(
     private val backendApiClient: BackendApiClient,
 ) {
     private val dao = database.tijarioDao()
+    private val notificationsDao = database.notificationsDao()
     private val syncStateMutable = MutableStateFlow(CacheSyncState())
     private var lastFullRefreshUserId: String? = null
     private var lastFullRefreshAt: Long = 0L
@@ -1495,6 +1496,8 @@ open class TijarioRepository(
                 dao.clearOutbox()
                 dao.clearLeases()
                 dao.clearLedger()
+                notificationsDao.clearAnnouncements()
+                notificationsDao.clearReceiptOutbox()
             }
         }
         lastFullRefreshUserId = null
@@ -2162,7 +2165,10 @@ open class TijarioRepository(
                 dao.deleteLocalSignaturesForUser(userId)
                 dao.deleteLocalTermsForUser(userId)
                 dao.deleteLocalDocumentMetadataForUser(userId)
+                dao.deleteSyncStateForUser(userId)
                 dao.deleteOutboxForUser(userId)
+                notificationsDao.deleteAnnouncementsForUser(userId)
+                notificationsDao.deleteReceiptOutboxForUser(userId)
                 dao.deleteLeasesForUser(userId)
                 dao.deleteLedgerForUser(userId)
             }

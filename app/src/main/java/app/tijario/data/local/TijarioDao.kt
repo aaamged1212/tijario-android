@@ -244,6 +244,9 @@ interface TijarioDao {
     @Query("DELETE FROM local_usage_ledger WHERE user_id = :userId")
     suspend fun deleteLedgerForUser(userId: String)
 
+    @Query("DELETE FROM sync_state WHERE user_id = :userId")
+    suspend fun deleteSyncStateForUser(userId: String)
+
     @Query("DELETE FROM sync_state")
     suspend fun clearSyncState()
 

@@ -29,6 +29,9 @@ interface NotificationsDao {
     @Query("DELETE FROM announcements_cache WHERE user_id = :userId")
     suspend fun deleteAnnouncementsForUser(userId: String)
 
+    @Query("DELETE FROM announcements_cache")
+    suspend fun clearAnnouncements()
+
     @Query("UPDATE announcements_cache SET is_seen = 1 WHERE user_id = :userId AND id = :announcementId")
     suspend fun markSeenLocal(userId: String, announcementId: String)
 
@@ -55,4 +58,7 @@ interface NotificationsDao {
 
     @Query("DELETE FROM announcement_receipt_outbox WHERE user_id = :userId")
     suspend fun deleteReceiptOutboxForUser(userId: String)
+
+    @Query("DELETE FROM announcement_receipt_outbox")
+    suspend fun clearReceiptOutbox()
 }
