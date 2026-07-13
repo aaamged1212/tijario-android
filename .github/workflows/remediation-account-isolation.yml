@@ -1,0 +1,510 @@
+name: Remediation Account Isolation
+
+on:
+  push:
+    branches:
+      - fix/full-audit-remediation
+    paths:
+      - .github/workflows/remediation-account-isolation.yml
+
+permissions:
+  contents: write
+
+jobs:
+  isolate-local-account-data:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout remediation branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/full-audit-remediation
+          fetch-depth: 0
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x gradlew
+
+      - name: Apply release blocker and account isolation repairs
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace_once(source: str, old: str, new: str, label: str) -> str:
+              if new in source:
+                  return source
+              count = source.count(old)
+              if count != 1:
+                  raise SystemExit(f"{label}: expected one old block, found {count}")
+              return source.replace(old, new, 1)
+
+          # Phase 1 idempotent repairs.
+          db_path = Path("app/src/main/java/app/tijario/data/local/TijarioDatabase.kt")
+          db = db_path.read_text(encoding="utf-8")
+          db = replace_once(
+              db,
+              """                        lock_expires_at INTEGER,
+                        last_error TEXT,""",
+              """                        lock_expires_at INTEGER,
+                        next_retry_at INTEGER NOT NULL DEFAULT 0,
+                        last_error TEXT,""",
+              "Room 6-7 next_retry_at",
+          )
+
+          repo_path = Path("app/src/main/java/app/tijario/data/repository/TijarioRepository.kt")
+          repo = repo_path.read_text(encoding="utf-8")
+          old_first = """            dao.upsertOutbox(entry)
+            return
+        }
+
+        val first = pending.first()
+        when {"""
+          new_first = """            dao.upsertOutbox(entry)
+        } else {
+            val first = pending.first()
+            when {"""
+          if old_first in repo:
+              repo = repo.replace(old_first, new_first, 1)
+              old_tail = """            }
+        }
+        SyncScheduler(context).triggerSync(userId)
+    }
+
+    // Remote Cache Ingestion Policy"""
+              new_tail = """            }
+            }
+        }
+        SyncScheduler(context).triggerSync(userId)
+    }
+
+    // Remote Cache Ingestion Policy"""
+              if old_tail not in repo:
+                  raise SystemExit("Outbox compaction closing block not found")
+              repo = repo.replace(old_tail, new_tail, 1)
+          elif "        } else {\n            val first = pending.first()" not in repo:
+              raise SystemExit("Outbox first-item repair block not found")
+
+          # Scope local-only entities by user.
+          entities_path = Path("app/src/main/java/app/tijario/data/local/TijarioEntities.kt")
+          entities = entities_path.read_text(encoding="utf-8")
+          replacements = [
+              (
+                  """@Entity(tableName = "local_taxes")
+data class LocalTaxEntity(
+    @PrimaryKey
+    val id: String,
+    val name: String,
+    val rate: Double
+)""",
+                  """@Entity(
+    tableName = "local_taxes",
+    primaryKeys = ["user_id", "id"],
+    indices = [Index(value = ["user_id"])]
+)
+data class LocalTaxEntity(
+    val id: String,
+    val name: String,
+    val rate: Double,
+    @ColumnInfo(name = "user_id")
+    val userId: String = ""
+)""",
+                  "LocalTaxEntity",
+              ),
+              (
+                  """@Entity(tableName = "local_payment_methods")
+data class LocalPaymentMethodEntity(
+    @PrimaryKey
+    val id: String,
+    val name: String,
+    val details: String? = null
+)""",
+                  """@Entity(
+    tableName = "local_payment_methods",
+    primaryKeys = ["user_id", "id"],
+    indices = [Index(value = ["user_id"])]
+)
+data class LocalPaymentMethodEntity(
+    val id: String,
+    val name: String,
+    val details: String? = null,
+    @ColumnInfo(name = "user_id")
+    val userId: String = ""
+)""",
+                  "LocalPaymentMethodEntity",
+              ),
+              (
+                  """@Entity(tableName = "local_signatures")
+data class LocalSignatureEntity(
+    @PrimaryKey
+    val id: String,
+    val name: String,
+    @ColumnInfo(name = "signature_data")
+    val signatureData: String
+)""",
+                  """@Entity(
+    tableName = "local_signatures",
+    primaryKeys = ["user_id", "id"],
+    indices = [Index(value = ["user_id"])]
+)
+data class LocalSignatureEntity(
+    val id: String,
+    val name: String,
+    @ColumnInfo(name = "signature_data")
+    val signatureData: String,
+    @ColumnInfo(name = "user_id")
+    val userId: String = ""
+)""",
+                  "LocalSignatureEntity",
+              ),
+              (
+                  """@Entity(tableName = "local_terms")
+data class LocalTermsEntity(
+    @PrimaryKey
+    val id: String,
+    val title: String,
+    val content: String
+)""",
+                  """@Entity(
+    tableName = "local_terms",
+    primaryKeys = ["user_id", "id"],
+    indices = [Index(value = ["user_id"])]
+)
+data class LocalTermsEntity(
+    val id: String,
+    val title: String,
+    val content: String,
+    @ColumnInfo(name = "user_id")
+    val userId: String = ""
+)""",
+                  "LocalTermsEntity",
+              ),
+              (
+                  """@Entity(tableName = "local_document_metadata")
+data class LocalDocumentMetadataEntity(
+    @PrimaryKey
+    val documentId: String,""",
+                  """@Entity(
+    tableName = "local_document_metadata",
+    primaryKeys = ["user_id", "documentId"],
+    indices = [Index(value = ["user_id"])]
+)
+data class LocalDocumentMetadataEntity(
+    val documentId: String,""",
+                  "LocalDocumentMetadataEntity header",
+              ),
+              (
+                  """    @ColumnInfo(name = "shipping_label")
+    val shippingLabel: String? = null
+)
+
+// Mapping extensions""",
+                  """    @ColumnInfo(name = "shipping_label")
+    val shippingLabel: String? = null,
+    @ColumnInfo(name = "user_id")
+    val userId: String = ""
+)
+
+// Mapping extensions""",
+                  "LocalDocumentMetadataEntity user",
+              ),
+          ]
+          for old, new, label in replacements:
+              entities = replace_once(entities, old, new, label)
+          entities_path.write_text(entities, encoding="utf-8")
+
+          # Scope DAO queries and provide complete cache-clearing operations.
+          dao_path = Path("app/src/main/java/app/tijario/data/local/TijarioDao.kt")
+          dao = dao_path.read_text(encoding="utf-8")
+          old_local_block = """    @Query("SELECT * FROM local_taxes ORDER BY name COLLATE NOCASE ASC")
+    fun observeLocalTaxes(): Flow<List<LocalTaxEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertLocalTax(tax: LocalTaxEntity)
+
+    @Query("DELETE FROM local_taxes WHERE id = :id")
+    suspend fun deleteLocalTax(id: String)
+
+    @Query("SELECT * FROM local_payment_methods ORDER BY name COLLATE NOCASE ASC")
+    fun observeLocalPaymentMethods(): Flow<List<LocalPaymentMethodEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertLocalPaymentMethod(method: LocalPaymentMethodEntity)
+
+    @Query("DELETE FROM local_payment_methods WHERE id = :id")
+    suspend fun deleteLocalPaymentMethod(id: String)
+
+    @Query("SELECT * FROM local_signatures ORDER BY name COLLATE NOCASE ASC")
+    fun observeLocalSignatures(): Flow<List<LocalSignatureEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertLocalSignature(signature: LocalSignatureEntity)
+
+    @Query("DELETE FROM local_signatures WHERE id = :id")
+    suspend fun deleteLocalSignature(id: String)
+
+    @Query("SELECT * FROM local_terms ORDER BY title COLLATE NOCASE ASC")
+    fun observeLocalTerms(): Flow<List<LocalTermsEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertLocalTerms(terms: LocalTermsEntity)
+
+    @Query("DELETE FROM local_terms WHERE id = :id")
+    suspend fun deleteLocalTerms(id: String)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertDocumentMetadata(metadata: LocalDocumentMetadataEntity)
+
+    @Query("SELECT * FROM local_document_metadata WHERE documentId = :documentId LIMIT 1")
+    suspend fun getDocumentMetadata(documentId: String): LocalDocumentMetadataEntity?
+
+    @Query("SELECT * FROM local_document_metadata")
+    fun observeAllDocumentMetadata(): Flow<List<LocalDocumentMetadataEntity>>"""
+          new_local_block = """    @Query("SELECT * FROM local_taxes WHERE user_id = :userId ORDER BY name COLLATE NOCASE ASC")
+    fun observeLocalTaxes(userId: String): Flow<List<LocalTaxEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertLocalTax(tax: LocalTaxEntity)
+
+    @Query("DELETE FROM local_taxes WHERE user_id = :userId AND id = :id")
+    suspend fun deleteLocalTax(userId: String, id: String)
+
+    @Query("DELETE FROM local_taxes")
+    suspend fun clearLocalTaxes()
+
+    @Query("SELECT * FROM local_payment_methods WHERE user_id = :userId ORDER BY name COLLATE NOCASE ASC")
+    fun observeLocalPaymentMethods(userId: String): Flow<List<LocalPaymentMethodEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertLocalPaymentMethod(method: LocalPaymentMethodEntity)
+
+    @Query("DELETE FROM local_payment_methods WHERE user_id = :userId AND id = :id")
+    suspend fun deleteLocalPaymentMethod(userId: String, id: String)
+
+    @Query("DELETE FROM local_payment_methods")
+    suspend fun clearLocalPaymentMethods()
+
+    @Query("SELECT * FROM local_signatures WHERE user_id = :userId ORDER BY name COLLATE NOCASE ASC")
+    fun observeLocalSignatures(userId: String): Flow<List<LocalSignatureEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertLocalSignature(signature: LocalSignatureEntity)
+
+    @Query("DELETE FROM local_signatures WHERE user_id = :userId AND id = :id")
+    suspend fun deleteLocalSignature(userId: String, id: String)
+
+    @Query("DELETE FROM local_signatures")
+    suspend fun clearLocalSignatures()
+
+    @Query("SELECT * FROM local_terms WHERE user_id = :userId ORDER BY title COLLATE NOCASE ASC")
+    fun observeLocalTerms(userId: String): Flow<List<LocalTermsEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertLocalTerms(terms: LocalTermsEntity)
+
+    @Query("DELETE FROM local_terms WHERE user_id = :userId AND id = :id")
+    suspend fun deleteLocalTerms(userId: String, id: String)
+
+    @Query("DELETE FROM local_terms")
+    suspend fun clearLocalTerms()
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertDocumentMetadata(metadata: LocalDocumentMetadataEntity)
+
+    @Query("SELECT * FROM local_document_metadata WHERE user_id = :userId AND documentId = :documentId LIMIT 1")
+    suspend fun getDocumentMetadata(userId: String, documentId: String): LocalDocumentMetadataEntity?
+
+    @Query("SELECT * FROM local_document_metadata WHERE user_id = :userId")
+    fun observeAllDocumentMetadata(userId: String): Flow<List<LocalDocumentMetadataEntity>>
+
+    @Query("DELETE FROM local_document_metadata")
+    suspend fun clearLocalDocumentMetadata()"""
+          dao = replace_once(dao, old_local_block, new_local_block, "Scoped local DAO block")
+          old_dao_end = """    @Query("DELETE FROM local_usage_ledger WHERE user_id = :userId")
+    suspend fun deleteLedgerForUser(userId: String)
+}"""
+          new_dao_end = """    @Query("DELETE FROM local_usage_ledger WHERE user_id = :userId")
+    suspend fun deleteLedgerForUser(userId: String)
+
+    @Query("DELETE FROM sync_state")
+    suspend fun clearSyncState()
+
+    @Query("DELETE FROM sync_outbox")
+    suspend fun clearOutbox()
+
+    @Query("DELETE FROM offline_quota_lease")
+    suspend fun clearLeases()
+
+    @Query("DELETE FROM local_usage_ledger")
+    suspend fun clearLedger()
+}"""
+          dao = replace_once(dao, old_dao_end, new_dao_end, "DAO complete cache clearing")
+          dao_path.write_text(dao, encoding="utf-8")
+
+          # Bump Room and recreate unscoped legacy-only tables without assigning them to an arbitrary account.
+          db = replace_once(db, "    version = 14,", "    version = 15,", "Room version 15")
+          old_migration_tail = """        val MIGRATION_13_14 = object : Migration(13, 14) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE local_document_metadata ADD COLUMN discount_type TEXT NOT NULL DEFAULT 'fixed'")
+                db.execSQL("ALTER TABLE local_document_metadata ADD COLUMN discount_value TEXT")
+                db.execSQL("ALTER TABLE local_document_metadata ADD COLUMN shipping_amount REAL NOT NULL DEFAULT 0.0")
+                db.execSQL("ALTER TABLE local_document_metadata ADD COLUMN shipping_label TEXT")
+            }
+        }
+
+        fun getInstance(context: Context): TijarioDatabase ="""
+          new_migration_tail = """        val MIGRATION_13_14 = object : Migration(13, 14) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE local_document_metadata ADD COLUMN discount_type TEXT NOT NULL DEFAULT 'fixed'")
+                db.execSQL("ALTER TABLE local_document_metadata ADD COLUMN discount_value TEXT")
+                db.execSQL("ALTER TABLE local_document_metadata ADD COLUMN shipping_amount REAL NOT NULL DEFAULT 0.0")
+                db.execSQL("ALTER TABLE local_document_metadata ADD COLUMN shipping_label TEXT")
+            }
+        }
+
+        val MIGRATION_14_15 = object : Migration(14, 15) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Legacy rows had no owner. Dropping them prevents cross-account disclosure.
+                db.execSQL("DROP TABLE IF EXISTS local_taxes")
+                db.execSQL("DROP TABLE IF EXISTS local_payment_methods")
+                db.execSQL("DROP TABLE IF EXISTS local_signatures")
+                db.execSQL("DROP TABLE IF EXISTS local_terms")
+                db.execSQL("DROP TABLE IF EXISTS local_document_metadata")
+
+                db.execSQL("CREATE TABLE IF NOT EXISTS local_taxes (user_id TEXT NOT NULL, id TEXT NOT NULL, name TEXT NOT NULL, rate REAL NOT NULL, PRIMARY KEY(user_id, id))")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_local_taxes_user_id ON local_taxes (user_id)")
+                db.execSQL("CREATE TABLE IF NOT EXISTS local_payment_methods (user_id TEXT NOT NULL, id TEXT NOT NULL, name TEXT NOT NULL, details TEXT, PRIMARY KEY(user_id, id))")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_local_payment_methods_user_id ON local_payment_methods (user_id)")
+                db.execSQL("CREATE TABLE IF NOT EXISTS local_signatures (user_id TEXT NOT NULL, id TEXT NOT NULL, name TEXT NOT NULL, signature_data TEXT NOT NULL, PRIMARY KEY(user_id, id))")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_local_signatures_user_id ON local_signatures (user_id)")
+                db.execSQL("CREATE TABLE IF NOT EXISTS local_terms (user_id TEXT NOT NULL, id TEXT NOT NULL, title TEXT NOT NULL, content TEXT NOT NULL, PRIMARY KEY(user_id, id))")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_local_terms_user_id ON local_terms (user_id)")
+                db.execSQL("CREATE TABLE IF NOT EXISTS local_document_metadata (user_id TEXT NOT NULL, documentId TEXT NOT NULL, currency TEXT NOT NULL, signature_data TEXT, payment_method TEXT, tax_rate REAL NOT NULL DEFAULT 0.0, tax_name TEXT NOT NULL DEFAULT 'Tax', discount_type TEXT NOT NULL DEFAULT 'fixed', discount_value TEXT, shipping_amount REAL NOT NULL DEFAULT 0.0, shipping_label TEXT, PRIMARY KEY(user_id, documentId))")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_local_document_metadata_user_id ON local_document_metadata (user_id)")
+            }
+        }
+
+        fun getInstance(context: Context): TijarioDatabase ="""
+          db = replace_once(db, old_migration_tail, new_migration_tail, "Room 14-15 migration")
+          old_registration = ".addMigrations(MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14)"
+          new_registration = ".addMigrations(MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15)"
+          db = replace_once(db, old_registration, new_registration, "Room migration registration")
+          db_path.write_text(db, encoding="utf-8")
+
+          # Keep repository public API stable while enforcing current-user scoping internally.
+          repo = repo.replace("            dao.observeAllDocumentMetadata()", "            dao.observeAllDocumentMetadata(userId)", 1)
+          old_repository_local = """    fun observeLocalTaxes(): Flow<List<app.tijario.data.local.LocalTaxEntity>> = dao.observeLocalTaxes()
+    suspend fun upsertLocalTax(tax: app.tijario.data.local.LocalTaxEntity) = withContext(Dispatchers.IO) { dao.upsertLocalTax(tax) }
+    suspend fun deleteLocalTax(id: String) = withContext(Dispatchers.IO) { dao.deleteLocalTax(id) }
+
+    fun observeLocalPaymentMethods(): Flow<List<app.tijario.data.local.LocalPaymentMethodEntity>> = dao.observeLocalPaymentMethods()
+    suspend fun upsertLocalPaymentMethod(method: app.tijario.data.local.LocalPaymentMethodEntity) = withContext(Dispatchers.IO) { dao.upsertLocalPaymentMethod(method) }
+    suspend fun deleteLocalPaymentMethod(id: String) = withContext(Dispatchers.IO) { dao.deleteLocalPaymentMethod(id) }
+
+    fun observeLocalSignatures(): Flow<List<app.tijario.data.local.LocalSignatureEntity>> = dao.observeLocalSignatures()
+    suspend fun upsertLocalSignature(sig: app.tijario.data.local.LocalSignatureEntity) = withContext(Dispatchers.IO) { dao.upsertLocalSignature(sig) }
+    suspend fun deleteLocalSignature(id: String) = withContext(Dispatchers.IO) { dao.deleteLocalSignature(id) }
+
+    fun observeLocalTerms(): Flow<List<app.tijario.data.local.LocalTermsEntity>> = dao.observeLocalTerms()
+    suspend fun upsertLocalTerms(terms: app.tijario.data.local.LocalTermsEntity) = withContext(Dispatchers.IO) { dao.upsertLocalTerms(terms) }
+    suspend fun deleteLocalTerms(id: String) = withContext(Dispatchers.IO) { dao.deleteLocalTerms(id) }
+
+    suspend fun getDocumentMetadata(documentId: String): app.tijario.data.local.LocalDocumentMetadataEntity? = withContext(Dispatchers.IO) {
+        dao.getDocumentMetadata(documentId)
+    }
+
+    suspend fun upsertDocumentMetadata(metadata: app.tijario.data.local.LocalDocumentMetadataEntity) = withContext(Dispatchers.IO) {
+        dao.upsertDocumentMetadata(metadata)
+    }"""
+          new_repository_local = """    private fun currentUserIdOrThrow(): String =
+        supabaseClient.auth.currentUserOrNull()?.id ?: error("No authenticated user.")
+
+    fun observeLocalTaxes(): Flow<List<app.tijario.data.local.LocalTaxEntity>> =
+        dao.observeLocalTaxes(currentUserIdOrThrow())
+    suspend fun upsertLocalTax(tax: app.tijario.data.local.LocalTaxEntity) = withContext(Dispatchers.IO) {
+        dao.upsertLocalTax(tax.copy(userId = requireUserId()))
+    }
+    suspend fun deleteLocalTax(id: String) = withContext(Dispatchers.IO) { dao.deleteLocalTax(requireUserId(), id) }
+
+    fun observeLocalPaymentMethods(): Flow<List<app.tijario.data.local.LocalPaymentMethodEntity>> =
+        dao.observeLocalPaymentMethods(currentUserIdOrThrow())
+    suspend fun upsertLocalPaymentMethod(method: app.tijario.data.local.LocalPaymentMethodEntity) = withContext(Dispatchers.IO) {
+        dao.upsertLocalPaymentMethod(method.copy(userId = requireUserId()))
+    }
+    suspend fun deleteLocalPaymentMethod(id: String) = withContext(Dispatchers.IO) { dao.deleteLocalPaymentMethod(requireUserId(), id) }
+
+    fun observeLocalSignatures(): Flow<List<app.tijario.data.local.LocalSignatureEntity>> =
+        dao.observeLocalSignatures(currentUserIdOrThrow())
+    suspend fun upsertLocalSignature(sig: app.tijario.data.local.LocalSignatureEntity) = withContext(Dispatchers.IO) {
+        dao.upsertLocalSignature(sig.copy(userId = requireUserId()))
+    }
+    suspend fun deleteLocalSignature(id: String) = withContext(Dispatchers.IO) { dao.deleteLocalSignature(requireUserId(), id) }
+
+    fun observeLocalTerms(): Flow<List<app.tijario.data.local.LocalTermsEntity>> =
+        dao.observeLocalTerms(currentUserIdOrThrow())
+    suspend fun upsertLocalTerms(terms: app.tijario.data.local.LocalTermsEntity) = withContext(Dispatchers.IO) {
+        dao.upsertLocalTerms(terms.copy(userId = requireUserId()))
+    }
+    suspend fun deleteLocalTerms(id: String) = withContext(Dispatchers.IO) { dao.deleteLocalTerms(requireUserId(), id) }
+
+    suspend fun getDocumentMetadata(documentId: String): app.tijario.data.local.LocalDocumentMetadataEntity? = withContext(Dispatchers.IO) {
+        dao.getDocumentMetadata(requireUserId(), documentId)
+    }
+
+    suspend fun upsertDocumentMetadata(metadata: app.tijario.data.local.LocalDocumentMetadataEntity) = withContext(Dispatchers.IO) {
+        dao.upsertDocumentMetadata(metadata.copy(userId = requireUserId()))
+    }"""
+          repo = replace_once(repo, old_repository_local, new_repository_local, "Repository local account scoping")
+          old_clear = """                dao.clearBusinessSettings()
+                dao.clearCustomers()
+                dao.clearProducts()
+                dao.clearDocuments()"""
+          new_clear = """                dao.clearBusinessSettings()
+                dao.clearCustomers()
+                dao.clearProducts()
+                dao.clearDocuments()
+                dao.clearLocalTaxes()
+                dao.clearLocalPaymentMethods()
+                dao.clearLocalSignatures()
+                dao.clearLocalTerms()
+                dao.clearLocalDocumentMetadata()
+                dao.clearSyncState()
+                dao.clearOutbox()
+                dao.clearLeases()
+                dao.clearLedger()"""
+          repo = replace_once(repo, old_clear, new_clear, "Complete logout cache clearing")
+          repo_path.write_text(repo, encoding="utf-8")
+          PY
+
+      - name: Verify account isolation
+        run: >-
+          ./gradlew --no-daemon --stacktrace
+          compileDebugKotlin
+          testDebugUnitTest
+          assembleDebugAndroidTest
+
+      - name: Commit account isolation
+        run: |
+          if git diff --quiet; then
+            echo "Account isolation already applied."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/java/app/tijario/data/local/TijarioEntities.kt
+          git add app/src/main/java/app/tijario/data/local/TijarioDao.kt
+          git add app/src/main/java/app/tijario/data/local/TijarioDatabase.kt
+          git add app/src/main/java/app/tijario/data/repository/TijarioRepository.kt
+          git add app/schemas
+          git commit -m "fix(android): isolate local account data"
+          git push origin HEAD:fix/full-audit-remediation
