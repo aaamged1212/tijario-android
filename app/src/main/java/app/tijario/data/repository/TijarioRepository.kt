@@ -309,6 +309,7 @@ open class TijarioRepository(
                 dao.upsertOutbox(entry)
             }
         }
+        }
         SyncScheduler(context).triggerSync(userId)
     }
 
