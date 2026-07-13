@@ -17,9 +17,10 @@ Base: `main`
 - `BLOCKED` requires an external action or an executable CI/device environment before it can be closed.
 
 ## Current validation state
-- Latest inspected source head before this tracker-only update: `307e63c4a9eff174e694d266d94cae0b1d0aeba3`.
+- Current source head: `c0aff1f8be3f475d39f73801129dc57051f0966a`.
 - PR #3 remains open, mergeable, and draft against `main`.
-- Android CI run 145 on that head completed as `action_required` before jobs executed.
+- Android CI run 147 on prior head `58c4996a2f63cbe995b5797094efe516b727b3f3` executed both jobs and failed during Gradle tasks.
+- The CI workflow now captures plain-console Gradle output and prints focused failure diagnostics so the next run can expose actionable compiler/lint errors without log truncation.
 - Therefore no clean compile/unit/lint/debug/release result is claimed yet.
 - Deterministic source inspection confirms `MainActivity` no longer exposes the former process-wide compatibility facade; runtime language, theme, and auth deep-link state are owned directly by `AppRuntimeState`.
 - Source audit currently reports no Kotlin force unwraps, no package-level PrintHelper usage, and no inline stdout/stacktrace usage.
@@ -27,21 +28,22 @@ Base: `main`
 ## Phase 0 — Baseline and CI
 - [x] Create isolated remediation branch.
 - [x] Add Android CI workflow.
-- [ ] Record clean baseline CI result. **BLOCKED:** GitHub Actions requires repository-side approval/enablement before jobs execute.
+- [x] Make Gradle failures diagnosable in CI with focused plain-console output.
+- [ ] Record clean baseline CI result. **IN PROGRESS:** Actions now execute; run 147 exposed Gradle failures and the diagnostic workflow update is awaiting its next run.
 
 ## Phase 1 — Release blockers
 - [x] Fix Room migration 6 -> 7 (`next_retry_at` column and index).
 - [x] Add migration test for the 6 -> 7 retry-column/index defect.
 - [x] Make server-returned document number authoritative in Android cache.
 - [x] Add document-number reconciliation unit tests.
-- [ ] Execute migration instrumentation tests and complete full build verification. **BLOCKED:** Actions jobs have not executed.
+- [ ] Execute migration instrumentation tests and complete full build verification. **IN PROGRESS:** CI now executes, but Gradle verification is not yet clean.
 
 ## Phase 2 — Account isolation
 - [x] Scope local taxes, payment methods, signatures, terms, and document metadata by user.
 - [x] Add Room migration for user-scoped local data (database version 15).
 - [x] Add account-owned preference cleanup support.
 - [x] Add migration/account-isolation instrumentation coverage.
-- [ ] Execute two-account instrumentation coverage on an emulator/device. **BLOCKED:** no executable Actions run yet.
+- [ ] Execute two-account instrumentation coverage on an emulator/device. **BLOCKED:** no emulator/device job is currently available after host build verification.
 
 ## Phase 3 — Sync correctness
 - [x] Schedule WorkManager when the first outbox operation is queued.
@@ -73,12 +75,12 @@ Base: `main`
 - [x] Move process-wide language/theme/deep-link ownership to `AppRuntimeState`.
 - [x] Remove the remaining `MainActivity` compatibility-facade properties and call sites; deterministic source inspection shows `MainActivity` now only owns Android lifecycle/deep-link dispatch.
 - [x] Replace package-level PrintHelper dependency and direct stdout/stacktrace diagnostics.
-- [ ] Split large screen/repository files incrementally after behavioral tests exist and pass. **BLOCKED:** broad structural refactoring is unsafe until compile and behavioral tests can execute.
+- [ ] Split large screen/repository files incrementally after behavioral tests exist and pass. **BLOCKED:** broad structural refactoring is unsafe until compile and behavioral tests execute cleanly.
 - [ ] Remove remediation-only workflows/scripts after final validation so the branch retains only permanent CI and product assets. **BLOCKED:** final validation has not executed.
 
 ## Remaining external dependencies
 The following cannot be completed safely inside this Android repository alone:
-- Approving/enabling GitHub Actions so compile, unit, lint, debug/release assembly, and instrumentation jobs actually run.
+- Running emulator/device instrumentation after host compile, tests, lint, and assembly are clean.
 - Applying production Supabase migrations.
 - Deploying the compatible Web/API implementation.
 - Verifying production RLS, revision, offline-quota, and AI-idempotency semantics.
