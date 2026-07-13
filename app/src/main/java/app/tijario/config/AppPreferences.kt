@@ -2,6 +2,7 @@ package app.tijario.config
 
 import android.content.Context
 import app.tijario.data.model.UserPlanUsage
+import java.util.UUID
 
 private const val PREFS_NAME = "tijario_app_preferences"
 private const val KEY_LANGUAGE = "language"
@@ -25,10 +26,23 @@ private const val KEY_ANNOUNCEMENTS_SYNCED_AT = "announcements_synced_at"
 private const val KEY_PUSH_ENABLED = "push_enabled"
 private const val KEY_NOTIFICATION_EXPLAINED = "notification_explained"
 private const val KEY_SUBSCRIBED_TOPIC = "subscribed_topic"
+private const val KEY_INSTALLATION_ID = "installation_id"
 
 private fun planKey(userId: String, suffix: String) = "plan_usage_${userId}_$suffix"
 
 object AppPreferences {
+    fun getInstallationId(context: Context): String {
+        val preferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        preferences.getString(KEY_INSTALLATION_ID, null)
+            ?.trim()
+            ?.takeIf { it.isNotEmpty() }
+            ?.let { return it }
+
+        val generated = UUID.randomUUID().toString()
+        preferences.edit().putString(KEY_INSTALLATION_ID, generated).commit()
+        return preferences.getString(KEY_INSTALLATION_ID, generated) ?: generated
+    }
+
     fun getLanguage(context: Context): AppLanguage {
         val value = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .getString(KEY_LANGUAGE, AppLanguage.AR.name)
