@@ -1,0 +1,55 @@
+name: Cleanup Completed Remediation Workflows
+
+on:
+  push:
+    branches:
+      - fix/full-audit-remediation
+    paths:
+      - .github/workflows/cleanup-remediation-workflows.yml
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout remediation branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/full-audit-remediation
+          fetch-depth: 0
+
+      - name: Remove completed temporary workflows
+        run: |
+          git rm -f --ignore-unmatch \
+            .github/workflows/apply-account-isolation.yml \
+            .github/workflows/apply-app-runtime-state.yml \
+            .github/workflows/apply-complete-account-cleanup.yml \
+            .github/workflows/apply-final-hardening.yml \
+            .github/workflows/apply-final-sync-atomicity.yml \
+            .github/workflows/apply-force-unwrap-removal.yml \
+            .github/workflows/apply-main-activity-facade-removal.yml \
+            .github/workflows/apply-pdf-renderer.yml \
+            .github/workflows/apply-sync-correctness.yml \
+            .github/workflows/export-sync-source.yml \
+            .github/workflows/remediation-account-isolation-diagnostic.yml \
+            .github/workflows/remediation-account-isolation.yml \
+            .github/workflows/remediation-api-contract.yml \
+            .github/workflows/remediation-document-number.yml \
+            .github/workflows/remediation-phase1.yml \
+            .github/workflows/verify-remediation-branch.yml \
+            .github/workflows/verify-remediation-fast.yml \
+            .github/workflows/cleanup-remediation-workflows.yml
+
+      - name: Commit cleanup to remediation branch
+        run: |
+          if git diff --cached --quiet; then
+            echo "Temporary workflows already removed."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore(android): remove completed remediation workflows"
+          git push origin HEAD:fix/full-audit-remediation
