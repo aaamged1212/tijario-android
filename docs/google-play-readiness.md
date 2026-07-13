@@ -1,111 +1,135 @@
-# Google Play Store Readiness Document
+# Google Play Store Readiness
 
-This document summarizes the steps taken to prepare the **Tijario** Android application for Google Play Console publication and the manual actions required by the owner.
+This document tracks the Android release metadata and the manual Google Play Console actions required for Tijario. It must be reviewed against the exact AAB commit before every submission.
 
----
+## 1. Current Android build
 
-## 1. Data Safety & Privacy Policy
+- Package: `app.tijario`
+- `compileSdk`: 35
+- `targetSdk`: 35
+- Current source configuration: `versionCode 11`, `versionName 1.1.1`
+- Release minification and resource shrinking: enabled
+- WebView debugging: enabled only for debug builds
 
-### Privacy Policy URL
-- **URL**: `https://tijario.site/privacy`
-- This link is embedded in the application's **App Settings** screen.
+Do not reuse these version values after a new release commit. Confirm them directly from `app/build.gradle.kts` before upload.
 
-### Account Deletion URL
-- **URL**: `https://tijario.site/delete-account`
-- This link is embedded in the application's **Account Settings** screen to comply with Google Play's policy requiring a web-based path to delete accounts.
-- Users can also trigger immediate data and account deletion directly from the mobile app, which safely deletes their profile and auth record via backend secure APIs.
+## 2. Privacy and deletion
 
-### Play Store Data Safety Questionnaire Answers
-When filling the Play Console Data Safety questionnaire, declare the following:
-1. **Personal Information**:
-   - **Name**: Collected for profile setup (Optional/User provided).
-   - **Email Address**: Collected and linked to the account for authentication (Required).
-2. **Financial Information**:
-   - *None* (No billing or payment details are collected directly in the app).
-3. **App Info and Performance**:
-   - **Diagnostics / Crash Logs**: Checked if using third-party crash reporting SDKs (not currently active, but good to declare if Firebase Crashlytics is added later).
-4. **Data Handling**:
-   - **Data in Transit**: All data is sent over secure HTTPS connection.
-   - **Data Deletion**: Users can request their data to be deleted from both within the app and via the web deletion URL.
+- Privacy policy: `https://tijario.site/privacy`
+- Account deletion page: `https://tijario.site/delete-account`
+- The app also exposes authenticated account deletion through the secure backend API.
 
----
+The privacy policy and Data Safety form must describe the SDKs and data behavior of the exact release build, not planned future SDKs.
 
-## 2. App Permissions & SDKs
+## 3. Data Safety review
 
-### App Permissions (AndroidManifest.xml)
-Only the absolute minimum permissions are declared:
-- `android.permission.INTERNET`: Required to communicate with Supabase and Tijario APIs.
-- `android.permission.POST_NOTIFICATIONS`: Required on Android 13+ only after the user accepts the notification explanation prompt.
+At minimum, review and declare:
+
+- Name and email used for account creation and authentication.
+- Business profile, customers, products, quotes, invoices, and user-generated AI inputs stored for core app functionality.
+- Firebase Cloud Messaging installation/device identifiers and push-delivery metadata.
+- Google Play Billing purchase/subscription identifiers processed by Google Play and verified by the Tijario backend.
+- Diagnostics only when a diagnostics or crash SDK is actually enabled in the release.
+
+Firebase Analytics, Crashlytics, and Firestore are not currently declared as active application features. Do not mark diagnostics merely because they may be added later.
+
+The Meta SDK is present, but automatic app-event logging and Advertising ID collection are disabled in the Android manifest. Any future explicit analytics event collection must be reflected in the privacy policy, consent flow, and Data Safety form before release.
+
+## 4. Permissions
+
+The current manifest declares:
+
+- `android.permission.INTERNET` for Supabase and Tijario APIs.
+- `android.permission.POST_NOTIFICATIONS` for Android 13+ notifications after user permission.
+- `android.permission.WRITE_EXTERNAL_STORAGE` with `maxSdkVersion=28` for legacy PDF export on Android 9 and older.
+
+Users can deny notification permission and continue using in-app announcements.
+
+## 5. SDK and security checklist
 
 ### Firebase Cloud Messaging
-- Firebase Cloud Messaging is used for general Tijario announcements.
-- Firebase may process Firebase installation identifiers, device or other identifiers, app version, and push delivery metadata.
-- Firebase Analytics, Crashlytics, and Firestore are not enabled.
-- Users can deny push notification permission and still see in-app announcements from the backend.
+
+- Used for Tijario announcements.
+- Firebase may process installation/device identifiers, app version, and delivery metadata.
+- Verify that the Firebase API key is restricted to the Android package and approved signing certificate fingerprints in Google Cloud Console.
+- Verify Firebase rules and App Check configuration where applicable.
 
 ### Google Play Billing
-- Paid Android subscriptions must use Google Play Billing only.
-- The official package name is `app.tijario`.
-- Subscription products must be created after uploading a billing-enabled AAB:
+
+- Android paid subscriptions use Google Play Billing.
+- Product IDs:
   - `tijario_starter`
   - `tijario_pro`
   - `tijario_business`
-- Each product must include base plans:
-  - `monthly`
-  - `yearly`
-- The app displays localized prices from Google Play `ProductDetails`.
-- The backend verifies purchase tokens before entitlement is granted.
-- The app acknowledges a purchase only after backend verification succeeds.
-- Google Play service-account credentials must never be added to the Android repository.
+- Expected base plans: `monthly` and `yearly`.
+- Prices are displayed from Google Play `ProductDetails`.
+- Purchase tokens are verified by the backend before entitlement is granted.
+- Service-account credentials must never be committed to this repository.
 
-### FileProvider Configurations
-- A secure FileProvider is configured in `@xml/file_paths` using `cache-path` (for cached PDFs) and `external-files-path` under restricted names to prevent directory traversal attacks or exposing private app folders.
+### FileProvider
 
-### WebView Security
-- WebView debugging is conditionally disabled in release builds using `WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)` in `MainActivity` to prevent inspection of loaded templates.
+The provider is non-exported and grants temporary URI permissions for configured PDF paths only.
 
----
+### OAuth callback
 
-## 3. App Access & Review Instructions
-When submitting the app for review in the Play Console under **App Access**:
-1. Select **"All or some parts of my app are restricted"**.
-2. Provide a working test account:
-   - **Username/Email**: `test-reviewer@tijario.site` (or any valid test email you configure in Supabase)
-   - **Password**: `TestReviewer123!` (or the password you configure)
-   - **Instructions**: "Log in using the email authentication screen to access the billing dashboard, local document generation, and AI reply/caption helpers."
+The current build still supports custom URL schemes for authentication callbacks. Migrating authentication to a verified HTTPS Android App Link requires:
 
----
+1. A stable HTTPS callback under a Tijario-owned domain.
+2. `assetlinks.json` containing the production package and signing SHA-256 fingerprint.
+3. Matching Supabase/Google OAuth redirect configuration.
+4. Real-device login and recovery testing before removing the custom schemes.
 
-## 4. Play Store Listing Metadata Checklist
+This remains a coordinated external configuration task and must not be changed only in Android.
 
-Prepare the following assets for the store listing:
-- **App Icon**: 512 x 512 px PNG (Max 1MB).
-- **Feature Graphic**: 1024 x 500 px PNG or JPEG.
-- **Phone Screenshots**: At least 2 screenshots, 16:9 or 9:16 aspect ratio (Min 320px, Max 3840px).
-- **Short Description**: (Max 80 characters) E.g., *"توليد الفواتير الذكية والردود التسويقية لمتجرك باستخدام الذكاء الاصطناعي."*
-- **Full Description**: (Max 4000 characters) E.g., *"تجاريو هو مساعدك الذكي المخصص لمتاجر التجزئة والتجارة الإلكترونية لتوليد فواتير المبيعات باحترافية، وصياغة الردود الجاهزة للعملاء، وكتابة الكابشنات الإعلانية لمنصات التواصل الاجتماعي باستخدام أفضل نماذج الذكاء الاصطناعي."*
-- **Category**: Business / Productivity.
-- **Contact Email**: `support@tijario.site`
+## 6. App Access for review
 
----
+In Play Console, select that some parts of the app require authentication and enter a working reviewer account directly in the protected Play Console field.
 
-## 5. What has been Done & Console Checklists
+Repository files must contain placeholders only:
 
-### Completed Tasks
-- [x] Set targetSdk & compileSdk to 35 (Play Store compliant).
-- [x] Configured versionName to `"1.0.0"` and enabled minification / resource shrinking (R8).
-- [x] Implemented ProGuard rules (`proguard-rules.pro`) for Room, Ktor, Supabase, and Serialization.
-- [x] Disabled WebView debugging in production release.
-- [x] Configured Privacy Policy web link in App Settings.
-- [x] Added Web-based deletion request option in Account Settings.
-- [x] Translated "Report this content" to Arabic and wired AI report generation API calls.
+- Email: `REVIEW_ACCOUNT_EMAIL`
+- Password: `REVIEW_ACCOUNT_PASSWORD`
+- Instructions: Sign in with email/password to review documents, customers, products, AI tools, subscriptions, and account settings.
 
-### Actions Needed inside Play Console (Manual Setup)
-1. **Create Play Console App**: Set up the app as an "App" and "Free".
-2. **Set up Store Presence**: Upload App Icon, Feature Graphic, Screenshots, and Descriptions.
-3. **Fill questionnaires**:
-   - Provide the Privacy Policy link (`https://tijario.site/privacy`).
-   - Declare Data Safety answers (Email, Name).
-   - Complete App Access credentials.
-4. **App Signing**: Opt-in to Google Play App Signing (Play Console will generate/manage the production release key).
-5. **Upload Bundle**: Run `.\gradlew.bat bundleRelease` to generate the `.aab` file from Android Studio or command-line, then upload it to your internal testing track.
+Never commit the active reviewer password. Rotate any previously active credential that appeared in Git history.
+
+## 7. Store listing assets
+
+Prepare and verify:
+
+- 512 × 512 PNG app icon.
+- 1024 × 500 PNG/JPEG feature graphic.
+- At least two current phone screenshots in Arabic or English.
+- Short description within 80 characters.
+- Full description within 4,000 characters.
+- Category: Business or Productivity.
+- Support contact: `support@tijario.site`.
+
+Screenshots and descriptions must match the functionality in the submitted build.
+
+## 8. Release gate
+
+Before uploading an AAB:
+
+- [ ] Compatible Supabase migrations applied and verified.
+- [ ] Compatible Web/API version deployed and smoke-tested.
+- [ ] Android compile and unit tests pass.
+- [ ] Historical Room migration tests pass.
+- [ ] Android lint passes.
+- [ ] Debug and release assemblies pass.
+- [ ] Real-device QA completed in Arabic and English.
+- [ ] Document numbering, sync retries, PDF export, billing, login, logout, and account deletion verified.
+- [ ] Data Safety answers reviewed against the final manifest and dependency list.
+- [ ] Privacy policy reviewed against active SDK behavior.
+- [ ] Reviewer account configured only in Play Console and confirmed working.
+- [ ] `versionCode` incremented.
+- [ ] AAB source commit SHA recorded.
+- [ ] ProGuard/R8 mapping retained for the release.
+
+Generate the bundle from the reviewed commit with:
+
+```bash
+./gradlew --no-daemon bundleRelease
+```
+
+Upload only the artifact produced from the recorded commit. Do not upload an older local AAB whose source cannot be identified.
