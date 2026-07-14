@@ -1,0 +1,83 @@
+name: One-shot wire cache policy
+
+on:
+  push:
+    branches:
+      - fix/full-audit-remediation
+    paths:
+      - .github/workflows/one-shot-wire-cache-policy.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: one-shot-wire-cache-policy
+  cancel-in-progress: false
+
+jobs:
+  apply-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - name: Checkout remediation branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/full-audit-remediation
+          fetch-depth: 0
+
+      - name: Verify expected branch state
+        shell: bash
+        run: |
+          test "$(git branch --show-current)" = "fix/full-audit-remediation"
+          test "$(git rev-parse HEAD)" = "${{ github.sha }}"
+
+      - name: Delegate cache replacement checks to policy
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path("app/src/main/java/app/tijario/data/repository/TijarioRepository.kt")
+          text = path.read_text()
+
+          protected = 'if (existing != null && existing.syncStatus in listOf("LOCAL_ONLY", "PENDING_SYNC", "PENDING_DELETE", "CONFLICT")) {'
+          delegated_protected = 'if (!RemoteCacheReplacementPolicy.shouldReplace(existing?.syncStatus)) {'
+          replaceable = 'if (existing == null || existing.syncStatus !in listOf("LOCAL_ONLY", "PENDING_SYNC", "PENDING_DELETE", "CONFLICT")) {'
+          delegated_replaceable = 'if (RemoteCacheReplacementPolicy.shouldReplace(existing?.syncStatus)) {'
+
+          if text.count(protected) != 3:
+              raise SystemExit(f"expected 3 protected-row checks, found {text.count(protected)}")
+          if text.count(replaceable) != 2:
+              raise SystemExit(f"expected 2 replaceable-row checks, found {text.count(replaceable)}")
+
+          text = text.replace(protected, delegated_protected)
+          text = text.replace(replaceable, delegated_replaceable)
+
+          if 'listOf("LOCAL_ONLY", "PENDING_SYNC", "PENDING_DELETE", "CONFLICT")' in text:
+              raise SystemExit("inline remote-cache status list remains")
+          if text.count("RemoteCacheReplacementPolicy.shouldReplace(existing?.syncStatus)") != 5:
+              raise SystemExit("expected five policy call sites")
+
+          path.write_text(text)
+
+      - name: Verify build and behavior
+        shell: bash
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon --console=plain \
+            compileDebugKotlin \
+            testDebugUnitTest \
+            assembleDebugAndroidTest \
+            lintDebug \
+            assembleDebug \
+            assembleRelease
+
+      - name: Commit scoped source change and remove one-shot workflow
+        shell: bash
+        run: |
+          rm .github/workflows/one-shot-wire-cache-policy.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/java/app/tijario/data/repository/TijarioRepository.kt
+          git add .github/workflows/one-shot-wire-cache-policy.yml
+          git commit -m "refactor(repository): delegate remote cache replacement policy"
+          git push origin HEAD:fix/full-audit-remediation
