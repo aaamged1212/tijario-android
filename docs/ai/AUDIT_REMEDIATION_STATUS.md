@@ -17,7 +17,7 @@ Base: `main`
 - `BLOCKED` requires an external action or an executable CI/device environment before it can be closed.
 
 ## Current validation state
-- Current inspected branch head before this tracker update: `e500065765463f8ba5d3bea8036f442c466e38e9`.
+- Current inspected branch head before this tracker update: `6ae7b5d9a9c193d88ed071f36b594ef6d3659d19`.
 - PR #3 remains open, mergeable, and draft against `main`.
 - Android CI run 155 exposed the first actionable compiler failure: a missing `enqueueOutbox` block boundary caused the remainder of `TijarioRepository` to be parsed as local functions.
 - Commit `a04ce2c78adcf0e6c3cdc89410b5d3d4c0cd585c` restores that boundary without changing outbox behavior.
@@ -42,7 +42,9 @@ Base: `main`
 - Deterministic source inspection confirms `MainActivity` no longer exposes the former process-wide compatibility facade; runtime language, theme, and auth deep-link state are owned directly by `AppRuntimeState`.
 - Source audit currently reports no Kotlin force unwraps, no package-level PrintHelper usage, and no inline stdout/stacktrace usage.
 - Commit `e500065765463f8ba5d3bea8036f442c466e38e9` restores `.github/workflows/android-ci.yml` to read-only verification after an unexecuted self-modifying cache-extraction job temporarily changed permissions to `contents: write`. The permanent workflow again contains only compile/test and lint/assembly jobs.
-- The proposed `RemoteCacheReplacementPolicy` extraction has not been applied to source yet; no GitHub Actions run was associated with trigger commit `617df78415e90a01e7930020d73a4d28a12a482b`, so Phase 6 remains open rather than being credited without evidence.
+- Commits `ca597ee42a41b82db4aa9a0fd8102c4261ac9add` and `6ae7b5d9a9c193d88ed071f36b594ef6d3659d19` add `RemoteCacheReplacementPolicy` and focused JVM coverage for protected local sync states.
+- Android CI run 222 completed successfully on `6ae7b5d9a9c193d88ed071f36b594ef6d3659d19`, confirming compile, JVM tests, AndroidTest assembly, lint, debug assembly, and unsigned release assembly remain clean after the policy/test extraction.
+- The five inspected `TijarioRepository` cache-ingestion call sites still use equivalent inline status checks; Phase 6 remains open until those call sites delegate to the tested policy and the resulting source change passes CI.
 
 ## Phase 0 — Baseline and CI
 - [x] Create isolated remediation branch.
@@ -57,7 +59,7 @@ Base: `main`
 - [x] Add migration test for the 6 -> 7 retry-column/index defect.
 - [x] Make server-returned document number authoritative in Android cache.
 - [x] Add document-number reconciliation unit tests.
-- [ ] Execute migration instrumentation tests on an emulator/device. **BLOCKED:** the permanent GitHub Actions workflow currently has no emulator/device execution environment; host compile, JVM tests, lint, AndroidTest assembly, debug assembly, and release assembly are clean in run 207.
+- [ ] Execute migration instrumentation tests on an emulator/device. **BLOCKED:** the permanent GitHub Actions workflow currently has no emulator/device execution environment; host compile, JVM tests, lint, AndroidTest assembly, debug assembly, and release assembly are clean in run 222.
 
 ## Phase 2 — Account isolation
 - [x] Scope local taxes, payment methods, signatures, terms, and document metadata by user.
@@ -96,7 +98,7 @@ Base: `main`
 - [x] Move process-wide language/theme/deep-link ownership to `AppRuntimeState`.
 - [x] Remove the remaining `MainActivity` compatibility-facade properties and call sites; deterministic source inspection shows `MainActivity` now only owns Android lifecycle/deep-link dispatch.
 - [x] Replace package-level PrintHelper dependency and direct stdout/stacktrace diagnostics.
-- [ ] Split large screen/repository files incrementally while preserving behavior. **NEXT:** apply the already-inspected remote-cache replacement-policy extraction directly to source with focused JVM coverage; do not rely on self-modifying CI.
+- [ ] Split large screen/repository files incrementally while preserving behavior. **NEXT:** replace the five equivalent inline remote-cache status checks in `TijarioRepository` with `RemoteCacheReplacementPolicy.shouldPreserveLocal(...)`, then run the permanent read-only Android CI workflow.
 - [x] Remove remediation-only workflows/scripts after final host validation; the branch retains only the permanent read-only Android CI workflow and product/test assets.
 
 ## Remaining external dependencies
