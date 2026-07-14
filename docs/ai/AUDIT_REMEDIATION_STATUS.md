@@ -17,7 +17,7 @@ Base: `main`
 - `BLOCKED` requires an external action or an executable CI/device environment before it can be closed.
 
 ## Current validation state
-- Current source head before this tracker update: `a1eeadd203c5c34dba1b19673cd29aafa3788bcb`.
+- Current source head before this tracker update: `b5ae608eb74c7c8be8d672f25b4ba97dfc761fac`.
 - PR #3 remains open, mergeable, and draft against `main`.
 - Android CI run 155 exposed the first actionable compiler failure: a missing `enqueueOutbox` block boundary caused the remainder of `TijarioRepository` to be parsed as local functions.
 - Commit `a04ce2c78adcf0e6c3cdc89410b5d3d4c0cd585c` restores that boundary without changing outbox behavior.
@@ -29,7 +29,9 @@ Base: `main`
 - Android CI run 188 identified the two failing JVM tests: `createDocumentLocal_doesNotMergeCustomerByWhatsapp` and `createDocumentLocal_usesSelectedCustomerIdWithoutCreatingDuplicateCustomer`. Both retained pre-quota fixtures that returned no offline lease, so the repository correctly rejected creation before their customer assertions.
 - The affected fixtures now provide a valid active lease and retain their original customer identity assertions; production quota enforcement is unchanged.
 - Commit `a1eeadd203c5c34dba1b19673cd29aafa3788bcb` preserves JUnit XML/HTML reports and failing-test entries for subsequent validation.
-- No clean compile/unit/lint/debug/release result is claimed until the permanent Android CI run for this source head completes successfully.
+- Commit `b5ae608eb74c7c8be8d672f25b4ba97dfc761fac` removed the completed one-shot fixture-remediation workflow after applying the test repair.
+- Android CI run 191 for that bot-authored cleanup commit concluded `action_required` before any Gradle job executed; this tracker commit intentionally triggers the permanent CI workflow again from a normal branch update.
+- No clean compile/unit/lint/debug/release result is claimed until the permanent Android CI run for the current source head completes successfully.
 - Deterministic source inspection confirms `MainActivity` no longer exposes the former process-wide compatibility facade; runtime language, theme, and auth deep-link state are owned directly by `AppRuntimeState`.
 - Source audit currently reports no Kotlin force unwraps, no package-level PrintHelper usage, and no inline stdout/stacktrace usage.
 
@@ -39,7 +41,7 @@ Base: `main`
 - [x] Make Gradle failures diagnosable in CI with focused plain-console output.
 - [x] Persist focused Gradle failure diagnostics as downloadable workflow artifacts.
 - [x] Persist JVM unit-test XML/HTML reports and failing-test entries when tests fail.
-- [ ] Record clean baseline CI result. **IN PROGRESS:** run 188 exposed two stale pre-quota test fixtures; they now use an active lease and await the next permanent full CI run.
+- [ ] Record clean baseline CI result. **IN PROGRESS:** quota-aware fixtures are committed; run 191 was blocked before job execution, and a new permanent full CI run is required.
 
 ## Phase 1 — Release blockers
 - [x] Fix Room migration 6 -> 7 (`next_retry_at` column and index).
@@ -86,7 +88,7 @@ Base: `main`
 - [x] Remove the remaining `MainActivity` compatibility-facade properties and call sites; deterministic source inspection shows `MainActivity` now only owns Android lifecycle/deep-link dispatch.
 - [x] Replace package-level PrintHelper dependency and direct stdout/stacktrace diagnostics.
 - [ ] Split large screen/repository files incrementally after behavioral tests exist and pass. **BLOCKED:** broad structural refactoring is unsafe until compile and behavioral tests execute cleanly.
-- [ ] Remove remediation-only workflows/scripts after final validation so the branch retains only permanent CI and product assets. **IN PROGRESS:** the completed form-image self-modifying job has been removed; remaining remediation-only assets must be inventoried after clean validation.
+- [ ] Remove remediation-only workflows/scripts after final validation so the branch retains only permanent CI and product assets. **IN PROGRESS:** completed one-shot remediation workflows have been removed; remaining assets must be inventoried after clean validation.
 
 ## Remaining external dependencies
 The following cannot be completed safely inside this Android repository alone:
