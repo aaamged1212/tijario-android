@@ -8,6 +8,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
+import androidx.annotation.ChecksSdkIntAtLeast
 import androidx.annotation.RequiresApi
 import androidx.core.content.ContextCompat
 import app.tijario.features.documents.model.DocumentRenderModel
@@ -28,6 +29,7 @@ class DocumentDownloadManager(
                     Manifest.permission.WRITE_EXTERNAL_STORAGE,
                 ) != PackageManager.PERMISSION_GRANTED
 
+        @ChecksSdkIntAtLeast(api = Build.VERSION_CODES.Q, parameter = 0)
         internal fun usesMediaStoreDownloads(sdkInt: Int): Boolean =
             sdkInt >= Build.VERSION_CODES.Q
     }
