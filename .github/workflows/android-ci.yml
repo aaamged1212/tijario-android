@@ -9,117 +9,15 @@ on:
       - main
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: android-ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  form-image-remediation:
-    name: Apply form image remediation
-    if: (github.event_name == 'push' && github.ref == 'refs/heads/fix/full-audit-remediation') || (github.event_name == 'pull_request' && github.head_ref == 'fix/full-audit-remediation')
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout remediation branch
-        uses: actions/checkout@v4
-        with:
-          ref: fix/full-audit-remediation
-          fetch-depth: 0
-
-      - name: Apply compile repair and behavioral test
-        shell: bash
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-
-          source_path = Path('app/src/main/java/app/tijario/ui/screens/FormScreens.kt')
-          source = source_path.read_text()
-
-          anchor = '''internal fun isDocumentIdentityEditable(isEditMode: Boolean): Boolean = !isEditMode
-          '''
-          helper = '''internal fun isDocumentIdentityEditable(isEditMode: Boolean): Boolean = !isEditMode
-
-          internal fun shouldDeleteStoredProductImage(
-              hasSelectedImage: Boolean,
-              imageDeleted: Boolean,
-          ): Boolean = !hasSelectedImage && imageDeleted
-          '''
-          if 'internal fun shouldDeleteStoredProductImage(' not in source:
-              if anchor not in source:
-                  raise SystemExit('helper insertion anchor not found')
-              source = source.replace(anchor, helper, 1)
-
-          old = '''                                        selectedImageUri?.let { imageUri ->
-                                                      val dir = File(context.filesDir, "product_images")
-                                                      if (!dir.exists()) dir.mkdirs()
-                                                      val destFile = File(dir, "${product.id}.jpg")
-                                                      context.contentResolver.openInputStream(imageUri)?.use { input ->
-                                                          destFile.outputStream().use { output ->
-                                                              input.copyTo(output)
-                                                          }
-                                                      }
-                                                  } ?: if (imageDeleted) {
-                                                      val destFile = File(context.filesDir, "product_images/${product.id}.jpg")
-                                                      if (destFile.exists()) {
-                                                          destFile.delete()
-                                                      }
-                                                  }
-          '''
-          new = '''                                        val hasSelectedImage = selectedImageUri != null
-                                                  selectedImageUri?.let { imageUri ->
-                                                      val dir = File(context.filesDir, "product_images")
-                                                      if (!dir.exists()) dir.mkdirs()
-                                                      val destFile = File(dir, "${product.id}.jpg")
-                                                      context.contentResolver.openInputStream(imageUri)?.use { input ->
-                                                          destFile.outputStream().use { output ->
-                                                              input.copyTo(output)
-                                                          }
-                                                      }
-                                                  }
-                                                  if (shouldDeleteStoredProductImage(hasSelectedImage, imageDeleted)) {
-                                                      val destFile = File(context.filesDir, "product_images/${product.id}.jpg")
-                                                      if (destFile.exists()) {
-                                                          destFile.delete()
-                                                      }
-                                                  }
-          '''
-          if old in source:
-              source = source.replace(old, new, 1)
-          elif new not in source:
-              raise SystemExit('product image persistence block not found')
-          source_path.write_text(source)
-
-          test_path = Path('app/src/test/java/app/tijario/ui/screens/ProductImagePersistenceTest.kt')
-          test_path.parent.mkdir(parents=True, exist_ok=True)
-          test_path.write_text('''package app.tijario.ui.screens
-
-          import org.junit.Assert.assertFalse
-          import org.junit.Assert.assertTrue
-          import org.junit.Test
-
-          class ProductImagePersistenceTest {
-              @Test
-              fun deletesStoredImageOnlyWhenNoReplacementWasSelected() {
-                  assertTrue(shouldDeleteStoredProductImage(hasSelectedImage = false, imageDeleted = true))
-                  assertFalse(shouldDeleteStoredProductImage(hasSelectedImage = true, imageDeleted = true))
-                  assertFalse(shouldDeleteStoredProductImage(hasSelectedImage = false, imageDeleted = false))
-              }
-          }
-          ''')
-          PY
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add app/src/main/java/app/tijario/ui/screens/FormScreens.kt app/src/test/java/app/tijario/ui/screens/ProductImagePersistenceTest.kt
-          if ! git diff --cached --quiet; then
-            git commit -m "fix(forms): make product image persistence explicit"
-            git push origin HEAD:fix/full-audit-remediation
-          fi
-
   fast-verify:
     name: Compile and unit tests
-    needs: form-image-remediation
     runs-on: ubuntu-latest
     timeout-minutes: 25
 
@@ -177,7 +75,6 @@ jobs:
 
   release-verify:
     name: Lint and release assembly
-    needs: form-image-remediation
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
