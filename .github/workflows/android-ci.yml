@@ -18,7 +18,7 @@ concurrency:
 jobs:
   form-image-remediation:
     name: Apply form image remediation
-    if: github.event_name == 'pull_request' && github.head_ref == 'fix/full-audit-remediation'
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/fix/full-audit-remediation') || (github.event_name == 'pull_request' && github.head_ref == 'fix/full-audit-remediation')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout remediation branch
@@ -37,53 +37,53 @@ jobs:
           source = source_path.read_text()
 
           anchor = '''internal fun isDocumentIdentityEditable(isEditMode: Boolean): Boolean = !isEditMode
-'''
+          '''
           helper = '''internal fun isDocumentIdentityEditable(isEditMode: Boolean): Boolean = !isEditMode
 
-internal fun shouldDeleteStoredProductImage(
-    hasSelectedImage: Boolean,
-    imageDeleted: Boolean,
-): Boolean = !hasSelectedImage && imageDeleted
-'''
+          internal fun shouldDeleteStoredProductImage(
+              hasSelectedImage: Boolean,
+              imageDeleted: Boolean,
+          ): Boolean = !hasSelectedImage && imageDeleted
+          '''
           if 'internal fun shouldDeleteStoredProductImage(' not in source:
               if anchor not in source:
                   raise SystemExit('helper insertion anchor not found')
               source = source.replace(anchor, helper, 1)
 
           old = '''                                        selectedImageUri?.let { imageUri ->
-                                            val dir = File(context.filesDir, "product_images")
-                                            if (!dir.exists()) dir.mkdirs()
-                                            val destFile = File(dir, "${product.id}.jpg")
-                                            context.contentResolver.openInputStream(imageUri)?.use { input ->
-                                                destFile.outputStream().use { output ->
-                                                    input.copyTo(output)
-                                                }
-                                            }
-                                        } ?: if (imageDeleted) {
-                                            val destFile = File(context.filesDir, "product_images/${product.id}.jpg")
-                                            if (destFile.exists()) {
-                                                destFile.delete()
-                                            }
-                                        }
-'''
+                                                      val dir = File(context.filesDir, "product_images")
+                                                      if (!dir.exists()) dir.mkdirs()
+                                                      val destFile = File(dir, "${product.id}.jpg")
+                                                      context.contentResolver.openInputStream(imageUri)?.use { input ->
+                                                          destFile.outputStream().use { output ->
+                                                              input.copyTo(output)
+                                                          }
+                                                      }
+                                                  } ?: if (imageDeleted) {
+                                                      val destFile = File(context.filesDir, "product_images/${product.id}.jpg")
+                                                      if (destFile.exists()) {
+                                                          destFile.delete()
+                                                      }
+                                                  }
+          '''
           new = '''                                        val hasSelectedImage = selectedImageUri != null
-                                        selectedImageUri?.let { imageUri ->
-                                            val dir = File(context.filesDir, "product_images")
-                                            if (!dir.exists()) dir.mkdirs()
-                                            val destFile = File(dir, "${product.id}.jpg")
-                                            context.contentResolver.openInputStream(imageUri)?.use { input ->
-                                                destFile.outputStream().use { output ->
-                                                    input.copyTo(output)
-                                                }
-                                            }
-                                        }
-                                        if (shouldDeleteStoredProductImage(hasSelectedImage, imageDeleted)) {
-                                            val destFile = File(context.filesDir, "product_images/${product.id}.jpg")
-                                            if (destFile.exists()) {
-                                                destFile.delete()
-                                            }
-                                        }
-'''
+                                                  selectedImageUri?.let { imageUri ->
+                                                      val dir = File(context.filesDir, "product_images")
+                                                      if (!dir.exists()) dir.mkdirs()
+                                                      val destFile = File(dir, "${product.id}.jpg")
+                                                      context.contentResolver.openInputStream(imageUri)?.use { input ->
+                                                          destFile.outputStream().use { output ->
+                                                              input.copyTo(output)
+                                                          }
+                                                      }
+                                                  }
+                                                  if (shouldDeleteStoredProductImage(hasSelectedImage, imageDeleted)) {
+                                                      val destFile = File(context.filesDir, "product_images/${product.id}.jpg")
+                                                      if (destFile.exists()) {
+                                                          destFile.delete()
+                                                      }
+                                                  }
+          '''
           if old in source:
               source = source.replace(old, new, 1)
           elif new not in source:
@@ -94,19 +94,19 @@ internal fun shouldDeleteStoredProductImage(
           test_path.parent.mkdir(parents=True, exist_ok=True)
           test_path.write_text('''package app.tijario.ui.screens
 
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
-import org.junit.Test
+          import org.junit.Assert.assertFalse
+          import org.junit.Assert.assertTrue
+          import org.junit.Test
 
-class ProductImagePersistenceTest {
-    @Test
-    fun deletesStoredImageOnlyWhenNoReplacementWasSelected() {
-        assertTrue(shouldDeleteStoredProductImage(hasSelectedImage = false, imageDeleted = true))
-        assertFalse(shouldDeleteStoredProductImage(hasSelectedImage = true, imageDeleted = true))
-        assertFalse(shouldDeleteStoredProductImage(hasSelectedImage = false, imageDeleted = false))
-    }
-}
-''')
+          class ProductImagePersistenceTest {
+              @Test
+              fun deletesStoredImageOnlyWhenNoReplacementWasSelected() {
+                  assertTrue(shouldDeleteStoredProductImage(hasSelectedImage = false, imageDeleted = true))
+                  assertFalse(shouldDeleteStoredProductImage(hasSelectedImage = true, imageDeleted = true))
+                  assertFalse(shouldDeleteStoredProductImage(hasSelectedImage = false, imageDeleted = false))
+              }
+          }
+          ''')
           PY
 
           git config user.name "github-actions[bot]"
