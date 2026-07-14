@@ -238,6 +238,11 @@ internal fun nextLocalDocumentNumber(documents: List<DocumentSummary>, type: Doc
 
 internal fun isDocumentIdentityEditable(isEditMode: Boolean): Boolean = !isEditMode
 
+internal fun shouldDeleteStoredProductImage(
+    hasSelectedImage: Boolean,
+    imageDeleted: Boolean,
+): Boolean = !hasSelectedImage && imageDeleted
+
 internal fun documentIdentityLockedHint(language: AppLanguage): String =
     Localization.getString("locked_after_save", language)
 
@@ -1025,6 +1030,7 @@ fun ProductFormScreen(
                                         dataViewModel.createProduct(product)
                                     }
                                     if (result.isSuccess) {
+                                        val hasSelectedImage = selectedImageUri != null
                                         selectedImageUri?.let { imageUri ->
                                             val dir = File(context.filesDir, "product_images")
                                             if (!dir.exists()) dir.mkdirs()
@@ -1034,7 +1040,8 @@ fun ProductFormScreen(
                                                     input.copyTo(output)
                                                 }
                                             }
-                                        } ?: if (imageDeleted) {
+                                        }
+                                        if (shouldDeleteStoredProductImage(hasSelectedImage, imageDeleted)) {
                                             val destFile = File(context.filesDir, "product_images/${product.id}.jpg")
                                             if (destFile.exists()) {
                                                 destFile.delete()
