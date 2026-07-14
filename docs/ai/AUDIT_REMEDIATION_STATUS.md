@@ -17,7 +17,7 @@ Base: `main`
 - `BLOCKED` requires an external action or an executable CI/device environment before it can be closed.
 
 ## Current validation state
-- Current source head before this tracker update: `0a4af216c81dade1920ffc494a981a7a30f33979`.
+- Current verified source head before this tracker update: `bb70b49afc17f120219197f7dbcb9a0cc1c42146`.
 - PR #3 remains open, mergeable, and draft against `main`.
 - Android CI run 155 exposed the first actionable compiler failure: a missing `enqueueOutbox` block boundary caused the remainder of `TijarioRepository` to be parsed as local functions.
 - Commit `a04ce2c78adcf0e6c3cdc89410b5d3d4c0cd585c` restores that boundary without changing outbox behavior.
@@ -38,7 +38,8 @@ Base: `main`
 - Commit `e53e94026cf186e8fa14234a6868070558dd354c` adds `DocumentDownloadManagerTest`, covering API 28 legacy routing and API 29+ MediaStore routing.
 - Android CI run 203 confirms compile, JVM tests, and AndroidTest assembly pass, but Lint could not infer that the helper predicate proves the API 29 boundary at its call site.
 - Commit `0a4af216c81dade1920ffc494a981a7a30f33979` annotates the tested SDK predicate with `@ChecksSdkIntAtLeast`, preserving behavior while making the existing API guard visible to Android Lint.
-- No clean full CI result is claimed until the permanent Android CI run for the updated source head completes successfully.
+- Android CI run 207 is the first clean full host baseline on the permanent workflow: `compileDebugKotlin`, all JVM unit tests, `assembleDebugAndroidTest`, `lintDebug`, `assembleDebug`, and unsigned `assembleRelease` all completed successfully.
+- The permanent workflow is read-only and contains only the two verification jobs; completed remediation-only write workflows/jobs are no longer present.
 - Deterministic source inspection confirms `MainActivity` no longer exposes the former process-wide compatibility facade; runtime language, theme, and auth deep-link state are owned directly by `AppRuntimeState`.
 - Source audit currently reports no Kotlin force unwraps, no package-level PrintHelper usage, and no inline stdout/stacktrace usage.
 
@@ -48,21 +49,21 @@ Base: `main`
 - [x] Make Gradle failures diagnosable in CI with focused plain-console output.
 - [x] Persist focused Gradle failure diagnostics as downloadable workflow artifacts.
 - [x] Persist JVM unit-test XML/HTML reports and failing-test entries when tests fail.
-- [ ] Record clean baseline CI result. **IN PROGRESS:** host compile, JVM tests, and AndroidTest assembly pass; lint/release verification is rerunning after exposing the tested API-level predicate to Lint.
+- [x] Record clean baseline CI result (Android CI run 207).
 
 ## Phase 1 — Release blockers
 - [x] Fix Room migration 6 -> 7 (`next_retry_at` column and index).
 - [x] Add migration test for the 6 -> 7 retry-column/index defect.
 - [x] Make server-returned document number authoritative in Android cache.
 - [x] Add document-number reconciliation unit tests.
-- [ ] Execute migration instrumentation tests and complete full build verification. **IN PROGRESS:** host verification must complete cleanly before device execution.
+- [ ] Execute migration instrumentation tests on an emulator/device. **BLOCKED:** the permanent GitHub Actions workflow currently has no emulator/device execution environment; host compile, JVM tests, lint, AndroidTest assembly, debug assembly, and release assembly are clean in run 207.
 
 ## Phase 2 — Account isolation
 - [x] Scope local taxes, payment methods, signatures, terms, and document metadata by user.
 - [x] Add Room migration for user-scoped local data (database version 15).
 - [x] Add account-owned preference cleanup support.
 - [x] Add migration/account-isolation instrumentation coverage.
-- [ ] Execute two-account instrumentation coverage on an emulator/device. **BLOCKED:** no emulator/device job is currently available after host build verification.
+- [ ] Execute two-account instrumentation coverage on an emulator/device. **BLOCKED:** no emulator/device job is currently available.
 
 ## Phase 3 — Sync correctness
 - [x] Schedule WorkManager when the first outbox operation is queued.
@@ -94,12 +95,12 @@ Base: `main`
 - [x] Move process-wide language/theme/deep-link ownership to `AppRuntimeState`.
 - [x] Remove the remaining `MainActivity` compatibility-facade properties and call sites; deterministic source inspection shows `MainActivity` now only owns Android lifecycle/deep-link dispatch.
 - [x] Replace package-level PrintHelper dependency and direct stdout/stacktrace diagnostics.
-- [ ] Split large screen/repository files incrementally after behavioral tests exist and pass. **BLOCKED:** broad structural refactoring is unsafe until compile and behavioral tests execute cleanly.
-- [ ] Remove remediation-only workflows/scripts after final validation so the branch retains only permanent CI and product assets. **IN PROGRESS:** completed one-shot remediation workflows have been removed; remaining assets must be inventoried after clean validation.
+- [ ] Split large screen/repository files incrementally while preserving behavior. **NEXT:** full host verification is now clean; perform only small extractions with focused behavioral coverage.
+- [x] Remove remediation-only workflows/scripts after final host validation; the branch retains only the permanent read-only Android CI workflow and product/test assets.
 
 ## Remaining external dependencies
 The following cannot be completed safely inside this Android repository alone:
-- Running emulator/device instrumentation after host compile, tests, lint, and assembly are clean.
+- Running emulator/device instrumentation coverage.
 - Applying production Supabase migrations.
 - Deploying the compatible Web/API implementation.
 - Verifying production RLS, revision, offline-quota, and AI-idempotency semantics.
