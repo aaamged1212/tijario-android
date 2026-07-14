@@ -8,6 +8,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
+import androidx.annotation.RequiresApi
 import androidx.core.content.ContextCompat
 import app.tijario.features.documents.model.DocumentRenderModel
 import app.tijario.features.documents.pdf.PdfCacheManager
@@ -26,17 +27,21 @@ class DocumentDownloadManager(
                     context,
                     Manifest.permission.WRITE_EXTERNAL_STORAGE,
                 ) != PackageManager.PERMISSION_GRANTED
+
+        internal fun usesMediaStoreDownloads(sdkInt: Int): Boolean =
+            sdkInt >= Build.VERSION_CODES.Q
     }
 
     fun save(pdfFile: File, model: DocumentRenderModel): Uri {
         val displayName = cacheManager.displayName(model)
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        return if (usesMediaStoreDownloads(Build.VERSION.SDK_INT)) {
             saveToMediaStoreDownloads(pdfFile, displayName)
         } else {
             saveToPublicDownloads(pdfFile, displayName)
         }
     }
 
+    @RequiresApi(Build.VERSION_CODES.Q)
     private fun saveToMediaStoreDownloads(pdfFile: File, displayName: String): Uri {
         val resolver = context.contentResolver
         val values = ContentValues().apply {
