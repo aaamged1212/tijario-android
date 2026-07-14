@@ -61,7 +61,7 @@ class MainActivity : ComponentActivity() {
         val isAuthCallback = uri.host == "auth" && uri.path.orEmpty().startsWith("/callback")
         if (!isSupportedScheme || !isAuthCallback) return
 
-        AppRuntimeState.setAuthDeepLinkTarget(
+        AppRuntimeState.updateAuthDeepLinkTarget(
             uri.getQueryParameter("next")?.takeIf { it.startsWith("/") } ?: "/login",
         )
     }
