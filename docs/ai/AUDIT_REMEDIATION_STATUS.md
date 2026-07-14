@@ -17,7 +17,7 @@ Base: `main`
 - `BLOCKED` requires an external action or an executable CI/device environment before it can be closed.
 
 ## Current validation state
-- Current verified source head before this tracker update: `bb70b49afc17f120219197f7dbcb9a0cc1c42146`.
+- Current inspected branch head before this tracker update: `e500065765463f8ba5d3bea8036f442c466e38e9`.
 - PR #3 remains open, mergeable, and draft against `main`.
 - Android CI run 155 exposed the first actionable compiler failure: a missing `enqueueOutbox` block boundary caused the remainder of `TijarioRepository` to be parsed as local functions.
 - Commit `a04ce2c78adcf0e6c3cdc89410b5d3d4c0cd585c` restores that boundary without changing outbox behavior.
@@ -39,9 +39,10 @@ Base: `main`
 - Android CI run 203 confirms compile, JVM tests, and AndroidTest assembly pass, but Lint could not infer that the helper predicate proves the API 29 boundary at its call site.
 - Commit `0a4af216c81dade1920ffc494a981a7a30f33979` annotates the tested SDK predicate with `@ChecksSdkIntAtLeast`, preserving behavior while making the existing API guard visible to Android Lint.
 - Android CI run 207 is the first clean full host baseline on the permanent workflow: `compileDebugKotlin`, all JVM unit tests, `assembleDebugAndroidTest`, `lintDebug`, `assembleDebug`, and unsigned `assembleRelease` all completed successfully.
-- The permanent workflow is read-only and contains only the two verification jobs; completed remediation-only write workflows/jobs are no longer present.
 - Deterministic source inspection confirms `MainActivity` no longer exposes the former process-wide compatibility facade; runtime language, theme, and auth deep-link state are owned directly by `AppRuntimeState`.
 - Source audit currently reports no Kotlin force unwraps, no package-level PrintHelper usage, and no inline stdout/stacktrace usage.
+- Commit `e500065765463f8ba5d3bea8036f442c466e38e9` restores `.github/workflows/android-ci.yml` to read-only verification after an unexecuted self-modifying cache-extraction job temporarily changed permissions to `contents: write`. The permanent workflow again contains only compile/test and lint/assembly jobs.
+- The proposed `RemoteCacheReplacementPolicy` extraction has not been applied to source yet; no GitHub Actions run was associated with trigger commit `617df78415e90a01e7930020d73a4d28a12a482b`, so Phase 6 remains open rather than being credited without evidence.
 
 ## Phase 0 — Baseline and CI
 - [x] Create isolated remediation branch.
@@ -95,7 +96,7 @@ Base: `main`
 - [x] Move process-wide language/theme/deep-link ownership to `AppRuntimeState`.
 - [x] Remove the remaining `MainActivity` compatibility-facade properties and call sites; deterministic source inspection shows `MainActivity` now only owns Android lifecycle/deep-link dispatch.
 - [x] Replace package-level PrintHelper dependency and direct stdout/stacktrace diagnostics.
-- [ ] Split large screen/repository files incrementally while preserving behavior. **NEXT:** full host verification is now clean; perform only small extractions with focused behavioral coverage.
+- [ ] Split large screen/repository files incrementally while preserving behavior. **NEXT:** apply the already-inspected remote-cache replacement-policy extraction directly to source with focused JVM coverage; do not rely on self-modifying CI.
 - [x] Remove remediation-only workflows/scripts after final host validation; the branch retains only the permanent read-only Android CI workflow and product/test assets.
 
 ## Remaining external dependencies
