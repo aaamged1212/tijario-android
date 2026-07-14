@@ -118,11 +118,11 @@ class ProductImagePersistenceTest {
           )
           text = text.replace(
               '- Run 158 for the bot-authored repair commit concluded `action_required` before jobs executed, so no clean compile/unit/lint/debug/release result is claimed yet.',
-              '- Android CI run 162 executed on `7cb517888e3f7c4d71a0b9cc9d3835118e1adeea` and exposed two independent Kotlin expression errors in the product-image persistence block of `FormScreens.kt`. The block now uses explicit replacement/deletion control flow and has a behavioral unit test for deletion precedence. A clean compile/unit/lint/debug/release result is still pending.'
+              '- Android CI run 164 executed on `9f8b091e745efd58ba7aaaefd4e78831c5d69c7d` and confirmed the two Kotlin expression errors in the product-image persistence block of `FormScreens.kt`. The block now uses explicit replacement/deletion control flow and has a behavioral unit test for deletion precedence. A clean compile/unit/lint/debug/release result is still pending.'
           )
           text = text.replace(
               '- [ ] Record clean baseline CI result. **IN PROGRESS:** run 155 produced actionable diagnostics; the first syntax failure is fixed and awaits an executable CI run.',
-              '- [ ] Record clean baseline CI result. **IN PROGRESS:** run 162 exposed the next compiler failure in product-image persistence; the scoped repair and behavioral test are committed and await the next executable CI run.'
+              '- [ ] Record clean baseline CI result. **IN PROGRESS:** run 164 confirmed the next compiler failure in product-image persistence; the scoped repair and behavioral test are committed and await the next executable CI run.'
           )
           text = text.replace(
               '- [ ] Remove remediation-only workflows/scripts after final validation so the branch retains only permanent CI and product assets. **IN PROGRESS:** the one-shot syntax-repair workflow is being removed immediately after applying its scoped commit; remaining diagnostic assets stay until validation completes.',
