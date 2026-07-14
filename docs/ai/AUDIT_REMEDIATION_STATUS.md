@@ -17,7 +17,7 @@ Base: `main`
 - `BLOCKED` requires an external action or an executable CI/device environment before it can be closed.
 
 ## Current validation state
-- Current source head before this tracker update: `b5ae608eb74c7c8be8d672f25b4ba97dfc761fac`.
+- Current source head before this tracker update: `63b68336b2af1ac4707780270f7e49a262fc5ee8`.
 - PR #3 remains open, mergeable, and draft against `main`.
 - Android CI run 155 exposed the first actionable compiler failure: a missing `enqueueOutbox` block boundary caused the remainder of `TijarioRepository` to be parsed as local functions.
 - Commit `a04ce2c78adcf0e6c3cdc89410b5d3d4c0cd585c` restores that boundary without changing outbox behavior.
@@ -30,8 +30,10 @@ Base: `main`
 - The affected fixtures now provide a valid active lease and retain their original customer identity assertions; production quota enforcement is unchanged.
 - Commit `a1eeadd203c5c34dba1b19673cd29aafa3788bcb` preserves JUnit XML/HTML reports and failing-test entries for subsequent validation.
 - Commit `b5ae608eb74c7c8be8d672f25b4ba97dfc761fac` removed the completed one-shot fixture-remediation workflow after applying the test repair.
-- Android CI run 191 for that bot-authored cleanup commit concluded `action_required` before any Gradle job executed; this tracker commit intentionally triggers the permanent CI workflow again from a normal branch update.
-- No clean compile/unit/lint/debug/release result is claimed until the permanent Android CI run for the current source head completes successfully.
+- Android CI run 193 completed `compileDebugKotlin`, all JVM unit tests, and `assembleDebugAndroidTest` successfully.
+- Run 193 also completed `lintDebug` and `assembleDebug`, but `assembleRelease` failed only at `packageRelease` because CI intentionally has no production `keystore.properties`; the release signing config was still created in an incomplete state.
+- Commit `63b68336b2af1ac4707780270f7e49a262fc5ee8` now creates and assigns the release signing config only when `keystore.properties` exists. Production signing behavior is preserved when the file is present, while CI can verify the unsigned release artifact without embedding or fabricating credentials.
+- No clean full CI result is claimed until the permanent Android CI run for the updated source head completes successfully.
 - Deterministic source inspection confirms `MainActivity` no longer exposes the former process-wide compatibility facade; runtime language, theme, and auth deep-link state are owned directly by `AppRuntimeState`.
 - Source audit currently reports no Kotlin force unwraps, no package-level PrintHelper usage, and no inline stdout/stacktrace usage.
 
@@ -41,7 +43,7 @@ Base: `main`
 - [x] Make Gradle failures diagnosable in CI with focused plain-console output.
 - [x] Persist focused Gradle failure diagnostics as downloadable workflow artifacts.
 - [x] Persist JVM unit-test XML/HTML reports and failing-test entries when tests fail.
-- [ ] Record clean baseline CI result. **IN PROGRESS:** quota-aware fixtures are committed; run 191 was blocked before job execution, and a new permanent full CI run is required.
+- [ ] Record clean baseline CI result. **IN PROGRESS:** host compile, JVM tests, and AndroidTest assembly pass; release verification is rerunning after the conditional signing fix.
 
 ## Phase 1 — Release blockers
 - [x] Fix Room migration 6 -> 7 (`next_retry_at` column and index).
