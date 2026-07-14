@@ -17,13 +17,15 @@ Base: `main`
 - `BLOCKED` requires an external action or an executable CI/device environment before it can be closed.
 
 ## Current validation state
-- Current source head before this tracker update: `9d172f4f709eb553db29f4d5a8052195d3c6db71`.
+- Current source head before this tracker update: `6100501913521f151a69b012858e6c95b3ae30bd`.
 - PR #3 remains open, mergeable, and draft against `main`.
 - Android CI run 155 exposed the first actionable compiler failure: a missing `enqueueOutbox` block boundary caused the remainder of `TijarioRepository` to be parsed as local functions.
 - Commit `a04ce2c78adcf0e6c3cdc89410b5d3d4c0cd585c` restores that boundary without changing outbox behavior.
 - Android CI run 164 then confirmed an independent Kotlin expression error in the product-image persistence block of `FormScreens.kt`: an Elvis expression used an `if` without `else`.
-- Exact source inspection confirms that expression is still present at the current head. The permanent Android CI workflow now contains a branch-scoped remediation job that replaces it with explicit replacement/deletion control flow and adds `ProductImagePersistenceTest`; a new executable PR run is required to apply and verify that scoped commit.
-- No workflow run was associated with source head `9d172f4f709eb553db29f4d5a8052195d3c6db71` at the time of this update, so no clean compile/unit/lint/debug/release result is claimed yet.
+- Commit `a8709548351bda0e57c23d95ca3af0143b35948b` replaces that expression with explicit replacement/deletion control flow and adds `ProductImagePersistenceTest` covering replacement precedence over deletion.
+- Android CI run 172 for the bot-authored repair commit ended as `action_required` before jobs executed.
+- Commit `6100501913521f151a69b012858e6c95b3ae30bd` removes the completed self-modifying remediation job, restores read-only workflow permissions, and leaves only permanent compile/test/lint/assembly verification. Android CI run 174 is queued for this head.
+- No clean compile/unit/lint/debug/release result is claimed until run 174 or a later executable run completes successfully.
 - Deterministic source inspection confirms `MainActivity` no longer exposes the former process-wide compatibility facade; runtime language, theme, and auth deep-link state are owned directly by `AppRuntimeState`.
 - Source audit currently reports no Kotlin force unwraps, no package-level PrintHelper usage, and no inline stdout/stacktrace usage.
 
@@ -32,14 +34,14 @@ Base: `main`
 - [x] Add Android CI workflow.
 - [x] Make Gradle failures diagnosable in CI with focused plain-console output.
 - [x] Persist focused Gradle failure diagnostics as downloadable workflow artifacts.
-- [ ] Record clean baseline CI result. **IN PROGRESS:** run 164 confirmed the product-image compiler failure; the scoped repair and behavioral test are encoded in the permanent CI workflow and await an executable PR run.
+- [ ] Record clean baseline CI result. **IN PROGRESS:** product-image compile repair and its behavioral test are committed; permanent verification run 174 is queued.
 
 ## Phase 1 — Release blockers
 - [x] Fix Room migration 6 -> 7 (`next_retry_at` column and index).
 - [x] Add migration test for the 6 -> 7 retry-column/index defect.
 - [x] Make server-returned document number authoritative in Android cache.
 - [x] Add document-number reconciliation unit tests.
-- [ ] Execute migration instrumentation tests and complete full build verification. **IN PROGRESS:** host verification is not yet clean; device execution follows host success.
+- [ ] Execute migration instrumentation tests and complete full build verification. **IN PROGRESS:** host verification must complete cleanly before device execution.
 
 ## Phase 2 — Account isolation
 - [x] Scope local taxes, payment methods, signatures, terms, and document metadata by user.
@@ -79,7 +81,7 @@ Base: `main`
 - [x] Remove the remaining `MainActivity` compatibility-facade properties and call sites; deterministic source inspection shows `MainActivity` now only owns Android lifecycle/deep-link dispatch.
 - [x] Replace package-level PrintHelper dependency and direct stdout/stacktrace diagnostics.
 - [ ] Split large screen/repository files incrementally after behavioral tests exist and pass. **BLOCKED:** broad structural refactoring is unsafe until compile and behavioral tests execute cleanly.
-- [ ] Remove remediation-only workflows/scripts after final validation so the branch retains only permanent CI and product assets. **IN PROGRESS:** one-shot repair workflows and remediation scripts remain until validation is clean; permanent CI diagnostics remain available for the next failure.
+- [ ] Remove remediation-only workflows/scripts after final validation so the branch retains only permanent CI and product assets. **IN PROGRESS:** the completed form-image self-modifying job has been removed; remaining remediation-only assets must be inventoried after clean validation.
 
 ## Remaining external dependencies
 The following cannot be completed safely inside this Android repository alone:
