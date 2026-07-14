@@ -54,11 +54,23 @@ jobs:
         if: failure()
         shell: bash
         run: |
+          : > gradle-fast-verify-diagnostics.log
           if [[ -f gradle-fast-verify.log ]]; then
             grep -E -i -C 3 '(^e: |error:|FAILURE:|Execution failed for task|What went wrong|Caused by:)' gradle-fast-verify.log \
               | tail -n 300 \
-              > gradle-fast-verify-diagnostics.log || true
+              >> gradle-fast-verify-diagnostics.log || true
           fi
+
+          shopt -s nullglob
+          test_results=(app/build/test-results/testDebugUnitTest/TEST-*.xml)
+          if (( ${#test_results[@]} > 0 )); then
+            {
+              echo
+              echo '===== Failing JVM tests ====='
+              grep -H -E '<testsuite[^>]*failures="[1-9]|<failure|<error' "${test_results[@]}" || true
+            } >> gradle-fast-verify-diagnostics.log
+          fi
+
           if [[ ! -s gradle-fast-verify-diagnostics.log ]]; then
             tail -n 300 gradle-fast-verify.log > gradle-fast-verify-diagnostics.log || true
           fi
@@ -69,7 +81,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: gradle-fast-verify-diagnostics
-          path: gradle-fast-verify-diagnostics.log
+          path: |
+            gradle-fast-verify-diagnostics.log
+            app/build/test-results/testDebugUnitTest/
+            app/build/reports/tests/testDebugUnitTest/
           if-no-files-found: error
           retention-days: 7
 
