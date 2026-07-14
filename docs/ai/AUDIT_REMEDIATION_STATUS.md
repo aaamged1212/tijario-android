@@ -17,7 +17,7 @@ Base: `main`
 - `BLOCKED` requires an external action or an executable CI/device environment before it can be closed.
 
 ## Current validation state
-- Current source head before this tracker update: `63b68336b2af1ac4707780270f7e49a262fc5ee8`.
+- Current source head before this tracker update: `e53e94026cf186e8fa14234a6868070558dd354c`.
 - PR #3 remains open, mergeable, and draft against `main`.
 - Android CI run 155 exposed the first actionable compiler failure: a missing `enqueueOutbox` block boundary caused the remainder of `TijarioRepository` to be parsed as local functions.
 - Commit `a04ce2c78adcf0e6c3cdc89410b5d3d4c0cd585c` restores that boundary without changing outbox behavior.
@@ -33,6 +33,9 @@ Base: `main`
 - Android CI run 193 completed `compileDebugKotlin`, all JVM unit tests, and `assembleDebugAndroidTest` successfully.
 - Run 193 also completed `lintDebug` and `assembleDebug`, but `assembleRelease` failed only at `packageRelease` because CI intentionally has no production `keystore.properties`; the release signing config was still created in an incomplete state.
 - Commit `63b68336b2af1ac4707780270f7e49a262fc5ee8` now creates and assigns the release signing config only when `keystore.properties` exists. Production signing behavior is preserved when the file is present, while CI can verify the unsigned release artifact without embedding or fabricating credentials.
+- Android CI run 197 confirms host compile, all JVM unit tests, and AndroidTest assembly pass. Its release-verification job progressed to `lintDebug` and found one remaining error: `MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)` requires API 29 while the project minSdk is 26.
+- Commit `c76009082d237cd68fed96c869bd3dd9035f716e` marks the MediaStore downloads implementation as API 29+ and centralizes the Android 10 scoped-storage boundary without changing the existing legacy download path.
+- Commit `e53e94026cf186e8fa14234a6868070558dd354c` adds `DocumentDownloadManagerTest`, covering API 28 legacy routing and API 29+ MediaStore routing.
 - No clean full CI result is claimed until the permanent Android CI run for the updated source head completes successfully.
 - Deterministic source inspection confirms `MainActivity` no longer exposes the former process-wide compatibility facade; runtime language, theme, and auth deep-link state are owned directly by `AppRuntimeState`.
 - Source audit currently reports no Kotlin force unwraps, no package-level PrintHelper usage, and no inline stdout/stacktrace usage.
@@ -43,7 +46,7 @@ Base: `main`
 - [x] Make Gradle failures diagnosable in CI with focused plain-console output.
 - [x] Persist focused Gradle failure diagnostics as downloadable workflow artifacts.
 - [x] Persist JVM unit-test XML/HTML reports and failing-test entries when tests fail.
-- [ ] Record clean baseline CI result. **IN PROGRESS:** host compile, JVM tests, and AndroidTest assembly pass; release verification is rerunning after the conditional signing fix.
+- [ ] Record clean baseline CI result. **IN PROGRESS:** host compile, JVM tests, and AndroidTest assembly pass; lint/release verification is rerunning after the API 29 MediaStore guard.
 
 ## Phase 1 — Release blockers
 - [x] Fix Room migration 6 -> 7 (`next_retry_at` column and index).
