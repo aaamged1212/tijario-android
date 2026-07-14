@@ -17,7 +17,7 @@ Base: `main`
 - `BLOCKED` requires an external action or an executable CI/device environment before it can be closed.
 
 ## Current validation state
-- Current source head before this tracker update: `dc77a2ebcc0dc8c6935ab8e3bc252552fd80bf8e`.
+- Current source head before this tracker update: `a1eeadd203c5c34dba1b19673cd29aafa3788bcb`.
 - PR #3 remains open, mergeable, and draft against `main`.
 - Android CI run 155 exposed the first actionable compiler failure: a missing `enqueueOutbox` block boundary caused the remainder of `TijarioRepository` to be parsed as local functions.
 - Commit `a04ce2c78adcf0e6c3cdc89410b5d3d4c0cd585c` restores that boundary without changing outbox behavior.
@@ -26,6 +26,8 @@ Base: `main`
 - Android CI run 176 reached Gradle and exposed a JVM signature clash in `AppRuntimeState`: the generated private setter for `authDeepLinkTarget` collided with `setAuthDeepLinkTarget(String?)`.
 - Commits `80d2ca0023e86b51b5c6a336429425e6d9934f1b` and `cca62887906d274fb3f7bef6ffd1b871c18e8862` rename the explicit mutator to `updateAuthDeepLinkTarget` and update its only inspected caller without changing deep-link behavior.
 - Commit `dc77a2ebcc0dc8c6935ab8e3bc252552fd80bf8e` adds `AppRuntimeStateTest`, covering update and one-time consumption of the pending auth target.
+- Android CI run 184 compiled successfully far enough to execute `testDebugUnitTest`; the current failure is now a JVM unit-test failure rather than a Kotlin compiler failure.
+- Commit `a1eeadd203c5c34dba1b19673cd29aafa3788bcb` extends permanent CI diagnostics to preserve JUnit XML and HTML reports and print failing-test entries, so the next run can identify the exact behavioral failure without guessing.
 - No clean compile/unit/lint/debug/release result is claimed until the permanent Android CI run for this source head completes successfully.
 - Deterministic source inspection confirms `MainActivity` no longer exposes the former process-wide compatibility facade; runtime language, theme, and auth deep-link state are owned directly by `AppRuntimeState`.
 - Source audit currently reports no Kotlin force unwraps, no package-level PrintHelper usage, and no inline stdout/stacktrace usage.
@@ -35,7 +37,8 @@ Base: `main`
 - [x] Add Android CI workflow.
 - [x] Make Gradle failures diagnosable in CI with focused plain-console output.
 - [x] Persist focused Gradle failure diagnostics as downloadable workflow artifacts.
-- [ ] Record clean baseline CI result. **IN PROGRESS:** run 176 exposed and the branch now repairs the `AppRuntimeState` JVM setter clash with behavioral coverage; permanent verification is pending.
+- [x] Persist JVM unit-test XML/HTML reports and failing-test entries when tests fail.
+- [ ] Record clean baseline CI result. **IN PROGRESS:** run 184 reached JVM tests; exact failing-test diagnostics are pending from the next permanent run.
 
 ## Phase 1 — Release blockers
 - [x] Fix Room migration 6 -> 7 (`next_retry_at` column and index).
