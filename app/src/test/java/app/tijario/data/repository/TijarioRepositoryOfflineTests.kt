@@ -4,6 +4,7 @@ import android.content.Context
 import app.tijario.data.local.TijarioDao
 import app.tijario.data.local.TijarioDatabase
 import app.tijario.data.local.CustomerEntity
+import app.tijario.data.local.OfflineQuotaLeaseEntity
 import app.tijario.data.local.ProductEntity
 import app.tijario.data.local.SyncOutboxEntity
 import app.tijario.data.model.Customer
@@ -39,6 +40,18 @@ class TijarioRepositoryOfflineTests {
 
     private lateinit var repository: TijarioRepository
     private val userId = "test_user_123"
+
+    private fun validOfflineQuotaLease() = OfflineQuotaLeaseEntity(
+        id = "lease_for_document_creation",
+        userId = userId,
+        deviceId = "test_installation",
+        planCode = "free",
+        periodMonth = java.util.Date().toInstant().toString().substring(0, 7) + "-01",
+        allowedLimit = 5,
+        consumedCount = 0,
+        expiresAt = System.currentTimeMillis() + 100_000,
+        status = "ACTIVE",
+    )
 
     // Subclass of repository under test to stub out active Supabase Auth & Remote Fetch connections
     private open class TestableTijarioRepository(
@@ -103,7 +116,7 @@ class TijarioRepositoryOfflineTests {
         coEvery { dao.insertDocumentItems(any()) } returns Unit
         coEvery { dao.getLedgerByDocId(userId, any()) } returns null
         coEvery { dao.getPendingLedger(userId) } returns emptyList()
-        coEvery { dao.getLease(userId, any(), any()) } returns null
+        coEvery { dao.getLease(userId, any(), any()) } returns validOfflineQuotaLease()
         coEvery { dao.upsertLedger(any()) } returns Unit
 
         val customerSlot = slot<CustomerEntity>()
@@ -153,7 +166,7 @@ class TijarioRepositoryOfflineTests {
         coEvery { dao.insertDocumentItems(any()) } returns Unit
         coEvery { dao.getLedgerByDocId(userId, any()) } returns null
         coEvery { dao.getPendingLedger(userId) } returns emptyList()
-        coEvery { dao.getLease(userId, any(), any()) } returns null
+        coEvery { dao.getLease(userId, any(), any()) } returns validOfflineQuotaLease()
         coEvery { dao.upsertLedger(any()) } returns Unit
 
         val customerSlot = slot<CustomerEntity>()
