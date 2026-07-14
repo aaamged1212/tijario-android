@@ -13,6 +13,8 @@ ksp {
     arg("room.schemaLocation", "${projectDir}/schemas")
 }
 
+val releaseKeystorePropertiesFile = rootProject.file("keystore.properties")
+val hasReleaseSigningConfig = releaseKeystorePropertiesFile.isFile
 
 android {
     namespace = "app.tijario"
@@ -39,11 +41,10 @@ android {
     }
 
     signingConfigs {
-        create("release") {
-            val keystorePropertiesFile = rootProject.file("keystore.properties")
-            if (keystorePropertiesFile.exists()) {
+        if (hasReleaseSigningConfig) {
+            create("release") {
                 val properties = Properties()
-                properties.load(keystorePropertiesFile.inputStream())
+                properties.load(releaseKeystorePropertiesFile.inputStream())
                 storeFile = file(properties.getProperty("storeFile"))
                 storePassword = properties.getProperty("storePassword")
                 keyAlias = properties.getProperty("keyAlias")
@@ -63,7 +64,9 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            signingConfig = signingConfigs.getByName("release")
+            if (hasReleaseSigningConfig) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 
