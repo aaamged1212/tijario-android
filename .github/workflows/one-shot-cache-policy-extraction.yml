@@ -10,20 +10,32 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: one-shot-cache-policy-extraction
+  cancel-in-progress: false
+
 jobs:
   extract-cache-policy:
-    if: github.ref == 'refs/heads/fix/full-audit-remediation'
+    if: github.repository == 'aaamged1212/tijario-android' && github.ref == 'refs/heads/fix/full-audit-remediation'
     runs-on: ubuntu-latest
+    timeout-minutes: 35
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout remediation branch
+        uses: actions/checkout@v4
         with:
           ref: fix/full-audit-remediation
           fetch-depth: 0
 
-      - uses: actions/setup-java@v4
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '21'
+          cache: gradle
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
 
       - name: Extract tested cache replacement policy
         shell: bash
@@ -71,7 +83,9 @@ internal fun allowsRemoteCacheReplacement(localSyncStatus: String?): Boolean =
     localSyncStatus !in REMOTE_REPLACEMENT_BLOCKING_STATUSES
 ''')
 
-          Path('app/src/test/java/app/tijario/data/repository/RemoteCacheReplacementPolicyTest.kt').write_text('''package app.tijario.data.repository
+          test = Path('app/src/test/java/app/tijario/data/repository/RemoteCacheReplacementPolicyTest.kt')
+          test.parent.mkdir(parents=True, exist_ok=True)
+          test.write_text('''package app.tijario.data.repository
 
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -96,7 +110,14 @@ class RemoteCacheReplacementPolicyTest {
           PY
 
       - name: Validate focused behavior and Android host build
-        run: ./gradlew testDebugUnitTest --tests app.tijario.data.repository.RemoteCacheReplacementPolicyTest compileDebugKotlin lintDebug assembleDebug --stacktrace --console=plain
+        shell: bash
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon --console=plain \
+            testDebugUnitTest --tests app.tijario.data.repository.RemoteCacheReplacementPolicyTest \
+            compileDebugKotlin \
+            lintDebug \
+            assembleDebug
 
       - name: Commit source extraction
         shell: bash
@@ -121,7 +142,7 @@ class RemoteCacheReplacementPolicyTest {
               raise SystemExit('Expected Phase 6 tracker entry was not found')
           text = text.replace(old, new)
           marker = '- Android CI run 207 is the first clean full host baseline on the permanent workflow: `compileDebugKotlin`, all JVM unit tests, `assembleDebugAndroidTest`, `lintDebug`, `assembleDebug`, and unsigned `assembleRelease` all completed successfully.\n'
-          addition = marker + '- The first maintainability extraction centralizes remote-cache replacement precedence in `RemoteCacheReplacementPolicy.kt`; focused JVM coverage verifies pending local states remain protected while absent/synced rows remain replaceable.\n'
+          addition = marker + '- Android CI run 211 reconfirmed the permanent host baseline before the first maintainability extraction. The extraction centralizes remote-cache replacement precedence without changing the protected status set.\n'
           if marker not in text:
               raise SystemExit('Expected validation marker was not found')
           tracker.write_text(text.replace(marker, addition, 1))
@@ -134,4 +155,7 @@ class RemoteCacheReplacementPolicyTest {
         run: |
           git rm .github/workflows/one-shot-cache-policy-extraction.yml
           git commit -m "chore(ci): remove cache policy extraction workflow"
-          git push origin HEAD:fix/full-audit-remediation
+
+      - name: Push scoped commits
+        shell: bash
+        run: git push origin HEAD:fix/full-audit-remediation
