@@ -22,7 +22,7 @@ object AppRuntimeState {
         isDarkMode = AppPreferences.getDarkMode(appContext)
     }
 
-    fun setAuthDeepLinkTarget(target: String?) {
+    fun updateAuthDeepLinkTarget(target: String?) {
         authDeepLinkTarget = target
     }
 
