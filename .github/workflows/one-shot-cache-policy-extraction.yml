@@ -1,4 +1,4 @@
-name: One-shot cache policy extraction
+name: One-shot cache policy call-site integration
 
 on:
   push:
@@ -11,14 +11,14 @@ permissions:
   contents: write
 
 concurrency:
-  group: one-shot-cache-policy-extraction
+  group: one-shot-cache-policy-call-sites
   cancel-in-progress: false
 
 jobs:
-  extract-cache-policy:
+  integrate-policy:
     if: github.repository == 'aaamged1212/tijario-android' && github.ref == 'refs/heads/fix/full-audit-remediation'
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 45
 
     steps:
       - name: Checkout remediation branch
@@ -37,97 +37,69 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Extract tested cache replacement policy
+      - name: Delegate cache-ingestion call sites to policy
         shell: bash
         run: |
           python3 - <<'PY'
           from pathlib import Path
 
-          repository = Path('app/src/main/java/app/tijario/data/repository/TijarioRepository.kt')
-          source = repository.read_text()
+          path = Path('app/src/main/java/app/tijario/data/repository/TijarioRepository.kt')
+          source = path.read_text()
           protected = 'listOf("LOCAL_ONLY", "PENDING_SYNC", "PENDING_DELETE", "CONFLICT")'
           blocking = f'existing != null && existing.syncStatus in {protected}'
           allowing = f'existing == null || existing.syncStatus !in {protected}'
 
-          blocking_count = source.count(blocking)
-          allowing_count = source.count(allowing)
-          if blocking_count != 3 or allowing_count != 2:
+          if source.count(blocking) != 3 or source.count(allowing) != 2:
               raise SystemExit(
-                  f'Unexpected cache-policy call sites: blocking={blocking_count}, allowing={allowing_count}'
+                  f'Unexpected call-site counts: blocking={source.count(blocking)}, allowing={source.count(allowing)}'
               )
 
           source = source.replace(
               blocking,
-              'existing != null && !allowsRemoteCacheReplacement(existing.syncStatus)',
+              '!RemoteCacheReplacementPolicy.shouldReplace(existing?.syncStatus)',
           )
           source = source.replace(
               allowing,
-              'existing == null || allowsRemoteCacheReplacement(existing.syncStatus)',
+              'RemoteCacheReplacementPolicy.shouldReplace(existing?.syncStatus)',
           )
-          repository.write_text(source)
-
-          Path('app/src/main/java/app/tijario/data/repository/RemoteCacheReplacementPolicy.kt').write_text('''package app.tijario.data.repository
-
-private val REMOTE_REPLACEMENT_BLOCKING_STATUSES = setOf(
-    "LOCAL_ONLY",
-    "PENDING_SYNC",
-    "PENDING_DELETE",
-    "CONFLICT",
-)
-
-/**
- * Returns whether a remote cache row may replace the current local row.
- * Pending local mutations and conflicts always retain precedence.
- */
-internal fun allowsRemoteCacheReplacement(localSyncStatus: String?): Boolean =
-    localSyncStatus !in REMOTE_REPLACEMENT_BLOCKING_STATUSES
-''')
-
-          test = Path('app/src/test/java/app/tijario/data/repository/RemoteCacheReplacementPolicyTest.kt')
-          test.parent.mkdir(parents=True, exist_ok=True)
-          test.write_text('''package app.tijario.data.repository
-
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
-import org.junit.Test
-
-class RemoteCacheReplacementPolicyTest {
-    @Test
-    fun pendingLocalStatesBlockRemoteReplacement() {
-        listOf("LOCAL_ONLY", "PENDING_SYNC", "PENDING_DELETE", "CONFLICT").forEach { status ->
-            assertFalse(status, allowsRemoteCacheReplacement(status))
-        }
-    }
-
-    @Test
-    fun absentOrSettledLocalStatesAllowRemoteReplacement() {
-        assertTrue(allowsRemoteCacheReplacement(null))
-        assertTrue(allowsRemoteCacheReplacement("SYNCED"))
-        assertTrue(allowsRemoteCacheReplacement("failed_non_retryable"))
-    }
-}
-''')
+          path.write_text(source)
           PY
 
-      - name: Validate focused behavior and Android host build
+      - name: Verify exact source delegation
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path('app/src/main/java/app/tijario/data/repository/TijarioRepository.kt').read_text()
+          call = 'RemoteCacheReplacementPolicy.shouldReplace(existing?.syncStatus)'
+          if source.count(call) != 5:
+              raise SystemExit(f'Expected 5 policy calls, found {source.count(call)}')
+          if 'existing.syncStatus in listOf("LOCAL_ONLY", "PENDING_SYNC", "PENDING_DELETE", "CONFLICT")' in source:
+              raise SystemExit('Blocking inline status check remains')
+          if 'existing.syncStatus !in listOf("LOCAL_ONLY", "PENDING_SYNC", "PENDING_DELETE", "CONFLICT")' in source:
+              raise SystemExit('Allowing inline status check remains')
+          PY
+
+      - name: Run focused and full host validation
         shell: bash
         run: |
           chmod +x gradlew
           ./gradlew --no-daemon --console=plain \
             testDebugUnitTest --tests app.tijario.data.repository.RemoteCacheReplacementPolicyTest \
             compileDebugKotlin \
+            testDebugUnitTest \
+            assembleDebugAndroidTest \
             lintDebug \
-            assembleDebug
+            assembleDebug \
+            assembleRelease
 
-      - name: Commit source extraction
+      - name: Commit policy integration
         shell: bash
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add app/src/main/java/app/tijario/data/repository/TijarioRepository.kt \
-                  app/src/main/java/app/tijario/data/repository/RemoteCacheReplacementPolicy.kt \
-                  app/src/test/java/app/tijario/data/repository/RemoteCacheReplacementPolicyTest.kt
-          git commit -m "refactor(sync): extract remote cache replacement policy"
+          git add app/src/main/java/app/tijario/data/repository/TijarioRepository.kt
+          git commit -m "refactor(sync): delegate cache replacement decisions"
 
       - name: Update remediation tracker
         shell: bash
@@ -136,25 +108,27 @@ class RemoteCacheReplacementPolicyTest {
           from pathlib import Path
           tracker = Path('docs/ai/AUDIT_REMEDIATION_STATUS.md')
           text = tracker.read_text()
-          old = '- [ ] Split large screen/repository files incrementally while preserving behavior. **NEXT:** full host verification is now clean; perform only small extractions with focused behavioral coverage.'
-          new = '- [ ] Split large screen/repository files incrementally while preserving behavior. **IN PROGRESS:** extracted the repeated remote-cache replacement policy from `TijarioRepository` into a focused tested helper; continue with additional small extractions only.'
+          old = '- [ ] Split large screen/repository files incrementally while preserving behavior. **NEXT:** replace the five equivalent inline remote-cache status checks in `TijarioRepository` with `RemoteCacheReplacementPolicy.shouldPreserveLocal(...)`, then run the permanent read-only Android CI workflow.'
+          new = '- [x] Split large screen/repository files incrementally while preserving behavior; the repeated remote-cache replacement decision is extracted into `RemoteCacheReplacementPolicy`, all five repository call sites delegate to it, and focused/full host validation passes.'
           if old not in text:
-              raise SystemExit('Expected Phase 6 tracker entry was not found')
+              raise SystemExit('Expected Phase 6 entry not found')
           text = text.replace(old, new)
-          marker = '- Android CI run 207 is the first clean full host baseline on the permanent workflow: `compileDebugKotlin`, all JVM unit tests, `assembleDebugAndroidTest`, `lintDebug`, `assembleDebug`, and unsigned `assembleRelease` all completed successfully.\n'
-          addition = marker + '- Android CI run 211 reconfirmed the permanent host baseline before the first maintainability extraction. The extraction centralizes remote-cache replacement precedence without changing the protected status set.\n'
+          marker = '- Android CI run 222 completed successfully on `6ae7b5d9a9c193d88ed071f36b594ef6d3659d19`, confirming compile, JVM tests, AndroidTest assembly, lint, debug assembly, and unsigned release assembly remain clean after the policy/test extraction.\n'
+          addition = marker + '- The five `TijarioRepository` cache-ingestion call sites now delegate to `RemoteCacheReplacementPolicy.shouldReplace`; focused policy tests and the full host Gradle verification completed before commit. Permanent Android CI remains the final independent check.\n'
           if marker not in text:
-              raise SystemExit('Expected validation marker was not found')
-          tracker.write_text(text.replace(marker, addition, 1))
+              raise SystemExit('Expected validation marker not found')
+          text = text.replace(marker, addition, 1)
+          text = text.replace('- The five inspected `TijarioRepository` cache-ingestion call sites still use equivalent inline status checks; Phase 6 remains open until those call sites delegate to the tested policy and the resulting source change passes CI.\n', '')
+          tracker.write_text(text)
           PY
           git add docs/ai/AUDIT_REMEDIATION_STATUS.md
-          git commit -m "docs(audit): record cache policy extraction"
+          git commit -m "docs(audit): record cache policy integration"
 
       - name: Remove one-shot workflow
         shell: bash
         run: |
           git rm .github/workflows/one-shot-cache-policy-extraction.yml
-          git commit -m "chore(ci): remove cache policy extraction workflow"
+          git commit -m "chore(ci): remove cache policy integration workflow"
 
       - name: Push scoped commits
         shell: bash
