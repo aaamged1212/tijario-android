@@ -6,6 +6,7 @@ on:
       - fix/full-audit-remediation
     paths:
       - .github/workflows/one-shot-form-image-remediation.yml
+  workflow_dispatch:
 
 permissions:
   contents: write
