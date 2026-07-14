@@ -1,4 +1,4 @@
-name: Compile Remediation Source
+name: Offline Document Test Fixture Remediation
 
 on:
   push:
@@ -11,11 +11,12 @@ permissions:
   contents: write
 
 concurrency:
-  group: compile-remediation-source
+  group: offline-document-test-fixture-remediation
   cancel-in-progress: true
 
 jobs:
-  compile:
+  remediate:
+    if: github.ref == 'refs/heads/fix/full-audit-remediation'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -25,8 +26,37 @@ jobs:
           ref: fix/full-audit-remediation
           fetch-depth: 0
 
-      - name: Record source commit
-        run: git rev-parse HEAD > /tmp/source_commit
+      - name: Patch quota-aware document test fixtures
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('app/src/test/java/app/tijario/data/repository/TijarioRepositoryOfflineTests.kt')
+          text = path.read_text()
+
+          import_anchor = 'import app.tijario.data.local.CustomerEntity\n'
+          import_line = 'import app.tijario.data.local.OfflineQuotaLeaseEntity\n'
+          if import_line not in text:
+              if import_anchor not in text:
+                  raise SystemExit('CustomerEntity import anchor not found')
+              text = text.replace(import_anchor, import_anchor + import_line, 1)
+
+          helper_anchor = '    private val userId = "test_user_123"\n'
+          helper = '''    private val userId = "test_user_123"\n\n    private fun validOfflineQuotaLease() = OfflineQuotaLeaseEntity(\n        id = "lease_for_document_creation",\n        userId = userId,\n        deviceId = "test_installation",\n        planCode = "free",\n        periodMonth = java.util.Date().toInstant().toString().substring(0, 7) + "-01",\n        allowedLimit = 5,\n        consumedCount = 0,\n        expiresAt = System.currentTimeMillis() + 100_000,\n        status = "ACTIVE",\n    )\n'''
+          if 'private fun validOfflineQuotaLease()' not in text:
+              if helper_anchor not in text:
+                  raise SystemExit('userId helper anchor not found')
+              text = text.replace(helper_anchor, helper, 1)
+
+          old = '        coEvery { dao.getLease(userId, any(), any()) } returns null\n'
+          matches = text.count(old)
+          if matches < 2:
+              raise SystemExit(f'Expected at least two null lease fixtures, found {matches}')
+          text = text.replace(old, '        coEvery { dao.getLease(userId, any(), any()) } returns validOfflineQuotaLease()\n', 2)
+
+          path.write_text(text)
+          PY
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -38,42 +68,45 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Make Gradle wrapper executable
-        run: chmod +x gradlew
-
-      - name: Compile Kotlin
-        id: compile
-        shell: bash
+      - name: Run affected behavioral tests
         run: |
-          set +e
-          ./gradlew --no-daemon --stacktrace compileDebugKotlin > /tmp/COMPILE_VALIDATION.log 2>&1
-          status=$?
-          set -e
-          echo "$status" > /tmp/compile_status
-          echo "status=$status" >> "$GITHUB_OUTPUT"
+          chmod +x gradlew
+          ./gradlew --no-daemon --console=plain testDebugUnitTest --tests 'app.tijario.data.repository.TijarioRepositoryOfflineTests'
 
-      - name: Publish compile result
-        if: always()
+      - name: Commit behavioral test fixture repair
         run: |
-          source_commit=$(cat /tmp/source_commit)
-          status=$(cat /tmp/compile_status 2>/dev/null || echo 1)
-          git fetch origin fix/full-audit-remediation
-          git reset --hard origin/fix/full-audit-remediation
-          mkdir -p docs/ai
-          cp /tmp/COMPILE_VALIDATION.log docs/ai/COMPILE_VALIDATION.log || true
-          {
-            echo '# Compile validation'
-            echo
-            echo "- Source commit: \`$source_commit\`"
-            echo "- Exit status: \`$status\`"
-            echo "- State: $([ "$status" = "0" ] && echo passed || echo failed)"
-          } > docs/ai/COMPILE_VALIDATION.md
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/ai/COMPILE_VALIDATION.md docs/ai/COMPILE_VALIDATION.log
-          git commit -m "test(android): record compile validation" || exit 0
-          git push origin HEAD:fix/full-audit-remediation
+          git add app/src/test/java/app/tijario/data/repository/TijarioRepositoryOfflineTests.kt
+          git commit -m "test(repository): provide quota lease for offline document fixtures"
 
-      - name: Enforce compile result
-        if: always()
-        run: test "$(cat /tmp/compile_status 2>/dev/null || echo 1)" = "0"
+      - name: Update remediation tracker
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('docs/ai/AUDIT_REMEDIATION_STATUS.md')
+          text = path.read_text()
+          old = '- Android CI run 184 compiled successfully far enough to execute `testDebugUnitTest`; the current failure is now a JVM unit-test failure rather than a Kotlin compiler failure.\n- Commit `a1eeadd203c5c34dba1b19673cd29aafa3788bcb` extends permanent CI diagnostics to preserve JUnit XML and HTML reports and print failing-test entries, so the next run can identify the exact behavioral failure without guessing.\n'
+          new = '- Android CI run 188 identified the two failing JVM tests: `createDocumentLocal_doesNotMergeCustomerByWhatsapp` and `createDocumentLocal_usesSelectedCustomerIdWithoutCreatingDuplicateCustomer`. Both retained pre-quota fixtures that returned no offline lease, so the repository correctly rejected creation before their customer assertions.\n- The affected fixtures now provide a valid active lease and retain their original customer identity assertions; production quota enforcement is unchanged.\n- Commit `a1eeadd203c5c34dba1b19673cd29aafa3788bcb` preserves JUnit XML/HTML reports and failing-test entries for subsequent validation.\n'
+          if old not in text:
+              raise SystemExit('validation-state tracker anchor not found')
+          text = text.replace(old, new, 1)
+          old_phase = '- [ ] Record clean baseline CI result. **IN PROGRESS:** run 184 reached JVM tests; exact failing-test diagnostics are pending from the next permanent run.\n'
+          new_phase = '- [ ] Record clean baseline CI result. **IN PROGRESS:** run 188 exposed two stale pre-quota test fixtures; they now use an active lease and await the next permanent full CI run.\n'
+          if old_phase not in text:
+              raise SystemExit('phase tracker anchor not found')
+          text = text.replace(old_phase, new_phase, 1)
+          path.write_text(text)
+          PY
+          git add docs/ai/AUDIT_REMEDIATION_STATUS.md
+          git commit -m "docs(audit): record quota-aware offline test repair"
+
+      - name: Remove completed remediation workflow
+        run: |
+          git rm .github/workflows/compile-remediation-source.yml
+          git commit -m "chore(ci): remove completed compile remediation workflow"
+
+      - name: Push scoped commits to remediation branch
+        run: git push origin HEAD:fix/full-audit-remediation
