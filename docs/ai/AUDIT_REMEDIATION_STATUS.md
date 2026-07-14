@@ -17,7 +17,7 @@ Base: `main`
 - `BLOCKED` requires an external action or an executable CI/device environment before it can be closed.
 
 ## Current validation state
-- Current source head before this tracker update: `e53e94026cf186e8fa14234a6868070558dd354c`.
+- Current source head before this tracker update: `0a4af216c81dade1920ffc494a981a7a30f33979`.
 - PR #3 remains open, mergeable, and draft against `main`.
 - Android CI run 155 exposed the first actionable compiler failure: a missing `enqueueOutbox` block boundary caused the remainder of `TijarioRepository` to be parsed as local functions.
 - Commit `a04ce2c78adcf0e6c3cdc89410b5d3d4c0cd585c` restores that boundary without changing outbox behavior.
@@ -36,6 +36,8 @@ Base: `main`
 - Android CI run 197 confirms host compile, all JVM unit tests, and AndroidTest assembly pass. Its release-verification job progressed to `lintDebug` and found one remaining error: `MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)` requires API 29 while the project minSdk is 26.
 - Commit `c76009082d237cd68fed96c869bd3dd9035f716e` marks the MediaStore downloads implementation as API 29+ and centralizes the Android 10 scoped-storage boundary without changing the existing legacy download path.
 - Commit `e53e94026cf186e8fa14234a6868070558dd354c` adds `DocumentDownloadManagerTest`, covering API 28 legacy routing and API 29+ MediaStore routing.
+- Android CI run 203 confirms compile, JVM tests, and AndroidTest assembly pass, but Lint could not infer that the helper predicate proves the API 29 boundary at its call site.
+- Commit `0a4af216c81dade1920ffc494a981a7a30f33979` annotates the tested SDK predicate with `@ChecksSdkIntAtLeast`, preserving behavior while making the existing API guard visible to Android Lint.
 - No clean full CI result is claimed until the permanent Android CI run for the updated source head completes successfully.
 - Deterministic source inspection confirms `MainActivity` no longer exposes the former process-wide compatibility facade; runtime language, theme, and auth deep-link state are owned directly by `AppRuntimeState`.
 - Source audit currently reports no Kotlin force unwraps, no package-level PrintHelper usage, and no inline stdout/stacktrace usage.
@@ -46,7 +48,7 @@ Base: `main`
 - [x] Make Gradle failures diagnosable in CI with focused plain-console output.
 - [x] Persist focused Gradle failure diagnostics as downloadable workflow artifacts.
 - [x] Persist JVM unit-test XML/HTML reports and failing-test entries when tests fail.
-- [ ] Record clean baseline CI result. **IN PROGRESS:** host compile, JVM tests, and AndroidTest assembly pass; lint/release verification is rerunning after the API 29 MediaStore guard.
+- [ ] Record clean baseline CI result. **IN PROGRESS:** host compile, JVM tests, and AndroidTest assembly pass; lint/release verification is rerunning after exposing the tested API-level predicate to Lint.
 
 ## Phase 1 — Release blockers
 - [x] Fix Room migration 6 -> 7 (`next_retry_at` column and index).
