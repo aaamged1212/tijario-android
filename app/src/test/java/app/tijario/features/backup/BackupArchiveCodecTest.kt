@@ -18,11 +18,19 @@ class BackupArchiveCodecTest {
     fun encryptedLogicalArchive_roundTripsOffline() {
         val archive = BackupArchiveCodec.create(manifest(), requiredEntries, key)
 
+        assertEquals(1, BackupArchiveCodec.peekKeyVersion(archive))
         val decoded = BackupArchiveCodec.open(archive, key, "account-1")
 
         assertEquals("account-1", decoded.manifest.accountId)
         assertArrayEquals(requiredEntries.getValue("data/documents.json"), decoded.entries.getValue("data/documents.json"))
         assertArrayEquals(requiredEntries.getValue("assets/document-pdfs/INV-00001.pdf"), decoded.entries.getValue("assets/document-pdfs/INV-00001.pdf"))
+    }
+
+    @Test
+    fun keyVersionCannotBeReadFromMalformedArchive() {
+        assertThrows(BackupValidationException::class.java) {
+            BackupArchiveCodec.peekKeyVersion("not-a-backup".encodeToByteArray())
+        }
     }
 
     @Test

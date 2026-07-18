@@ -526,6 +526,20 @@ data class NextNumberResponse(
     @SerialName("documentNumber") val documentNumber: String,
 )
 
+@Serializable
+data class BackupKeyEnvelopeRequest(
+    @SerialName("installation_id") val installationId: String,
+    @SerialName("device_public_key_spki") val devicePublicKeySpki: String,
+    @SerialName("key_version") val keyVersion: Int? = null,
+)
+
+@Serializable
+data class BackupKeyEnvelopeResponse(
+    @SerialName("key_version") val keyVersion: Int,
+    @SerialName("wrapped_key") val wrappedKey: String,
+    @SerialName("wrapping_algorithm") val wrappingAlgorithm: String,
+)
+
 data class DocumentPdfDownloadRequest(
     val url: String,
     val bearerToken: String,

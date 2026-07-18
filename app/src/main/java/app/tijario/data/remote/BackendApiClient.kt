@@ -97,6 +97,9 @@ class BackendApiClient(
     suspend fun deleteAccount(): ApiResult<Unit> =
         authorizedPostNoBody("api/mobile/account/delete").decodeApiResult()
 
+    suspend fun resolveBackupKeyEnvelope(request: BackupKeyEnvelopeRequest): ApiResult<BackupKeyEnvelopeResponse> =
+        authorizedPost("api/mobile/backup/key-envelope", request).decodeApiResult()
+
     suspend fun fetchDocumentPdf(documentId: String): ByteArray =
         authorizedGet("api/mobile/documents/$documentId/pdf").body()
 

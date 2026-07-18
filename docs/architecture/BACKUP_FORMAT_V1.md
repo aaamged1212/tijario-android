@@ -1,6 +1,15 @@
 # Backup Format V1
 
-Status: partially implemented locally. The encrypted archive codec, logical Room export/transactional restore, staged asset restore/rollback, local asset collection, and verified atomic local-file finalization exist. Key-envelope integration, PDF regeneration, UI, scheduling, and Drive transport remain incomplete.
+Status: partially implemented locally. The encrypted archive codec, logical Room export/transactional restore, staged asset restore/rollback, local asset collection, verified local-file finalization, and Android Keystore device wrapping client exist. Backend migrations/deployment, PDF regeneration, UI, scheduling, and Drive transport remain incomplete.
+
+## Key Handling
+
+- Android generates an RSA-2048 OAEP key pair inside Android Keystore per account installation.
+- The backend stores only an AES-256-GCM server-encrypted random account backup key.
+- Android receives that account key wrapped to its device public key with RSA-OAEP-SHA256 and caches only the wrapped envelope per key version.
+- Plaintext account backup keys exist only transiently in memory and are zeroed by the coordinator after archive work.
+- Archive restore reads the key version from the authenticated header and resolves that exact cached/server version, preserving restore after key rotation.
+- A new device requires authentication and network access once to obtain its device-wrapped account key. After that, local creation/restore can work offline.
 
 ## File Type
 

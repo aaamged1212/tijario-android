@@ -107,6 +107,19 @@ object BackupArchiveCodec {
         }
     }
 
+    fun peekKeyVersion(archive: ByteArray): Int = try {
+        DataInputStream(ByteArrayInputStream(archive)).use { input ->
+            val actualMagic = ByteArray(magic.size).also(input::readFully)
+            if (!actualMagic.contentEquals(magic)) throw BackupValidationException("Invalid Tijario backup header")
+            if (input.readInt() != ARCHIVE_VERSION) throw BackupValidationException("Unsupported backup format version")
+            input.readInt().also { if (it <= 0) throw BackupValidationException("Backup key version is invalid") }
+        }
+    } catch (error: BackupValidationException) {
+        throw error
+    } catch (error: Exception) {
+        throw BackupValidationException("Backup header is invalid", error)
+    }
+
     fun open(
         archive: ByteArray,
         encryptionKey: ByteArray,

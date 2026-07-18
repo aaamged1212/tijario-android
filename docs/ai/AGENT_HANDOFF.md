@@ -400,3 +400,12 @@
 - **Validation**: Focused JVM tests and `assembleDebugAndroidTest` passed.
 - **Remaining**: Portable key recovery, missing-PDF generation, UI/scheduling, Drive, and device runtime QA.
 - **Safety Status**: Local Android work only. No push, deployment, migration apply, external-console change, or Play upload.
+
+## 2026-07-18 (Device-wrapped backup keys)
+- **Agent**: Codex
+- **Branch**: `codex/local-first-complete`
+- **Action**: Connected the authenticated backup key-envelope contract to Android Keystore.
+- **Details**: Per-installation RSA private keys remain in Keystore; wrapped account keys are cached by version. Backup create uses the newest available version and restore requests the exact header version. Plaintext key bytes are zeroed after operations.
+- **Validation**: Focused JVM tests and `assembleDebugAndroidTest` passed. Real Keystore behavior still requires a device/emulator.
+- **Remaining**: Unapplied backend migrations/configuration, backup UI/SAF, missing-PDF generation, scheduling, Drive, and device QA.
+- **Safety Status**: Local Android work only. No push, deployment, migration apply, external-console change, or Play upload.

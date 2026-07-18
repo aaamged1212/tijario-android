@@ -268,3 +268,8 @@
 - Added account-bound PDF/product-image/logo staging with document/product identity validation.
 - Added rollback copies so asset failures or Room restore failures preserve previous local files.
 - Added focused apply, rollback, completion, and unknown-identity tests; no remote action occurred.
+
+## 2026-07-18 - Device-wrapped backup keys
+- Added Android Keystore RSA-OAEP key generation and authenticated backend key-envelope contract DTO/client.
+- Cached only device-wrapped key material by version and resolved the exact archive key version during restore.
+- Added a coordinator that zeroes transient account keys after backup operations; no secret or external configuration was added.

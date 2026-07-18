@@ -30,7 +30,8 @@
 - `TESTED` Finalize verified encrypted archives through temporary files and atomic replacement, then persist local backup/file metadata.
 - `TESTED` Preserve current immutable usage events, entitlement authority, device bindings, and leases during restore; backup events merge without deleting newer credits.
 - `TESTED` Stage and validate account-owned PDF/image/logo assets, apply them with rollback copies, and roll back assets when Room restore fails.
-- `IN_PROGRESS` Connect local PDF regeneration, key management, and backup/restore UI.
+- `TESTED` Add Android Keystore RSA-OAEP device keys, versioned wrapped-key cache, exact archive key-version resolution, and transient key zeroing.
+- `IN_PROGRESS` Connect local PDF regeneration and backup/restore UI.
 - `NOT_STARTED` Implement Drive transport and legacy migration UI.
 - `NOT_STARTED` Implement backend control-plane V2 migrations and contracts locally without applying them.
 
@@ -56,6 +57,7 @@
 - Focused logical backup snapshot JVM tests and `assembleDebugAndroidTest` passed.
 - Focused asset collection and atomic backup-file JVM tests passed; Android test APK compilation passed.
 - Focused staged asset apply/rollback JVM tests and Android test APK compilation passed.
+- Focused backup key contract/header JVM tests and Android Keystore source compilation passed.
 
 ## Actual Outcomes
 
@@ -75,6 +77,7 @@
 - Local backup creation collects available account assets, records absent/failed PDFs in the manifest, authenticates the completed archive before finalization, and stores it under the account's private app directory without requiring network access.
 - Restore policy replaces operational rows, merges immutable creation events without overwrite, preserves current entitlement authority, and never reactivates archived device bindings or quota leases.
 - Restore accepts assets only for document/product IDs in the same archive, stages them below the account directory, and can roll back previously existing files if database restore fails.
+- Android never stores a plaintext account backup key. It caches device-wrapped key versions, resolves the exact archive version, and zeroes decrypted key bytes after create/restore.
 - JVM tests and instrumentation compilation passed. Runtime migration execution is blocked by the unavailable Android test environment.
 - No push, deploy, migration apply, GitHub API action, or external-console change occurred.
 
@@ -83,8 +86,8 @@
 - Instrumentation execution requires an available emulator/device; compilation can still be validated locally.
 - Google Drive OAuth and production credentials are external blockers and will not be configured in this task.
 - Supabase migrations will be authored and tested only against a verified local instance; production will not be touched.
-- Existing PDF/assets, local archive lifecycle, and rollback-capable asset restore are implemented, but missing-PDF regeneration, key-envelope integration, and UI are not complete; no user backup should be advertised yet.
+- Existing PDF/assets, local archive lifecycle, rollback-capable restore, and Android key client are implemented, but the backend migrations/configuration are unapplied and missing-PDF regeneration/UI are incomplete; no user backup should be advertised yet.
 
 ## Next Executable Task
 
-Add portable backup-key handling without adding Drive yet.
+Add backup/restore UI with Storage Access Framework export/import while keeping Drive API integration blocked.
