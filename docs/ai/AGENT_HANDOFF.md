@@ -1,5 +1,12 @@
 # Agent Handoff (Android & Web Repos)
 
+## 2026-07-18 (Local-First full validation)
+- **Agent**: Codex
+- **Branches**: Android `codex/local-first-complete`; backend `codex/local-first-control-plane`.
+- **Validation**: Android `testDebugUnitTest assembleDebugAndroidTest lintDebug assembleDebug assembleRelease` completed successfully in 11m 2s. Backend focused key-envelope tests, TypeScript, lint, and Next build passed earlier on the control-plane branch.
+- **Remaining Blockers**: No emulator/device is available for Room migration, Android Keystore, WebView PDF, SAF, WorkManager, or full restore runtime QA. Google Drive requires OAuth/console setup. Backend migrations, environment configuration, and deployment remain unapplied/unperformed.
+- **Safety Status**: No push, deployment, production migration, external-console action, or Google Play upload.
+
 ## 2026-07-18 (Local backup scheduling)
 - **Agent**: Codex
 - **Branch**: `codex/local-first-complete`

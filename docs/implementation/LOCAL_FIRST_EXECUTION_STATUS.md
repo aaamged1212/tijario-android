@@ -63,6 +63,7 @@
 - Focused backup UI/localization/SAF contract tests, `compileDebugKotlin`, and `assembleDebugAndroidTest` passed.
 - Focused missing-PDF preparation contracts, Kotlin compilation, and Android test APK assembly passed.
 - Focused schedule/retention policy tests, Kotlin compilation, and Android test APK assembly passed.
+- Full local baseline passed: `testDebugUnitTest assembleDebugAndroidTest lintDebug assembleDebug assembleRelease` in 11m 2s.
 
 ## Actual Outcomes
 
@@ -98,4 +99,4 @@
 
 ## Next Executable Task
 
-Run the full Android validation baseline. Drive transport and legacy rollout remain blocked by external OAuth, local backend migration application, and device/production validation.
+Run real-device backup/create/export/restore and scheduled-work QA after the local backend migrations/configuration are available. Drive transport and legacy rollout remain externally blocked.

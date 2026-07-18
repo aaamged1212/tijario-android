@@ -285,3 +285,6 @@
 - Added manual/daily/weekly local backup policies backed by unique WorkManager jobs.
 - Applied optional charging constraints without requiring internet or adding retry loops.
 - Added frequency-specific local retention and behavior tests.
+# 2026-07-18 - Local-First full validation
+- Passed the complete local Android JVM, instrumentation-compilation, lint, debug, and release assembly baseline.
+- Recorded external device, backend rollout, and Google Drive blockers without claiming runtime completion.
