@@ -6,6 +6,8 @@ internal object RemoteCacheReplacementPolicy {
         "PENDING_SYNC",
         "PENDING_DELETE",
         "CONFLICT",
+        "BLOCKED_BY_PLAN",
+        "failed_non_retryable",
     )
 
     fun shouldReplace(localSyncStatus: String?): Boolean =

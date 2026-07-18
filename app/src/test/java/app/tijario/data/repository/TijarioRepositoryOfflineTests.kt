@@ -3,11 +3,15 @@ package app.tijario.data.repository
 import android.content.Context
 import app.tijario.data.local.TijarioDao
 import app.tijario.data.local.TijarioDatabase
+import app.tijario.data.local.BusinessSettingsEntity
 import app.tijario.data.local.CustomerEntity
+import app.tijario.data.local.DocumentEntity
 import app.tijario.data.local.OfflineQuotaLeaseEntity
 import app.tijario.data.local.ProductEntity
 import app.tijario.data.local.SyncOutboxEntity
+import app.tijario.data.model.BusinessSettings
 import app.tijario.data.model.Customer
+import app.tijario.data.model.DocumentSummary
 import app.tijario.data.model.DocumentType
 import app.tijario.data.model.Product
 import app.tijario.data.model.ProductKind
@@ -60,11 +64,26 @@ class TijarioRepositoryOfflineTests {
         supabaseClient: SupabaseClient,
         backendApiClient: BackendApiClient,
         private val stubUserId: String,
+        private val fakeBusinessSettings: BusinessSettings? = null,
+        private val fakeCustomersList: List<Customer> = emptyList(),
+        private val fakeDocumentsList: List<DocumentSummary> = emptyList(),
         private val fakeProductsList: List<Product> = emptyList()
     ) : TijarioRepository(context, database, supabaseClient, backendApiClient) {
         
         override suspend fun currentUserId(): String? {
             return stubUserId
+        }
+
+        override suspend fun fetchBusinessSettings(userId: String): BusinessSettings? {
+            return fakeBusinessSettings
+        }
+
+        override suspend fun fetchCustomers(userId: String): List<Customer> {
+            return fakeCustomersList
+        }
+
+        override suspend fun fetchDocuments(userId: String): List<DocumentSummary> {
+            return fakeDocumentsList
         }
 
         override suspend fun fetchProducts(userId: String): List<Product> {
@@ -414,12 +433,150 @@ class TijarioRepositoryOfflineTests {
             Product(id = "prod_pending", userId = userId, kind = ProductKind.Product, name = "Remote Name", price = 100.0, currency = "SAR", stockQuantity = null)
         )
 
-        val ingestionRepo = TestableTijarioRepository(context, database, supabaseClient, backendApiClient, userId, remoteProducts)
+        val ingestionRepo = TestableTijarioRepository(
+            context,
+            database,
+            supabaseClient,
+            backendApiClient,
+            userId,
+            fakeProductsList = remoteProducts,
+        )
 
         ingestionRepo.refreshProducts()
 
         // Verify that products cache update was never called because it is marked as PENDING_SYNC
         coVerify(exactly = 0) { dao.upsertProducts(any()) }
+    }
+
+    @Test
+    fun remoteIngestion_replacesMissingCustomerAndSyncedProduct() = runBlocking {
+        coEvery { dao.getCustomer(userId, "cust_remote") } returns null
+        val customerSlot = slot<List<CustomerEntity>>()
+        coEvery { dao.upsertCustomers(capture(customerSlot)) } returns Unit
+
+        TestableTijarioRepository(
+            context,
+            database,
+            supabaseClient,
+            backendApiClient,
+            userId,
+            fakeCustomersList = listOf(Customer(id = "cust_remote", name = "Remote customer", whatsappNumber = "555")),
+        ).refreshCustomers()
+
+        assertEquals("Remote customer", customerSlot.captured.single().name)
+
+        coEvery { dao.getProduct(userId, "prod_synced") } returns ProductEntity(
+            id = "prod_synced",
+            userId = userId,
+            kind = "product",
+            name = "Old product",
+            description = null,
+            price = BigDecimal("1.00"),
+            currency = "SAR",
+            stockQuantity = null,
+            syncedAt = 0L,
+            syncStatus = "SYNCED",
+        )
+        val productSlot = slot<List<ProductEntity>>()
+        coEvery { dao.upsertProducts(capture(productSlot)) } returns Unit
+
+        TestableTijarioRepository(
+            context,
+            database,
+            supabaseClient,
+            backendApiClient,
+            userId,
+            fakeProductsList = listOf(
+                Product(
+                    id = "prod_synced",
+                    userId = userId,
+                    kind = ProductKind.Product,
+                    name = "Remote product",
+                    price = 12.0,
+                    currency = "SAR",
+                    stockQuantity = 4,
+                ),
+            ),
+        ).refreshProducts()
+
+        assertEquals("Remote product", productSlot.captured.single().name)
+    }
+
+    @Test
+    fun remoteIngestion_preservesBusinessSettingsAndDocumentTerminalStates() = runBlocking {
+        coEvery { dao.getBusinessSettings(userId) } returns BusinessSettingsEntity(
+            userId = userId,
+            remoteId = "settings_remote",
+            businessName = "Local business",
+            whatsappNumber = "555",
+            country = "SA",
+            city = null,
+            currency = "SAR",
+            logoUrl = null,
+            instagramUrl = null,
+            invoiceNote = null,
+            termsText = null,
+            syncedAt = 0L,
+            syncStatus = "failed_non_retryable",
+        )
+        coEvery { dao.upsertBusinessSettings(any()) } returns Unit
+
+        TestableTijarioRepository(
+            context,
+            database,
+            supabaseClient,
+            backendApiClient,
+            userId,
+            fakeBusinessSettings = BusinessSettings(
+                id = "settings_remote",
+                businessName = "Remote business",
+                whatsappNumber = "777",
+                country = "SA",
+                city = null,
+                currency = "SAR",
+            ),
+        ).refreshBusinessSettings()
+
+        coVerify(exactly = 0) { dao.upsertBusinessSettings(any()) }
+
+        coEvery { dao.getDocument(userId, "doc_blocked") } returns DocumentEntity(
+            id = "doc_blocked",
+            userId = userId,
+            customerId = "cust",
+            type = "invoice",
+            documentNumber = "INV-1",
+            status = "draft",
+            paymentStatus = null,
+            amountPaid = null,
+            issueDate = "2026-07-01",
+            total = BigDecimal("10.00"),
+            currency = "SAR",
+            syncedAt = 0L,
+            syncStatus = "BLOCKED_BY_PLAN",
+        )
+        coEvery { dao.upsertDocuments(any()) } returns Unit
+
+        TestableTijarioRepository(
+            context,
+            database,
+            supabaseClient,
+            backendApiClient,
+            userId,
+            fakeDocumentsList = listOf(
+                DocumentSummary(
+                    id = "doc_blocked",
+                    customerId = "cust",
+                    type = DocumentType.Invoice,
+                    documentNumber = "INV-2",
+                    status = "draft",
+                    issueDate = "2026-07-01",
+                    total = 12.0,
+                    currency = "SAR",
+                ),
+            ),
+        ).refreshDocuments()
+
+        coVerify(exactly = 0) { dao.upsertDocuments(any()) }
     }
 
     @Test

@@ -319,7 +319,7 @@ open class TijarioRepository(
         for (remote in remoteCustomers) {
             val id = remote.id ?: continue
             val existing = dao.getCustomer(userId, id)
-            if (existing != null && existing.syncStatus in listOf("LOCAL_ONLY", "PENDING_SYNC", "PENDING_DELETE", "CONFLICT")) {
+            if (!RemoteCacheReplacementPolicy.shouldReplace(existing?.syncStatus)) {
                 continue
             }
             entitiesToUpsert.add(
@@ -351,7 +351,7 @@ open class TijarioRepository(
         for (remote in remoteProducts) {
             val id = remote.id ?: continue
             val existing = dao.getProduct(userId, id)
-            if (existing != null && existing.syncStatus in listOf("LOCAL_ONLY", "PENDING_SYNC", "PENDING_DELETE", "CONFLICT")) {
+            if (!RemoteCacheReplacementPolicy.shouldReplace(existing?.syncStatus)) {
                 continue
             }
             entitiesToUpsert.add(
@@ -388,7 +388,7 @@ open class TijarioRepository(
         val entitiesToUpsert = mutableListOf<app.tijario.data.local.DocumentEntity>()
         for (remote in remoteDocs) {
             val existing = dao.getDocument(userId, remote.id)
-            if (existing != null && existing.syncStatus in listOf("LOCAL_ONLY", "PENDING_SYNC", "PENDING_DELETE", "CONFLICT")) {
+            if (!RemoteCacheReplacementPolicy.shouldReplace(existing?.syncStatus)) {
                 continue
             }
             entitiesToUpsert.add(
@@ -461,7 +461,7 @@ open class TijarioRepository(
                         }
                     } else {
                         val existing = dao.getBusinessSettings(userId)
-                        if (existing == null || existing.syncStatus !in listOf("LOCAL_ONLY", "PENDING_SYNC", "PENDING_DELETE", "CONFLICT")) {
+                        if (RemoteCacheReplacementPolicy.shouldReplace(existing?.syncStatus)) {
                             dao.upsertBusinessSettings(snapshot.businessSettings.toEntity(userId, syncedAt).copy(syncStatus = "SYNCED"))
                         }
                     }
@@ -518,7 +518,7 @@ open class TijarioRepository(
                     }
                 } else {
                     val existing = dao.getBusinessSettings(userId)
-                    if (existing == null || existing.syncStatus !in listOf("LOCAL_ONLY", "PENDING_SYNC", "PENDING_DELETE", "CONFLICT")) {
+                    if (RemoteCacheReplacementPolicy.shouldReplace(existing?.syncStatus)) {
                         dao.upsertBusinessSettings(settings.toEntity(userId, syncedAt).copy(syncStatus = "SYNCED"))
                     }
                 }
@@ -2006,7 +2006,7 @@ open class TijarioRepository(
                 database.withTransaction {
                     pullResult.changes.customers.forEach { item ->
                         val local = dao.getCustomer(userId, item.id)
-                        if (local == null || local.syncStatus == "SYNCED") {
+                        if (RemoteCacheReplacementPolicy.shouldReplace(local?.syncStatus)) {
                             dao.upsertCustomer(app.tijario.data.local.CustomerEntity(
                                 id = item.id,
                                 userId = userId,
@@ -2025,7 +2025,7 @@ open class TijarioRepository(
 
                     pullResult.changes.products.forEach { item ->
                         val local = dao.getProduct(userId, item.id)
-                        if (local == null || local.syncStatus == "SYNCED") {
+                        if (RemoteCacheReplacementPolicy.shouldReplace(local?.syncStatus)) {
                             dao.upsertProduct(app.tijario.data.local.ProductEntity(
                                 id = item.id,
                                 userId = userId,
@@ -2047,7 +2047,7 @@ open class TijarioRepository(
 
                     pullResult.changes.business_settings.forEach { item ->
                         val local = dao.getBusinessSettings(userId)
-                        if (local == null || local.syncStatus == "SYNCED") {
+                        if (RemoteCacheReplacementPolicy.shouldReplace(local?.syncStatus)) {
                             dao.upsertBusinessSettings(app.tijario.data.local.BusinessSettingsEntity(
                                 userId = userId,
                                 remoteId = item.id,
@@ -2074,7 +2074,7 @@ open class TijarioRepository(
 
                     pullResult.changes.documents.forEach { item ->
                         val local = dao.getDocument(userId, item.id)
-                        if (local == null || local.syncStatus == "SYNCED") {
+                        if (RemoteCacheReplacementPolicy.shouldReplace(local?.syncStatus)) {
                             dao.upsertDocument(app.tijario.data.local.DocumentEntity(
                                 id = item.id,
                                 userId = userId,
