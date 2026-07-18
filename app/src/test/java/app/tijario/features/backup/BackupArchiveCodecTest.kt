@@ -68,6 +68,20 @@ class BackupArchiveCodecTest {
         }
     }
 
+    @Test
+    fun createRejectsExcessiveEntryCount() {
+        val excessive = buildMap {
+            putAll(requiredEntries)
+            repeat(BackupArchiveCodec.MAX_ENTRY_COUNT) { index ->
+                put("assets/product-images/$index.jpg", byteArrayOf(1))
+            }
+        }
+
+        assertThrows(IllegalArgumentException::class.java) {
+            BackupArchiveCodec.create(manifest(), excessive, key)
+        }
+    }
+
     private fun manifest() = BackupManifest(
         formatVersion = 1,
         roomDatabaseVersion = 16,

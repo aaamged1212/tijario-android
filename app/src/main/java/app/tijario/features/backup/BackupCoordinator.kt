@@ -15,7 +15,12 @@ class BackupCoordinator(
     private val appContext = context.applicationContext
     private val keyStore = DeviceBackupKeyStore(appContext, backendApiClient)
 
-    suspend fun createLocalBackup(userId: String, allowNetwork: Boolean): BackupRecordEntity {
+    suspend fun createLocalBackup(userId: String, allowNetwork: Boolean): BackupRecordEntity =
+        BackupOperationGuard.withAccountLock(userId) {
+            createLocalBackupUnlocked(userId, allowNetwork)
+        }
+
+    private suspend fun createLocalBackupUnlocked(userId: String, allowNetwork: Boolean): BackupRecordEntity {
         val installationId = AppPreferences.getInstallationId(appContext)
         val key = keyStore.resolve(userId, installationId, allowNetwork)
         try {
@@ -42,15 +47,20 @@ class BackupCoordinator(
         userId: String,
         archive: ByteArray,
         allowNetwork: Boolean,
-    ): BackupManifest {
+    ): BackupManifest = BackupOperationGuard.withAccountLock(userId) {
         val installationId = AppPreferences.getInstallationId(appContext)
         val keyVersion = BackupArchiveCodec.peekKeyVersion(archive)
-        val key = keyStore.resolve(userId, installationId, allowNetwork, keyVersion)
-        try {
-            if (key.keyVersion != keyVersion) throw BackupValidationException("Backup key version does not match archive")
-            return LocalBackupRestorer(database, appContext.filesDir).restore(archive, key.keyBytes, userId)
-        } finally {
-            key.keyBytes.fill(0)
+        val restorer = LocalBackupRestorer(database, appContext.filesDir)
+        val decoded = keyStore.resolve(userId, installationId, allowNetwork, keyVersion).let { key ->
+            try {
+                if (key.keyVersion != keyVersion) throw BackupValidationException("Backup key version does not match archive")
+                restorer.validate(archive, key.keyBytes, userId)
+            } finally {
+                key.keyBytes.fill(0)
+            }
         }
+        // Preserve a restorable snapshot of current data before replacing any account rows or assets.
+        createLocalBackupUnlocked(userId, allowNetwork)
+        restorer.restore(decoded, userId)
     }
 }

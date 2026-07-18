@@ -46,6 +46,7 @@ class RoomLogicalBackupStore(
                 validateLiveColumns(sqliteColumns(spec.table), snapshot)
             }
         }
+        LogicalBackupValidator.validate(staged.values)
 
         sqlite.beginTransaction()
         try {

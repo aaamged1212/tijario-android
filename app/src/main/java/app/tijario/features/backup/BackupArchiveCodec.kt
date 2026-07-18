@@ -48,6 +48,10 @@ data class DecodedBackup(
 class BackupValidationException(message: String, cause: Throwable? = null) : Exception(message, cause)
 
 object BackupArchiveCodec {
+    internal const val MAX_ARCHIVE_BYTES = 256 * 1024 * 1024
+    internal const val MAX_ENTRY_COUNT = 4_096
+    internal const val MAX_ENTRY_BYTES = 64 * 1024 * 1024
+    internal const val MAX_UNCOMPRESSED_BYTES = 256 * 1024 * 1024
     private const val ARCHIVE_VERSION = 1
     private const val NONCE_SIZE = 12
     private const val GCM_TAG_BITS = 128
@@ -72,6 +76,11 @@ object BackupArchiveCodec {
         require(manifest.encryptionVersion == ARCHIVE_VERSION) { "Unsupported encryption version" }
         require(manifest.accountId.isNotBlank()) { "Backup account is required" }
         require(logicalEntries.keys.containsAll(requiredLogicalEntries)) { "Required structured document data is missing" }
+        require(logicalEntries.size + 2 <= MAX_ENTRY_COUNT) { "Backup contains too many entries" }
+        require(logicalEntries.values.all { it.size <= MAX_ENTRY_BYTES }) { "Backup entry is too large" }
+        require(logicalEntries.values.sumOf { it.size.toLong() } <= MAX_UNCOMPRESSED_BYTES) {
+            "Backup content is too large"
+        }
         logicalEntries.keys.forEach(::validateRelativePath)
 
         val manifestBytes = json.encodeToString(manifest).encodeToByteArray()
@@ -103,7 +112,9 @@ object BackupArchiveCodec {
                 data.writeInt(encryptedPayload.size)
                 data.write(encryptedPayload)
             }
-            output.toByteArray()
+            output.toByteArray().also {
+                require(it.size <= MAX_ARCHIVE_BYTES) { "Backup archive is too large" }
+            }
         }
     }
 
@@ -127,6 +138,7 @@ object BackupArchiveCodec {
     ): DecodedBackup {
         validateKey(encryptionKey)
         require(expectedAccountId.isNotBlank()) { "Expected account is required" }
+        if (archive.size > MAX_ARCHIVE_BYTES) throw BackupValidationException("Backup archive is too large")
 
         val payload = try {
             DataInputStream(ByteArrayInputStream(archive)).use { input ->
@@ -203,9 +215,11 @@ object BackupArchiveCodec {
 
     private fun unzip(payload: ByteArray): Map<String, ByteArray> {
         val entries = linkedMapOf<String, ByteArray>()
+        var uncompressedBytes = 0L
         ZipInputStream(ByteArrayInputStream(payload)).use { zip ->
             var entry = zip.nextEntry
             while (entry != null) {
+                if (entries.size >= MAX_ENTRY_COUNT) throw BackupValidationException("Backup contains too many entries")
                 val path = entry.name
                 try {
                     validateRelativePath(path)
@@ -213,12 +227,31 @@ object BackupArchiveCodec {
                     throw BackupValidationException("Backup contains an unsafe path", error)
                 }
                 if (entry.isDirectory || entries.containsKey(path)) throw BackupValidationException("Backup contains an invalid entry")
-                entries[path] = zip.readBytes()
+                if (entry.size > MAX_ENTRY_BYTES) throw BackupValidationException("Backup entry is too large")
+                val remaining = MAX_UNCOMPRESSED_BYTES - uncompressedBytes
+                if (remaining <= 0) throw BackupValidationException("Backup content is too large")
+                val bytes = readBounded(zip, minOf(MAX_ENTRY_BYTES.toLong(), remaining))
+                uncompressedBytes += bytes.size
+                entries[path] = bytes
                 zip.closeEntry()
                 entry = zip.nextEntry
             }
         }
         return entries
+    }
+
+    private fun readBounded(input: ZipInputStream, limit: Long): ByteArray {
+        val output = ByteArrayOutputStream()
+        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+        var total = 0L
+        while (true) {
+            val read = input.read(buffer)
+            if (read < 0) break
+            total += read
+            if (total > limit) throw BackupValidationException("Backup entry is too large")
+            output.write(buffer, 0, read)
+        }
+        return output.toByteArray()
     }
 
     private fun validateRelativePath(path: String) {
