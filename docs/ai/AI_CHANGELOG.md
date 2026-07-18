@@ -1,5 +1,13 @@
 # AI Changelog
 
+## 2026-07-18 - Cache policy remediation and Local-First architecture planning
+- Centralized Android remote-cache replacement decisions through `RemoteCacheReplacementPolicy.shouldReplace(...)` in bootstrap and pull-sync ingestion paths.
+- Preserved local unsynced, conflict, blocked, and terminal non-retryable states from remote overwrite.
+- Added focused JVM coverage for policy behavior and repository refresh usage.
+- Added planning-only Local-First, quota V2, encrypted backup, Google Drive backup, migration/rollout, data ownership, and implementation phase documents.
+- Validation passed: targeted repository tests, `testDebugUnitTest`, `assembleDebugAndroidTest`, `lintDebug`, `assembleDebug`, and `assembleRelease` when run separately.
+- Safety Info: Local commits only. No push, GitHub API action, PR update, backend edit, deployment, Supabase migration, external console change, APK/AAB upload, or Google Play action.
+
 ## 2026-07-13 - Session 10 (Codex)
 - Fixed Android document edit/export behavior on `fix/android-document-edit-pdf-email-numbering`.
 - New-document draft numbers now use the Web next-number API instead of local cached numbering; saved document numbers remain exact across preview/reopen/PDF/share.

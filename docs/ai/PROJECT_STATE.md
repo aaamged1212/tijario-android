@@ -1,11 +1,13 @@
 # Project State (Android & Web Repos)
 
-- **Android Repo Branch**: `fix/android-document-edit-pdf-email-numbering`
-- **Web Repo Branch**: `main` inspected read-only for update-quota behavior.
-- **Current Uncommitted Files Summary**: Android document edit/export follow-up fixes are implemented locally. Web was not modified.
+- **Android Repo Branch**: `codex/full-audit-cache-policy-docs`
+- **Web Repo Branch**: `fix/local-main-auth-proxy` inspected read-only for current backend/mobile sync and quota contracts.
+- **Current Uncommitted Files Summary**: Android cache-policy remediation has one local commit; Local-First architecture docs are ready for a separate local docs commit. Web was not modified.
 
 ## Tijario status:
 - Google Play Closed Testing is active.
+- Current local remediation branch centralizes remote-cache replacement decisions in `RemoteCacheReplacementPolicy.shouldReplace(...)` for business settings, customers, products, and documents.
+- Local architecture docs now define the future Local-First direction as planning only: Room as operational source of truth, Supabase as control plane, Google Drive as encrypted backup/restore transport, and document usage based on immutable creation events.
 - Local work exists to reduce Vercel usage and prevent retry loops.
 - Product decision: allow duplicate customer WhatsApp numbers.
 - Customer identity must be customer.id, not whatsapp_number.

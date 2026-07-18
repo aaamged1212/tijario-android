@@ -1,5 +1,26 @@
 # Agent Handoff (Android & Web Repos)
 
+## 2026-07-18 (Session - Cache policy remediation and Local-First planning)
+- **Agent**: Codex
+- **Branch**:
+  - Android: `codex/full-audit-cache-policy-docs`
+  - Web/backend: inspected read-only at `C:\Users\BBOY AMG\Desktop\Projects\tjario`.
+- **Action**: Completed the safe remote-cache replacement policy remediation and added Local-First/Google Drive architecture planning documents.
+- **Details**:
+  - `TijarioRepository` bootstrap and pull-sync remote-cache replacement checks now delegate to `RemoteCacheReplacementPolicy.shouldReplace(...)` for business settings, customers, products, and documents.
+  - The shared policy preserves `LOCAL_ONLY`, `PENDING_SYNC`, `PENDING_DELETE`, `CONFLICT`, `BLOCKED_BY_PLAN`, and `failed_non_retryable` rows from remote overwrite.
+  - Added JVM coverage for the shared policy and repository refresh behavior.
+  - Added planning-only architecture docs for local-first data ownership, encrypted backup format, quota V2, Google Drive backup, rollout, and phase boundaries.
+- **Validation**:
+  - Targeted `RemoteCacheReplacementPolicyTest` and `TijarioRepositoryOfflineTests` passed.
+  - `testDebugUnitTest`, `assembleDebugAndroidTest`, `lintDebug`, `assembleDebug`, and `assembleRelease` passed when run separately.
+  - One combined Gradle baseline command timed out locally and was not counted as passing.
+- **Safety Status**: Local commits only. No push, GitHub API action, PR update, deployment, Supabase migration, external console change, APK/AAB upload, or Google Play action.
+- **Pending Tasks**:
+  - Emulator/device instrumentation remains externally blocked.
+  - Backend/Supabase Local-First V2 contracts remain documentation-only.
+  - Google Drive OAuth/API setup remains an external manual blocker.
+
 ## 2026-07-13 (Session 12 - Local PDF downloads and document option presets)
 - **Agent**: Codex
 - **Branch**:
