@@ -1,6 +1,6 @@
 # Backup Format V1
 
-Status: partially implemented locally. The encrypted archive codec, logical Room export/transactional restore, local asset collection, and verified atomic local-file finalization exist. Key-envelope integration, PDF regeneration, asset restore, UI, scheduling, and Drive transport remain incomplete.
+Status: partially implemented locally. The encrypted archive codec, logical Room export/transactional restore, staged asset restore/rollback, local asset collection, and verified atomic local-file finalization exist. Key-envelope integration, PDF regeneration, UI, scheduling, and Drive transport remain incomplete.
 
 ## File Type
 
@@ -24,6 +24,7 @@ The archive must be encrypted. Do not export or upload an unencrypted SQLite dat
 - Restore into a temporary database or staging area first.
 - Validate archive version, account ownership, required records, checksums, and manifest counts before replacing active data.
 - Keep the active database unchanged if any restore validation fails.
+- Stage assets first and keep rollback copies. If asset application or the Room transaction fails, restore the previous files and database state.
 - Restoring a backup never resets or decreases account usage.
 
 ## Required Archive Contents

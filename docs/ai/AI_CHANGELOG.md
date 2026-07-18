@@ -263,3 +263,8 @@
 - Changed restore policy so operational records are replaced but immutable document creation events are only merged without overwrite.
 - Preserved current entitlement, device-binding, and offline-lease authority instead of reactivating stale backup state.
 - Added focused policy coverage; no remote or production action occurred.
+
+## 2026-07-18 - Staged backup asset restore
+- Added account-bound PDF/product-image/logo staging with document/product identity validation.
+- Added rollback copies so asset failures or Room restore failures preserve previous local files.
+- Added focused apply, rollback, completion, and unknown-identity tests; no remote action occurred.

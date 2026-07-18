@@ -391,3 +391,12 @@
 - **Validation**: Asset-collector and atomic-file JVM tests passed; `assembleDebugAndroidTest` passed.
 - **Remaining**: Portable key recovery, missing-PDF generation, asset restore, UI/scheduling, and Drive.
 - **Safety Status**: Local Android work only. No push, deployment, migration apply, external-console change, or Play upload.
+
+## 2026-07-18 (Staged asset restore)
+- **Agent**: Codex
+- **Branch**: `codex/local-first-complete`
+- **Action**: Added account-bound backup asset staging and rollback around transactional Room restore.
+- **Details**: PDF and product-image archive identities must match structured document/product IDs. Existing files move to rollback storage before replacements; Room failure restores those files.
+- **Validation**: Focused JVM tests and `assembleDebugAndroidTest` passed.
+- **Remaining**: Portable key recovery, missing-PDF generation, UI/scheduling, Drive, and device runtime QA.
+- **Safety Status**: Local Android work only. No push, deployment, migration apply, external-console change, or Play upload.
