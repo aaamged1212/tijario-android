@@ -11,7 +11,7 @@
 
 ## Current Phase
 
-`TESTED` - Explicit account data mode, Room-first operational writes, and non-destructive logout.
+`TESTED` - Offline encrypted logical archive foundation.
 
 ## Phase Checklist
 
@@ -23,7 +23,9 @@
 - `TESTED` Preserve account-local Room data during normal logout and clear only transient in-memory session state.
 - `TESTED` Add repository-level Local-Drive soft deletion/restoration and active customer/product limit enforcement.
 - `IN_PROGRESS` Complete historical customer snapshots, restoration UI, and quota reconciliation.
-- `NOT_STARTED` Implement backup/restore, Drive transport, and legacy migration.
+- `TESTED` Implement the offline encrypted `.tijario` archive codec with authenticated encryption, logical-file checksums, account binding, and path validation.
+- `IN_PROGRESS` Connect Room logical export, PDF preparation, temporary restore database, atomic replacement, and backup UI to the archive codec.
+- `NOT_STARTED` Implement Drive transport and legacy migration UI.
 - `NOT_STARTED` Implement backend control-plane V2 migrations and contracts locally without applying them.
 
 ## Preserved Local Files
@@ -58,6 +60,7 @@
 - Local-Drive customer, product, and document deletion now preserves rows and records deletion history; repository restore clears the deletion marker without creating a new document event.
 - Customer and product limits count only active local rows, so deletion frees a slot and restoration rechecks the limit.
 - Focused repository tests and `assembleDebugAndroidTest` passed for soft deletion, restoration, limit failures, and no-credit document restore.
+- Backup codec JVM tests passed for encrypted offline round-trip, cross-account rejection, tamper rejection, required structured data, and path traversal protection.
 - JVM tests and instrumentation compilation passed. Runtime migration execution is blocked by the unavailable Android test environment.
 - No push, deploy, migration apply, GitHub API action, or external-console change occurred.
 
@@ -66,7 +69,8 @@
 - Instrumentation execution requires an available emulator/device; compilation can still be validated locally.
 - Google Drive OAuth and production credentials are external blockers and will not be configured in this task.
 - Supabase migrations will be authored and tested only against a verified local instance; production will not be touched.
+- The archive cryptographic/container layer is implemented, but Room export/restore and key-envelope integration are not complete; no user backup should be advertised yet.
 
 ## Next Executable Task
 
-Persist historical customer snapshots in documents and expose the repository restoration flow through a dedicated local-data UI.
+Connect deterministic Room logical export and temporary-database restore to the validated encrypted archive.

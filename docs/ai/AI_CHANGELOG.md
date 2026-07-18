@@ -1,5 +1,10 @@
 # AI Changelog
 
+## 2026-07-18 - Offline backup archive foundation
+- Added the encrypted, account-bound `.tijario` logical archive codec.
+- Added authenticated encryption, per-entry checksums, required document data, and path safety validation.
+- Added focused JVM security and round-trip tests; no external or production action occurred.
+
 ## 2026-07-18 - Local-First deletion and restoration
 - Added active-row customer/product limit enforcement for Local-Drive accounts.
 - Preserved deleted customer, product, and document rows with deletion history.

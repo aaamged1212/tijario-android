@@ -1,5 +1,12 @@
 # Agent Handoff (Android & Web Repos)
 
+## 2026-07-18 (Session - Offline backup archive foundation)
+- Added a versioned `.tijario` logical archive codec using AES-GCM authenticated encryption.
+- Added per-file SHA-256 inventory verification, account binding, mandatory structured document entries, duplicate/path traversal rejection, and fail-closed parsing.
+- Added JVM tests for offline round-trip, tampering, wrong-account restore, missing structured records, and unsafe paths.
+- This is the container/validation layer only; Room export, temporary-database restore, PDF preparation, key-envelope storage, UI, and Drive transport remain pending.
+- No push, deploy, production migration, external-console change, or Play upload.
+
 ## 2026-07-18 (Session - Local-First deletion and restoration)
 - Added active customer/product Room counts and enforced persisted Local-Drive limits before create or restore.
 - Changed Local-Drive customer, product, and document deletion to soft-delete plus deletion-history records.

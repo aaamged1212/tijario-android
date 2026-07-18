@@ -2,7 +2,7 @@
 
 - **Android Repo Branch**: `codex/local-first-complete`
 - **Web Repo Branch**: `codex/local-first-control-plane` reserved for local control-plane implementation.
-- **Current Local-First Phase**: Room schema 16, explicit data-mode routing, repository soft deletion/restoration, and active-limit enforcement are implemented locally. Historical snapshots, restore UI, quota reconciliation, and backup remain.
+- **Current Local-First Phase**: Room foundation, data-mode routing, repository soft deletion/restoration, active-limit enforcement, and the encrypted archive codec are implemented locally. Room export/restore, historical snapshots, UI, quota reconciliation, and Drive remain.
 
 ## Tijario status:
 - Google Play Closed Testing is active.
@@ -14,6 +14,7 @@
 - Account usage persists data mode, quota scope, limits, template policy, and entitlement version locally. Local-Drive document creation records an immutable lifetime or billing-cycle creation event.
 - Normal logout clears transient session state without deleting account-local Room data; destructive device-data removal remains a separate explicit path.
 - Local-Drive deletion retains customer, product, and document rows plus deletion history. Repository restore reactivates the same identity and does not create a second document usage event.
+- The offline `.tijario` codec uses AES-GCM and SHA-256 to authenticate a versioned logical archive and blocks cross-account restore and unsafe archive paths. It is not yet connected to Room export/restore or Google Drive.
 - Local work exists to reduce Vercel usage and prevent retry loops.
 - Product decision: allow duplicate customer WhatsApp numbers.
 - Customer identity must be customer.id, not whatsapp_number.
