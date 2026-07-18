@@ -1,5 +1,13 @@
 # Agent Handoff (Android & Web Repos)
 
+## 2026-07-18 (Local-First completion and hardening)
+- **Agent**: Codex
+- **Branches**: Android `codex/local-first-complete`; Web `codex/local-first-control-plane`.
+- **Completed**: Signed account/device entitlements, lease-bound immutable document events, event reconciliation, Drive transport abstractions/UI/workers, bounded encrypted archive parsing, record/relationship validation, per-account backup mutex, and pre-restore safety backup.
+- **Validation**: Android `testDebugUnitTest`, `assembleDebugAndroidTest`, `lintDebug`, `assembleDebug`, `assembleRelease`, and `git diff --check` passed as separate commands. Web 81 tests, TypeScript, lint (0 errors, 21 existing warnings), production build, and `git diff --check` passed.
+- **External blockers**: Three Local-First migrations are unapplied; production signing/envelope keys and Google Drive OAuth are unconfigured; SQL runtime and physical-device QA were not performed.
+- **Safety**: Local commits only. No push, deploy, production migration, external-console change, emulator/device test, or Google Play upload.
+
 ## 2026-07-18 (Local-First full validation)
 - **Agent**: Codex
 - **Branches**: Android `codex/local-first-complete`; backend `codex/local-first-control-plane`.

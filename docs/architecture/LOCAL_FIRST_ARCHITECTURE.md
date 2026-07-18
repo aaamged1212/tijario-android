@@ -1,6 +1,6 @@
 # Local-First Architecture
 
-Status: planning only. No production behavior is implemented by this document.
+Status: approved architecture with a local implementation on `codex/local-first-complete`. Production migrations, API deployment, external configuration, and device QA are not complete.
 
 ## Decision
 
@@ -100,4 +100,3 @@ Documentation-only future contracts:
 - `backup_key_envelopes`
 
 RPC/API contracts should support idempotent event acknowledgement, entitlement refresh, lease renewal, and backup-key envelope management.
-

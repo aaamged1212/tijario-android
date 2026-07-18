@@ -1,6 +1,6 @@
 # Google Drive Backup
 
-Status: planning only. No Google API, OAuth, or Drive behavior is implemented by this document.
+Status: transport interfaces, repositories, worker, fake client, and UI states are implemented locally. Real Google OAuth/REST wiring and device QA remain external blockers.
 
 ## Decision
 
@@ -74,4 +74,3 @@ Before implementation:
 - verify production OAuth status
 
 These are external manual actions and must not be changed by repository work.
-

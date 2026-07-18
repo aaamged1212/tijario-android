@@ -1,5 +1,12 @@
 # AI Changelog
 
+## 2026-07-18 - Local-First completion and release documentation
+- Enforced signed, account/device-bound offline entitlements and active lease ownership before Local-Drive document creation.
+- Added immutable event reconciliation, Drive backup transport/list/restore/retention controls, and bounded retry behavior.
+- Hardened archive extraction with size/count limits, duplicate-ID/relationship validation, per-account operation serialization, and a pre-restore safety backup.
+- Added database, key, Drive, phone QA, security, and release runbooks.
+- Full Android and Web local validation passed; no external or production action occurred.
+
 ## 2026-07-18 - Offline backup archive foundation
 - Added the encrypted, account-bound `.tijario` logical archive codec.
 - Added authenticated encryption, per-entry checksums, required document data, and path safety validation.

@@ -11,7 +11,7 @@
 
 ## Current Phase
 
-`TESTED` - Encrypted local archive creation, SAF export/import, and prevalidated restore foundation.
+`LOCALLY VALIDATED` - Local-First operational routing, signed entitlements, immutable quota events, encrypted backup/restore, and Drive transport abstractions are implemented. Production rollout and physical-device QA remain blocked.
 
 ## Phase Checklist
 
@@ -34,8 +34,11 @@
 - `TESTED` Connect backup/restore UI to Android Storage Access Framework export/import without a Drive SDK dependency.
 - `TESTED` Generate missing document PDFs locally before backup without network logo fetching; record per-document failures without aborting the archive.
 - `TESTED` Schedule daily/weekly local backups with optional charging constraints, no network dependency, no retry loop, and frequency-specific retention.
-- `BLOCKED` Implement Drive transport and legacy migration UI after external OAuth/control-plane rollout is available.
-- `NOT_STARTED` Implement backend control-plane V2 migrations and contracts locally without applying them.
+- `TESTED` Implement Drive transport interfaces, REST abstraction, fake client, folder/list/upload/download/retention repositories, bounded worker retries, checksum checks, and restore UI behind unavailable-by-default external configuration.
+- `TESTED` Implement backend control-plane V2 migrations/contracts locally without applying or deploying them.
+- `TESTED` Require a verified, unexpired signed entitlement and matching active offline lease for new Local-Drive documents; reconcile immutable events before refreshing lease state.
+- `TESTED` Add bounded archive extraction, record/relationship validation, per-account operation locking, and a pre-restore safety backup.
+- `BLOCKED` Configure production OAuth/signing/envelope secrets, apply migrations, deploy APIs, and execute physical-device/staging QA.
 
 ## Preserved Local Files
 
@@ -73,7 +76,7 @@
 - Existing `local_usage_ledger` rows migrate into `document_creation_events`; successful sync acknowledges events instead of deleting them.
 - Account usage now persists the server-provided data mode, limit scope, entitlement version, limits, and template policy in Room.
 - Local-Drive public CRUD entry points use Room and do not enqueue operational cloud mutations; refresh/sync entry points are no-ops for operational data.
-- Local-Drive document creation checks the persisted entitlement and records a lifetime or billing-cycle creation event without requiring an online lease.
+- Local-Drive document creation requires a verified, unexpired account/device-bound entitlement and an active matching offline lease, then records one immutable lifetime or billing-cycle creation event.
 - Normal sign-out no longer deletes Room customers, products, documents, settings, or creation events.
 - Local-Drive customer, product, and document deletion now preserves rows and records deletion history; repository restore clears the deletion marker without creating a new document event.
 - Customer and product limits count only active local rows, so deletion frees a slot and restoration rechecks the limit.
@@ -95,8 +98,8 @@
 - Instrumentation execution requires an available emulator/device; compilation can still be validated locally.
 - Google Drive OAuth and production credentials are external blockers and will not be configured in this task.
 - Supabase migrations will be authored and tested only against a verified local instance; production will not be touched.
-- Existing/generated PDFs, assets, local archive lifecycle, rollback-capable restore, Android key client, SAF UI, and local scheduling are implemented, but backend migrations/configuration are unapplied and Drive-specific transport/device QA remain incomplete; no production backup flow should be advertised yet.
+- Existing/generated PDFs, assets, archive lifecycle, rollback-capable restore, Android key client, SAF UI, local scheduling, and Drive transport abstractions are implemented. Backend migrations/configuration remain unapplied and Drive/device runtime QA is incomplete; no production backup flow should be advertised yet.
 
 ## Next Executable Task
 
-Run real-device backup/create/export/restore and scheduled-work QA after the local backend migrations/configuration are available. Drive transport and legacy rollout remain externally blocked.
+Apply the reviewed migrations in a controlled non-production/staging window, configure secrets/OAuth, deploy compatible APIs, then run the phone and database checklists. These are external actions and were not performed.

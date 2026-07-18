@@ -1,6 +1,6 @@
 # Data Ownership Matrix
 
-Status: planning only. No schema change is applied by this document.
+Status: approved ownership contract. Android and backend changes exist locally; no production schema change was applied.
 
 | Entity | Primary owner in V1 | Local offline access | Supabase role | Google Drive backup | Notes |
 | --- | --- | --- | --- | --- | --- |
@@ -41,4 +41,3 @@ Status: planning only. No schema change is applied by this document.
 - Backup restore cannot lower server usage.
 - Replayed `operation_id` must be idempotent.
 - Same user/document and user/operation combinations must not be counted twice.
-

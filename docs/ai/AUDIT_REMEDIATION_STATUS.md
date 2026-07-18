@@ -116,3 +116,11 @@ The following cannot be completed safely inside this Android repository alone:
 - Updating Meta developer-console configuration.
 
 No production configuration has been changed, `main` has not been modified, and PR #3 must remain draft.
+
+## Local-First completion branch
+
+- Local branch `codex/local-first-complete` contains the completed Android implementation and documentation without changing `main` or any remote.
+- Signed entitlements and active leases gate new Local-Drive documents; immutable creation events reconcile idempotently and remain after acknowledgement.
+- Encrypted backup/restore includes structured Room data, assets, PDFs, bounded archive parsing, relationship validation, safety backup, and rollback.
+- Drive transport compiles behind unavailable-by-default external configuration with fake-client tests and bounded workers.
+- Full host baseline passes. Production migrations/configuration, SQL runtime checks, OAuth, and physical-device QA remain external blockers.

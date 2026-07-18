@@ -1,10 +1,10 @@
 # Implementation Phases
 
-Status: planning only. Do not implement these phases in the current remediation branch.
+Status: historical PR-boundary plan. The local completion branch implements the Android foundation and local backend contracts; production rollout remains separate and blocked.
 
 ## Branch Boundaries
 
-Future implementation should be split into local branches / PRs:
+The intended review boundaries remain:
 
 1. `feature/local-first-room-foundation`
 2. `feature/document-quota-v2`
@@ -85,4 +85,3 @@ Acceptance:
 - Do not mix backend schema changes into Android-only remediation.
 - Do not delete legacy cloud data in initial local-first rollout.
 - Do not implement live multi-device sync in V1.
-

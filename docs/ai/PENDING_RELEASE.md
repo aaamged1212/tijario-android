@@ -13,6 +13,7 @@ The counters migration is required to manage sequential document numbers without
 - **Android Update Status**: NOT uploaded. Android document edit/export fixes are implemented locally and need device QA/source-control handoff.
 - **Current Local Remediation Status**: `RemoteCacheReplacementPolicy.shouldReplace(...)` is integrated into Android remote-cache ingestion and pull-sync replacement decisions on local branch `codex/full-audit-cache-policy-docs`; architecture documents for Local-First/Drive backup are planning-only and do not change runtime behavior.
 - **Local-First Android Status**: Room migrations through schema 17, encrypted backup/restore with SAF UI, offline PDF preparation, and local scheduling exist only on local branch `codex/local-first-complete`; they have not been uploaded or released. The required backup-key backend migrations/configuration are also unapplied.
+- **Local-First Completion Status**: Signed entitlement/lease enforcement, immutable event reconciliation, Drive transport abstractions, bounded archive validation, pre-restore safety backup, and release runbooks are complete locally. Backend migrations `20260718090000`, `20260718100000`, and `20260718110000` remain unapplied; signing/envelope secrets and Google OAuth remain unconfigured.
 - **Batch A status**: Document numbering idempotency and operation_id sync propagation are completed locally.
 - **Adaptive UI QA Status**: Batch B UI recovery plus the Android UI polish follow-up are implemented locally and Gradle-verified. Dashboard/Documents now use `newestDocuments`, quick actions are adaptive, Customer/Product/Document cards have localized long-press sheets, document forms use searchable Customer/Product pickers, and the reported label/icon/phone/quote-number/product-card polish issues are addressed in code. The Android local document-options follow-up adds local shipping, percentage discount, and multi-select taxes/payment/terms without Web/API or Supabase changes. The document edit/export follow-up keeps edit saves on update, uses local cached documents for immediate draft numbers, preserves edited title/language and manual document numbers in local cache/list/detail/export paths, saves locally generated PDFs to public Downloads with legacy storage permission handling on API 28 and below, orders documents by newest creation time, reuses latest selected tax for new documents, adds local discount/extra-fee presets, and restricts email export to email apps.
 - **Validation Status**: `compileDebugKotlin`, `testDebugUnitTest`, `assembleDebug`, and `git diff --check` passed. `lintDebug` previously timed out twice before a pass/fail result.
@@ -20,7 +21,7 @@ The counters migration is required to manage sequential document numbers without
 - **Android Release Artifact**: `app/release/app-release.aab` remains present and git-ignored; do not upload or commit it.
 
 ## Correct Release Order
-1. Apply all three Supabase migrations in timestamp order.
-2. Deploy compatible Web/API code from `fix/document-number-allocation-collision`.
-3. Verify Vercel logs and sync idempotency under retries.
-4. Upload an Android update only after explicit approval and successful server verification.
+1. Preserve existing migration state and apply the three Local-First migrations only in the documented approved order.
+2. Configure server-only signing/envelope keys and deploy the compatible Web/API branch.
+3. Run database post-deploy checks and the physical-phone checklist, including Drive OAuth behavior.
+4. Upload Android only after explicit approval and successful staged verification.
