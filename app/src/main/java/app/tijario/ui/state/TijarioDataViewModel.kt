@@ -300,7 +300,7 @@ class TijarioDataViewModel(
     fun clearSessionCache() {
         viewModelScope.launch {
             cacheCollectionJob?.cancel()
-            repository.clearLocalCache()
+            repository.clearTransientSessionState()
             uiStateMutable.value = TijarioDataUiState()
         }
     }

@@ -2,7 +2,7 @@
 
 - **Android Repo Branch**: `codex/local-first-complete`
 - **Web Repo Branch**: `codex/local-first-control-plane` reserved for local control-plane implementation.
-- **Current Local-First Phase**: Room schema 16 foundation is implemented locally; operational data-mode routing is next.
+- **Current Local-First Phase**: Room schema 16 foundation and explicit data-mode routing are implemented locally; soft deletion, restoration, snapshots, and active-limit enforcement are next.
 
 ## Tijario status:
 - Google Play Closed Testing is active.
@@ -10,6 +10,9 @@
 - Local architecture docs now define the future Local-First direction as planning only: Room as operational source of truth, Supabase as control plane, Google Drive as encrypted backup/restore transport, and document usage based on immutable creation events.
 - Room schema 16 implements the first Local-First foundation: `document_creation_events`, `account_entitlements`, `backup_settings`, `backup_records`, `backup_file_entries`, `device_bindings`, and `deleted_record_history`.
 - Legacy `local_usage_ledger` rows migrate into immutable creation events. Successful document sync changes `PENDING` to `ACKNOWLEDGED` and no longer deletes the event.
+- Explicit `local_drive` accounts now use Room for operational customer, product, document, and business-setting writes and do not enqueue those writes for cloud synchronization. Missing or unknown modes remain `legacy_cloud`.
+- Account usage persists data mode, quota scope, limits, template policy, and entitlement version locally. Local-Drive document creation records an immutable lifetime or billing-cycle creation event.
+- Normal logout clears transient session state without deleting account-local Room data; destructive device-data removal remains a separate explicit path.
 - Local work exists to reduce Vercel usage and prevent retry loops.
 - Product decision: allow duplicate customer WhatsApp numbers.
 - Customer identity must be customer.id, not whatsapp_number.

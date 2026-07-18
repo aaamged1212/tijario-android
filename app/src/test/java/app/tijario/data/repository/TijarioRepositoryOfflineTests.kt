@@ -7,6 +7,7 @@ import app.tijario.data.local.BusinessSettingsEntity
 import app.tijario.data.local.CustomerEntity
 import app.tijario.data.local.DocumentEntity
 import app.tijario.data.local.DocumentCreationEventEntity
+import app.tijario.data.local.AccountEntitlementEntity
 import app.tijario.data.local.OfflineQuotaLeaseEntity
 import app.tijario.data.local.ProductEntity
 import app.tijario.data.local.SyncOutboxEntity
@@ -56,6 +57,24 @@ class TijarioRepositoryOfflineTests {
         consumedCount = 0,
         expiresAt = System.currentTimeMillis() + 100_000,
         status = "ACTIVE",
+    )
+
+    private fun localDriveEntitlement(documentsUsed: Int = 0) = AccountEntitlementEntity(
+        userId = userId,
+        planCode = "free",
+        dataMode = "local_drive",
+        documentLimitScope = "lifetime",
+        documentLimit = 5,
+        documentsUsed = documentsUsed,
+        customerLimit = 5,
+        productLimit = 5,
+        allowedTemplateIdsJson = "[\"tijario-classic\"]",
+        removeTijarioBranding = false,
+        entitlementVersion = 1L,
+        verifiedAt = 1L,
+        expiresAt = null,
+        signedPayload = null,
+        signature = null,
     )
 
     // Subclass of repository under test to stub out active Supabase Auth & Remote Fetch connections
@@ -447,6 +466,59 @@ class TijarioRepositoryOfflineTests {
 
         // Verify that products cache update was never called because it is marked as PENDING_SYNC
         coVerify(exactly = 0) { dao.upsertProducts(any()) }
+    }
+
+    @Test
+    fun createCustomer_routesLocalDriveToRoomWithoutOperationalOutbox() = runBlocking {
+        coEvery { dao.getAccountEntitlement(userId) } returns localDriveEntitlement()
+        coEvery { dao.upsertCustomer(any()) } returns Unit
+
+        val result = repository.createCustomer(Customer(name = "Offline customer", whatsappNumber = "1234567"))
+
+        assertTrue(result.isSuccess)
+        coVerify(exactly = 1) { dao.upsertCustomer(match { it.syncStatus == "LOCAL_ONLY" }) }
+        coVerify(exactly = 0) { dao.upsertOutbox(any()) }
+    }
+
+    @Test
+    fun createDocument_routesLocalDriveToRoomWithoutBackendOrLease() = runBlocking {
+        coEvery { dao.getAccountEntitlement(userId) } returns localDriveEntitlement()
+        every { dao.observeDocuments(userId) } returns flowOf(emptyList())
+        coEvery { dao.upsertCustomer(any()) } returns Unit
+        coEvery { dao.insertDocumentItems(any()) } returns Unit
+        coEvery { dao.getCreationEventByDocument(userId, any()) } returns null
+        coEvery { dao.getPendingCreationEvents(userId) } returns emptyList()
+        coEvery { dao.insertCreationEvent(any()) } returns 1L
+        val documentSlot = slot<DocumentEntity>()
+        coEvery { dao.upsertDocument(capture(documentSlot)) } answers {
+            coEvery { dao.getDocument(userId, documentSlot.captured.id) } returns documentSlot.captured
+            Unit
+        }
+
+        val result = repository.createDocument(
+            CreateDocumentRequest(
+                type = DocumentType.Invoice,
+                customer = DocumentCustomerInput("Offline customer", "1234567"),
+                items = listOf(DocumentItemInput(name = "Service", quantity = 1, unitPrice = 10.0)),
+                currency = "SAR",
+            ),
+        )
+
+        assertTrue(result.ok)
+        coVerify(exactly = 0) { backendApiClient.createDocument(any()) }
+        coVerify(exactly = 0) { dao.upsertOutbox(any()) }
+        coVerify(exactly = 1) { dao.insertCreationEvent(match { it.quotaScope == "lifetime" }) }
+    }
+
+    @Test
+    fun clearTransientSessionState_doesNotDeleteRoomData() {
+        repository.clearTransientSessionState()
+
+        coVerify(exactly = 0) { dao.clearBusinessSettings() }
+        coVerify(exactly = 0) { dao.clearCustomers() }
+        coVerify(exactly = 0) { dao.clearProducts() }
+        coVerify(exactly = 0) { dao.clearDocuments() }
+        coVerify(exactly = 0) { dao.clearCreationEvents() }
     }
 
     @Test

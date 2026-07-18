@@ -1,5 +1,12 @@
 # AI Changelog
 
+## 2026-07-18 - Local-First data-mode routing
+- Persisted account data mode and entitlement limits from the control-plane usage response.
+- Routed Local-Drive operational CRUD and numbering to Room while preserving legacy-cloud behavior by default.
+- Prevented normal logout from deleting operational Room data.
+- Added focused JVM coverage for mode parsing, Room-only writes, quota-event creation, and session clearing. Full JVM tests and debug/instrumentation compilation passed; lint timed out after three minutes.
+- No push, deploy, migration apply, external-console change, or Play upload.
+
 ## 2026-07-18 - Cache policy remediation and Local-First architecture planning
 - Centralized Android remote-cache replacement decisions through `RemoteCacheReplacementPolicy.shouldReplace(...)` in bootstrap and pull-sync ingestion paths.
 - Preserved local unsynced, conflict, blocked, and terminal non-retryable states from remote overwrite.

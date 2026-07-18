@@ -11,15 +11,18 @@
 
 ## Current Phase
 
-`TESTED` - Room Local-First foundation and immutable document creation events.
+`TESTED` - Explicit account data mode, Room-first operational writes, and non-destructive logout.
 
 ## Phase Checklist
 
 - `TESTED` Replace the mutable/deletable local usage ledger with immutable document creation events while preserving existing rows.
 - `TESTED` Add persisted account entitlement, data-mode, device-binding, backup settings, backup records, and backup file metadata.
 - `TESTED` Add Room migration coverage and generated schema version 16.
-- `NOT_STARTED` Route operational repositories by explicit `legacy_cloud` / `local_drive` mode.
-- `NOT_STARTED` Implement offline CRUD, quota reconciliation, backup/restore, Drive transport, and legacy migration.
+- `TESTED` Route operational repositories by explicit `legacy_cloud` / `local_drive` mode while defaulting unknown accounts to legacy behavior.
+- `TESTED` Route Local-Drive customer, product, document, and business-setting writes to Room without operational outbox or cloud CRUD.
+- `TESTED` Preserve account-local Room data during normal logout and clear only transient in-memory session state.
+- `IN_PROGRESS` Complete Local-Drive soft deletion, restoration, snapshots, active-count limits, and quota reconciliation.
+- `NOT_STARTED` Implement backup/restore, Drive transport, and legacy migration.
 - `NOT_STARTED` Implement backend control-plane V2 migrations and contracts locally without applying them.
 
 ## Preserved Local Files
@@ -35,6 +38,10 @@
 - `testDebugUnitTest` passed.
 - `assembleDebugAndroidTest` passed.
 - Targeted `TijarioRepositoryOfflineTests` passed.
+- Targeted `AccountDataModeTest` and `TijarioRepositoryOfflineTests` passed after data-mode routing.
+- Full `testDebugUnitTest` passed after data-mode routing.
+- `assembleDebugAndroidTest assembleDebug` passed after data-mode routing.
+- `lintDebug` exceeded the three-minute local command timeout and is not counted as passed.
 - `adb devices` was blocked because `adb` is unavailable.
 
 ## Actual Outcomes
@@ -43,6 +50,10 @@
 - Both execution branches were created locally from the required starting commits.
 - Room schema advanced from 15 to 16 and generated schema files are present.
 - Existing `local_usage_ledger` rows migrate into `document_creation_events`; successful sync acknowledges events instead of deleting them.
+- Account usage now persists the server-provided data mode, limit scope, entitlement version, limits, and template policy in Room.
+- Local-Drive public CRUD entry points use Room and do not enqueue operational cloud mutations; refresh/sync entry points are no-ops for operational data.
+- Local-Drive document creation checks the persisted entitlement and records a lifetime or billing-cycle creation event without requiring an online lease.
+- Normal sign-out no longer deletes Room customers, products, documents, settings, or creation events.
 - JVM tests and instrumentation compilation passed. Runtime migration execution is blocked by the unavailable Android test environment.
 - No push, deploy, migration apply, GitHub API action, or external-console change occurred.
 
@@ -54,4 +65,4 @@
 
 ## Next Executable Task
 
-Route normal sign-out and operational CRUD through explicit data mode without deleting account-local data.
+Complete Local-Drive soft deletion, restoration, historical snapshots, and active-count enforcement without changing legacy-cloud behavior.

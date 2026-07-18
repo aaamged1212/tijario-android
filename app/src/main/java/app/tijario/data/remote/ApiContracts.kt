@@ -217,6 +217,9 @@ data class AiV2UsageResponse(
 @Serializable
 data class AccountUsageData(
     @SerialName("plan_code") val planCode: String,
+    @SerialName("data_mode") val dataMode: String = "legacy_cloud",
+    @SerialName("document_limit_scope") val documentLimitScope: String = "billing_cycle",
+    @SerialName("entitlement_version") val entitlementVersion: Long = 0,
     @SerialName("monthly_document_limit") val monthlyDocumentLimit: Int,
     @SerialName("documents_used") val documentsUsed: Int,
     @SerialName("monthly_ai_limit") val monthlyAiLimit: Int = 0,

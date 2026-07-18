@@ -1,5 +1,15 @@
 # Agent Handoff (Android & Web Repos)
 
+## 2026-07-18 (Session - Local-First data-mode routing)
+- Added explicit `legacy_cloud`, `local_drive`, and reserved `cloud_sync_future` parsing with a safe legacy default.
+- Persisted control-plane entitlement fields from account usage and used them for local quota scope and limits.
+- Routed Local-Drive customer, product, document, and business-setting writes to Room without operational cloud CRUD or outbox entries.
+- Made operational refresh/sync no-op in Local-Drive mode and kept complete-document reads local.
+- Changed normal logout/session clearing to preserve account-local Room data.
+- Focused and full JVM tests passed for safe mode defaults, local Room routing, immutable creation events, and non-destructive session clearing; instrumentation and debug APK compilation passed. `lintDebug` timed out after three minutes.
+- Remaining: soft deletion/restoration, historical snapshots, active-count limit enforcement, backup/restore, Drive transport, migration UI, and backend control-plane contracts.
+- No push, deploy, production migration, external-console change, or Play upload.
+
 ## 2026-07-18 (Session - Local-First Room foundation)
 - **Agent**: Codex
 - **Branches**: Android `codex/local-first-complete`; backend `codex/local-first-control-plane`.

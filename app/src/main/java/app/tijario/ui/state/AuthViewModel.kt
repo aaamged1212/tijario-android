@@ -189,7 +189,7 @@ class AuthViewModel(
             } catch (_: Exception) {
                 // Ignore sign-out errors.
             }
-            repository.clearLocalCache()
+            repository.clearTransientSessionState()
             _authState.value = CentralAuthState.Unauthenticated
         }
     }
