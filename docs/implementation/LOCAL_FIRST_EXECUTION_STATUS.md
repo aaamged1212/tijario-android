@@ -11,7 +11,7 @@
 
 ## Current Phase
 
-`TESTED` - Offline encrypted logical archive foundation.
+`TESTED` - Account-scoped Room logical export and transactional restore foundation.
 
 ## Phase Checklist
 
@@ -22,9 +22,11 @@
 - `TESTED` Route Local-Drive customer, product, document, and business-setting writes to Room without operational outbox or cloud CRUD.
 - `TESTED` Preserve account-local Room data during normal logout and clear only transient in-memory session state.
 - `TESTED` Add repository-level Local-Drive soft deletion/restoration and active customer/product limit enforcement.
-- `IN_PROGRESS` Complete historical customer snapshots, restoration UI, and quota reconciliation.
+- `TESTED` Preserve historical customer snapshots and explicit document deletion/PDF-generation state in Room 17.
+- `IN_PROGRESS` Complete restoration UI and quota reconciliation.
 - `TESTED` Implement the offline encrypted `.tijario` archive codec with authenticated encryption, logical-file checksums, account binding, and path validation.
-- `IN_PROGRESS` Connect Room logical export, PDF preparation, temporary restore database, atomic replacement, and backup UI to the archive codec.
+- `TESTED` Connect deterministic, account-scoped Room logical export and prevalidated transactional restore to the archive codec data contract.
+- `IN_PROGRESS` Connect PDF/asset preparation, local archive files, key management, and backup/restore UI.
 - `NOT_STARTED` Implement Drive transport and legacy migration UI.
 - `NOT_STARTED` Implement backend control-plane V2 migrations and contracts locally without applying them.
 
@@ -46,6 +48,8 @@
 - `assembleDebugAndroidTest assembleDebug` passed after data-mode routing.
 - `lintDebug` exceeded the three-minute local command timeout and is not counted as passed.
 - `adb devices` was blocked because `adb` is unavailable.
+- Focused historical snapshot JVM tests and `assembleDebugAndroidTest` passed for Room 17.
+- Focused logical backup snapshot JVM tests and `assembleDebugAndroidTest` passed.
 
 ## Actual Outcomes
 
@@ -61,6 +65,7 @@
 - Customer and product limits count only active local rows, so deletion frees a slot and restoration rechecks the limit.
 - Focused repository tests and `assembleDebugAndroidTest` passed for soft deletion, restoration, limit failures, and no-credit document restore.
 - Backup codec JVM tests passed for encrypted offline round-trip, cross-account rejection, tamper rejection, required structured data, and path traversal protection.
+- Room logical backup exports all approved account-scoped operational/control-plane cache tables as typed JSON. Restore validates table identity, schema columns, and row ownership before replacing only that account's rows in one database transaction.
 - JVM tests and instrumentation compilation passed. Runtime migration execution is blocked by the unavailable Android test environment.
 - No push, deploy, migration apply, GitHub API action, or external-console change occurred.
 
@@ -69,8 +74,8 @@
 - Instrumentation execution requires an available emulator/device; compilation can still be validated locally.
 - Google Drive OAuth and production credentials are external blockers and will not be configured in this task.
 - Supabase migrations will be authored and tested only against a verified local instance; production will not be touched.
-- The archive cryptographic/container layer is implemented, but Room export/restore and key-envelope integration are not complete; no user backup should be advertised yet.
+- The archive cryptographic/container and Room logical-data layers are implemented, but PDF/assets, local archive lifecycle, key-envelope integration, and UI are not complete; no user backup should be advertised yet.
 
 ## Next Executable Task
 
-Connect deterministic Room logical export and temporary-database restore to the validated encrypted archive.
+Add offline local archive-file lifecycle, PDF/asset staging, and Android Keystore-backed key handling without adding Drive yet.

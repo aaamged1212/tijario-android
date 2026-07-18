@@ -15,7 +15,8 @@
 - Normal logout clears transient session state without deleting account-local Room data; destructive device-data removal remains a separate explicit path.
 - Local-Drive deletion retains customer, product, and document rows plus deletion history. Repository restore reactivates the same identity and does not create a second document usage event.
 - Room schema 17 stores customer name/WhatsApp/city snapshots on documents, explicit document deletion timestamps, and PDF generation status so historical documents do not silently change when the customer record changes.
-- The offline `.tijario` codec uses AES-GCM and SHA-256 to authenticate a versioned logical archive and blocks cross-account restore and unsafe archive paths. It is not yet connected to Room export/restore or Google Drive.
+- The offline `.tijario` codec uses AES-GCM and SHA-256 to authenticate a versioned logical archive and blocks cross-account restore and unsafe archive paths. Room logical export/restore is connected at the data layer; archive files, assets/PDFs, key handling, UI, and Google Drive are not yet connected.
+- Account-scoped Room logical export and transactional restore now serialize approved tables as typed JSON, reject cross-account rows or unsupported columns before writes, and roll back database replacement on SQL failure. Local archive files, assets/PDFs, keys, UI, and Drive remain pending.
 - Local work exists to reduce Vercel usage and prevent retry loops.
 - Product decision: allow duplicate customer WhatsApp numbers.
 - Customer identity must be customer.id, not whatsapp_number.

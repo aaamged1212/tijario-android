@@ -246,3 +246,9 @@
 - Local document rendering now prefers the immutable customer snapshot over the mutable customer directory record.
 - Added JVM snapshot coverage and compiled the Room migration instrumentation suite.
 - No push, deploy, migration apply, external-console change, or Play upload.
+
+## 2026-07-18 - Logical Room backup and restore
+- Added deterministic typed-JSON export for all approved account-scoped Room tables.
+- Added preflight account/schema validation and transactionally atomic replacement of only the restored account's rows.
+- Added JVM coverage for typed round-trip, cross-account rejection, malformed rows, and required logical inventory.
+- No push, deploy, migration apply, external-console change, or Play upload.

@@ -370,3 +370,15 @@
   - Android test APK compilation passed with `assembleDebugAndroidTest`.
   - Migration execution still requires an emulator/device because `adb` is unavailable.
 - **Safety Status**: Local Android work only. No push, deployment, migration apply, external-console change, or Play upload.
+
+## 2026-07-18 (Logical Room backup and restore)
+- **Agent**: Codex
+- **Branch**: `codex/local-first-complete`
+- **Action**: Implemented account-scoped logical Room export and transactional restore foundation.
+- **Details**:
+  - Approved Room tables serialize to deterministic typed JSON entries inside the existing `.tijario` contract.
+  - Restore validates table identity, live columns, row shape, and account ownership before any write.
+  - Account rows are replaced in foreign-key-safe order inside one SQLite transaction; failures preserve the active database.
+- **Validation**: Focused JVM tests and `assembleDebugAndroidTest` passed.
+- **Remaining**: PDF/assets, local archive-file lifecycle, keys, UI, Drive transport, and device runtime QA.
+- **Safety Status**: Local Android work only. No push, deployment, migration apply, external-console change, or Play upload.
