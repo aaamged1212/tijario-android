@@ -2,7 +2,7 @@
 
 - **Android Repo Branch**: `codex/local-first-complete`
 - **Web Repo Branch**: `codex/local-first-control-plane` reserved for local control-plane implementation.
-- **Current Local-First Phase**: Room foundation, data-mode routing, repository soft deletion/restoration, active-limit enforcement, historical customer snapshots, and the encrypted archive codec are implemented locally. Room export/restore, UI, quota reconciliation, and Drive remain.
+- **Current Local-First Phase**: Room operational ownership, soft deletion/restoration, immutable usage events, historical snapshots, encrypted logical backup/restore, Android Keystore key wrapping, and SAF export/import UI are implemented locally. Missing-PDF regeneration, scheduling, Drive transport, release integration, and device QA remain.
 
 ## Tijario status:
 - Google Play Closed Testing is active.
@@ -15,9 +15,9 @@
 - Normal logout clears transient session state without deleting account-local Room data; destructive device-data removal remains a separate explicit path.
 - Local-Drive deletion retains customer, product, and document rows plus deletion history. Repository restore reactivates the same identity and does not create a second document usage event.
 - Room schema 17 stores customer name/WhatsApp/city snapshots on documents, explicit document deletion timestamps, and PDF generation status so historical documents do not silently change when the customer record changes.
-- The offline `.tijario` codec uses AES-GCM and SHA-256 to authenticate a versioned logical archive and blocks cross-account restore and unsafe archive paths. Room logical export/restore is connected at the data layer; archive files, assets/PDFs, key handling, UI, and Google Drive are not yet connected.
-- Account-scoped Room logical export and transactional restore now serialize approved tables as typed JSON, reject cross-account rows or unsupported columns before writes, and roll back database replacement on SQL failure. Portable keys, missing-PDF generation, asset restoration, UI, and Drive remain pending.
-- Offline backup creation now collects existing account logo, product images, and document PDFs, records missing/failed PDF counts, verifies the encrypted archive, and atomically finalizes it in private storage. Portable key recovery, missing-PDF generation, asset restoration, UI, scheduling, and Drive remain pending.
+- The offline `.tijario` codec uses AES-GCM and SHA-256 to authenticate a versioned logical archive and blocks cross-account restore and unsafe archive paths. Room export/restore, account assets, versioned wrapped keys, local archive files, and SAF UI are connected locally; Google Drive transport and missing-PDF regeneration are not.
+- Account-scoped Room logical export and transactional restore serialize approved tables as typed JSON, reject cross-account rows or unsupported columns before writes, and roll back database/assets on failure. Missing-PDF generation, scheduling, Drive, and device runtime QA remain pending.
+- Offline backup creation collects existing account logo, product images, and document PDFs, records missing/failed PDF counts, verifies the encrypted archive, and atomically finalizes it in private storage. The settings UI can export/import through SAF; backend key provisioning is still local/unreleased.
 - Local work exists to reduce Vercel usage and prevent retry loops.
 - Product decision: allow duplicate customer WhatsApp numbers.
 - Customer identity must be customer.id, not whatsapp_number.

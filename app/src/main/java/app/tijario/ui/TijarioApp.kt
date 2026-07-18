@@ -99,6 +99,7 @@ import app.tijario.ui.screens.ChangePasswordScreen
 import app.tijario.ui.screens.IntroWalkthroughScreen
 import app.tijario.ui.screens.DocumentDetailScreen
 import app.tijario.ui.screens.SettingsHomeScreen
+import app.tijario.ui.screens.BackupSettingsScreen
 import app.tijario.ui.screens.UpgradePlanScreen
 import app.tijario.ui.state.TijarioDataViewModel
 import app.tijario.ui.state.TijarioDataViewModelFactory
@@ -120,6 +121,7 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.activity.compose.BackHandler
 import app.tijario.ui.components.LocalAdaptiveLayoutInfo
 import app.tijario.ui.components.ProvideAdaptiveLayout
+import io.github.jan.supabase.auth.auth
 
 private data class RootTab(
     val route: String,
@@ -836,6 +838,7 @@ private fun TijarioAppContent() {
                         onStoreSettings = { navController.navigate("business-settings") },
                         onAccountSettings = { navController.navigate("account-settings") },
                         onAppSettings = { navController.navigate("app-settings") },
+                        onBackupSettings = { navController.navigate("backup-settings") },
                         onUpgrade = { navController.navigate("upgrade-plan") },
                         onLogout = {
                             notificationsViewModel.logout()
@@ -887,6 +890,12 @@ private fun TijarioAppContent() {
                 }
                 composable("app-settings") {
                     AppSettingsScreen(onBack = { navController.popBackStack() })
+                }
+                composable("backup-settings") {
+                    BackupSettingsScreen(
+                        userId = app.tijario.config.Supabase.client.auth.currentUserOrNull()?.id.orEmpty(),
+                        onBack = { navController.popBackStack() },
+                    )
                 }
                 composable("upgrade-plan") {
                     UpgradePlanScreen(

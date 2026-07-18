@@ -130,6 +130,7 @@ fun SettingsHomeScreen(
     onStoreSettings: () -> Unit,
     onAccountSettings: () -> Unit,
     onAppSettings: () -> Unit,
+    onBackupSettings: () -> Unit,
     onUpgrade: () -> Unit,
     onLogout: () -> Unit,
 ) {
@@ -234,6 +235,7 @@ fun SettingsHomeScreen(
             SettingsOption(Icons.Filled.Business, t("store_settings"), t("store_settings_desc"), onStoreSettings)
             SettingsOption(Icons.Filled.AccountCircle, t("account_settings"), t("account_settings_desc"), onAccountSettings)
             SettingsOption(Icons.Filled.Settings, t("app_settings"), t("app_settings_desc"), onAppSettings)
+            SettingsOption(Icons.Filled.Description, t("backup_restore"), t("backup_restore_desc"), onBackupSettings)
             SettingsOption(Icons.Filled.WorkspacePremium, t("upgrade_plan"), t("upgrade_plan_desc"), onUpgrade)
 
             Button(

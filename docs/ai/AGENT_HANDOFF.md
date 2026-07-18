@@ -1,5 +1,13 @@
 # Agent Handoff (Android & Web Repos)
 
+## 2026-07-18 (Encrypted backup SAF UI)
+- **Agent**: Codex
+- **Branch**: `codex/local-first-complete`
+- **Action**: Added a localized backup/restore settings screen backed by the encrypted local archive coordinator.
+- **Details**: Users can create a private local backup, export a newly created `.tijario` archive through Android Storage Access Framework, or import one after explicit confirmation. Import size is capped before authenticated account/schema validation. No Drive SDK or external console setting was added.
+- **Validation**: Focused backup UI/key/archive JVM tests, `compileDebugKotlin`, and `assembleDebugAndroidTest` passed. Real SAF, Keystore, and restore QA still require a device/emulator and a deployed key-envelope backend.
+- **Safety Status**: Local commits only. No push, deployment, migration apply, external-console change, or Play upload.
+
 ## 2026-07-18 (Session - Offline backup archive foundation)
 - Added a versioned `.tijario` logical archive codec using AES-GCM authenticated encryption.
 - Added per-file SHA-256 inventory verification, account binding, mandatory structured document entries, duplicate/path traversal rejection, and fail-closed parsing.

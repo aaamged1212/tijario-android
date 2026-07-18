@@ -1,6 +1,6 @@
 # Backup Format V1
 
-Status: partially implemented locally. The encrypted archive codec, logical Room export/transactional restore, staged asset restore/rollback, local asset collection, verified local-file finalization, and Android Keystore device wrapping client exist. Backend migrations/deployment, PDF regeneration, UI, scheduling, and Drive transport remain incomplete.
+Status: partially implemented locally. The encrypted archive codec, logical Room export/transactional restore, staged asset restore/rollback, local asset collection, verified local-file finalization, Android Keystore device wrapping, and SAF export/import UI exist. Backend migrations/deployment, missing-PDF regeneration, scheduling, Drive transport, and device QA remain incomplete.
 
 ## Key Handling
 

@@ -273,3 +273,7 @@
 - Added Android Keystore RSA-OAEP key generation and authenticated backend key-envelope contract DTO/client.
 - Cached only device-wrapped key material by version and resolved the exact archive key version during restore.
 - Added a coordinator that zeroes transient account keys after backup operations; no secret or external configuration was added.
+# 2026-07-18 - Encrypted backup SAF UI
+- Added a localized settings entry for encrypted local backup and restore.
+- Added native SAF export/import with restore confirmation, bounded archive reads, and safe user-facing outcomes.
+- Verified focused JVM contracts, Kotlin compilation, and Android test APK assembly locally.
