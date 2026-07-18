@@ -24,11 +24,17 @@ import java.math.BigDecimal
         SyncStateEntity::class,
         SyncOutboxEntity::class,
         OfflineQuotaLeaseEntity::class,
-        LocalUsageLedgerEntity::class,
+        DocumentCreationEventEntity::class,
+        AccountEntitlementEntity::class,
+        BackupSettingsEntity::class,
+        BackupRecordEntity::class,
+        BackupFileEntryEntity::class,
+        DeviceBindingEntity::class,
+        DeletedRecordEntity::class,
         AnnouncementEntity::class,
         AnnouncementReceiptOutboxEntity::class,
     ],
-    version = 15,
+    version = 16,
     exportSchema = true,
 )
 @TypeConverters(BigDecimalConverter::class)
@@ -389,6 +395,160 @@ abstract class TijarioDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_15_16 = object : Migration(15, 16) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS document_creation_events (
+                        id TEXT NOT NULL,
+                        user_id TEXT NOT NULL,
+                        document_id TEXT NOT NULL,
+                        operation_id TEXT NOT NULL,
+                        installation_id TEXT NOT NULL,
+                        lease_id TEXT,
+                        plan_code TEXT NOT NULL,
+                        quota_scope TEXT NOT NULL,
+                        period_key TEXT NOT NULL,
+                        status TEXT NOT NULL,
+                        created_at_client INTEGER NOT NULL,
+                        acknowledged_at_server INTEGER,
+                        entitlement_version INTEGER,
+                        source TEXT NOT NULL,
+                        migrated_baseline INTEGER NOT NULL DEFAULT 0,
+                        PRIMARY KEY(id)
+                    )
+                    """.trimIndent(),
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_document_creation_events_user_id ON document_creation_events (user_id)")
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_document_creation_events_user_id_document_id ON document_creation_events (user_id, document_id)")
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_document_creation_events_user_id_operation_id ON document_creation_events (user_id, operation_id)")
+                db.execSQL(
+                    """
+                    INSERT OR IGNORE INTO document_creation_events (
+                        id, user_id, document_id, operation_id, installation_id, lease_id,
+                        plan_code, quota_scope, period_key, status, created_at_client,
+                        acknowledged_at_server, entitlement_version, source, migrated_baseline
+                    )
+                    SELECT
+                        usage_event_id, user_id, document_id, operation_id, 'legacy-installation',
+                        NULLIF(lease_id, ''), 'legacy', 'billing_cycle', period_month,
+                        CASE WHEN status = 'SYNCED' THEN 'ACKNOWLEDGED' ELSE status END,
+                        created_at, synced_at, NULL, 'legacy_ledger', 0
+                    FROM local_usage_ledger
+                    """.trimIndent(),
+                )
+                db.execSQL("DROP TABLE local_usage_ledger")
+
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS account_entitlements (
+                        user_id TEXT NOT NULL,
+                        plan_code TEXT NOT NULL,
+                        data_mode TEXT NOT NULL,
+                        document_limit_scope TEXT NOT NULL,
+                        document_limit INTEGER,
+                        documents_used INTEGER NOT NULL,
+                        customer_limit INTEGER,
+                        product_limit INTEGER,
+                        allowed_template_ids_json TEXT NOT NULL,
+                        remove_tijario_branding INTEGER NOT NULL,
+                        entitlement_version INTEGER NOT NULL,
+                        verified_at INTEGER NOT NULL,
+                        expires_at INTEGER,
+                        signed_payload TEXT,
+                        signature TEXT,
+                        PRIMARY KEY(user_id)
+                    )
+                    """.trimIndent(),
+                )
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS backup_settings (
+                        user_id TEXT NOT NULL,
+                        frequency TEXT NOT NULL,
+                        wifi_only INTEGER NOT NULL,
+                        charging_only INTEGER NOT NULL,
+                        drive_enabled INTEGER NOT NULL,
+                        retention_daily INTEGER NOT NULL,
+                        retention_weekly INTEGER NOT NULL,
+                        retention_monthly INTEGER NOT NULL,
+                        updated_at INTEGER NOT NULL,
+                        PRIMARY KEY(user_id)
+                    )
+                    """.trimIndent(),
+                )
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS backup_records (
+                        id TEXT NOT NULL,
+                        user_id TEXT NOT NULL,
+                        local_relative_path TEXT NOT NULL,
+                        format_version INTEGER NOT NULL,
+                        status TEXT NOT NULL,
+                        size_bytes INTEGER NOT NULL,
+                        checksum TEXT,
+                        created_at INTEGER NOT NULL,
+                        uploaded_at INTEGER,
+                        drive_file_id TEXT,
+                        last_error TEXT,
+                        PRIMARY KEY(id)
+                    )
+                    """.trimIndent(),
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_backup_records_user_id ON backup_records (user_id)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_backup_records_created_at ON backup_records (created_at)")
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS backup_file_entries (
+                        id TEXT NOT NULL,
+                        backup_id TEXT NOT NULL,
+                        relative_path TEXT NOT NULL,
+                        size_bytes INTEGER NOT NULL,
+                        checksum TEXT NOT NULL,
+                        status TEXT NOT NULL,
+                        PRIMARY KEY(id),
+                        FOREIGN KEY(backup_id) REFERENCES backup_records(id) ON UPDATE NO ACTION ON DELETE CASCADE
+                    )
+                    """.trimIndent(),
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_backup_file_entries_backup_id ON backup_file_entries (backup_id)")
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_backup_file_entries_backup_id_relative_path ON backup_file_entries (backup_id, relative_path)")
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS device_bindings (
+                        user_id TEXT NOT NULL,
+                        installation_id TEXT NOT NULL,
+                        device_name TEXT,
+                        is_primary INTEGER NOT NULL,
+                        status TEXT NOT NULL,
+                        registered_at INTEGER NOT NULL,
+                        last_seen_at INTEGER,
+                        revoked_at INTEGER,
+                        PRIMARY KEY(user_id, installation_id)
+                    )
+                    """.trimIndent(),
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_device_bindings_user_id ON device_bindings (user_id)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_device_bindings_installation_id ON device_bindings (installation_id)")
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS deleted_record_history (
+                        id TEXT NOT NULL,
+                        user_id TEXT NOT NULL,
+                        entity_type TEXT NOT NULL,
+                        entity_id TEXT NOT NULL,
+                        deleted_at INTEGER NOT NULL,
+                        local_revision INTEGER NOT NULL,
+                        payload_json TEXT,
+                        PRIMARY KEY(id)
+                    )
+                    """.trimIndent(),
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_deleted_record_history_user_id ON deleted_record_history (user_id)")
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_deleted_record_history_user_id_entity_type_entity_id ON deleted_record_history (user_id, entity_type, entity_id)")
+            }
+        }
+
         fun getInstance(context: Context): TijarioDatabase =
             instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
@@ -396,7 +556,7 @@ abstract class TijarioDatabase : RoomDatabase() {
                     TijarioDatabase::class.java,
                     "tijario-local-cache.db",
                 )
-                    .addMigrations(MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15)
+                    .addMigrations(MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16)
                     .build()
                     .also { instance = it }
             }

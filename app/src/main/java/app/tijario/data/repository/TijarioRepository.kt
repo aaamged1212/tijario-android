@@ -985,7 +985,7 @@ open class TijarioRepository(
         return try {
             val userId = requireUserId()
             val existing = dao.getDocument(userId, documentId) ?: error("Document not found locally")
-            val hasLedger = dao.getLedgerByDocId(userId, documentId) != null
+            val hasLedger = dao.getCreationEventByDocument(userId, documentId) != null
             val hasPdf = existing.localPdfRelativePath != null
             val mustSoftDelete = hasLedger || hasPdf
 
@@ -1510,7 +1510,6 @@ open class TijarioRepository(
                 dao.clearSyncState()
                 dao.clearOutbox()
                 dao.clearLeases()
-                dao.clearLedger()
                 notificationsDao.clearAnnouncements()
                 notificationsDao.clearReceiptOutbox()
             }
@@ -1898,7 +1897,11 @@ open class TijarioRepository(
                                             syncErrorCode = null,
                                             syncedAt = System.currentTimeMillis()
                                         ))
-                                        dao.deleteLedgerByDocId(userId, outboxItem.entityId)
+                                        dao.acknowledgeCreationEvent(
+                                            userId = userId,
+                                            documentId = outboxItem.entityId,
+                                            acknowledgedAt = System.currentTimeMillis(),
+                                        )
                                     }
                                 }
                                 "business_settings" -> {
@@ -2217,7 +2220,12 @@ open class TijarioRepository(
                 notificationsDao.deleteAnnouncementsForUser(userId)
                 notificationsDao.deleteReceiptOutboxForUser(userId)
                 dao.deleteLeasesForUser(userId)
-                dao.deleteLedgerForUser(userId)
+                dao.deleteCreationEventsForUser(userId)
+                dao.deleteAccountEntitlementForUser(userId)
+                dao.deleteBackupSettingsForUser(userId)
+                dao.deleteBackupRecordsForUser(userId)
+                dao.deleteDeviceBindingsForUser(userId)
+                dao.deleteDeletedRecordsForUser(userId)
             }
 
             app.tijario.features.business.logo.LogoAssetManager(context).getLocalLogoFile(userId)?.delete()
@@ -2238,10 +2246,10 @@ open class TijarioRepository(
     private suspend fun reserveDocumentQuotaLedger(userId: String, documentId: String) {
         val doc = dao.getDocument(userId, documentId) ?: error("Document not found")
         if (doc.syncStatus == "SYNCED" || doc.localPdfRelativePath != null) return
-        if (dao.getLedgerByDocId(userId, documentId) != null) return
+        if (dao.getCreationEventByDocument(userId, documentId) != null) return
         val periodMonth = currentUtcPeriodMonth()
         val deviceId = AppPreferences.getInstallationId(context)
-        val pendingLedgers = dao.getPendingLedger(userId).size
+        val pendingLedgers = dao.getPendingCreationEvents(userId).size
         val lease = dao.getLease(userId, deviceId, periodMonth)
             ?.takeIf { it.status == "ACTIVE" && it.expiresAt >= System.currentTimeMillis() }
             ?: throw IllegalStateException("OFFLINE_LEASE_REQUIRED")
@@ -2250,16 +2258,21 @@ open class TijarioRepository(
             throw IllegalStateException("QUOTA_LIMIT_EXCEEDED")
         }
         val opId = java.util.UUID.randomUUID().toString()
-        dao.upsertLedger(app.tijario.data.local.LocalUsageLedgerEntity(
-            usageEventId = java.util.UUID.randomUUID().toString(),
+        dao.insertCreationEvent(app.tijario.data.local.DocumentCreationEventEntity(
+            id = java.util.UUID.randomUUID().toString(),
             userId = userId,
             documentId = documentId,
             operationId = opId,
+            installationId = deviceId,
             leaseId = lease.id,
-            periodMonth = periodMonth,
+            planCode = lease.planCode,
+            quotaScope = if (lease.planCode == "free") "lifetime" else "billing_cycle",
+            periodKey = periodMonth,
             status = "PENDING",
-            createdAt = System.currentTimeMillis(),
-            syncedAt = null
+            createdAtClient = System.currentTimeMillis(),
+            acknowledgedAtServer = null,
+            entitlementVersion = null,
+            source = "local_create",
         ))
     }
 
@@ -2267,7 +2280,7 @@ open class TijarioRepository(
         userId: String,
         usage: app.tijario.data.model.UserPlanUsage,
     ): app.tijario.data.model.UserPlanUsage {
-        val pendingDocs = dao.getPendingLedger(userId).size
+        val pendingDocs = dao.getPendingCreationEvents(userId).size
         if (pendingDocs <= 0) return usage
         return usage.copy(documentsUsed = usage.documentsUsed + pendingDocs)
     }

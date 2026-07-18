@@ -311,32 +311,167 @@ data class OfflineQuotaLeaseEntity(
 )
 
 @Entity(
-    tableName = "local_usage_ledger",
+    tableName = "document_creation_events",
     indices = [
         Index(value = ["user_id"]),
         Index(value = ["user_id", "document_id"], unique = true),
         Index(value = ["user_id", "operation_id"], unique = true)
     ]
 )
-data class LocalUsageLedgerEntity(
+data class DocumentCreationEventEntity(
     @PrimaryKey
-    @ColumnInfo(name = "usage_event_id")
-    val usageEventId: String,
+    val id: String,
     @ColumnInfo(name = "user_id")
     val userId: String,
     @ColumnInfo(name = "document_id")
     val documentId: String,
     @ColumnInfo(name = "operation_id")
     val operationId: String,
+    @ColumnInfo(name = "installation_id")
+    val installationId: String,
     @ColumnInfo(name = "lease_id")
-    val leaseId: String,
-    @ColumnInfo(name = "period_month")
-    val periodMonth: String,
+    val leaseId: String?,
+    @ColumnInfo(name = "plan_code")
+    val planCode: String,
+    @ColumnInfo(name = "quota_scope")
+    val quotaScope: String,
+    @ColumnInfo(name = "period_key")
+    val periodKey: String,
     val status: String,
-    @ColumnInfo(name = "created_at")
-    val createdAt: Long,
-    @ColumnInfo(name = "synced_at")
-    val syncedAt: Long?
+    @ColumnInfo(name = "created_at_client")
+    val createdAtClient: Long,
+    @ColumnInfo(name = "acknowledged_at_server")
+    val acknowledgedAtServer: Long?,
+    @ColumnInfo(name = "entitlement_version")
+    val entitlementVersion: Long?,
+    val source: String,
+    @ColumnInfo(name = "migrated_baseline")
+    val migratedBaseline: Boolean = false,
+)
+
+@Entity(tableName = "account_entitlements")
+data class AccountEntitlementEntity(
+    @PrimaryKey
+    @ColumnInfo(name = "user_id")
+    val userId: String,
+    @ColumnInfo(name = "plan_code")
+    val planCode: String,
+    @ColumnInfo(name = "data_mode")
+    val dataMode: String,
+    @ColumnInfo(name = "document_limit_scope")
+    val documentLimitScope: String,
+    @ColumnInfo(name = "document_limit")
+    val documentLimit: Int?,
+    @ColumnInfo(name = "documents_used")
+    val documentsUsed: Int,
+    @ColumnInfo(name = "customer_limit")
+    val customerLimit: Int?,
+    @ColumnInfo(name = "product_limit")
+    val productLimit: Int?,
+    @ColumnInfo(name = "allowed_template_ids_json")
+    val allowedTemplateIdsJson: String,
+    @ColumnInfo(name = "remove_tijario_branding")
+    val removeTijarioBranding: Boolean,
+    @ColumnInfo(name = "entitlement_version")
+    val entitlementVersion: Long,
+    @ColumnInfo(name = "verified_at")
+    val verifiedAt: Long,
+    @ColumnInfo(name = "expires_at")
+    val expiresAt: Long?,
+    @ColumnInfo(name = "signed_payload")
+    val signedPayload: String?,
+    val signature: String?,
+)
+
+@Entity(tableName = "backup_settings")
+data class BackupSettingsEntity(
+    @PrimaryKey
+    @ColumnInfo(name = "user_id")
+    val userId: String,
+    val frequency: String,
+    @ColumnInfo(name = "wifi_only")
+    val wifiOnly: Boolean,
+    @ColumnInfo(name = "charging_only")
+    val chargingOnly: Boolean,
+    @ColumnInfo(name = "drive_enabled")
+    val driveEnabled: Boolean,
+    @ColumnInfo(name = "retention_daily")
+    val retentionDaily: Int,
+    @ColumnInfo(name = "retention_weekly")
+    val retentionWeekly: Int,
+    @ColumnInfo(name = "retention_monthly")
+    val retentionMonthly: Int,
+    @ColumnInfo(name = "updated_at")
+    val updatedAt: Long,
+)
+
+@Entity(
+    tableName = "backup_records",
+    indices = [Index(value = ["user_id"]), Index(value = ["created_at"])],
+)
+data class BackupRecordEntity(
+    @PrimaryKey val id: String,
+    @ColumnInfo(name = "user_id") val userId: String,
+    @ColumnInfo(name = "local_relative_path") val localRelativePath: String,
+    @ColumnInfo(name = "format_version") val formatVersion: Int,
+    val status: String,
+    @ColumnInfo(name = "size_bytes") val sizeBytes: Long,
+    val checksum: String?,
+    @ColumnInfo(name = "created_at") val createdAt: Long,
+    @ColumnInfo(name = "uploaded_at") val uploadedAt: Long?,
+    @ColumnInfo(name = "drive_file_id") val driveFileId: String?,
+    @ColumnInfo(name = "last_error") val lastError: String?,
+)
+
+@Entity(
+    tableName = "backup_file_entries",
+    indices = [Index(value = ["backup_id"]), Index(value = ["backup_id", "relative_path"], unique = true)],
+    foreignKeys = [
+        ForeignKey(
+            entity = BackupRecordEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["backup_id"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+    ],
+)
+data class BackupFileEntryEntity(
+    @PrimaryKey val id: String,
+    @ColumnInfo(name = "backup_id") val backupId: String,
+    @ColumnInfo(name = "relative_path") val relativePath: String,
+    @ColumnInfo(name = "size_bytes") val sizeBytes: Long,
+    val checksum: String,
+    val status: String,
+)
+
+@Entity(
+    tableName = "device_bindings",
+    primaryKeys = ["user_id", "installation_id"],
+    indices = [Index(value = ["user_id"]), Index(value = ["installation_id"])],
+)
+data class DeviceBindingEntity(
+    @ColumnInfo(name = "user_id") val userId: String,
+    @ColumnInfo(name = "installation_id") val installationId: String,
+    @ColumnInfo(name = "device_name") val deviceName: String?,
+    @ColumnInfo(name = "is_primary") val isPrimary: Boolean,
+    val status: String,
+    @ColumnInfo(name = "registered_at") val registeredAt: Long,
+    @ColumnInfo(name = "last_seen_at") val lastSeenAt: Long?,
+    @ColumnInfo(name = "revoked_at") val revokedAt: Long?,
+)
+
+@Entity(
+    tableName = "deleted_record_history",
+    indices = [Index(value = ["user_id"]), Index(value = ["user_id", "entity_type", "entity_id"], unique = true)],
+)
+data class DeletedRecordEntity(
+    @PrimaryKey val id: String,
+    @ColumnInfo(name = "user_id") val userId: String,
+    @ColumnInfo(name = "entity_type") val entityType: String,
+    @ColumnInfo(name = "entity_id") val entityId: String,
+    @ColumnInfo(name = "deleted_at") val deletedAt: Long,
+    @ColumnInfo(name = "local_revision") val localRevision: Long,
+    @ColumnInfo(name = "payload_json") val payloadJson: String?,
 )
 
 @Entity(

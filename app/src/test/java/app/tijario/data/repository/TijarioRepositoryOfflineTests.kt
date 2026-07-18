@@ -6,6 +6,7 @@ import app.tijario.data.local.TijarioDatabase
 import app.tijario.data.local.BusinessSettingsEntity
 import app.tijario.data.local.CustomerEntity
 import app.tijario.data.local.DocumentEntity
+import app.tijario.data.local.DocumentCreationEventEntity
 import app.tijario.data.local.OfflineQuotaLeaseEntity
 import app.tijario.data.local.ProductEntity
 import app.tijario.data.local.SyncOutboxEntity
@@ -133,10 +134,10 @@ class TijarioRepositoryOfflineTests {
         coEvery { dao.getPendingOutbox(userId) } returns emptyList()
         coEvery { dao.upsertOutbox(any()) } returns Unit
         coEvery { dao.insertDocumentItems(any()) } returns Unit
-        coEvery { dao.getLedgerByDocId(userId, any()) } returns null
-        coEvery { dao.getPendingLedger(userId) } returns emptyList()
+        coEvery { dao.getCreationEventByDocument(userId, any()) } returns null
+        coEvery { dao.getPendingCreationEvents(userId) } returns emptyList()
         coEvery { dao.getLease(userId, any(), any()) } returns validOfflineQuotaLease()
-        coEvery { dao.upsertLedger(any()) } returns Unit
+        coEvery { dao.insertCreationEvent(any()) } returns 1L
 
         val customerSlot = slot<CustomerEntity>()
         val documentSlot = slot<app.tijario.data.local.DocumentEntity>()
@@ -183,10 +184,10 @@ class TijarioRepositoryOfflineTests {
         coEvery { dao.getCustomer(userId, existingCustomerId) } returns existingCustomer
         coEvery { dao.getPendingOutbox(userId) } returns emptyList()
         coEvery { dao.insertDocumentItems(any()) } returns Unit
-        coEvery { dao.getLedgerByDocId(userId, any()) } returns null
-        coEvery { dao.getPendingLedger(userId) } returns emptyList()
+        coEvery { dao.getCreationEventByDocument(userId, any()) } returns null
+        coEvery { dao.getPendingCreationEvents(userId) } returns emptyList()
         coEvery { dao.getLease(userId, any(), any()) } returns validOfflineQuotaLease()
-        coEvery { dao.upsertLedger(any()) } returns Unit
+        coEvery { dao.insertCreationEvent(any()) } returns 1L
 
         val customerSlot = slot<CustomerEntity>()
         val documentSlot = slot<app.tijario.data.local.DocumentEntity>()
@@ -598,7 +599,7 @@ class TijarioRepositoryOfflineTests {
         )
 
         coEvery { dao.getDocument(userId, documentId) } returns existingDoc
-        coEvery { dao.getLedgerByDocId(userId, documentId) } returns null
+        coEvery { dao.getCreationEventByDocument(userId, documentId) } returns null
         
         val lease = app.tijario.data.local.OfflineQuotaLeaseEntity(
             id = "lease_1",
@@ -613,8 +614,8 @@ class TijarioRepositoryOfflineTests {
         )
         
         coEvery { dao.getLease(userId, any(), any()) } returns lease
-        coEvery { dao.getPendingLedger(userId) } returns emptyList()
-        coEvery { dao.upsertLedger(any()) } returns Unit
+        coEvery { dao.getPendingCreationEvents(userId) } returns emptyList()
+        coEvery { dao.insertCreationEvent(any()) } returns 1L
         coEvery { dao.upsertDocument(any()) } returns Unit
         coEvery { dao.getPendingOutbox(userId) } returns emptyList()
         coEvery { dao.upsertOutbox(any()) } returns Unit
@@ -642,7 +643,7 @@ class TijarioRepositoryOfflineTests {
         )
 
         coEvery { dao.getDocument(userId, documentId) } returns existingDoc
-        coEvery { dao.getLedgerByDocId(userId, documentId) } returns null
+        coEvery { dao.getCreationEventByDocument(userId, documentId) } returns null
         
         val lease = app.tijario.data.local.OfflineQuotaLeaseEntity(
             id = "lease_2",
@@ -657,11 +658,54 @@ class TijarioRepositoryOfflineTests {
         )
         
         coEvery { dao.getLease(userId, any(), any()) } returns lease
-        coEvery { dao.getPendingLedger(userId) } returns emptyList()
+        coEvery { dao.getPendingCreationEvents(userId) } returns emptyList()
 
         val result = repository.finalizeOrVerifyQuota(documentId)
         assertTrue(result.isFailure)
         assertEquals("QUOTA_LIMIT_EXCEEDED", result.exceptionOrNull()?.message)
+    }
+
+    @Test
+    fun finalizeOrVerifyQuota_isIdempotentForExistingCreationEvent() = runBlocking {
+        val documentId = "doc_already_counted"
+        coEvery { dao.getDocument(userId, documentId) } returns DocumentEntity(
+            id = documentId,
+            userId = userId,
+            customerId = "cust_123",
+            type = "invoice",
+            documentNumber = "INV-003",
+            status = "draft",
+            paymentStatus = "unpaid",
+            amountPaid = null,
+            issueDate = "2026-07-18",
+            total = BigDecimal("100.00"),
+            currency = "SAR",
+            syncedAt = 0L,
+        )
+        coEvery { dao.getCreationEventByDocument(userId, documentId) } returns DocumentCreationEventEntity(
+            id = "event-1",
+            userId = userId,
+            documentId = documentId,
+            operationId = "operation-1",
+            installationId = "installation-1",
+            leaseId = "lease-1",
+            planCode = "free",
+            quotaScope = "lifetime",
+            periodKey = "lifetime",
+            status = "ACKNOWLEDGED",
+            createdAtClient = 1L,
+            acknowledgedAtServer = 2L,
+            entitlementVersion = 1L,
+            source = "local_create",
+        )
+        coEvery { dao.getPendingOutbox(userId) } returns emptyList()
+        coEvery { dao.upsertOutbox(any()) } returns Unit
+        coEvery { dao.upsertDocument(any()) } returns Unit
+
+        val result = repository.finalizeOrVerifyQuota(documentId)
+
+        assertTrue(result.isSuccess)
+        coVerify(exactly = 0) { dao.insertCreationEvent(any()) }
     }
 
     @Test
@@ -674,7 +718,7 @@ class TijarioRepositoryOfflineTests {
             dao.deleteDocuments(userId)
             dao.deleteOutboxForUser(userId)
             dao.deleteLeasesForUser(userId)
-            dao.deleteLedgerForUser(userId)
+            dao.deleteCreationEventsForUser(userId)
         }
     }
 }

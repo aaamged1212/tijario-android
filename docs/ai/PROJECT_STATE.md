@@ -1,13 +1,15 @@
 # Project State (Android & Web Repos)
 
-- **Android Repo Branch**: `codex/full-audit-cache-policy-docs`
-- **Web Repo Branch**: `fix/local-main-auth-proxy` inspected read-only for current backend/mobile sync and quota contracts.
-- **Current Uncommitted Files Summary**: Android cache-policy remediation has one local commit; Local-First architecture docs are ready for a separate local docs commit. Web was not modified.
+- **Android Repo Branch**: `codex/local-first-complete`
+- **Web Repo Branch**: `codex/local-first-control-plane` reserved for local control-plane implementation.
+- **Current Local-First Phase**: Room schema 16 foundation is implemented locally; operational data-mode routing is next.
 
 ## Tijario status:
 - Google Play Closed Testing is active.
 - Current local remediation branch centralizes remote-cache replacement decisions in `RemoteCacheReplacementPolicy.shouldReplace(...)` for business settings, customers, products, and documents.
 - Local architecture docs now define the future Local-First direction as planning only: Room as operational source of truth, Supabase as control plane, Google Drive as encrypted backup/restore transport, and document usage based on immutable creation events.
+- Room schema 16 implements the first Local-First foundation: `document_creation_events`, `account_entitlements`, `backup_settings`, `backup_records`, `backup_file_entries`, `device_bindings`, and `deleted_record_history`.
+- Legacy `local_usage_ledger` rows migrate into immutable creation events. Successful document sync changes `PENDING` to `ACKNOWLEDGED` and no longer deletes the event.
 - Local work exists to reduce Vercel usage and prevent retry loops.
 - Product decision: allow duplicate customer WhatsApp numbers.
 - Customer identity must be customer.id, not whatsapp_number.

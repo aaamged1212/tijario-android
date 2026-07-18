@@ -1,5 +1,18 @@
 # Agent Handoff (Android & Web Repos)
 
+## 2026-07-18 (Session - Local-First Room foundation)
+- **Agent**: Codex
+- **Branches**: Android `codex/local-first-complete`; backend `codex/local-first-control-plane`.
+- **Action**: Implemented Room schema 16 foundation and immutable document creation-event persistence.
+- **Details**:
+  - Migrates legacy `local_usage_ledger` rows into `document_creation_events` without losing acknowledged state.
+  - Document sync now marks events `ACKNOWLEDGED` instead of deleting them.
+  - Added persisted entitlement/data-mode, device binding, backup settings/records/file entries, and deleted-record history tables.
+  - Added migration and repository idempotency coverage.
+- **Validation**: Targeted JVM tests, full `testDebugUnitTest`, and `assembleDebugAndroidTest` passed. Runtime instrumentation is blocked because `adb` is unavailable.
+- **Safety**: Local work only. No push, deploy, migration apply, GitHub API, external-console change, or Play upload.
+- **Next**: Preserve Room data on normal logout and route CRUD by explicit data mode.
+
 ## 2026-07-18 (Session - Cache policy remediation and Local-First planning)
 - **Agent**: Codex
 - **Branch**:

@@ -216,21 +216,63 @@ interface TijarioDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertLease(lease: OfflineQuotaLeaseEntity)
 
-    // V7 Local usage ledger queries
-    @Query("SELECT * FROM local_usage_ledger WHERE user_id = :userId AND status = 'PENDING'")
-    suspend fun getPendingLedger(userId: String): List<LocalUsageLedgerEntity>
+    // Immutable document creation event queries
+    @Query("SELECT * FROM document_creation_events WHERE user_id = :userId AND status = 'PENDING' ORDER BY created_at_client ASC")
+    suspend fun getPendingCreationEvents(userId: String): List<DocumentCreationEventEntity>
 
-    @Query("SELECT * FROM local_usage_ledger WHERE user_id = :userId AND document_id = :documentId LIMIT 1")
-    suspend fun getLedgerByDocId(userId: String, documentId: String): LocalUsageLedgerEntity?
+    @Query("SELECT * FROM document_creation_events WHERE user_id = :userId AND document_id = :documentId LIMIT 1")
+    suspend fun getCreationEventByDocument(userId: String, documentId: String): DocumentCreationEventEntity?
 
-    @Query("DELETE FROM local_usage_ledger WHERE user_id = :userId AND document_id = :documentId")
-    suspend fun deleteLedgerByDocId(userId: String, documentId: String)
+    @Query("SELECT * FROM document_creation_events WHERE user_id = :userId AND operation_id = :operationId LIMIT 1")
+    suspend fun getCreationEventByOperation(userId: String, operationId: String): DocumentCreationEventEntity?
 
-    @Query("SELECT * FROM local_usage_ledger WHERE user_id = :userId AND operation_id = :operationId LIMIT 1")
-    suspend fun getLedgerByOpId(userId: String, operationId: String): LocalUsageLedgerEntity?
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertCreationEvent(event: DocumentCreationEventEntity): Long
+
+    @Query("UPDATE document_creation_events SET status = 'ACKNOWLEDGED', acknowledged_at_server = :acknowledgedAt WHERE user_id = :userId AND document_id = :documentId AND status = 'PENDING'")
+    suspend fun acknowledgeCreationEvent(userId: String, documentId: String, acknowledgedAt: Long): Int
+
+    @Query("SELECT COUNT(*) FROM document_creation_events WHERE user_id = :userId AND migrated_baseline = 0")
+    suspend fun countDocumentCreationEvents(userId: String): Int
+
+    @Query("SELECT COUNT(*) FROM document_creation_events WHERE user_id = :userId AND period_key = :periodKey AND migrated_baseline = 0")
+    suspend fun countDocumentCreationEventsForPeriod(userId: String, periodKey: String): Int
+
+    @Query("SELECT * FROM account_entitlements WHERE user_id = :userId LIMIT 1")
+    suspend fun getAccountEntitlement(userId: String): AccountEntitlementEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun upsertLedger(ledger: LocalUsageLedgerEntity)
+    suspend fun upsertAccountEntitlement(entitlement: AccountEntitlementEntity)
+
+    @Query("SELECT * FROM backup_settings WHERE user_id = :userId LIMIT 1")
+    suspend fun getBackupSettings(userId: String): BackupSettingsEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertBackupSettings(settings: BackupSettingsEntity)
+
+    @Query("SELECT * FROM backup_records WHERE user_id = :userId ORDER BY created_at DESC")
+    suspend fun getBackupRecords(userId: String): List<BackupRecordEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertBackupRecord(record: BackupRecordEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertBackupFileEntries(entries: List<BackupFileEntryEntity>)
+
+    @Query("SELECT * FROM backup_file_entries WHERE backup_id = :backupId ORDER BY relative_path ASC")
+    suspend fun getBackupFileEntries(backupId: String): List<BackupFileEntryEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertDeviceBinding(binding: DeviceBindingEntity)
+
+    @Query("SELECT * FROM device_bindings WHERE user_id = :userId")
+    suspend fun getDeviceBindings(userId: String): List<DeviceBindingEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertDeletedRecord(record: DeletedRecordEntity)
+
+    @Query("SELECT * FROM deleted_record_history WHERE user_id = :userId ORDER BY deleted_at ASC")
+    suspend fun getDeletedRecords(userId: String): List<DeletedRecordEntity>
 
     @Query("SELECT * FROM documents_cache WHERE user_id = :userId AND id = :documentId LIMIT 1")
     fun observeDocument(userId: String, documentId: String): Flow<DocumentEntity?>
@@ -241,8 +283,23 @@ interface TijarioDao {
     @Query("DELETE FROM offline_quota_lease WHERE user_id = :userId")
     suspend fun deleteLeasesForUser(userId: String)
 
-    @Query("DELETE FROM local_usage_ledger WHERE user_id = :userId")
-    suspend fun deleteLedgerForUser(userId: String)
+    @Query("DELETE FROM document_creation_events WHERE user_id = :userId")
+    suspend fun deleteCreationEventsForUser(userId: String)
+
+    @Query("DELETE FROM account_entitlements WHERE user_id = :userId")
+    suspend fun deleteAccountEntitlementForUser(userId: String)
+
+    @Query("DELETE FROM backup_settings WHERE user_id = :userId")
+    suspend fun deleteBackupSettingsForUser(userId: String)
+
+    @Query("DELETE FROM backup_records WHERE user_id = :userId")
+    suspend fun deleteBackupRecordsForUser(userId: String)
+
+    @Query("DELETE FROM device_bindings WHERE user_id = :userId")
+    suspend fun deleteDeviceBindingsForUser(userId: String)
+
+    @Query("DELETE FROM deleted_record_history WHERE user_id = :userId")
+    suspend fun deleteDeletedRecordsForUser(userId: String)
 
     @Query("DELETE FROM sync_state WHERE user_id = :userId")
     suspend fun deleteSyncStateForUser(userId: String)
@@ -256,6 +313,6 @@ interface TijarioDao {
     @Query("DELETE FROM offline_quota_lease")
     suspend fun clearLeases()
 
-    @Query("DELETE FROM local_usage_ledger")
-    suspend fun clearLedger()
+    @Query("DELETE FROM document_creation_events")
+    suspend fun clearCreationEvents()
 }

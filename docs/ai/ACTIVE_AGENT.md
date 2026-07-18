@@ -2,9 +2,9 @@
 
 - **Current Active Agent**: Codex
 - **Last Agent**: Codex
-- **Last Task**: Android cache-policy remediation and Local-First architecture planning.
-- **Status**: Work is local on `codex/full-audit-cache-policy-docs`. Remote-cache replacement decisions now route through `RemoteCacheReplacementPolicy.shouldReplace(...)`; Local-First/Google Drive backup documents are planning-only and do not implement production architecture changes. Web/backend was inspected read-only. Device/emulator visual QA remains pending.
+- **Last Task**: Local-First Room foundation and immutable document creation events.
+- **Status**: Work is local on `codex/local-first-complete`. Room schema 16 adds immutable creation events, persisted entitlements/data mode, device binding, backup metadata, and deleted-record history. Existing ledger rows are migrated and successful sync acknowledges events instead of deleting them.
 - **Validation**:
-  - Latest run: targeted repository tests, `testDebugUnitTest`, `assembleDebugAndroidTest`, `lintDebug`, `assembleDebug`, and `assembleRelease` passed when run separately.
-  - One combined Gradle baseline command timed out and was not counted as passing.
+  - Latest run: targeted repository tests, `testDebugUnitTest`, and `assembleDebugAndroidTest` passed.
+  - Runtime instrumentation is blocked because `adb` is unavailable. One combined Gradle command timed out and was not counted.
 - **Safety**: No push, GitHub API action, PR update, deployment, production migration, external console change, or Play Store upload.

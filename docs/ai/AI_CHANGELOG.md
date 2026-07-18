@@ -217,3 +217,8 @@
 - Added focused source coverage for the legacy permission contract.
 - Validation passed: `compileDebugKotlin`, `testDebugUnitTest`, and `assembleDebug`.
 - Safety Info: Local Android changes only. No commit, push, Web edit, Supabase migration apply, APK/AAB upload, or closed-testing change.
+# 2026-07-18 - Local-First Room foundation
+- Added Room schema 16 with immutable document creation events and Local-First entitlement, device, backup, and deletion metadata.
+- Migrated legacy usage ledger rows and changed successful sync from event deletion to acknowledgement.
+- Added migration compilation and JVM idempotency coverage.
+- No push, deploy, migration apply, external-console change, or Play upload.
