@@ -240,6 +240,9 @@ interface TijarioDao {
     @Query("SELECT * FROM offline_quota_lease WHERE user_id = :userId AND device_id = :deviceId AND period_month = :periodMonth LIMIT 1")
     suspend fun getLease(userId: String, deviceId: String, periodMonth: String): OfflineQuotaLeaseEntity?
 
+    @Query("SELECT * FROM offline_quota_lease WHERE user_id = :userId AND device_id = :deviceId AND status = 'ACTIVE' AND expires_at > :now ORDER BY expires_at DESC LIMIT 1")
+    suspend fun getActiveLease(userId: String, deviceId: String, now: Long): OfflineQuotaLeaseEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertLease(lease: OfflineQuotaLeaseEntity)
 
@@ -258,6 +261,9 @@ interface TijarioDao {
 
     @Query("UPDATE document_creation_events SET status = 'ACKNOWLEDGED', acknowledged_at_server = :acknowledgedAt WHERE user_id = :userId AND document_id = :documentId AND status = 'PENDING'")
     suspend fun acknowledgeCreationEvent(userId: String, documentId: String, acknowledgedAt: Long): Int
+
+    @Query("UPDATE document_creation_events SET status = 'REJECTED', acknowledged_at_server = :resolvedAt WHERE user_id = :userId AND operation_id = :operationId AND status = 'PENDING'")
+    suspend fun rejectCreationEvent(userId: String, operationId: String, resolvedAt: Long): Int
 
     @Query("SELECT COUNT(*) FROM document_creation_events WHERE user_id = :userId AND migrated_baseline = 0")
     suspend fun countDocumentCreationEvents(userId: String): Int

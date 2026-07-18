@@ -72,9 +72,9 @@ class TijarioRepositoryOfflineTests {
         removeTijarioBranding = false,
         entitlementVersion = 1L,
         verifiedAt = 1L,
-        expiresAt = null,
-        signedPayload = null,
-        signature = null,
+        expiresAt = System.currentTimeMillis() + 100_000,
+        signedPayload = "signed-payload",
+        signature = "signature",
     )
 
     // Subclass of repository under test to stub out active Supabase Auth & Remote Fetch connections
@@ -481,8 +481,9 @@ class TijarioRepositoryOfflineTests {
     }
 
     @Test
-    fun createDocument_routesLocalDriveToRoomWithoutBackendOrLease() = runBlocking {
+    fun createDocument_routesLocalDriveToRoomWithSignedLease() = runBlocking {
         coEvery { dao.getAccountEntitlement(userId) } returns localDriveEntitlement()
+        coEvery { dao.getActiveLease(userId, any(), any()) } returns validOfflineQuotaLease().copy(periodMonth = "lifetime")
         every { dao.observeDocuments(userId) } returns flowOf(emptyList())
         coEvery { dao.upsertCustomer(any()) } returns Unit
         coEvery { dao.insertDocumentItems(any()) } returns Unit
@@ -507,7 +508,37 @@ class TijarioRepositoryOfflineTests {
         assertTrue(result.ok)
         coVerify(exactly = 0) { backendApiClient.createDocument(any()) }
         coVerify(exactly = 0) { dao.upsertOutbox(any()) }
-        coVerify(exactly = 1) { dao.insertCreationEvent(match { it.quotaScope == "lifetime" }) }
+        coVerify(exactly = 1) {
+            dao.insertCreationEvent(match { it.quotaScope == "lifetime" && it.leaseId == "lease_for_document_creation" })
+        }
+    }
+
+    @Test
+    fun createDocument_rejectsExpiredLocalDriveEntitlementWithoutDeletingCachedData() = runBlocking {
+        coEvery { dao.getAccountEntitlement(userId) } returns localDriveEntitlement().copy(expiresAt = 1L)
+        every { dao.observeDocuments(userId) } returns flowOf(emptyList())
+        coEvery { dao.upsertCustomer(any()) } returns Unit
+        coEvery { dao.insertDocumentItems(any()) } returns Unit
+        coEvery { dao.getCreationEventByDocument(userId, any()) } returns null
+        coEvery { dao.getPendingCreationEvents(userId) } returns emptyList()
+        val documentSlot = slot<DocumentEntity>()
+        coEvery { dao.upsertDocument(capture(documentSlot)) } answers {
+            coEvery { dao.getDocument(userId, documentSlot.captured.id) } returns documentSlot.captured
+            Unit
+        }
+
+        val result = repository.createDocument(
+            CreateDocumentRequest(
+                type = DocumentType.Invoice,
+                customer = DocumentCustomerInput("Offline customer", "1234567"),
+                items = listOf(DocumentItemInput(name = "Service", quantity = 1, unitPrice = 10.0)),
+            ),
+        )
+
+        assertTrue(!result.ok)
+        assertEquals("ENTITLEMENT_EXPIRED", result.message)
+        coVerify(exactly = 0) { dao.insertCreationEvent(any()) }
+        coVerify(exactly = 0) { dao.deleteDocuments(any()) }
     }
 
     @Test

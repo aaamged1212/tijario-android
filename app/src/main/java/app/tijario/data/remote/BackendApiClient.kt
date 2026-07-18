@@ -23,6 +23,7 @@ import io.ktor.http.isSuccess
 import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
@@ -85,6 +86,9 @@ class BackendApiClient(
     suspend fun fetchAccountUsage(): AccountUsageResponse =
         authorizedGet("api/mobile/account/usage").decodeJsonResponse()
 
+    suspend fun fetchSignedAccountEntitlement(request: EntitlementIssueRequest): AccountUsageResponse =
+        authorizedPost("api/mobile/account/entitlement", request).decodeJsonResponse()
+
     suspend fun uploadBusinessLogo(request: UploadLogoRequest): ApiResult<UploadLogoResponse> =
         authorizedPost("api/mobile/business-settings/logo", request).decodeApiResult()
 
@@ -124,8 +128,13 @@ class BackendApiClient(
     suspend fun bootstrapSync(request: BootstrapSyncRequest): HttpResponse =
         authorizedPost("api/mobile/sync/bootstrap", request)
 
-    suspend fun requestOfflineLease(request: OfflineLeaseRequest): HttpResponse =
-        authorizedPost("api/mobile/account/offline-lease", request)
+    suspend fun requestOfflineLease(request: OfflineLeaseRequest): ApiResult<OfflineLeaseData> =
+        authorizedPost("api/mobile/account/offline-lease", request).decodeApiResult()
+
+    suspend fun reconcileDocumentCreationEvents(
+        request: DocumentCreationEventsRequest,
+    ): ApiResult<DocumentCreationEventsData> =
+        authorizedPost("api/mobile/account/document-events", request).decodeApiResult()
 
     suspend fun fetchAnnouncementsBootstrap(): ApiResult<AnnouncementsBootstrapData> =
         authorizedGet("api/mobile/announcements/bootstrap").decodeApiResult()
@@ -608,13 +617,47 @@ data class PullSyncResponse(
 
 @Serializable
 data class OfflineLeaseRequest(
-    val device_id: String
+    @SerialName("installation_id") val installationId: String,
 )
 
 @Serializable
-data class OfflineLeaseResponse(
-    val ok: Boolean,
-    val lease_id: String,
-    val quota_granted: Int,
-    val expires_at: String
+data class OfflineLeaseData(
+    @SerialName("lease_id") val leaseId: String,
+    @SerialName("plan_code") val planCode: String,
+    @SerialName("quota_scope") val quotaScope: String,
+    @SerialName("period_key") val periodKey: String,
+    @SerialName("baseline_usage") val baselineUsage: Int,
+    @SerialName("allowed_count") val allowedCount: Int,
+    @SerialName("consumed_count") val consumedCount: Int,
+    @SerialName("acknowledged_count") val acknowledgedCount: Int,
+    @SerialName("entitlement_version") val entitlementVersion: Long,
+    @SerialName("expires_at") val expiresAt: String,
+)
+
+@Serializable
+data class DocumentCreationEventRequest(
+    @SerialName("created_at_client") val createdAtClient: String,
+    @SerialName("document_id") val documentId: String,
+    @SerialName("installation_id") val installationId: String,
+    @SerialName("lease_id") val leaseId: String,
+    @SerialName("operation_id") val operationId: String,
+    @SerialName("payload_hash") val payloadHash: String,
+)
+
+@Serializable
+data class DocumentCreationEventsRequest(
+    val events: List<DocumentCreationEventRequest>,
+)
+
+@Serializable
+data class DocumentCreationEventResult(
+    @SerialName("operation_id") val operationId: String,
+    val success: Boolean,
+    @SerialName("event_status") val eventStatus: String? = null,
+    @SerialName("error_code") val errorCode: String? = null,
+)
+
+@Serializable
+data class DocumentCreationEventsData(
+    val results: List<DocumentCreationEventResult> = emptyList(),
 )

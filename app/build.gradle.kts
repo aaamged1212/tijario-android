@@ -33,11 +33,13 @@ android {
         val supabaseAnonKey = providers.gradleProperty("TIJARIO_SUPABASE_ANON_KEY").orElse("").get()
         val apiBaseUrl = providers.gradleProperty("TIJARIO_API_BASE_URL").orElse("").get()
         val googleWebClientId = providers.gradleProperty("TIJARIO_GOOGLE_WEB_CLIENT_ID").orElse("").get()
+        val entitlementPublicKeys = providers.gradleProperty("TIJARIO_ENTITLEMENT_PUBLIC_KEYS_BASE64").orElse("").get()
 
         buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"$supabaseAnonKey\"")
         buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
         buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$googleWebClientId\"")
+        buildConfigField("String", "ENTITLEMENT_PUBLIC_KEYS_BASE64", "\"$entitlementPublicKeys\"")
     }
 
     signingConfigs {

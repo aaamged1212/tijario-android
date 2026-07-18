@@ -232,6 +232,21 @@ data class AccountUsageData(
     @SerialName("allowed_template_ids") val allowedTemplateIds: List<String> = emptyList(),
     @SerialName("template_access") val templateAccess: String? = null,
     @SerialName("remove_tijario_branding") val removeTijarioBranding: Boolean = false,
+    @SerialName("signed_entitlement") val signedEntitlement: SignedEntitlementDto? = null,
+)
+
+@Serializable
+data class EntitlementIssueRequest(
+    @SerialName("installation_id") val installationId: String,
+    @SerialName("device_name") val deviceName: String? = null,
+)
+
+@Serializable
+data class SignedEntitlementDto(
+    val algorithm: String,
+    @SerialName("key_id") val keyId: String,
+    val payload: String,
+    val signature: String,
 )
 
 @Serializable

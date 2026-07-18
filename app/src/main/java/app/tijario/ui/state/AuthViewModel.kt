@@ -184,11 +184,13 @@ class AuthViewModel(
 
     fun logout() {
         viewModelScope.launch {
+            val userId = repository.currentUserId()
             try {
                 supabaseClient.auth.signOut()
             } catch (_: Exception) {
                 // Ignore sign-out errors.
             }
+            userId?.let(repository::cancelAccountBackgroundWork)
             repository.clearTransientSessionState()
             _authState.value = CentralAuthState.Unauthenticated
         }

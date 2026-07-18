@@ -16,6 +16,7 @@ import app.tijario.data.model.Product
 import app.tijario.data.model.ProfileFullNameUpdateDto
 import app.tijario.domain.DocumentNumbering
 import app.tijario.domain.DocumentCalculator
+import app.tijario.domain.EntitlementVerifier
 import app.tijario.data.remote.ApiResult
 import app.tijario.data.remote.NextNumberResponse
 import app.tijario.data.remote.BackendApiClient
@@ -79,6 +80,9 @@ open class TijarioRepository(
 ) {
     private val dao = database.tijarioDao()
     private val notificationsDao = database.notificationsDao()
+    private val entitlementVerifier by lazy {
+        EntitlementVerifier.fromBase64Configuration(BuildConfig.ENTITLEMENT_PUBLIC_KEYS_BASE64)
+    }
     private val syncStateMutable = MutableStateFlow(CacheSyncState())
     private var lastFullRefreshUserId: String? = null
     private var lastFullRefreshAt: Long = 0L
@@ -1017,6 +1021,9 @@ open class TijarioRepository(
                 }
             }
 
+            if (accountDataMode(userId) == AccountDataMode.LocalDrive) {
+                SyncScheduler(context).triggerSync(userId)
+            }
             ApiResult(ok = true, data = CreateDocumentResponse(documentId = docId, documentNumber = docNum))
         } catch (e: Exception) {
             ApiResult(ok = false, message = e.message ?: "Failed to save document locally.")
@@ -1544,45 +1551,52 @@ open class TijarioRepository(
         runCatching {
             val userId = requireUserId()
             withContext(Dispatchers.IO) {
-                val response = backendApiClient.fetchAccountUsage()
+                val installationId = AppPreferences.getInstallationId(context)
+                val response = backendApiClient.fetchSignedAccountEntitlement(
+                    EntitlementIssueRequest(installationId = installationId),
+                )
                 val usage = response.data ?: error(response.message ?: "Plan usage not found.")
+                val envelope = usage.signedEntitlement ?: error("ENTITLEMENT_SIGNATURE_REQUIRED")
+                val signed = entitlementVerifier.verify(envelope, userId, installationId).getOrThrow()
+                requireEntitlementClaimsMatch(usage, signed)
                 val baseUsage = app.tijario.data.model.UserPlanUsage(
-                    planCode = usage.planCode,
-                    planName = usage.planCode,
+                    planCode = signed.planCode,
+                    planName = signed.planCode,
                     periodMonth = currentUtcPeriodMonth(),
-                    documentsUsed = usage.documentsUsed,
-                    documentsLimit = usage.monthlyDocumentLimit,
+                    documentsUsed = signed.documentsUsed,
+                    documentsLimit = signed.documentLimit,
                     aiUsed = usage.aiUsed,
                     aiLimit = usage.monthlyAiLimit,
                     customersUsed = usage.customersUsed,
-                    customersLimit = usage.customerLimit,
+                    customersLimit = signed.customerLimit,
                     productsUsed = usage.productsUsed,
-                    productsLimit = usage.productLimit,
+                    productsLimit = signed.productLimit,
                     resetAt = usage.resetAt,
-                    allowedTemplateIds = usage.allowedTemplateIds,
-                    removeTijarioBranding = usage.removeTijarioBranding,
+                    allowedTemplateIds = signed.allowedTemplateIds,
+                    removeTijarioBranding = signed.removeTijarioBranding,
                 )
                 dao.upsertAccountEntitlement(
                     app.tijario.data.local.AccountEntitlementEntity(
                         userId = userId,
-                        planCode = usage.planCode,
-                        dataMode = AccountDataMode.from(usage.dataMode).value,
-                        documentLimitScope = usage.documentLimitScope,
-                        documentLimit = usage.monthlyDocumentLimit,
-                        documentsUsed = usage.documentsUsed,
-                        customerLimit = usage.customerLimit,
-                        productLimit = usage.productLimit,
+                        planCode = signed.planCode,
+                        dataMode = AccountDataMode.from(signed.dataMode).value,
+                        documentLimitScope = signed.documentLimitScope,
+                        documentLimit = signed.documentLimit,
+                        documentsUsed = signed.documentsUsed,
+                        customerLimit = signed.customerLimit,
+                        productLimit = signed.productLimit,
                         allowedTemplateIdsJson = kotlinx.serialization.json.JsonArray(
-                            usage.allowedTemplateIds.map { kotlinx.serialization.json.JsonPrimitive(it) },
+                            signed.allowedTemplateIds.map { kotlinx.serialization.json.JsonPrimitive(it) },
                         ).toString(),
-                        removeTijarioBranding = usage.removeTijarioBranding,
-                        entitlementVersion = usage.entitlementVersion,
+                        removeTijarioBranding = signed.removeTijarioBranding,
+                        entitlementVersion = signed.entitlementVersion,
                         verifiedAt = System.currentTimeMillis(),
-                        expiresAt = null,
-                        signedPayload = null,
-                        signature = null,
+                        expiresAt = Instant.parse(signed.expiresAt).toEpochMilli(),
+                        signedPayload = envelope.payload,
+                        signature = envelope.signature,
                     ),
                 )
+                refreshOfflineLease(userId, installationId)
                 val effectiveUsage = overlayLocalUsage(userId, baseUsage)
                 AppPreferences.setPlanUsage(context, userId, baseUsage)
                 effectiveUsage
@@ -1772,6 +1786,11 @@ open class TijarioRepository(
         lastFullRefreshUserId = null
         lastFullRefreshAt = 0L
         syncStateMutable.value = CacheSyncState()
+    }
+
+    fun cancelAccountBackgroundWork(userId: String) {
+        SyncScheduler(context).cancel(userId)
+        app.tijario.features.backup.BackupScheduler.cancelAccountWork(context, userId)
     }
 
     suspend fun bootstrapUserData(userId: String, fullName: String?): Result<Unit> = runCatching {
@@ -1985,7 +2004,11 @@ open class TijarioRepository(
     }
 
     open suspend fun sync(userId: String): Result<Unit> = runCatching {
-        if (accountDataMode(userId) == AccountDataMode.LocalDrive) return@runCatching
+        if (accountDataMode(userId) == AccountDataMode.LocalDrive) {
+            withContext(Dispatchers.IO) { reconcileDocumentCreationEvents(userId) }
+            fetchUserPlanUsage().getOrThrow()
+            return@runCatching
+        }
         val currentToken = supabaseClient.auth.currentSessionOrNull()?.accessToken
             ?: throw IllegalStateException("SESSION_EXPIRED")
 
@@ -2426,27 +2449,21 @@ open class TijarioRepository(
                 existingLease.expiresAt - System.currentTimeMillis() <= LEASE_REFRESH_MARGIN_MS
             ) {
                 val leaseResponse = backendApiClient.requestOfflineLease(OfflineLeaseRequest(deviceId))
-                if (leaseResponse.status.isSuccess()) {
-                    val leaseResult = repositoryJson.decodeFromString<OfflineLeaseResponse>(leaseResponse.bodyAsText())
+                val leaseResult = leaseResponse.data
+                if (leaseResponse.ok && leaseResult != null) {
                     dao.upsertLease(app.tijario.data.local.OfflineQuotaLeaseEntity(
-                        id = leaseResult.lease_id,
+                        id = leaseResult.leaseId,
                         userId = userId,
                         deviceId = deviceId,
-                        planCode = existingLease?.planCode ?: "free",
-                        periodMonth = periodMonth,
-                        allowedLimit = leaseResult.quota_granted,
-                        consumedCount = existingLease?.consumedCount ?: 0,
-                        expiresAt = parseServerInstantOrNull(leaseResult.expires_at)?.toEpochMilli() ?: System.currentTimeMillis(),
+                        planCode = leaseResult.planCode,
+                        periodMonth = leaseResult.periodKey,
+                        allowedLimit = leaseResult.allowedCount,
+                        consumedCount = leaseResult.consumedCount,
+                        expiresAt = parseServerInstantOrNull(leaseResult.expiresAt)?.toEpochMilli() ?: System.currentTimeMillis(),
                         status = "ACTIVE"
                     ))
                 } else {
-                    when {
-                        leaseResponse.status.value == 401 || leaseResponse.status.value == 403 ->
-                            error("SESSION_EXPIRED")
-                        leaseResponse.status.value == 429 || leaseResponse.status.value >= 500 ->
-                            error("RETRYABLE_NETWORK_ERROR")
-                        else -> error("OFFLINE_LEASE_REQUEST_FAILED_${leaseResponse.status.value}")
-                    }
+                    error(leaseResponse.code ?: "OFFLINE_LEASE_REQUEST_FAILED")
                 }
             }
             if (
@@ -2495,6 +2512,83 @@ open class TijarioRepository(
         }
     }
 
+    private fun requireEntitlementClaimsMatch(
+        usage: AccountUsageData,
+        signed: app.tijario.domain.SignedEntitlementPayload,
+    ) {
+        require(usage.planCode == signed.planCode) { "ENTITLEMENT_PAYLOAD_MISMATCH" }
+        require(AccountDataMode.from(usage.dataMode).value == AccountDataMode.from(signed.dataMode).value) {
+            "ENTITLEMENT_PAYLOAD_MISMATCH"
+        }
+        require(usage.documentLimitScope == signed.documentLimitScope) { "ENTITLEMENT_PAYLOAD_MISMATCH" }
+        require(usage.monthlyDocumentLimit == signed.documentLimit) { "ENTITLEMENT_PAYLOAD_MISMATCH" }
+        require(usage.documentsUsed == signed.documentsUsed) { "ENTITLEMENT_PAYLOAD_MISMATCH" }
+        require(usage.customerLimit == signed.customerLimit) { "ENTITLEMENT_PAYLOAD_MISMATCH" }
+        require(usage.productLimit == signed.productLimit) { "ENTITLEMENT_PAYLOAD_MISMATCH" }
+        require(usage.allowedTemplateIds.sorted() == signed.allowedTemplateIds.sorted()) {
+            "ENTITLEMENT_PAYLOAD_MISMATCH"
+        }
+        require(usage.removeTijarioBranding == signed.removeTijarioBranding) { "ENTITLEMENT_PAYLOAD_MISMATCH" }
+        require(usage.entitlementVersion == signed.entitlementVersion) { "ENTITLEMENT_PAYLOAD_MISMATCH" }
+    }
+
+    private suspend fun refreshOfflineLease(userId: String, installationId: String) {
+        val response = backendApiClient.requestOfflineLease(OfflineLeaseRequest(installationId))
+        val lease = response.data ?: return
+        if (!response.ok) return
+        dao.upsertLease(
+            app.tijario.data.local.OfflineQuotaLeaseEntity(
+                id = lease.leaseId,
+                userId = userId,
+                deviceId = installationId,
+                planCode = lease.planCode,
+                periodMonth = lease.periodKey,
+                allowedLimit = lease.allowedCount,
+                consumedCount = lease.consumedCount,
+                expiresAt = parseServerInstantOrNull(lease.expiresAt)?.toEpochMilli() ?: return,
+                status = if (lease.consumedCount >= lease.allowedCount) "EXHAUSTED" else "ACTIVE",
+            ),
+        )
+    }
+
+    private suspend fun reconcileDocumentCreationEvents(userId: String) {
+        val events = dao.getPendingCreationEvents(userId)
+            .filter { !it.migratedBaseline && !it.leaseId.isNullOrBlank() }
+            .take(100)
+        if (events.isEmpty()) return
+        val requestEvents = events.map { event ->
+            val hashMaterial = listOf(
+                event.documentId,
+                event.operationId,
+                event.installationId,
+                event.leaseId.orEmpty(),
+                event.createdAtClient.toString(),
+            ).joinToString("\n")
+            DocumentCreationEventRequest(
+                createdAtClient = Instant.ofEpochMilli(event.createdAtClient).toString(),
+                documentId = event.documentId,
+                installationId = event.installationId,
+                leaseId = event.leaseId.orEmpty(),
+                operationId = event.operationId,
+                payloadHash = EntitlementVerifier.payloadHash(hashMaterial),
+            )
+        }
+        val response = backendApiClient.reconcileDocumentCreationEvents(
+            DocumentCreationEventsRequest(requestEvents),
+        )
+        val results = response.data?.results ?: error(response.code ?: "DOCUMENT_EVENT_RECONCILIATION_FAILED")
+        val byOperation = results.associateBy { it.operationId }
+        events.forEach { event ->
+            val result = byOperation[event.operationId]
+                ?: error("DOCUMENT_EVENT_RESULT_MISSING")
+            if (result.success && result.eventStatus.equals("acknowledged", ignoreCase = true)) {
+                dao.acknowledgeCreationEvent(userId, event.documentId, System.currentTimeMillis())
+            } else if (!result.success) {
+                dao.rejectCreationEvent(userId, event.operationId, System.currentTimeMillis())
+            }
+        }
+    }
+
     private companion object {
         const val FULL_REFRESH_THROTTLE_MS = 15_000L
         const val PLAN_USAGE_TTL_MS = 12 * 60 * 60 * 1000L
@@ -2511,6 +2605,14 @@ open class TijarioRepository(
         val dataMode = accountDataMode(userId)
         if (dataMode == AccountDataMode.LocalDrive) {
             val entitlement = dao.getAccountEntitlement(userId) ?: error("PLAN_REQUIRED")
+            if (
+                entitlement.expiresAt == null ||
+                entitlement.expiresAt <= System.currentTimeMillis() ||
+                entitlement.signedPayload.isNullOrBlank() ||
+                entitlement.signature.isNullOrBlank()
+            ) {
+                error("ENTITLEMENT_EXPIRED")
+            }
             val periodKey = if (entitlement.documentLimitScope == "lifetime") "lifetime" else periodMonth
             val pendingEvents = dao.getPendingCreationEvents(userId).count {
                 entitlement.documentLimitScope == "lifetime" || it.periodKey == periodKey
@@ -2519,6 +2621,13 @@ open class TijarioRepository(
             if (limit != null && entitlement.documentsUsed + pendingEvents >= limit) {
                 throw IllegalStateException("QUOTA_LIMIT_EXCEEDED")
             }
+            val lease = dao.getActiveLease(userId, deviceId, System.currentTimeMillis())
+                ?.takeIf { it.planCode == entitlement.planCode && it.periodMonth == periodKey }
+                ?: error("OFFLINE_LEASE_REQUIRED")
+            val leasePending = dao.getPendingCreationEvents(userId).count { it.leaseId == lease.id }
+            if (lease.consumedCount + leasePending >= lease.allowedLimit) {
+                error("QUOTA_LIMIT_EXCEEDED")
+            }
             dao.insertCreationEvent(
                 app.tijario.data.local.DocumentCreationEventEntity(
                     id = java.util.UUID.randomUUID().toString(),
@@ -2526,7 +2635,7 @@ open class TijarioRepository(
                     documentId = documentId,
                     operationId = java.util.UUID.randomUUID().toString(),
                     installationId = deviceId,
-                    leaseId = null,
+                    leaseId = lease.id,
                     planCode = entitlement.planCode,
                     quotaScope = entitlement.documentLimitScope,
                     periodKey = periodKey,

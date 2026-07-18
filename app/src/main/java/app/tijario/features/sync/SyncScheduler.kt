@@ -34,4 +34,9 @@ class SyncScheduler(private val context: Context) {
             )
         }
     }
+
+    fun cancel(userId: String) {
+        if (userId.isBlank()) return
+        WorkManager.getInstance(context).cancelUniqueWork("TijarioSync:$userId")
+    }
 }
