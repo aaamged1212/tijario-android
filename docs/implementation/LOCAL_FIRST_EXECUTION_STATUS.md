@@ -11,7 +11,7 @@
 
 ## Current Phase
 
-`TESTED` - Account-scoped Room logical export and transactional restore foundation.
+`TESTED` - Offline local encrypted archive creation foundation.
 
 ## Phase Checklist
 
@@ -26,7 +26,9 @@
 - `IN_PROGRESS` Complete restoration UI and quota reconciliation.
 - `TESTED` Implement the offline encrypted `.tijario` archive codec with authenticated encryption, logical-file checksums, account binding, and path validation.
 - `TESTED` Connect deterministic, account-scoped Room logical export and prevalidated transactional restore to the archive codec data contract.
-- `IN_PROGRESS` Connect PDF/asset preparation, local archive files, key management, and backup/restore UI.
+- `TESTED` Collect existing account logo, product images, and document PDFs; record missing/failed PDF counts without failing structured backup.
+- `TESTED` Finalize verified encrypted archives through temporary files and atomic replacement, then persist local backup/file metadata.
+- `IN_PROGRESS` Connect local PDF regeneration, asset restore, key management, and backup/restore UI.
 - `NOT_STARTED` Implement Drive transport and legacy migration UI.
 - `NOT_STARTED` Implement backend control-plane V2 migrations and contracts locally without applying them.
 
@@ -50,6 +52,7 @@
 - `adb devices` was blocked because `adb` is unavailable.
 - Focused historical snapshot JVM tests and `assembleDebugAndroidTest` passed for Room 17.
 - Focused logical backup snapshot JVM tests and `assembleDebugAndroidTest` passed.
+- Focused asset collection and atomic backup-file JVM tests passed; Android test APK compilation passed.
 
 ## Actual Outcomes
 
@@ -66,6 +69,7 @@
 - Focused repository tests and `assembleDebugAndroidTest` passed for soft deletion, restoration, limit failures, and no-credit document restore.
 - Backup codec JVM tests passed for encrypted offline round-trip, cross-account rejection, tamper rejection, required structured data, and path traversal protection.
 - Room logical backup exports all approved account-scoped operational/control-plane cache tables as typed JSON. Restore validates table identity, schema columns, and row ownership before replacing only that account's rows in one database transaction.
+- Local backup creation collects available account assets, records absent/failed PDFs in the manifest, authenticates the completed archive before finalization, and stores it under the account's private app directory without requiring network access.
 - JVM tests and instrumentation compilation passed. Runtime migration execution is blocked by the unavailable Android test environment.
 - No push, deploy, migration apply, GitHub API action, or external-console change occurred.
 
@@ -74,8 +78,8 @@
 - Instrumentation execution requires an available emulator/device; compilation can still be validated locally.
 - Google Drive OAuth and production credentials are external blockers and will not be configured in this task.
 - Supabase migrations will be authored and tested only against a verified local instance; production will not be touched.
-- The archive cryptographic/container and Room logical-data layers are implemented, but PDF/assets, local archive lifecycle, key-envelope integration, and UI are not complete; no user backup should be advertised yet.
+- Existing PDF/assets and local archive lifecycle are implemented, but missing-PDF regeneration, asset restore, key-envelope integration, and UI are not complete; no user backup should be advertised yet.
 
 ## Next Executable Task
 
-Add offline local archive-file lifecycle, PDF/asset staging, and Android Keystore-backed key handling without adding Drive yet.
+Add portable backup-key handling and restore asset staging without adding Drive yet.

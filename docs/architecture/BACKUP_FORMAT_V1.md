@@ -1,6 +1,6 @@
 # Backup Format V1
 
-Status: planning only. No backup engine is implemented by this document.
+Status: partially implemented locally. The encrypted archive codec, logical Room export/transactional restore, local asset collection, and verified atomic local-file finalization exist. Key-envelope integration, PDF regeneration, asset restore, UI, scheduling, and Drive transport remain incomplete.
 
 ## File Type
 
@@ -129,4 +129,3 @@ If no PDF exists:
 - do not fail the full backup only because one PDF failed
 - mark the document as requiring PDF regeneration after restore
 - allow local PDF regeneration after restore
-

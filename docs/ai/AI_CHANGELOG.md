@@ -252,3 +252,9 @@
 - Added preflight account/schema validation and transactionally atomic replacement of only the restored account's rows.
 - Added JVM coverage for typed round-trip, cross-account rejection, malformed rows, and required logical inventory.
 - No push, deploy, migration apply, external-console change, or Play upload.
+
+## 2026-07-18 - Offline local backup files
+- Added safe collection of existing account logo, product images, and document PDFs with missing/failed PDF accounting.
+- Added temporary-file creation, archive revalidation, fsync, checksum, and atomic finalization for private local `.tijario` backups.
+- Added local backup/file history persistence and focused JVM tests.
+- No push, deploy, migration apply, external-console change, or Play upload.

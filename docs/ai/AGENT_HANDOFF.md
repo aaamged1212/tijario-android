@@ -382,3 +382,12 @@
 - **Validation**: Focused JVM tests and `assembleDebugAndroidTest` passed.
 - **Remaining**: PDF/assets, local archive-file lifecycle, keys, UI, Drive transport, and device runtime QA.
 - **Safety Status**: Local Android work only. No push, deployment, migration apply, external-console change, or Play upload.
+
+## 2026-07-18 (Offline local backup files)
+- **Agent**: Codex
+- **Branch**: `codex/local-first-complete`
+- **Action**: Added offline account asset collection and verified atomic `.tijario` file creation.
+- **Details**: Existing PDFs, product images, and account logo files are included when safe and available; absent/failed PDFs are counted without discarding structured data. The encrypted archive is re-opened for authentication before atomic finalization and backup history persistence.
+- **Validation**: Asset-collector and atomic-file JVM tests passed; `assembleDebugAndroidTest` passed.
+- **Remaining**: Portable key recovery, missing-PDF generation, asset restore, UI/scheduling, and Drive.
+- **Safety Status**: Local Android work only. No push, deployment, migration apply, external-console change, or Play upload.
