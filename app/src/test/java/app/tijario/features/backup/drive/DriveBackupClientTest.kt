@@ -64,6 +64,54 @@ class DriveBackupClientTest {
         assertSame(DriveConnectionState.NotConfigured, UnavailableDriveBackupClient.connectionState())
     }
 
+    @Test
+    fun googleAccountIdentityIsSeparateFromTijarioArchiveOwnership() = runBlocking {
+        val transport = RecordingDriveTransport()
+        val client = GoogleDriveRestClient(
+            tokenProvider = { "oauth-token" },
+            driveAccountIdProvider = { "google-account-123" },
+            transport = transport,
+        )
+        val file = temporaryArchive("ciphertext")
+
+        val remote = client.uploadBackup(
+            folderId = "backups-folder",
+            file = file,
+            metadata = DriveUploadMetadata(
+                accountId = "tijario-user-uuid",
+                backupId = "backup-1",
+                checksum = sha256(file.readBytes()),
+                createdAt = 42L,
+            ),
+        )
+
+        assertEquals("tijario-user-uuid", remote.accountId)
+        assertEquals("google-account-123", (client.connectionState() as DriveConnectionState.Connected).accountId)
+    }
+
+    private class RecordingDriveTransport : DriveRestTransport {
+        override suspend fun list(accessToken: String, query: String): List<DriveRestFile> = emptyList()
+        override suspend fun createFolder(accessToken: String, name: String, parentId: String?) =
+            DriveRestFile(id = "folder", name = name, mimeType = GoogleDriveRestClient.FOLDER_MIME_TYPE)
+
+        override suspend fun uploadFile(
+            accessToken: String,
+            parentId: String,
+            file: File,
+            mimeType: String,
+            appProperties: Map<String, String>,
+        ) = DriveRestFile(
+            id = "remote-1",
+            name = file.name,
+            mimeType = mimeType,
+            sizeBytes = file.length(),
+            appProperties = appProperties,
+        )
+
+        override suspend fun downloadFile(accessToken: String, fileId: String, destination: File) = Unit
+        override suspend fun deleteFile(accessToken: String, fileId: String) = Unit
+    }
+
     private fun temporaryArchive(value: String): File = File.createTempFile("drive-backup", ".tijario").apply {
         writeText(value)
         deleteOnExit()

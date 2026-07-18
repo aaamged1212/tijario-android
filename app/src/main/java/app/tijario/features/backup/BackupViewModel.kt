@@ -12,6 +12,9 @@ import app.tijario.data.local.BackupSettingsEntity
 import app.tijario.data.local.TijarioDatabase
 import app.tijario.features.backup.drive.DriveBackupRuntime
 import app.tijario.features.backup.drive.DriveConnectionState
+import app.tijario.features.backup.drive.DriveBackupFile
+import app.tijario.features.backup.drive.DriveBackupRepository
+import app.tijario.features.backup.drive.DriveFolderRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -27,6 +30,8 @@ data class BackupUiState(
     val settings: BackupSettingsEntity? = null,
     val history: List<BackupRecordEntity> = emptyList(),
     val driveConnectionState: DriveConnectionState = DriveConnectionState.NotConfigured,
+    val driveBackups: List<DriveBackupFile> = emptyList(),
+    val openDriveFolderUrl: String? = null,
     val exportFileName: String? = null,
     val messageKey: String? = null,
 )
@@ -125,6 +130,50 @@ class BackupViewModel(
         _uiState.value = _uiState.value.copy(messageKey = null)
     }
 
+    fun consumeOpenDriveFolderRequest() {
+        _uiState.value = _uiState.value.copy(openDriveFolderUrl = null)
+    }
+
+    fun requestOpenDriveFolder() {
+        if (_uiState.value.driveConnectionState !is DriveConnectionState.Connected) return
+        viewModelScope.launch {
+            runCatching {
+                val folder = DriveFolderRepository(DriveBackupRuntime.client).resolve()
+                DriveBackupRuntime.client.openFolderUrl(folder.backupsId)
+            }.onSuccess { url ->
+                _uiState.value = _uiState.value.copy(openDriveFolderUrl = url)
+            }.onFailure {
+                _uiState.value = _uiState.value.copy(messageKey = "backup_drive_open_failed")
+            }
+        }
+    }
+
+    fun restoreFromDrive(remote: DriveBackupFile) {
+        if (userId.isBlank() || _uiState.value.isBusy) return
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isBusy = true, messageKey = null)
+            val temporary = File(getApplication<Application>().cacheDir, "drive-restore-${remote.backupId}.tijario")
+            runCatching {
+                val repository = DriveBackupRepository(
+                    database,
+                    getApplication<Application>().filesDir,
+                    DriveBackupRuntime.client,
+                )
+                repository.download(userId, remote, temporary)
+                if (temporary.length() > MAX_ARCHIVE_BYTES) {
+                    throw BackupValidationException("Backup archive is too large")
+                }
+                coordinator.restoreLocalBackup(userId, temporary.readBytes(), allowNetwork = true)
+            }.onSuccess {
+                _uiState.value = _uiState.value.copy(isBusy = false, messageKey = "backup_restored_success")
+                refreshLatest()
+            }.onFailure {
+                _uiState.value = _uiState.value.copy(isBusy = false, messageKey = "backup_restore_failed")
+            }
+            temporary.delete()
+        }
+    }
+
     fun updateFrequency(frequency: String) {
         updateSettings { it.copy(frequency = frequency, updatedAt = System.currentTimeMillis()) }
     }
@@ -165,11 +214,18 @@ class BackupViewModel(
             }
             val driveState = runCatching { DriveBackupRuntime.client.connectionState() }
                 .getOrDefault(DriveConnectionState.NotConfigured)
+            val driveBackups = if (driveState is DriveConnectionState.Connected) {
+                runCatching {
+                    DriveBackupRepository(database, getApplication<Application>().filesDir, DriveBackupRuntime.client)
+                        .list(userId)
+                }.getOrDefault(emptyList())
+            } else emptyList()
             _uiState.value = _uiState.value.copy(
                 latestBackup = records.firstOrNull(),
                 history = records,
                 settings = settings,
                 driveConnectionState = driveState,
+                driveBackups = driveBackups,
             )
             BackupScheduler.apply(getApplication(), settings)
         }

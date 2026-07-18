@@ -65,5 +65,8 @@ class BackupSchedulePolicyTest {
         assertEquals(4, backupRetentionCount(settings.copy(frequency = "weekly")))
         assertEquals(1, backupRetentionCount(settings.copy(retentionDaily = 0)))
         assertNull(backupRetentionCount(settings.copy(frequency = "manual")))
+        assertEquals(7, BackupScheduler.driveRetentionCount(settings))
+        assertEquals(4, BackupScheduler.driveRetentionCount(settings.copy(frequency = "weekly")))
+        assertEquals(3, BackupScheduler.driveRetentionCount(settings.copy(frequency = "manual")))
     }
 }

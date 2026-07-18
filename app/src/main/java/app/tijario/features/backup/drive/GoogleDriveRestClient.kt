@@ -61,7 +61,7 @@ class GoogleDriveRestClient(
         file: File,
         metadata: DriveUploadMetadata,
     ): DriveBackupFile {
-        requireConnectedAccount(metadata.accountId)
+        requireConnectedDriveAccount()
         return transport.uploadFile(
             accessToken = token(),
             parentId = folderId,
@@ -77,7 +77,7 @@ class GoogleDriveRestClient(
     }
 
     override suspend fun listBackups(folderId: String, accountId: String): List<DriveBackupFile> {
-        requireConnectedAccount(accountId)
+        requireConnectedDriveAccount()
         return transport.list(token(), accountBackupQuery(folderId, accountId))
             .map { it.toBackupFile() }
             .sortedByDescending(DriveBackupFile::createdAt)
@@ -91,10 +91,9 @@ class GoogleDriveRestClient(
     private suspend fun token(): String = tokenProvider()?.takeIf(String::isNotBlank)
         ?: throw DriveBackupException.NotConnected()
 
-    private suspend fun requireConnectedAccount(expected: String) {
-        val actual = driveAccountIdProvider()?.takeIf(String::isNotBlank)
+    private suspend fun requireConnectedDriveAccount() {
+        driveAccountIdProvider()?.takeIf(String::isNotBlank)
             ?: throw DriveBackupException.NotConnected()
-        if (actual != expected) throw DriveBackupException.AccountMismatch()
     }
 
     private fun DriveRestFile.toBackupFile(): DriveBackupFile {

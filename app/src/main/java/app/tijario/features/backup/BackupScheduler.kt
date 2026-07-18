@@ -82,6 +82,12 @@ object BackupScheduler {
         else -> null
     }
 
+    internal fun driveRetentionCount(settings: BackupSettingsEntity): Int = when (settings.frequency.lowercase()) {
+        "daily" -> settings.retentionDaily
+        "weekly" -> settings.retentionWeekly
+        else -> settings.retentionMonthly
+    }.coerceAtLeast(1)
+
     private fun workName(userId: String): String = "TijarioBackup:$userId"
 
     internal fun driveWorkName(userId: String, backupId: String) = "TijarioDriveUpload:$userId:$backupId"

@@ -1,6 +1,8 @@
 package app.tijario.ui.screens
 
 import android.app.Application
+import android.content.Intent
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -17,8 +19,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.FileUpload
+import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -56,6 +60,7 @@ import app.tijario.config.Localization
 import app.tijario.config.t
 import app.tijario.features.backup.BackupViewModel
 import app.tijario.features.backup.drive.DriveConnectionState
+import app.tijario.features.backup.drive.DriveBackupFile
 import java.text.DateFormat
 import java.util.Date
 import java.util.Locale
@@ -77,6 +82,7 @@ fun BackupSettingsScreen(
     val state by backupViewModel.uiState.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     var pendingRestoreUri by remember { mutableStateOf<android.net.Uri?>(null) }
+    var pendingDriveRestore by remember { mutableStateOf<DriveBackupFile?>(null) }
 
     val exportLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/octet-stream"),
@@ -96,6 +102,14 @@ fun BackupSettingsScreen(
         state.messageKey?.let { key ->
             snackbar.showSnackbar(Localization.getString(key, language))
             backupViewModel.consumeMessage()
+        }
+    }
+    LaunchedEffect(state.openDriveFolderUrl) {
+        state.openDriveFolderUrl?.let { url ->
+            backupViewModel.consumeOpenDriveFolderRequest()
+            runCatching {
+                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+            }
         }
     }
 
@@ -247,6 +261,35 @@ fun BackupSettingsScreen(
                             modifier = Modifier.fillMaxWidth(),
                         ) { Text(t("backup_drive_retry")) }
                     }
+                    if (state.driveConnectionState is DriveConnectionState.Connected) {
+                        OutlinedButton(
+                            onClick = backupViewModel::requestOpenDriveFolder,
+                            enabled = !state.isBusy,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null)
+                            Spacer(Modifier.padding(4.dp))
+                            Text(t("backup_drive_open_folder"))
+                        }
+                    }
+                    if (state.driveBackups.isNotEmpty()) {
+                        Text(t("backup_drive_available"), fontWeight = FontWeight.SemiBold)
+                        state.driveBackups.take(5).forEach { remote ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(formatBackupTime(remote.createdAt, language.name), style = MaterialTheme.typography.bodySmall)
+                                    Text(formatBytes(remote.sizeBytes), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                                }
+                                IconButton(onClick = { pendingDriveRestore = remote }, enabled = !state.isBusy) {
+                                    Icon(Icons.Filled.CloudDownload, contentDescription = t("backup_drive_restore"))
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
@@ -342,6 +385,23 @@ fun BackupSettingsScreen(
             },
             dismissButton = {
                 TextButton(onClick = { pendingRestoreUri = null }) { Text(t("cancel")) }
+            },
+        )
+    }
+
+    pendingDriveRestore?.let { remote ->
+        AlertDialog(
+            onDismissRequest = { pendingDriveRestore = null },
+            title = { Text(t("backup_restore_confirm_title"), fontWeight = FontWeight.Bold) },
+            text = { Text(t("backup_restore_confirm_body")) },
+            confirmButton = {
+                Button(onClick = {
+                    pendingDriveRestore = null
+                    backupViewModel.restoreFromDrive(remote)
+                }) { Text(t("backup_restore_confirm")) }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingDriveRestore = null }) { Text(t("cancel")) }
             },
         )
     }

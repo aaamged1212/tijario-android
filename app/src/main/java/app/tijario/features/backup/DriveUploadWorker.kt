@@ -21,8 +21,11 @@ class DriveUploadWorker(
         dao.upsertBackupRecord(record.copy(status = "DRIVE_UPLOADING", lastError = null))
 
         return try {
-            DriveBackupRepository(database, applicationContext.filesDir, DriveBackupRuntime.client)
-                .upload(userId, backupId)
+            val repository = DriveBackupRepository(database, applicationContext.filesDir, DriveBackupRuntime.client)
+            repository.upload(userId, backupId)
+            dao.getBackupSettings(userId)?.let { settings ->
+                repository.prune(userId, BackupScheduler.driveRetentionCount(settings))
+            }
             Result.success()
         } catch (error: DriveBackupException.Retryable) {
             val terminal = runAttemptCount + 1 >= MAX_ATTEMPTS
