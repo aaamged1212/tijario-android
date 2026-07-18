@@ -283,6 +283,9 @@ interface TijarioDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertBackupRecord(record: BackupRecordEntity)
 
+    @Query("DELETE FROM backup_records WHERE user_id = :userId AND id = :backupId")
+    suspend fun deleteBackupRecord(userId: String, backupId: String)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertBackupFileEntries(entries: List<BackupFileEntryEntity>)
 

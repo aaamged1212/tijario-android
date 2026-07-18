@@ -1,5 +1,13 @@
 # Agent Handoff (Android & Web Repos)
 
+## 2026-07-18 (Local backup scheduling)
+- **Agent**: Codex
+- **Branch**: `codex/local-first-complete`
+- **Action**: Added manual/daily/weekly backup policy controls and unique per-account WorkManager scheduling.
+- **Details**: Automatic local backup does not require network and never requests immediate retry. Optional charging constraints apply to automatic work only. Daily/weekly retention removes old private archives and metadata safely. Wi-Fi remains a future Drive-upload constraint, not a local-backup blocker.
+- **Validation**: Focused schedule/retention tests, `compileDebugKotlin`, and `assembleDebugAndroidTest` passed.
+- **Safety Status**: Local commits only. No push, deployment, migration apply, external-console change, or Play upload.
+
 ## 2026-07-18 (Offline backup PDF preparation)
 - **Agent**: Codex
 - **Branch**: `codex/local-first-complete`

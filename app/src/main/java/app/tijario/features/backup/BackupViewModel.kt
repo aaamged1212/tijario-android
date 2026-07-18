@@ -8,6 +8,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import app.tijario.config.Supabase
 import app.tijario.data.local.BackupRecordEntity
+import app.tijario.data.local.BackupSettingsEntity
 import app.tijario.data.local.TijarioDatabase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,6 +22,7 @@ import java.io.File
 data class BackupUiState(
     val isBusy: Boolean = false,
     val latestBackup: BackupRecordEntity? = null,
+    val settings: BackupSettingsEntity? = null,
     val exportFileName: String? = null,
     val messageKey: String? = null,
 )
@@ -111,15 +113,47 @@ class BackupViewModel(
         _uiState.value = _uiState.value.copy(messageKey = null)
     }
 
+    fun updateFrequency(frequency: String) {
+        updateSettings { it.copy(frequency = frequency, updatedAt = System.currentTimeMillis()) }
+    }
+
+    fun updateChargingOnly(enabled: Boolean) {
+        updateSettings { it.copy(chargingOnly = enabled, updatedAt = System.currentTimeMillis()) }
+    }
+
     private fun refreshLatest() {
         if (userId.isBlank()) return
         viewModelScope.launch {
-            val latest = withContext(Dispatchers.IO) {
-                database.tijarioDao().getBackupRecords(userId).firstOrNull()
+            val (latest, settings) = withContext(Dispatchers.IO) {
+                val dao = database.tijarioDao()
+                dao.getBackupRecords(userId).firstOrNull() to (dao.getBackupSettings(userId) ?: defaultSettings())
             }
-            _uiState.value = _uiState.value.copy(latestBackup = latest)
+            _uiState.value = _uiState.value.copy(latestBackup = latest, settings = settings)
+            BackupScheduler.apply(getApplication(), settings)
         }
     }
+
+    private fun updateSettings(transform: (BackupSettingsEntity) -> BackupSettingsEntity) {
+        if (userId.isBlank()) return
+        viewModelScope.launch {
+            val settings = transform(_uiState.value.settings ?: defaultSettings())
+            withContext(Dispatchers.IO) { database.tijarioDao().upsertBackupSettings(settings) }
+            BackupScheduler.apply(getApplication(), settings)
+            _uiState.value = _uiState.value.copy(settings = settings, messageKey = "backup_schedule_saved")
+        }
+    }
+
+    private fun defaultSettings(): BackupSettingsEntity = BackupSettingsEntity(
+        userId = userId,
+        frequency = "manual",
+        wifiOnly = true,
+        chargingOnly = false,
+        driveEnabled = false,
+        retentionDaily = 7,
+        retentionWeekly = 4,
+        retentionMonthly = 3,
+        updatedAt = System.currentTimeMillis(),
+    )
 
     private fun readArchive(uri: Uri): ByteArray {
         val input = getApplication<Application>().contentResolver.openInputStream(uri)

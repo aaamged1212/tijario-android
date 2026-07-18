@@ -2,7 +2,7 @@
 
 - **Android Repo Branch**: `codex/local-first-complete`
 - **Web Repo Branch**: `codex/local-first-control-plane` reserved for local control-plane implementation.
-- **Current Local-First Phase**: Room operational ownership, soft deletion/restoration, immutable usage events, historical snapshots, encrypted logical backup/restore, local PDF preparation, Android Keystore key wrapping, and SAF export/import UI are implemented locally. Scheduling, Drive transport, release integration, and device QA remain.
+- **Current Local-First Phase**: Room operational ownership, soft deletion/restoration, immutable usage events, historical snapshots, encrypted logical backup/restore, local PDF preparation, Android Keystore key wrapping, SAF UI, and local daily/weekly scheduling are implemented locally. Drive transport, release integration, and device QA remain.
 
 ## Tijario status:
 - Google Play Closed Testing is active.

@@ -281,3 +281,7 @@
 - Regenerate missing/stale document PDFs locally before encrypted archive creation.
 - Disable remote logo fetching for backup PDF rendering and isolate per-document failures.
 - Persist generated PDF revision/hash/status so backup manifests reflect actual files.
+# 2026-07-18 - Local backup scheduling
+- Added manual/daily/weekly local backup policies backed by unique WorkManager jobs.
+- Applied optional charging constraints without requiring internet or adding retry loops.
+- Added frequency-specific local retention and behavior tests.

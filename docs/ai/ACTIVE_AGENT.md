@@ -2,9 +2,9 @@
 
 - **Current Active Agent**: Codex
 - **Last Agent**: Codex
-- **Last Task**: Offline missing-PDF preparation for encrypted backups.
-- **Status**: Work is local on `codex/local-first-complete`. Backup creation regenerates missing/stale PDFs without network logo fetching and records isolated failures. Backend migrations/configuration, scheduling, Drive transport, and device QA remain pending.
+- **Last Task**: Local encrypted backup scheduling and retention.
+- **Status**: Work is local on `codex/local-first-complete`. Daily/weekly WorkManager jobs create local backups without network, optional charging constraints apply, and retention is frequency-specific. Backend migrations/configuration, Drive transport, legacy rollout, and device QA remain pending.
 - **Validation**:
-  - Latest run: focused backup PDF/UI contracts, `compileDebugKotlin`, and `assembleDebugAndroidTest` passed. Earlier repository tests passed; lint remains timed out.
+  - Latest run: focused schedule/retention tests, `compileDebugKotlin`, and `assembleDebugAndroidTest` passed. Full final baseline remains next.
   - Runtime instrumentation is blocked because `adb` is unavailable. One combined Gradle command timed out and was not counted.
 - **Safety**: No push, GitHub API action, PR update, deployment, production migration, external console change, or Play Store upload.

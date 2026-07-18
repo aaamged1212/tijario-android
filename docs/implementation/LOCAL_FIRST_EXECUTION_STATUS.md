@@ -33,7 +33,8 @@
 - `TESTED` Add Android Keystore RSA-OAEP device keys, versioned wrapped-key cache, exact archive key-version resolution, and transient key zeroing.
 - `TESTED` Connect backup/restore UI to Android Storage Access Framework export/import without a Drive SDK dependency.
 - `TESTED` Generate missing document PDFs locally before backup without network logo fetching; record per-document failures without aborting the archive.
-- `NOT_STARTED` Implement Drive transport and legacy migration UI.
+- `TESTED` Schedule daily/weekly local backups with optional charging constraints, no network dependency, no retry loop, and frequency-specific retention.
+- `BLOCKED` Implement Drive transport and legacy migration UI after external OAuth/control-plane rollout is available.
 - `NOT_STARTED` Implement backend control-plane V2 migrations and contracts locally without applying them.
 
 ## Preserved Local Files
@@ -61,6 +62,7 @@
 - Focused backup key contract/header JVM tests and Android Keystore source compilation passed.
 - Focused backup UI/localization/SAF contract tests, `compileDebugKotlin`, and `assembleDebugAndroidTest` passed.
 - Focused missing-PDF preparation contracts, Kotlin compilation, and Android test APK assembly passed.
+- Focused schedule/retention policy tests, Kotlin compilation, and Android test APK assembly passed.
 
 ## Actual Outcomes
 
@@ -83,6 +85,7 @@
 - Android never stores a plaintext account backup key. It caches device-wrapped key versions, resolves the exact archive version, and zeroes decrypted key bytes after create/restore.
 - Settings now exposes local backup creation, SAF export to any installed document provider, and SAF import with explicit confirmation. Restore reads are capped at 256 MB before archive validation.
 - Backup preparation reuses valid PDFs at the current local revision and locally regenerates missing/stale PDFs. Generated files persist under the account directory and update Room PDF metadata before logical export.
+- WorkManager schedules unique daily/weekly local backup jobs per account. Automatic backup does not require network or retry immediately; charging constraints and local retention are applied from Room settings.
 - JVM tests and instrumentation compilation passed. Runtime migration execution is blocked by the unavailable Android test environment.
 - No push, deploy, migration apply, GitHub API action, or external-console change occurred.
 
@@ -91,8 +94,8 @@
 - Instrumentation execution requires an available emulator/device; compilation can still be validated locally.
 - Google Drive OAuth and production credentials are external blockers and will not be configured in this task.
 - Supabase migrations will be authored and tested only against a verified local instance; production will not be touched.
-- Existing/generated PDFs, assets, local archive lifecycle, rollback-capable restore, Android key client, and SAF UI are implemented, but backend migrations/configuration are unapplied and scheduling, Drive-specific transport, and device QA remain incomplete; no production backup flow should be advertised yet.
+- Existing/generated PDFs, assets, local archive lifecycle, rollback-capable restore, Android key client, SAF UI, and local scheduling are implemented, but backend migrations/configuration are unapplied and Drive-specific transport/device QA remain incomplete; no production backup flow should be advertised yet.
 
 ## Next Executable Task
 
-Add safe local scheduling for daily/weekly backup policy. Drive transport remains blocked by external OAuth/console setup.
+Run the full Android validation baseline. Drive transport and legacy rollout remain blocked by external OAuth, local backend migration application, and device/production validation.
