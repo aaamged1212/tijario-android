@@ -277,3 +277,7 @@
 - Added a localized settings entry for encrypted local backup and restore.
 - Added native SAF export/import with restore confirmation, bounded archive reads, and safe user-facing outcomes.
 - Verified focused JVM contracts, Kotlin compilation, and Android test APK assembly locally.
+# 2026-07-18 - Offline backup PDF preparation
+- Regenerate missing/stale document PDFs locally before encrypted archive creation.
+- Disable remote logo fetching for backup PDF rendering and isolate per-document failures.
+- Persist generated PDF revision/hash/status so backup manifests reflect actual files.

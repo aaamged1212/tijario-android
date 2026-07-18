@@ -74,6 +74,27 @@ interface TijarioDao {
     @Query("SELECT * FROM documents_cache WHERE id = :id AND user_id = :userId LIMIT 1")
     suspend fun getDocument(userId: String, id: String): DocumentEntity?
 
+    @Query(
+        """
+        UPDATE documents_cache
+        SET local_pdf_relative_path = :relativePath,
+            pdf_generated_at = :generatedAt,
+            pdf_document_revision = :documentRevision,
+            pdf_content_hash = :contentHash,
+            pdf_generation_status = :status
+        WHERE user_id = :userId AND id = :documentId
+        """
+    )
+    suspend fun updateDocumentPdfState(
+        userId: String,
+        documentId: String,
+        relativePath: String?,
+        generatedAt: Long?,
+        documentRevision: Long?,
+        contentHash: String?,
+        status: String,
+    )
+
     @Query("DELETE FROM documents_cache WHERE id = :id AND user_id = :userId")
     suspend fun deleteDocument(userId: String, id: String)
 

@@ -39,6 +39,7 @@ class LocalPdfGenerator(
     private val context: Context,
     private val renderer: DocumentHtmlRenderer = DocumentHtmlRenderer(AndroidAssetDocumentTemplateLoader(context)),
     private val cacheManager: PdfCacheManager = PdfCacheManager(context),
+    private val allowNetworkLogoFetch: Boolean = true,
 ) {
     suspend fun ensurePdf(model: DocumentRenderModel): PdfGenerationResult {
         val resolvedModel = resolveModelLogo(model)
@@ -67,7 +68,7 @@ class LocalPdfGenerator(
                 logoFile = app.tijario.features.business.logo.LogoAssetManager(context).getLocalLogoFile(userId)
             }
 
-            if (logoFile == null || !logoFile.exists()) {
+            if ((logoFile == null || !logoFile.exists()) && allowNetworkLogoFetch) {
                 val cacheDir = File(context.filesDir, "business-logo-cache").apply { mkdirs() }
                 val cacheFile = File(cacheDir, "${logoUrl.sha256()}.img")
                 if (!cacheFile.exists() || cacheFile.length() == 0L) {

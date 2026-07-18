@@ -1,5 +1,13 @@
 # Agent Handoff (Android & Web Repos)
 
+## 2026-07-18 (Offline backup PDF preparation)
+- **Agent**: Codex
+- **Branch**: `codex/local-first-complete`
+- **Action**: Connected local PDF regeneration to backup preparation.
+- **Details**: Valid current-revision PDFs are reused. Missing/stale PDFs render locally without network logo fetching, persist under the account directory, and update Room metadata. A failed document is marked failed and does not abort the complete structured backup.
+- **Validation**: Focused JVM contracts, `compileDebugKotlin`, and `assembleDebugAndroidTest` passed. WebView PDF rendering still needs real device/emulator QA.
+- **Safety Status**: Local commits only. No push, deployment, migration apply, external-console change, or Play upload.
+
 ## 2026-07-18 (Encrypted backup SAF UI)
 - **Agent**: Codex
 - **Branch**: `codex/local-first-complete`

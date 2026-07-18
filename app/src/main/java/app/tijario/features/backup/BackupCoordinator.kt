@@ -19,6 +19,7 @@ class BackupCoordinator(
         val installationId = AppPreferences.getInstallationId(appContext)
         val key = keyStore.resolve(userId, installationId, allowNetwork)
         try {
+            LocalBackupPdfPreparer(appContext, database, appContext.filesDir).prepare(userId)
             val previous = database.tijarioDao().getBackupRecords(userId).maxOfOrNull { it.createdAt } ?: 0L
             val sequence = maxOf(System.currentTimeMillis(), previous + 1L)
             return LocalBackupCreator(database, appContext.filesDir).create(

@@ -32,7 +32,7 @@
 - `TESTED` Stage and validate account-owned PDF/image/logo assets, apply them with rollback copies, and roll back assets when Room restore fails.
 - `TESTED` Add Android Keystore RSA-OAEP device keys, versioned wrapped-key cache, exact archive key-version resolution, and transient key zeroing.
 - `TESTED` Connect backup/restore UI to Android Storage Access Framework export/import without a Drive SDK dependency.
-- `IN_PROGRESS` Connect local PDF regeneration for documents whose cached PDF is absent.
+- `TESTED` Generate missing document PDFs locally before backup without network logo fetching; record per-document failures without aborting the archive.
 - `NOT_STARTED` Implement Drive transport and legacy migration UI.
 - `NOT_STARTED` Implement backend control-plane V2 migrations and contracts locally without applying them.
 
@@ -60,6 +60,7 @@
 - Focused staged asset apply/rollback JVM tests and Android test APK compilation passed.
 - Focused backup key contract/header JVM tests and Android Keystore source compilation passed.
 - Focused backup UI/localization/SAF contract tests, `compileDebugKotlin`, and `assembleDebugAndroidTest` passed.
+- Focused missing-PDF preparation contracts, Kotlin compilation, and Android test APK assembly passed.
 
 ## Actual Outcomes
 
@@ -81,6 +82,7 @@
 - Restore accepts assets only for document/product IDs in the same archive, stages them below the account directory, and can roll back previously existing files if database restore fails.
 - Android never stores a plaintext account backup key. It caches device-wrapped key versions, resolves the exact archive version, and zeroes decrypted key bytes after create/restore.
 - Settings now exposes local backup creation, SAF export to any installed document provider, and SAF import with explicit confirmation. Restore reads are capped at 256 MB before archive validation.
+- Backup preparation reuses valid PDFs at the current local revision and locally regenerates missing/stale PDFs. Generated files persist under the account directory and update Room PDF metadata before logical export.
 - JVM tests and instrumentation compilation passed. Runtime migration execution is blocked by the unavailable Android test environment.
 - No push, deploy, migration apply, GitHub API action, or external-console change occurred.
 
@@ -89,8 +91,8 @@
 - Instrumentation execution requires an available emulator/device; compilation can still be validated locally.
 - Google Drive OAuth and production credentials are external blockers and will not be configured in this task.
 - Supabase migrations will be authored and tested only against a verified local instance; production will not be touched.
-- Existing PDF/assets, local archive lifecycle, rollback-capable restore, Android key client, and SAF UI are implemented, but backend migrations/configuration are unapplied and missing-PDF regeneration, scheduling, and Drive-specific transport remain incomplete; no production backup flow should be advertised yet.
+- Existing/generated PDFs, assets, local archive lifecycle, rollback-capable restore, Android key client, and SAF UI are implemented, but backend migrations/configuration are unapplied and scheduling, Drive-specific transport, and device QA remain incomplete; no production backup flow should be advertised yet.
 
 ## Next Executable Task
 
-Add local missing-PDF regeneration where Android can render a document without network access. Drive scheduling and transport remain blocked by external OAuth/console setup.
+Add safe local scheduling for daily/weekly backup policy. Drive transport remains blocked by external OAuth/console setup.
