@@ -441,6 +441,9 @@ open class TijarioRepository(
                     id = remote.id,
                     userId = userId,
                     customerId = remote.customerId,
+                    customerSnapshotName = existing?.customerSnapshotName,
+                    customerSnapshotWhatsapp = existing?.customerSnapshotWhatsapp,
+                    customerSnapshotCity = existing?.customerSnapshotCity,
                     type = when (remote.type) {
                         DocumentType.Invoice -> "invoice"
                         DocumentType.Quote -> "quote"
@@ -473,10 +476,12 @@ open class TijarioRepository(
                     lastSyncedAt = syncedAt,
                     syncErrorCode = null,
                     isDeleted = false,
+                    deletedAt = null,
                     localPdfRelativePath = existing?.localPdfRelativePath,
                     pdfGeneratedAt = existing?.pdfGeneratedAt,
                     pdfDocumentRevision = existing?.pdfDocumentRevision,
-                    pdfContentHash = existing?.pdfContentHash
+                    pdfContentHash = existing?.pdfContentHash,
+                    pdfGenerationStatus = existing?.pdfGenerationStatus ?: "missing",
                 )
             )
         }
@@ -955,6 +960,9 @@ open class TijarioRepository(
                 id = docId,
                 userId = userId,
                 customerId = documentCustomerId,
+                customerSnapshotName = request.customer.name,
+                customerSnapshotWhatsapp = request.customer.whatsappNumber,
+                customerSnapshotCity = request.customer.city,
                 type = when (request.type) {
                     DocumentType.Invoice -> "invoice"
                     DocumentType.Quote -> "quote"
@@ -986,7 +994,8 @@ open class TijarioRepository(
                 serverUpdatedAt = null,
                 lastSyncedAt = null,
                 syncErrorCode = null,
-                isDeleted = false
+                isDeleted = false,
+                deletedAt = null,
             )
 
             withContext(Dispatchers.IO) {
@@ -1077,7 +1086,8 @@ open class TijarioRepository(
                 localPdfRelativePath = null,
                 pdfGeneratedAt = null,
                 pdfDocumentRevision = null,
-                pdfContentHash = null
+                pdfContentHash = null,
+                pdfGenerationStatus = "missing",
             )
 
             withContext(Dispatchers.IO) {
@@ -1114,6 +1124,7 @@ open class TijarioRepository(
                         dao.upsertDocument(
                             existing.copy(
                                 isDeleted = true,
+                                deletedAt = System.currentTimeMillis(),
                                 localRevision = nextRev,
                                 syncStatus = "LOCAL_ONLY",
                             ),
@@ -1127,6 +1138,7 @@ open class TijarioRepository(
                         val nextRev = existing.localRevision + 1
                         val entity = existing.copy(
                             isDeleted = true,
+                            deletedAt = System.currentTimeMillis(),
                             localRevision = nextRev,
                             syncStatus = "PENDING_DELETE"
                         )
@@ -1466,6 +1478,7 @@ open class TijarioRepository(
                     dao.upsertDocument(
                         existing.copy(
                             isDeleted = false,
+                            deletedAt = null,
                             localRevision = existing.localRevision + 1,
                             syncStatus = if (accountDataMode(userId) == AccountDataMode.LocalDrive) "LOCAL_ONLY" else "PENDING_SYNC",
                         ),
@@ -1669,7 +1682,20 @@ open class TijarioRepository(
         userId: String,
         doc: app.tijario.data.local.DocumentEntity,
     ): app.tijario.data.model.CompleteDocument {
-        val customer = dao.getCustomer(userId, doc.customerId)?.toModel()
+        val currentCustomer = dao.getCustomer(userId, doc.customerId)?.toModel()
+        val customer = if (doc.customerSnapshotName != null || currentCustomer != null) {
+            app.tijario.data.model.Customer(
+                id = doc.customerId,
+                userId = doc.userId,
+                name = doc.customerSnapshotName ?: currentCustomer?.name.orEmpty(),
+                whatsappNumber = doc.customerSnapshotWhatsapp ?: currentCustomer?.whatsappNumber.orEmpty(),
+                city = doc.customerSnapshotCity ?: currentCustomer?.city,
+                notes = currentCustomer?.notes,
+                updatedAt = currentCustomer?.updatedAt,
+            )
+        } else {
+            null
+        }
         val items = dao.getDocumentItems(userId, doc.id).map { item ->
             app.tijario.data.model.DocumentItem(
                 id = item.id,

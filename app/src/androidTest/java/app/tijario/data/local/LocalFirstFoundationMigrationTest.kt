@@ -66,7 +66,40 @@ class LocalFirstFoundationMigrationTest {
         database.close()
     }
 
+    @Test
+    fun migrate16To17_addsHistoricalCustomerSnapshotAndPdfState() {
+        migrationHelper.createDatabase(TEST_DATABASE_V17, 16).use { legacy ->
+            legacy.execSQL(
+                """
+                INSERT INTO documents_cache (
+                    id, user_id, customer_id, type, document_number, status,
+                    issue_date, total, currency, synced_at, local_pdf_relative_path
+                ) VALUES (
+                    'document-1', 'user-1', 'customer-1', 'invoice', 'INV-00001', 'draft',
+                    '2026-07-18', '10.00', 'SAR', 100, 'pdf/document-1.pdf'
+                )
+                """.trimIndent(),
+            )
+        }
+
+        val database = migrationHelper.runMigrationsAndValidate(
+            TEST_DATABASE_V17,
+            17,
+            true,
+            TijarioDatabase.MIGRATION_16_17,
+        )
+
+        database.query("SELECT * FROM documents_cache WHERE id = 'document-1'").use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals("available", cursor.getString(cursor.getColumnIndexOrThrow("pdf_generation_status")))
+            assertTrue(cursor.isNull(cursor.getColumnIndexOrThrow("customer_snapshot_name")))
+            assertTrue(cursor.isNull(cursor.getColumnIndexOrThrow("deleted_at")))
+        }
+        database.close()
+    }
+
     private companion object {
         const val TEST_DATABASE = "tijario-local-first-foundation-migration-test"
+        const val TEST_DATABASE_V17 = "tijario-local-first-snapshot-migration-test"
     }
 }

@@ -131,6 +131,12 @@ data class DocumentEntity(
     val userId: String,
     @ColumnInfo(name = "customer_id")
     val customerId: String,
+    @ColumnInfo(name = "customer_snapshot_name")
+    val customerSnapshotName: String? = null,
+    @ColumnInfo(name = "customer_snapshot_whatsapp")
+    val customerSnapshotWhatsapp: String? = null,
+    @ColumnInfo(name = "customer_snapshot_city")
+    val customerSnapshotCity: String? = null,
     val type: String,
     @ColumnInfo(name = "document_number")
     val documentNumber: String,
@@ -181,12 +187,14 @@ data class DocumentEntity(
     @ColumnInfo(name = "last_synced_at") val lastSyncedAt: Long? = null,
     @ColumnInfo(name = "sync_error_code") val syncErrorCode: String? = null,
     @ColumnInfo(name = "is_deleted") val isDeleted: Boolean = false,
+    @ColumnInfo(name = "deleted_at") val deletedAt: Long? = null,
 
     // Local PDF Metadata
     @ColumnInfo(name = "local_pdf_relative_path") val localPdfRelativePath: String? = null,
     @ColumnInfo(name = "pdf_generated_at") val pdfGeneratedAt: Long? = null,
     @ColumnInfo(name = "pdf_document_revision") val pdfDocumentRevision: Long? = null,
-    @ColumnInfo(name = "pdf_content_hash") val pdfContentHash: String? = null
+    @ColumnInfo(name = "pdf_content_hash") val pdfContentHash: String? = null,
+    @ColumnInfo(name = "pdf_generation_status") val pdfGenerationStatus: String = "missing",
 )
 
 @Entity(
@@ -718,6 +726,9 @@ fun CompleteDocument.toEntity(userId: String, syncedAt: Long = System.currentTim
         id = id,
         userId = userId,
         customerId = customerId,
+        customerSnapshotName = customer?.name,
+        customerSnapshotWhatsapp = customer?.whatsappNumber,
+        customerSnapshotCity = customer?.city,
         type = type.toCacheValue(),
         documentNumber = documentNumber,
         templateId = templateId,

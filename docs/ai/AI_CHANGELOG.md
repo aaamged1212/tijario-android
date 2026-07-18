@@ -240,3 +240,9 @@
 - Migrated legacy usage ledger rows and changed successful sync from event deletion to acknowledgement.
 - Added migration compilation and JVM idempotency coverage.
 - No push, deploy, migration apply, external-console change, or Play upload.
+
+## 2026-07-18 - Historical document snapshots
+- Upgraded Room to schema 17 with customer snapshot, deletion timestamp, and PDF generation-state columns on cached documents.
+- Local document rendering now prefers the immutable customer snapshot over the mutable customer directory record.
+- Added JVM snapshot coverage and compiled the Room migration instrumentation suite.
+- No push, deploy, migration apply, external-console change, or Play upload.

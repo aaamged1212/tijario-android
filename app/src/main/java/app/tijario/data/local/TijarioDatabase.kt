@@ -34,7 +34,7 @@ import java.math.BigDecimal
         AnnouncementEntity::class,
         AnnouncementReceiptOutboxEntity::class,
     ],
-    version = 16,
+    version = 17,
     exportSchema = true,
 )
 @TypeConverters(BigDecimalConverter::class)
@@ -549,6 +549,17 @@ abstract class TijarioDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_16_17 = object : Migration(16, 17) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE documents_cache ADD COLUMN customer_snapshot_name TEXT")
+                db.execSQL("ALTER TABLE documents_cache ADD COLUMN customer_snapshot_whatsapp TEXT")
+                db.execSQL("ALTER TABLE documents_cache ADD COLUMN customer_snapshot_city TEXT")
+                db.execSQL("ALTER TABLE documents_cache ADD COLUMN deleted_at INTEGER")
+                db.execSQL("ALTER TABLE documents_cache ADD COLUMN pdf_generation_status TEXT NOT NULL DEFAULT 'missing'")
+                db.execSQL("UPDATE documents_cache SET pdf_generation_status = 'available' WHERE local_pdf_relative_path IS NOT NULL")
+            }
+        }
+
         fun getInstance(context: Context): TijarioDatabase =
             instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
@@ -556,7 +567,7 @@ abstract class TijarioDatabase : RoomDatabase() {
                     TijarioDatabase::class.java,
                     "tijario-local-cache.db",
                 )
-                    .addMigrations(MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16)
+                    .addMigrations(MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17)
                     .build()
                     .also { instance = it }
             }

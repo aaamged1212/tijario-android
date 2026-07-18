@@ -356,3 +356,17 @@
 - **Safety Status**: Local Android changes only. No commit, push, Web edit, Supabase migration apply, APK/AAB upload, or closed-testing change.
 - **Pending Tasks**:
   - Real-device QA: tap Download PDF, accept storage permission if prompted, and confirm the generated app PDF appears in the public Downloads folder.
+
+## 2026-07-18 (Local-First document snapshots)
+- **Agent**: Codex
+- **Branch**: `codex/local-first-complete`
+- **Action**: Added Room 17 historical customer snapshots and explicit document deletion/PDF-generation state.
+- **Details**:
+  - New local documents capture the selected customer's name, WhatsApp number, and city.
+  - Reopened documents render the stored snapshot instead of silently adopting later customer edits.
+  - Document soft-delete/restore records and clears `deleted_at`; document edits invalidate the cached PDF state.
+- **Validation**:
+  - Focused JVM snapshot test passed.
+  - Android test APK compilation passed with `assembleDebugAndroidTest`.
+  - Migration execution still requires an emulator/device because `adb` is unavailable.
+- **Safety Status**: Local Android work only. No push, deployment, migration apply, external-console change, or Play upload.
