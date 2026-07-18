@@ -10,6 +10,8 @@ import app.tijario.config.Supabase
 import app.tijario.data.local.BackupRecordEntity
 import app.tijario.data.local.BackupSettingsEntity
 import app.tijario.data.local.TijarioDatabase
+import app.tijario.features.backup.drive.DriveBackupRuntime
+import app.tijario.features.backup.drive.DriveConnectionState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -23,6 +25,8 @@ data class BackupUiState(
     val isBusy: Boolean = false,
     val latestBackup: BackupRecordEntity? = null,
     val settings: BackupSettingsEntity? = null,
+    val history: List<BackupRecordEntity> = emptyList(),
+    val driveConnectionState: DriveConnectionState = DriveConnectionState.NotConfigured,
     val exportFileName: String? = null,
     val messageKey: String? = null,
 )
@@ -49,12 +53,20 @@ class BackupViewModel(
                 .onSuccess { record ->
                     val file = File(getApplication<Application>().filesDir, record.localRelativePath)
                     preparedExport = file.takeIf(File::isFile)
+                    val settings = _uiState.value.settings ?: defaultSettings()
+                    val effectiveRecord = if (settings.driveEnabled) {
+                        record.copy(status = "DRIVE_PENDING").also {
+                            database.tijarioDao().upsertBackupRecord(it)
+                            BackupScheduler.enqueueDriveUpload(getApplication(), settings, it.id)
+                        }
+                    } else record
                     _uiState.value = _uiState.value.copy(
                         isBusy = false,
-                        latestBackup = record,
+                        latestBackup = effectiveRecord,
                         exportFileName = if (exportAfterCreate) preparedExport?.name else null,
                         messageKey = if (exportAfterCreate) null else "backup_created_success",
                     )
+                    refreshLatest()
                 }
                 .onFailure {
                     _uiState.value = _uiState.value.copy(isBusy = false, messageKey = "backup_create_failed")
@@ -121,14 +133,44 @@ class BackupViewModel(
         updateSettings { it.copy(chargingOnly = enabled, updatedAt = System.currentTimeMillis()) }
     }
 
+    fun updateWifiOnly(enabled: Boolean) {
+        updateSettings { it.copy(wifiOnly = enabled, updatedAt = System.currentTimeMillis()) }
+    }
+
+    fun updateDriveEnabled(enabled: Boolean) {
+        updateSettings { it.copy(driveEnabled = enabled, updatedAt = System.currentTimeMillis()) }
+    }
+
+    fun retryDriveUpload(backupId: String) {
+        val settings = _uiState.value.settings ?: return
+        if (!settings.driveEnabled || backupId.isBlank()) return
+        viewModelScope.launch {
+            val record = withContext(Dispatchers.IO) {
+                database.tijarioDao().getBackupRecords(userId).firstOrNull { it.id == backupId }
+            } ?: return@launch
+            withContext(Dispatchers.IO) {
+                database.tijarioDao().upsertBackupRecord(record.copy(status = "DRIVE_PENDING", lastError = null))
+            }
+            BackupScheduler.enqueueDriveUpload(getApplication(), settings, backupId)
+            refreshLatest()
+        }
+    }
+
     private fun refreshLatest() {
         if (userId.isBlank()) return
         viewModelScope.launch {
-            val (latest, settings) = withContext(Dispatchers.IO) {
+            val (records, settings) = withContext(Dispatchers.IO) {
                 val dao = database.tijarioDao()
-                dao.getBackupRecords(userId).firstOrNull() to (dao.getBackupSettings(userId) ?: defaultSettings())
+                dao.getBackupRecords(userId) to (dao.getBackupSettings(userId) ?: defaultSettings())
             }
-            _uiState.value = _uiState.value.copy(latestBackup = latest, settings = settings)
+            val driveState = runCatching { DriveBackupRuntime.client.connectionState() }
+                .getOrDefault(DriveConnectionState.NotConfigured)
+            _uiState.value = _uiState.value.copy(
+                latestBackup = records.firstOrNull(),
+                history = records,
+                settings = settings,
+                driveConnectionState = driveState,
+            )
             BackupScheduler.apply(getApplication(), settings)
         }
     }

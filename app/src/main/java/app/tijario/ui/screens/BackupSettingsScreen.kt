@@ -55,6 +55,7 @@ import app.tijario.config.LocalLanguage
 import app.tijario.config.Localization
 import app.tijario.config.t
 import app.tijario.features.backup.BackupViewModel
+import app.tijario.features.backup.drive.DriveConnectionState
 import java.text.DateFormat
 import java.util.Date
 import java.util.Locale
@@ -193,6 +194,59 @@ fun BackupSettingsScreen(
                             enabled = !state.isBusy,
                         )
                     }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(t("backup_wifi_only"), fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                        Switch(
+                            checked = state.settings?.wifiOnly == true,
+                            onCheckedChange = backupViewModel::updateWifiOnly,
+                            enabled = !state.isBusy,
+                        )
+                    }
+                }
+            }
+
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                shape = RoundedCornerShape(20.dp),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Text(t("backup_drive_title"), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        when (state.driveConnectionState) {
+                            DriveConnectionState.NotConfigured -> t("backup_drive_not_configured")
+                            DriveConnectionState.Disconnected -> t("backup_drive_disconnected")
+                            is DriveConnectionState.Connected -> t("backup_drive_connected")
+                        },
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(t("backup_drive_auto_upload"), fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                        Switch(
+                            checked = state.settings?.driveEnabled == true,
+                            onCheckedChange = backupViewModel::updateDriveEnabled,
+                            enabled = !state.isBusy && state.driveConnectionState is DriveConnectionState.Connected,
+                        )
+                    }
+                    state.latestBackup?.takeIf { it.status == "DRIVE_FAILED" }?.let { record ->
+                        OutlinedButton(
+                            onClick = { backupViewModel.retryDriveUpload(record.id) },
+                            enabled = !state.isBusy && state.driveConnectionState is DriveConnectionState.Connected,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) { Text(t("backup_drive_retry")) }
+                    }
                 }
             }
 
@@ -216,6 +270,34 @@ fun BackupSettingsScreen(
                 Icon(Icons.Filled.FileUpload, contentDescription = null)
                 Spacer(Modifier.padding(4.dp))
                 Text(t("backup_export_to"), fontWeight = FontWeight.Bold)
+            }
+
+            if (state.history.isNotEmpty()) {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    shape = RoundedCornerShape(20.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Column(
+                        modifier = Modifier.padding(20.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Text(t("backup_history"), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                        state.history.take(5).forEach { record ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                            ) {
+                                Text(formatBackupTime(record.createdAt, language.name), style = MaterialTheme.typography.bodySmall)
+                                Text(
+                                    Localization.getString("backup_status_${record.status.lowercase()}", language),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
+                        }
+                    }
+                }
             }
 
             OutlinedButton(

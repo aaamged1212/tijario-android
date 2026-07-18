@@ -2489,6 +2489,9 @@ open class TijarioRepository(
             if (userPdfDir.exists()) {
                 userPdfDir.deleteRecursively()
             }
+            app.tijario.features.backup.BackupScheduler.cancelAccountWork(context, userId)
+            val accountRoot = File(context.filesDir, "users/$userId")
+            if (accountRoot.exists()) accountRoot.deleteRecursively()
         }
     }
 

@@ -21,9 +21,20 @@ class BackupSchedulePolicyTest {
         val scheduler = File("src/main/java/app/tijario/features/backup/BackupScheduler.kt").readText()
         val worker = File("src/main/java/app/tijario/features/backup/BackupWorker.kt").readText()
 
-        assertFalse(scheduler.contains("setRequiredNetworkType"))
+        val localRequest = scheduler.substringBefore("fun enqueueDriveUpload")
+        assertFalse(localRequest.contains("setRequiredNetworkType"))
         assertTrue(worker.contains("allowNetwork = false"))
         assertFalse(worker.contains("Result.retry()"))
+    }
+
+    @Test
+    fun driveUploadIsSeparateNetworkWorkWithBoundedRetries() {
+        val scheduler = File("src/main/java/app/tijario/features/backup/BackupScheduler.kt").readText()
+        assertTrue(scheduler.contains("OneTimeWorkRequestBuilder<DriveUploadWorker>"))
+        assertTrue(scheduler.contains("setRequiredNetworkType"))
+        assertEquals("TijarioDriveUpload:user-1:backup-1", BackupScheduler.driveWorkName("user-1", "backup-1"))
+        assertEquals("TijarioDriveAccount:user-1", BackupScheduler.driveAccountTag("user-1"))
+        assertEquals(3, DriveUploadWorker.MAX_ATTEMPTS)
     }
 
     @Test
