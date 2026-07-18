@@ -21,7 +21,8 @@
 - `TESTED` Route operational repositories by explicit `legacy_cloud` / `local_drive` mode while defaulting unknown accounts to legacy behavior.
 - `TESTED` Route Local-Drive customer, product, document, and business-setting writes to Room without operational outbox or cloud CRUD.
 - `TESTED` Preserve account-local Room data during normal logout and clear only transient in-memory session state.
-- `IN_PROGRESS` Complete Local-Drive soft deletion, restoration, snapshots, active-count limits, and quota reconciliation.
+- `TESTED` Add repository-level Local-Drive soft deletion/restoration and active customer/product limit enforcement.
+- `IN_PROGRESS` Complete historical customer snapshots, restoration UI, and quota reconciliation.
 - `NOT_STARTED` Implement backup/restore, Drive transport, and legacy migration.
 - `NOT_STARTED` Implement backend control-plane V2 migrations and contracts locally without applying them.
 
@@ -54,6 +55,9 @@
 - Local-Drive public CRUD entry points use Room and do not enqueue operational cloud mutations; refresh/sync entry points are no-ops for operational data.
 - Local-Drive document creation checks the persisted entitlement and records a lifetime or billing-cycle creation event without requiring an online lease.
 - Normal sign-out no longer deletes Room customers, products, documents, settings, or creation events.
+- Local-Drive customer, product, and document deletion now preserves rows and records deletion history; repository restore clears the deletion marker without creating a new document event.
+- Customer and product limits count only active local rows, so deletion frees a slot and restoration rechecks the limit.
+- Focused repository tests and `assembleDebugAndroidTest` passed for soft deletion, restoration, limit failures, and no-credit document restore.
 - JVM tests and instrumentation compilation passed. Runtime migration execution is blocked by the unavailable Android test environment.
 - No push, deploy, migration apply, GitHub API action, or external-console change occurred.
 
@@ -65,4 +69,4 @@
 
 ## Next Executable Task
 
-Complete Local-Drive soft deletion, restoration, historical snapshots, and active-count enforcement without changing legacy-cloud behavior.
+Persist historical customer snapshots in documents and expose the repository restoration flow through a dedicated local-data UI.

@@ -1,5 +1,11 @@
 # AI Changelog
 
+## 2026-07-18 - Local-First deletion and restoration
+- Added active-row customer/product limit enforcement for Local-Drive accounts.
+- Preserved deleted customer, product, and document rows with deletion history.
+- Added repository restoration without document-credit consumption.
+- Added focused behavioral tests; no production or remote action occurred.
+
 ## 2026-07-18 - Local-First data-mode routing
 - Persisted account data mode and entitlement limits from the control-plane usage response.
 - Routed Local-Drive operational CRUD and numbering to Room while preserving legacy-cloud behavior by default.

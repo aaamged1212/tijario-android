@@ -316,6 +316,36 @@ open class TijarioRepository(
     private suspend fun accountDataMode(userId: String): AccountDataMode =
         AccountDataMode.from(dao.getAccountEntitlement(userId)?.dataMode)
 
+    private suspend fun enforceActiveEntityLimit(userId: String, entityType: String) {
+        if (accountDataMode(userId) != AccountDataMode.LocalDrive) return
+        val entitlement = dao.getAccountEntitlement(userId) ?: error("PLAN_REQUIRED")
+        val (activeCount, limit, errorCode) = when (entityType) {
+            "customer" -> Triple(dao.countActiveCustomers(userId), entitlement.customerLimit, "CUSTOMER_LIMIT_REACHED")
+            "product" -> Triple(dao.countActiveProducts(userId), entitlement.productLimit, "PRODUCT_LIMIT_REACHED")
+            else -> error("Unsupported limited entity type: $entityType")
+        }
+        if (limit != null && activeCount >= limit) error(errorCode)
+    }
+
+    private suspend fun recordLocalDeletion(
+        userId: String,
+        entityType: String,
+        entityId: String,
+        localRevision: Long,
+    ) {
+        dao.upsertDeletedRecord(
+            app.tijario.data.local.DeletedRecordEntity(
+                id = "$userId:$entityType:$entityId",
+                userId = userId,
+                entityType = entityType,
+                entityId = entityId,
+                deletedAt = System.currentTimeMillis(),
+                localRevision = localRevision,
+                payloadJson = null,
+            ),
+        )
+    }
+
     private suspend fun enqueueOperationalOutbox(
         userId: String,
         entityType: String,
@@ -602,6 +632,7 @@ open class TijarioRepository(
     // Local Customer CRUD
     suspend fun createCustomerLocal(customer: Customer): Result<Customer> = runCatching {
         val userId = requireUserId()
+        enforceActiveEntityLimit(userId, "customer")
         val generatedId = customer.id ?: java.util.UUID.randomUUID().toString()
         val localCustomer = customer.copy(id = generatedId, userId = userId)
         val entity = app.tijario.data.local.CustomerEntity(
@@ -657,11 +688,23 @@ open class TijarioRepository(
         val userId = requireUserId()
         withContext(Dispatchers.IO) {
             database.withTransaction {
+                val existing = dao.getCustomer(userId, customerId) ?: error("Customer not found locally")
+                if (accountDataMode(userId) == AccountDataMode.LocalDrive) {
+                    val nextRev = existing.localRevision + 1
+                    dao.upsertCustomer(
+                        existing.copy(
+                            isDeleted = true,
+                            localRevision = nextRev,
+                            syncStatus = "LOCAL_ONLY",
+                        ),
+                    )
+                    recordLocalDeletion(userId, "customer", customerId, nextRev)
+                    return@withTransaction
+                }
                 val docCount = dao.countDocumentsForCustomer(customerId)
                 if (docCount > 0) {
                     throw IllegalStateException("لا يمكن حذف العميل لوجود مستندات تاريخية مرتبطة به.")
                 }
-                val existing = dao.getCustomer(userId, customerId) ?: error("Customer not found locally")
                 if (existing.syncStatus == "LOCAL_ONLY") {
                     dao.deleteCustomer(userId, customerId)
                     enqueueOperationalOutbox(userId, "customer", customerId, "DELETE")
@@ -679,9 +722,29 @@ open class TijarioRepository(
         }
     }
 
+    suspend fun restoreCustomerLocal(customerId: String): Result<Unit> = runCatching {
+        val userId = requireUserId()
+        withContext(Dispatchers.IO) {
+            database.withTransaction {
+                val existing = dao.getCustomer(userId, customerId) ?: error("Customer not found locally")
+                check(existing.isDeleted) { "Customer is not deleted" }
+                enforceActiveEntityLimit(userId, "customer")
+                dao.upsertCustomer(
+                    existing.copy(
+                        isDeleted = false,
+                        localRevision = existing.localRevision + 1,
+                        syncStatus = if (accountDataMode(userId) == AccountDataMode.LocalDrive) "LOCAL_ONLY" else "PENDING_SYNC",
+                    ),
+                )
+                dao.deleteDeletedRecord(userId, "customer", customerId)
+            }
+        }
+    }
+
     // Local Product CRUD
     suspend fun createProductLocal(product: Product): Result<Product> = runCatching {
         val userId = requireUserId()
+        enforceActiveEntityLimit(userId, "product")
         val generatedId = product.id ?: java.util.UUID.randomUUID().toString()
         val localProduct = product.copy(id = generatedId, userId = userId)
         val entity = app.tijario.data.local.ProductEntity(
@@ -749,11 +812,23 @@ open class TijarioRepository(
         val userId = requireUserId()
         withContext(Dispatchers.IO) {
             database.withTransaction {
+                val existing = dao.getProduct(userId, productId) ?: error("Product not found locally")
+                if (accountDataMode(userId) == AccountDataMode.LocalDrive) {
+                    val nextRev = existing.localRevision + 1
+                    dao.upsertProduct(
+                        existing.copy(
+                            isDeleted = true,
+                            localRevision = nextRev,
+                            syncStatus = "LOCAL_ONLY",
+                        ),
+                    )
+                    recordLocalDeletion(userId, "product", productId, nextRev)
+                    return@withTransaction
+                }
                 val itemsUsage = dao.countDocumentItemsForProduct(productId)
                 if (itemsUsage > 0) {
                     throw IllegalStateException("لا يمكن حذف المنتج لوجوده في مستندات حالية.")
                 }
-                val existing = dao.getProduct(userId, productId) ?: error("Product not found locally")
                 if (existing.syncStatus == "LOCAL_ONLY") {
                     dao.deleteProduct(userId, productId)
                     enqueueOperationalOutbox(userId, "product", productId, "DELETE")
@@ -767,6 +842,25 @@ open class TijarioRepository(
                     dao.upsertProduct(entity)
                     enqueueOperationalOutbox(userId, "product", productId, "DELETE", existing.serverRevision)
                 }
+            }
+        }
+    }
+
+    suspend fun restoreProductLocal(productId: String): Result<Unit> = runCatching {
+        val userId = requireUserId()
+        withContext(Dispatchers.IO) {
+            database.withTransaction {
+                val existing = dao.getProduct(userId, productId) ?: error("Product not found locally")
+                check(existing.isDeleted) { "Product is not deleted" }
+                enforceActiveEntityLimit(userId, "product")
+                dao.upsertProduct(
+                    existing.copy(
+                        isDeleted = false,
+                        localRevision = existing.localRevision + 1,
+                        syncStatus = if (accountDataMode(userId) == AccountDataMode.LocalDrive) "LOCAL_ONLY" else "PENDING_SYNC",
+                    ),
+                )
+                dao.deleteDeletedRecord(userId, "product", productId)
             }
         }
     }
@@ -1008,13 +1102,24 @@ open class TijarioRepository(
         return try {
             val userId = requireUserId()
             val existing = dao.getDocument(userId, documentId) ?: error("Document not found locally")
+            val isLocalDrive = accountDataMode(userId) == AccountDataMode.LocalDrive
             val hasLedger = dao.getCreationEventByDocument(userId, documentId) != null
             val hasPdf = existing.localPdfRelativePath != null
             val mustSoftDelete = hasLedger || hasPdf
 
             withContext(Dispatchers.IO) {
                 database.withTransaction {
-                    if (existing.syncStatus == "LOCAL_ONLY" && !mustSoftDelete) {
+                    if (isLocalDrive) {
+                        val nextRev = existing.localRevision + 1
+                        dao.upsertDocument(
+                            existing.copy(
+                                isDeleted = true,
+                                localRevision = nextRev,
+                                syncStatus = "LOCAL_ONLY",
+                            ),
+                        )
+                        recordLocalDeletion(userId, "document", documentId, nextRev)
+                    } else if (existing.syncStatus == "LOCAL_ONLY" && !mustSoftDelete) {
                         dao.deleteDocumentItems(userId, documentId)
                         dao.deleteDocument(userId, documentId)
                         enqueueOperationalOutbox(userId, "document", documentId, "DELETE")
@@ -1348,6 +1453,29 @@ open class TijarioRepository(
             runCatching { refreshProducts() }
             runCatching { fetchUserPlanUsage() }
             result
+        }
+    }
+
+    suspend fun restoreDocumentLocal(documentId: String): ApiResult<CreateDocumentResponse> {
+        return try {
+            val userId = requireUserId()
+            val existing = dao.getDocument(userId, documentId) ?: error("Document not found locally")
+            check(existing.isDeleted) { "Document is not deleted" }
+            withContext(Dispatchers.IO) {
+                database.withTransaction {
+                    dao.upsertDocument(
+                        existing.copy(
+                            isDeleted = false,
+                            localRevision = existing.localRevision + 1,
+                            syncStatus = if (accountDataMode(userId) == AccountDataMode.LocalDrive) "LOCAL_ONLY" else "PENDING_SYNC",
+                        ),
+                    )
+                    dao.deleteDeletedRecord(userId, "document", documentId)
+                }
+            }
+            ApiResult(ok = true, data = CreateDocumentResponse(documentId, existing.documentNumber))
+        } catch (error: Exception) {
+            ApiResult(ok = false, message = error.message ?: "Failed to restore document locally.")
         }
     }
 

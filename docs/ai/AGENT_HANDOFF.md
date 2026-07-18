@@ -1,5 +1,13 @@
 # Agent Handoff (Android & Web Repos)
 
+## 2026-07-18 (Session - Local-First deletion and restoration)
+- Added active customer/product Room counts and enforced persisted Local-Drive limits before create or restore.
+- Changed Local-Drive customer, product, and document deletion to soft-delete plus deletion-history records.
+- Added repository restoration paths that reactivate rows and never create another document creation event.
+- Preserved legacy-cloud deletion behavior.
+- Focused JVM tests and instrumentation-test compilation passed; restoration UI and historical customer snapshots remain pending.
+- No push, deploy, production migration, external-console change, or Play upload.
+
 ## 2026-07-18 (Session - Local-First data-mode routing)
 - Added explicit `legacy_cloud`, `local_drive`, and reserved `cloud_sync_future` parsing with a safe legacy default.
 - Persisted control-plane entitlement fields from account usage and used them for local quota scope and limits.

@@ -522,6 +522,90 @@ class TijarioRepositoryOfflineTests {
     }
 
     @Test
+    fun createCustomerLocal_rejectsLocalDriveWhenActiveLimitReached() = runBlocking {
+        coEvery { dao.getAccountEntitlement(userId) } returns localDriveEntitlement()
+        coEvery { dao.countActiveCustomers(userId) } returns 5
+
+        val result = repository.createCustomerLocal(Customer(name = "Sixth", whatsappNumber = "555"))
+
+        assertTrue(result.isFailure)
+        assertEquals("CUSTOMER_LIMIT_REACHED", result.exceptionOrNull()?.message)
+        coVerify(exactly = 0) { dao.upsertCustomer(any()) }
+    }
+
+    @Test
+    fun createProductLocal_rejectsLocalDriveWhenActiveLimitReached() = runBlocking {
+        coEvery { dao.getAccountEntitlement(userId) } returns localDriveEntitlement()
+        coEvery { dao.countActiveProducts(userId) } returns 5
+
+        val result = repository.createProductLocal(
+            Product(kind = ProductKind.Product, name = "Sixth", price = 10.0, currency = "SAR"),
+        )
+
+        assertTrue(result.isFailure)
+        assertEquals("PRODUCT_LIMIT_REACHED", result.exceptionOrNull()?.message)
+        coVerify(exactly = 0) { dao.upsertProduct(any()) }
+    }
+
+    @Test
+    fun localDriveCustomerDelete_isSoftAndRestorableEvenWhenReferenced() = runBlocking {
+        val customer = CustomerEntity(
+            id = "customer-local-drive",
+            userId = userId,
+            name = "Customer",
+            whatsappNumber = "555",
+            city = null,
+            notes = null,
+            syncedAt = 0L,
+            syncStatus = "LOCAL_ONLY",
+            localRevision = 1,
+            isDeleted = false,
+        )
+        coEvery { dao.getAccountEntitlement(userId) } returns localDriveEntitlement()
+        coEvery { dao.getCustomer(userId, customer.id) } returns customer andThen customer.copy(isDeleted = true, localRevision = 2)
+        coEvery { dao.countActiveCustomers(userId) } returns 4
+
+        repository.deleteCustomerLocal(customer.id).getOrThrow()
+        repository.restoreCustomerLocal(customer.id).getOrThrow()
+
+        coVerify(exactly = 0) { dao.countDocumentsForCustomer(customer.id) }
+        coVerify(exactly = 0) { dao.deleteCustomer(userId, customer.id) }
+        coVerify(exactly = 1) { dao.upsertDeletedRecord(match { it.entityType == "customer" && it.entityId == customer.id }) }
+        coVerify(exactly = 1) { dao.deleteDeletedRecord(userId, "customer", customer.id) }
+        coVerify(exactly = 2) { dao.upsertCustomer(any()) }
+    }
+
+    @Test
+    fun localDriveDocumentRestore_doesNotConsumeAnotherCredit() = runBlocking {
+        val documentId = "restorable-document"
+        val document = DocumentEntity(
+            id = documentId,
+            userId = userId,
+            customerId = "customer",
+            type = "invoice",
+            documentNumber = "INV-00001",
+            status = "draft",
+            paymentStatus = "unpaid",
+            amountPaid = null,
+            issueDate = "2026-07-18",
+            total = BigDecimal("10.00"),
+            currency = "SAR",
+            syncedAt = 0L,
+            syncStatus = "LOCAL_ONLY",
+            isDeleted = true,
+        )
+        coEvery { dao.getAccountEntitlement(userId) } returns localDriveEntitlement()
+        coEvery { dao.getDocument(userId, documentId) } returns document
+
+        val result = repository.restoreDocumentLocal(documentId)
+
+        assertTrue(result.ok)
+        coVerify(exactly = 1) { dao.upsertDocument(match { !it.isDeleted && it.id == documentId }) }
+        coVerify(exactly = 0) { dao.insertCreationEvent(any()) }
+        coVerify(exactly = 0) { dao.deleteCreationEventsForUser(any()) }
+    }
+
+    @Test
     fun remoteIngestion_replacesMissingCustomerAndSyncedProduct() = runBlocking {
         coEvery { dao.getCustomer(userId, "cust_remote") } returns null
         val customerSlot = slot<List<CustomerEntity>>()

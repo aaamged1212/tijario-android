@@ -38,6 +38,9 @@ interface TijarioDao {
     @Query("DELETE FROM customers_cache WHERE user_id = :userId")
     suspend fun deleteCustomers(userId: String)
 
+    @Query("SELECT COUNT(*) FROM customers_cache WHERE user_id = :userId AND is_deleted = 0")
+    suspend fun countActiveCustomers(userId: String): Int
+
     @Query("SELECT * FROM products_cache WHERE user_id = :userId ORDER BY name COLLATE NOCASE ASC")
     fun observeProducts(userId: String): Flow<List<ProductEntity>>
 
@@ -55,6 +58,9 @@ interface TijarioDao {
 
     @Query("DELETE FROM products_cache WHERE user_id = :userId")
     suspend fun deleteProducts(userId: String)
+
+    @Query("SELECT COUNT(*) FROM products_cache WHERE user_id = :userId AND is_deleted = 0")
+    suspend fun countActiveProducts(userId: String): Int
 
     @Query("SELECT * FROM documents_cache WHERE user_id = :userId ORDER BY COALESCE(created_at, issue_date) DESC, synced_at DESC, document_number DESC")
     fun observeDocuments(userId: String): Flow<List<DocumentEntity>>
@@ -273,6 +279,12 @@ interface TijarioDao {
 
     @Query("SELECT * FROM deleted_record_history WHERE user_id = :userId ORDER BY deleted_at ASC")
     suspend fun getDeletedRecords(userId: String): List<DeletedRecordEntity>
+
+    @Query("SELECT * FROM deleted_record_history WHERE user_id = :userId AND entity_type = :entityType AND entity_id = :entityId LIMIT 1")
+    suspend fun getDeletedRecord(userId: String, entityType: String, entityId: String): DeletedRecordEntity?
+
+    @Query("DELETE FROM deleted_record_history WHERE user_id = :userId AND entity_type = :entityType AND entity_id = :entityId")
+    suspend fun deleteDeletedRecord(userId: String, entityType: String, entityId: String)
 
     @Query("SELECT * FROM documents_cache WHERE user_id = :userId AND id = :documentId LIMIT 1")
     fun observeDocument(userId: String, documentId: String): Flow<DocumentEntity?>
