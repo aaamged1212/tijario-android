@@ -63,4 +63,15 @@ class LogicalBackupSnapshotTest {
         assertEquals(true, "data/deleted-record-history.json" in paths)
         assertEquals(true, "data/business-settings.json" in paths)
     }
+
+    @Test
+    fun restorePolicyNeverReplacesUsageEventsOrDeviceAuthority() {
+        val byTable = RoomLogicalBackupStore.tableSpecs.associateBy { it.table }
+
+        assertEquals(BackupRestoreMode.MergeWithoutOverwrite, byTable.getValue("document_creation_events").restoreMode)
+        assertEquals(BackupRestoreMode.MergeWithoutOverwrite, byTable.getValue("account_entitlements").restoreMode)
+        assertEquals(BackupRestoreMode.PreserveCurrent, byTable.getValue("device_bindings").restoreMode)
+        assertEquals(BackupRestoreMode.PreserveCurrent, byTable.getValue("offline_quota_lease").restoreMode)
+        assertEquals(BackupRestoreMode.Replace, byTable.getValue("documents_cache").restoreMode)
+    }
 }

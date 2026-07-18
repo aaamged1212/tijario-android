@@ -258,3 +258,8 @@
 - Added temporary-file creation, archive revalidation, fsync, checksum, and atomic finalization for private local `.tijario` backups.
 - Added local backup/file history persistence and focused JVM tests.
 - No push, deploy, migration apply, external-console change, or Play upload.
+
+## 2026-07-18 - Restore quota authority
+- Changed restore policy so operational records are replaced but immutable document creation events are only merged without overwrite.
+- Preserved current entitlement, device-binding, and offline-lease authority instead of reactivating stale backup state.
+- Added focused policy coverage; no remote or production action occurred.

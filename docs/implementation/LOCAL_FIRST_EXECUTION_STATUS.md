@@ -28,6 +28,7 @@
 - `TESTED` Connect deterministic, account-scoped Room logical export and prevalidated transactional restore to the archive codec data contract.
 - `TESTED` Collect existing account logo, product images, and document PDFs; record missing/failed PDF counts without failing structured backup.
 - `TESTED` Finalize verified encrypted archives through temporary files and atomic replacement, then persist local backup/file metadata.
+- `TESTED` Preserve current immutable usage events, entitlement authority, device bindings, and leases during restore; backup events merge without deleting newer credits.
 - `IN_PROGRESS` Connect local PDF regeneration, asset restore, key management, and backup/restore UI.
 - `NOT_STARTED` Implement Drive transport and legacy migration UI.
 - `NOT_STARTED` Implement backend control-plane V2 migrations and contracts locally without applying them.
@@ -70,6 +71,7 @@
 - Backup codec JVM tests passed for encrypted offline round-trip, cross-account rejection, tamper rejection, required structured data, and path traversal protection.
 - Room logical backup exports all approved account-scoped operational/control-plane cache tables as typed JSON. Restore validates table identity, schema columns, and row ownership before replacing only that account's rows in one database transaction.
 - Local backup creation collects available account assets, records absent/failed PDFs in the manifest, authenticates the completed archive before finalization, and stores it under the account's private app directory without requiring network access.
+- Restore policy replaces operational rows, merges immutable creation events without overwrite, preserves current entitlement authority, and never reactivates archived device bindings or quota leases.
 - JVM tests and instrumentation compilation passed. Runtime migration execution is blocked by the unavailable Android test environment.
 - No push, deploy, migration apply, GitHub API action, or external-console change occurred.
 

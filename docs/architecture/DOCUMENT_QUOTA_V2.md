@@ -1,6 +1,6 @@
 # Document Quota V2
 
-Status: planning only. No Supabase migration or Android quota implementation is applied by this document.
+Status: partially implemented locally. Android Room immutable creation events and restore-safe merge behavior exist; the local backend control-plane migration is authored but unapplied. Signed entitlements, lease V2 client integration, and production reconciliation remain incomplete.
 
 ## Product Rules
 
@@ -18,6 +18,8 @@ Status: planning only. No Supabase migration or Android quota implementation is 
 - Paid-plan document quota is billing-cycle scoped.
 
 Local document table row counts must never be authoritative for usage.
+
+Restore merges immutable `document_creation_events` using the existing user/document and user/operation uniqueness. It never replaces or deletes newer events. Archived device registrations and offline leases never reactivate authority; the current control-plane-approved device and lease state is preserved.
 
 ## Immutable Events
 
@@ -96,4 +98,3 @@ Each write must be idempotent by `operation_id`.
 ## Current Gap
 
 The existing backend is monthly-usage oriented and includes `usage_counters`, `offline_quota_leases`, and document write RPCs. The future V2 must keep legacy data during migration and add immutable event accounting before Android becomes fully local-first.
-

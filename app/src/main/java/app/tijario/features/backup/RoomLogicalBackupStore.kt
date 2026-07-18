@@ -7,7 +7,14 @@ import java.util.Base64
 data class BackupTableSpec(
     val table: String,
     val archivePath: String,
+    val restoreMode: BackupRestoreMode = BackupRestoreMode.Replace,
 )
+
+enum class BackupRestoreMode {
+    Replace,
+    MergeWithoutOverwrite,
+    PreserveCurrent,
+}
 
 class RoomLogicalBackupStore(
     private val database: TijarioDatabase,
@@ -42,11 +49,11 @@ class RoomLogicalBackupStore(
 
         sqlite.beginTransaction()
         try {
-            tableSpecs.asReversed().forEach { spec ->
+            tableSpecs.asReversed().filter { it.restoreMode == BackupRestoreMode.Replace }.forEach { spec ->
                 sqlite.execSQL("DELETE FROM ${quoted(spec.table)} WHERE user_id = ?", arrayOf(userId))
             }
-            tableSpecs.forEach { spec ->
-                insertSnapshot(staged.getValue(spec))
+            tableSpecs.filter { it.restoreMode != BackupRestoreMode.PreserveCurrent }.forEach { spec ->
+                insertSnapshot(staged.getValue(spec), spec.restoreMode)
             }
             sqlite.setTransactionSuccessful()
         } finally {
@@ -54,13 +61,14 @@ class RoomLogicalBackupStore(
         }
     }
 
-    private fun insertSnapshot(snapshot: LogicalTableSnapshot) {
+    private fun insertSnapshot(snapshot: LogicalTableSnapshot, restoreMode: BackupRestoreMode) {
         if (snapshot.rows.isEmpty()) return
         val sqlite = database.openHelper.writableDatabase
         val columns = snapshot.columns.joinToString(",") { quoted(it) }
         val placeholders = List(snapshot.columns.size) { "?" }.joinToString(",")
+        val conflict = if (restoreMode == BackupRestoreMode.MergeWithoutOverwrite) "IGNORE" else "ABORT"
         val statement = sqlite.compileStatement(
-            "INSERT OR ABORT INTO ${quoted(snapshot.table)} ($columns) VALUES ($placeholders)",
+            "INSERT OR $conflict INTO ${quoted(snapshot.table)} ($columns) VALUES ($placeholders)",
         )
         snapshot.rows.forEach { row ->
             statement.clearBindings()
@@ -130,12 +138,28 @@ class RoomLogicalBackupStore(
             BackupTableSpec("local_signatures", "data/signatures.json"),
             BackupTableSpec("local_terms", "data/terms.json"),
             BackupTableSpec("local_document_metadata", "data/document-metadata.json"),
-            BackupTableSpec("document_creation_events", "data/document-creation-events.json"),
+            BackupTableSpec(
+                "document_creation_events",
+                "data/document-creation-events.json",
+                BackupRestoreMode.MergeWithoutOverwrite,
+            ),
             BackupTableSpec("deleted_record_history", "data/deleted-record-history.json"),
-            BackupTableSpec("account_entitlements", "data/account-entitlements.json"),
+            BackupTableSpec(
+                "account_entitlements",
+                "data/account-entitlements.json",
+                BackupRestoreMode.MergeWithoutOverwrite,
+            ),
             BackupTableSpec("backup_settings", "data/backup-settings.json"),
-            BackupTableSpec("device_bindings", "data/device-bindings.json"),
-            BackupTableSpec("offline_quota_lease", "data/offline-quota-leases.json"),
+            BackupTableSpec(
+                "device_bindings",
+                "data/device-bindings.json",
+                BackupRestoreMode.PreserveCurrent,
+            ),
+            BackupTableSpec(
+                "offline_quota_lease",
+                "data/offline-quota-leases.json",
+                BackupRestoreMode.PreserveCurrent,
+            ),
         )
     }
 }
