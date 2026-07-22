@@ -15,6 +15,12 @@
 - **Remaining**: Visible phone destination, secure sharing, Drive authorization/REST wiring, notifications, and physical-device SAF validation.
 - **Safety**: No push, deployment, migration apply, external-console action, or Google Play upload.
 
+## 2026-07-23 (Phone backup and sharing)
+- **Branch**: `codex/backup-drive-production-ready`.
+- **Completed locally**: A successful private backup now also attempts a visible phone copy through scoped MediaStore storage on Android 10+; Android 8-9 uses a persisted user-selected SAF folder. Backup history has confirmed restore/share actions. Shares use content URIs and read grants, with Telegram preferred only when installed.
+- **Validation**: Focused phone-backup/UI JVM contract tests completed successfully.
+- **External QA**: Device validation is still required for MediaStore, SAF folder persistence, and sharesheet/Telegram target behavior.
+
 ## 2026-07-18 (Local-First full validation)
 - **Agent**: Codex
 - **Branches**: Android `codex/local-first-complete`; backend `codex/local-first-control-plane`.

@@ -20,8 +20,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.FileUpload
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material3.AlertDialog
@@ -83,6 +86,7 @@ fun BackupSettingsScreen(
     val snackbar = remember { SnackbarHostState() }
     var pendingRestoreUri by remember { mutableStateOf<android.net.Uri?>(null) }
     var pendingDriveRestore by remember { mutableStateOf<DriveBackupFile?>(null) }
+    var pendingLocalRestore by remember { mutableStateOf<app.tijario.data.local.BackupRecordEntity?>(null) }
 
     val exportLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/octet-stream"),
@@ -90,6 +94,9 @@ fun BackupSettingsScreen(
     )
     val restoreLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         pendingRestoreUri = uri
+    }
+    val folderLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) {
+        backupViewModel.rememberPhoneBackupFolder(it)
     }
 
     LaunchedEffect(state.exportFileName) {
@@ -110,6 +117,12 @@ fun BackupSettingsScreen(
             runCatching {
                 context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
             }
+        }
+    }
+    LaunchedEffect(state.shareIntent) {
+        state.shareIntent?.let { intent ->
+            backupViewModel.consumeShareRequest()
+            runCatching { context.startActivity(intent) }
         }
     }
 
@@ -157,6 +170,20 @@ fun BackupSettingsScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.bodySmall,
                         )
+                        Text(
+                            text = "${t("backup_phone_location")}: ${t(state.phoneBackupDestination.ifBlank { "backup_phone_folder_required" })}",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                    OutlinedButton(
+                        onClick = { folderLauncher.launch(null) },
+                        enabled = !state.isBusy,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Icon(Icons.Filled.Folder, contentDescription = null)
+                        Spacer(Modifier.padding(4.dp))
+                        Text(t("backup_phone_folder"))
                     }
                 }
             }
@@ -315,6 +342,29 @@ fun BackupSettingsScreen(
                 Text(t("backup_export_to"), fontWeight = FontWeight.Bold)
             }
 
+            state.latestBackup?.let {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    OutlinedButton(
+                        onClick = { backupViewModel.requestShareLatestBackup(preferTelegram = false) },
+                        enabled = !state.isBusy,
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Icon(Icons.Filled.Share, contentDescription = null)
+                        Spacer(Modifier.padding(4.dp))
+                        Text(t("backup_share"))
+                    }
+                    OutlinedButton(
+                        onClick = { backupViewModel.requestShareLatestBackup(preferTelegram = true) },
+                        enabled = !state.isBusy,
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null)
+                        Spacer(Modifier.padding(4.dp))
+                        Text(t("backup_telegram"))
+                    }
+                }
+            }
+
             if (state.history.isNotEmpty()) {
                 Card(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -326,17 +376,26 @@ fun BackupSettingsScreen(
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
                         Text(t("backup_history"), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                        state.history.take(5).forEach { record ->
+                        state.history.take(10).forEach { record ->
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Text(formatBackupTime(record.createdAt, language.name), style = MaterialTheme.typography.bodySmall)
-                                Text(
-                                    Localization.getString("backup_status_${record.status.lowercase()}", language),
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    style = MaterialTheme.typography.bodySmall,
-                                )
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(formatBackupTime(record.createdAt, language.name), style = MaterialTheme.typography.bodySmall)
+                                    Text(
+                                        Localization.getString("backup_status_${record.status.lowercase()}", language),
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        style = MaterialTheme.typography.bodySmall,
+                                    )
+                                }
+                                IconButton(onClick = { pendingLocalRestore = record }, enabled = !state.isBusy) {
+                                    Icon(Icons.Filled.Restore, contentDescription = t("backup_restore_confirm"))
+                                }
+                                IconButton(onClick = { backupViewModel.requestShareBackup(record, preferTelegram = false) }, enabled = !state.isBusy) {
+                                    Icon(Icons.Filled.Share, contentDescription = t("backup_share"))
+                                }
                             }
                         }
                     }
@@ -402,6 +461,23 @@ fun BackupSettingsScreen(
             },
             dismissButton = {
                 TextButton(onClick = { pendingDriveRestore = null }) { Text(t("cancel")) }
+            },
+        )
+    }
+
+    pendingLocalRestore?.let { record ->
+        AlertDialog(
+            onDismissRequest = { pendingLocalRestore = null },
+            title = { Text(t("backup_restore_confirm_title"), fontWeight = FontWeight.Bold) },
+            text = { Text(t("backup_restore_confirm_body")) },
+            confirmButton = {
+                Button(onClick = {
+                    pendingLocalRestore = null
+                    backupViewModel.restoreLocalRecord(record)
+                }) { Text(t("backup_restore_confirm")) }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingLocalRestore = null }) { Text(t("cancel")) }
             },
         )
     }

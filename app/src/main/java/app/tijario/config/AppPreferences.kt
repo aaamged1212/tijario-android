@@ -27,6 +27,7 @@ private const val KEY_PUSH_ENABLED = "push_enabled"
 private const val KEY_NOTIFICATION_EXPLAINED = "notification_explained"
 private const val KEY_SUBSCRIBED_TOPIC = "subscribed_topic"
 private const val KEY_INSTALLATION_ID = "installation_id"
+private const val KEY_PHONE_BACKUP_TREE_URI = "phone_backup_tree_uri"
 
 private fun planKey(userId: String, suffix: String) = "plan_usage_${userId}_$suffix"
 
@@ -188,6 +189,18 @@ object AppPreferences {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit()
             .putString(KEY_SUBSCRIBED_TOPIC, topic)
+            .apply()
+    }
+
+    fun getPhoneBackupTreeUri(context: Context, userId: String): android.net.Uri? =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(planKey(userId, KEY_PHONE_BACKUP_TREE_URI), null)
+            ?.let(android.net.Uri::parse)
+
+    fun setPhoneBackupTreeUri(context: Context, userId: String, uri: String?) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(planKey(userId, KEY_PHONE_BACKUP_TREE_URI), uri)
             .apply()
     }
 }

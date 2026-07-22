@@ -14,7 +14,7 @@
 - `COMPLETE_LOCAL` Explicit control-plane initialization and unknown data-mode blocking.
 - `COMPLETE_LOCAL` Signed entitlement backup policy and plan-safe scheduling.
 - `TESTED` Streamed archive input, strict relationship validation, and temporary-file cleanup.
-- `NOT_STARTED` Visible phone destination, history, restore selection, and secure sharing.
+- `TESTED` Visible phone destination, history, restore selection, and secure sharing.
 - `NOT_STARTED` Google Identity authorization, runtime wiring, and production Drive REST transport.
 - `NOT_STARTED` Foreground backup progress, notifications, and final settings UX.
 - `NOT_STARTED` Final static review, local validation, release documentation, and post-flight status.
@@ -27,6 +27,7 @@
 - Restore currently receives archive bytes in memory; SAF and Drive inputs need bounded file streaming.
 - `LogicalBackupValidator` currently skips a relationship when required columns are absent; this must fail closed.
 - SAF and Drive restore now stage encrypted archives in account-scoped private files, enforce the archive limit during copy, stream decryption to a temporary payload, and stage binary assets as files instead of returning them in the in-memory logical-entry map. The temporary input and decrypted staging paths are cleaned on success or failure.
+- Phone-visible copies use MediaStore on Android 10+ and a persisted SAF tree on Android 8-9. The settings screen shows the destination, permits restoring a private history item after confirmation, and shares only finalized `.tijario` files through a FileProvider, preferring Telegram when installed.
 
 ## External Blockers
 

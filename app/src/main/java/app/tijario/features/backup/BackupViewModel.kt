@@ -1,6 +1,7 @@
 package app.tijario.features.backup
 
 import android.app.Application
+import android.content.Intent
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
@@ -32,6 +33,9 @@ data class BackupUiState(
     val driveBackups: List<DriveBackupFile> = emptyList(),
     val openDriveFolderUrl: String? = null,
     val exportFileName: String? = null,
+    val phoneBackup: PhoneBackupFile? = null,
+    val phoneBackupDestination: String = "",
+    val shareIntent: Intent? = null,
     val messageKey: String? = null,
 )
 
@@ -57,6 +61,11 @@ class BackupViewModel(
                 .onSuccess { record ->
                     val file = File(getApplication<Application>().filesDir, record.localRelativePath)
                     preparedExport = file.takeIf(File::isFile)
+                    val phoneBackup = withContext(Dispatchers.IO) {
+                        runCatching {
+                            PhoneBackupRepository(getApplication()).saveVisibleCopy(userId, record, getApplication<Application>().filesDir)
+                        }.getOrNull()
+                    }
                     val settings = _uiState.value.settings ?: defaultSettings()
                     val effectiveRecord = if (settings.driveEnabled) {
                         record.copy(status = "DRIVE_PENDING").also {
@@ -67,8 +76,10 @@ class BackupViewModel(
                     _uiState.value = _uiState.value.copy(
                         isBusy = false,
                         latestBackup = effectiveRecord,
+                        phoneBackup = phoneBackup,
+                        phoneBackupDestination = PhoneBackupRepository(getApplication()).destinationKey(userId),
                         exportFileName = if (exportAfterCreate) preparedExport?.name else null,
-                        messageKey = if (exportAfterCreate) null else "backup_created_success",
+                        messageKey = if (exportAfterCreate) null else if (phoneBackup != null) "backup_phone_saved" else "backup_created_success",
                     )
                     refreshLatest()
                 }
@@ -133,12 +144,51 @@ class BackupViewModel(
         }
     }
 
+    fun restoreLocalRecord(record: BackupRecordEntity) {
+        if (record.userId != userId || _uiState.value.isBusy) return
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isBusy = true, messageKey = null)
+            runCatching {
+                val file = File(getApplication<Application>().filesDir, record.localRelativePath)
+                coordinator.restoreLocalBackup(userId, file, allowNetwork = true)
+            }.onSuccess {
+                _uiState.value = _uiState.value.copy(isBusy = false, messageKey = "backup_restored_success")
+                refreshLatest()
+            }.onFailure {
+                _uiState.value = _uiState.value.copy(isBusy = false, messageKey = "backup_restore_failed")
+            }
+        }
+    }
+
     fun consumeMessage() {
         _uiState.value = _uiState.value.copy(messageKey = null)
     }
 
     fun consumeOpenDriveFolderRequest() {
         _uiState.value = _uiState.value.copy(openDriveFolderUrl = null)
+    }
+
+    fun consumeShareRequest() {
+        _uiState.value = _uiState.value.copy(shareIntent = null)
+    }
+
+    fun rememberPhoneBackupFolder(uri: Uri?) {
+        if (uri == null || userId.isBlank()) return
+        runCatching { PhoneBackupRepository(getApplication()).rememberTree(userId, uri) }
+            .onSuccess { refreshLatest() }
+            .onFailure { _uiState.value = _uiState.value.copy(messageKey = "backup_phone_folder_failed") }
+    }
+
+    fun requestShareBackup(record: BackupRecordEntity, preferTelegram: Boolean) {
+        if (record.userId != userId) return
+        val file = File(getApplication<Application>().filesDir, record.localRelativePath)
+        runCatching { BackupShareIntents.create(getApplication(), file, preferTelegram) }
+            .onSuccess { _uiState.value = _uiState.value.copy(shareIntent = it) }
+            .onFailure { _uiState.value = _uiState.value.copy(messageKey = "backup_share_failed") }
+    }
+
+    fun requestShareLatestBackup(preferTelegram: Boolean) {
+        _uiState.value.latestBackup?.let { requestShareBackup(it, preferTelegram) }
     }
 
     fun requestOpenDriveFolder() {
@@ -230,6 +280,7 @@ class BackupViewModel(
                 settings = settings,
                 driveConnectionState = driveState,
                 driveBackups = driveBackups,
+                phoneBackupDestination = PhoneBackupRepository(getApplication()).destinationKey(userId),
             )
             BackupScheduler.apply(getApplication(), settings)
         }

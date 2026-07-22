@@ -303,3 +303,7 @@
 # 2026-07-23 - Streaming backup restore
 - Replaced SAF and Drive restore byte-array loading with bounded account-scoped temporary archive files.
 - Streamed encrypted archive decryption and staged binary assets to files while preserving the existing V1 format and transactional restore path.
+
+# 2026-07-23 - Visible phone backups and secure sharing
+- Added scoped MediaStore phone copies, persisted SAF backup-folder selection for Android 8-9, and history restore/share controls.
+- Added FileProvider content-URI sharing and Telegram preference with sharesheet fallback; no broad storage permission was added.

@@ -7,6 +7,7 @@
             <action android:name="android.intent.action.SENDTO" />
             <data android:scheme="mailto" />
         </intent>
+        <package android:name="org.telegram.messenger" />
     </queries>
 
     <application
