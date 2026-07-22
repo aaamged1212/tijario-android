@@ -119,6 +119,8 @@ class TijarioRepositoryOfflineTests {
             runBlocking { block() }
         }
         every { database.tijarioDao() } returns dao
+        // Operational writes now require an initialized entitlement; legacy-sync fixtures use this explicit mode.
+        coEvery { dao.getAccountEntitlement(userId) } returns localDriveEntitlement().copy(dataMode = "legacy_cloud")
         repository = TestableTijarioRepository(context, database, supabaseClient, backendApiClient, userId)
     }
 
