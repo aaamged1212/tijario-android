@@ -217,7 +217,7 @@ data class AiV2UsageResponse(
 @Serializable
 data class AccountUsageData(
     @SerialName("plan_code") val planCode: String,
-    @SerialName("data_mode") val dataMode: String = "legacy_cloud",
+    @SerialName("data_mode") val dataMode: String = "uninitialized",
     @SerialName("document_limit_scope") val documentLimitScope: String = "billing_cycle",
     @SerialName("entitlement_version") val entitlementVersion: Long = 0,
     @SerialName("monthly_document_limit") val monthlyDocumentLimit: Int,
@@ -232,6 +232,13 @@ data class AccountUsageData(
     @SerialName("allowed_template_ids") val allowedTemplateIds: List<String> = emptyList(),
     @SerialName("template_access") val templateAccess: String? = null,
     @SerialName("remove_tijario_branding") val removeTijarioBranding: Boolean = false,
+    @SerialName("offline_credit_batch_size") val offlineCreditBatchSize: Int = 0,
+    @SerialName("offline_entitlement_days") val offlineEntitlementDays: Int = 0,
+    @SerialName("max_primary_devices") val maxPrimaryDevices: Int = 0,
+    @SerialName("backup_frequency") val backupFrequency: String = "manual",
+    @SerialName("backup_retention_daily") val backupRetentionDaily: Int = 0,
+    @SerialName("backup_retention_weekly") val backupRetentionWeekly: Int = 0,
+    @SerialName("backup_retention_monthly") val backupRetentionMonthly: Int = 0,
     @SerialName("signed_entitlement") val signedEntitlement: SignedEntitlementDto? = null,
 )
 

@@ -320,6 +320,12 @@ open class TijarioRepository(
     private suspend fun accountDataMode(userId: String): AccountDataMode =
         AccountDataMode.from(dao.getAccountEntitlement(userId)?.dataMode)
 
+    private suspend fun requireOperationalDataMode(userId: String): AccountDataMode {
+        val mode = accountDataMode(userId)
+        check(mode.allowsOperationalWrites) { "ENTITLEMENT_INITIALIZATION_REQUIRED" }
+        return mode
+    }
+
     private suspend fun enforceActiveEntityLimit(userId: String, entityType: String) {
         if (accountDataMode(userId) != AccountDataMode.LocalDrive) return
         val entitlement = dao.getAccountEntitlement(userId) ?: error("PLAN_REQUIRED")
@@ -641,6 +647,7 @@ open class TijarioRepository(
     // Local Customer CRUD
     suspend fun createCustomerLocal(customer: Customer): Result<Customer> = runCatching {
         val userId = requireUserId()
+        requireOperationalDataMode(userId)
         enforceActiveEntityLimit(userId, "customer")
         val generatedId = customer.id ?: java.util.UUID.randomUUID().toString()
         val localCustomer = customer.copy(id = generatedId, userId = userId)
@@ -671,6 +678,7 @@ open class TijarioRepository(
 
     suspend fun updateCustomerLocal(customer: Customer): Result<Customer> = runCatching {
         val userId = requireUserId()
+        requireOperationalDataMode(userId)
         val customerId = customer.id ?: error("Customer ID required for update")
         withContext(Dispatchers.IO) {
             database.withTransaction {
@@ -695,6 +703,7 @@ open class TijarioRepository(
 
     suspend fun deleteCustomerLocal(customerId: String): Result<Unit> = runCatching {
         val userId = requireUserId()
+        requireOperationalDataMode(userId)
         withContext(Dispatchers.IO) {
             database.withTransaction {
                 val existing = dao.getCustomer(userId, customerId) ?: error("Customer not found locally")
@@ -733,6 +742,7 @@ open class TijarioRepository(
 
     suspend fun restoreCustomerLocal(customerId: String): Result<Unit> = runCatching {
         val userId = requireUserId()
+        requireOperationalDataMode(userId)
         withContext(Dispatchers.IO) {
             database.withTransaction {
                 val existing = dao.getCustomer(userId, customerId) ?: error("Customer not found locally")
@@ -753,6 +763,7 @@ open class TijarioRepository(
     // Local Product CRUD
     suspend fun createProductLocal(product: Product): Result<Product> = runCatching {
         val userId = requireUserId()
+        requireOperationalDataMode(userId)
         enforceActiveEntityLimit(userId, "product")
         val generatedId = product.id ?: java.util.UUID.randomUUID().toString()
         val localProduct = product.copy(id = generatedId, userId = userId)
@@ -789,6 +800,7 @@ open class TijarioRepository(
 
     suspend fun updateProductLocal(product: Product): Result<Product> = runCatching {
         val userId = requireUserId()
+        requireOperationalDataMode(userId)
         val productId = product.id ?: error("Product ID required for update")
         withContext(Dispatchers.IO) {
             database.withTransaction {
@@ -819,6 +831,7 @@ open class TijarioRepository(
 
     suspend fun deleteProductLocal(productId: String): Result<Unit> = runCatching {
         val userId = requireUserId()
+        requireOperationalDataMode(userId)
         withContext(Dispatchers.IO) {
             database.withTransaction {
                 val existing = dao.getProduct(userId, productId) ?: error("Product not found locally")
@@ -857,6 +870,7 @@ open class TijarioRepository(
 
     suspend fun restoreProductLocal(productId: String): Result<Unit> = runCatching {
         val userId = requireUserId()
+        requireOperationalDataMode(userId)
         withContext(Dispatchers.IO) {
             database.withTransaction {
                 val existing = dao.getProduct(userId, productId) ?: error("Product not found locally")
@@ -878,6 +892,7 @@ open class TijarioRepository(
     suspend fun createDocumentLocal(request: CreateDocumentRequest): ApiResult<CreateDocumentResponse> {
         return try {
             val userId = requireUserId()
+            requireOperationalDataMode(userId)
             val docId = java.util.UUID.randomUUID().toString()
             val dateStr = LocalDate.now(ZoneOffset.UTC).format(DateTimeFormatter.ISO_LOCAL_DATE)
             val existingDocs = dao.observeDocuments(userId).first()
@@ -1033,6 +1048,7 @@ open class TijarioRepository(
     suspend fun updateDocumentLocal(documentId: String, request: CreateDocumentRequest): ApiResult<CreateDocumentResponse> {
         return try {
             val userId = requireUserId()
+            requireOperationalDataMode(userId)
             val existing = dao.getDocument(userId, documentId) ?: error("Document not found locally")
 
             val itemsEntities = request.items.mapIndexed { index, item ->
@@ -1118,6 +1134,7 @@ open class TijarioRepository(
     suspend fun deleteDocumentLocal(documentId: String): ApiResult<CreateDocumentResponse> {
         return try {
             val userId = requireUserId()
+            requireOperationalDataMode(userId)
             val existing = dao.getDocument(userId, documentId) ?: error("Document not found locally")
             val isLocalDrive = accountDataMode(userId) == AccountDataMode.LocalDrive
             val hasLedger = dao.getCreationEventByDocument(userId, documentId) != null
@@ -1164,6 +1181,7 @@ open class TijarioRepository(
     // Local Business Settings update
     suspend fun updateBusinessSettingsLocal(settings: BusinessSettings): Result<Unit> = runCatching {
         val userId = requireUserId()
+        requireOperationalDataMode(userId)
         val syncedAt = System.currentTimeMillis()
         withContext(Dispatchers.IO) {
             database.withTransaction {
@@ -1206,6 +1224,7 @@ open class TijarioRepository(
     // Legacy Save / Cache adapters for backward compatibility
     suspend fun createCustomer(customer: Customer): Result<Unit> = runCatching {
         val userId = requireUserId()
+        requireOperationalDataMode(userId)
         if (accountDataMode(userId) == AccountDataMode.LocalDrive) {
             createCustomerLocal(customer).getOrThrow()
             return@runCatching
@@ -1236,6 +1255,7 @@ open class TijarioRepository(
 
     suspend fun updateCustomer(customer: Customer): Result<Unit> = runCatching {
         val userId = requireUserId()
+        requireOperationalDataMode(userId)
         if (accountDataMode(userId) == AccountDataMode.LocalDrive) {
             updateCustomerLocal(customer).getOrThrow()
             return@runCatching
@@ -1270,6 +1290,7 @@ open class TijarioRepository(
 
     suspend fun deleteCustomer(customerId: String): Result<Unit> = runCatching {
         val userId = requireUserId()
+        requireOperationalDataMode(userId)
         if (accountDataMode(userId) == AccountDataMode.LocalDrive) {
             deleteCustomerLocal(customerId).getOrThrow()
             return@runCatching
@@ -1290,6 +1311,7 @@ open class TijarioRepository(
 
     suspend fun createProduct(product: Product): Result<Unit> = runCatching {
         val userId = requireUserId()
+        requireOperationalDataMode(userId)
         if (accountDataMode(userId) == AccountDataMode.LocalDrive) {
             createProductLocal(product).getOrThrow()
             return@runCatching
@@ -1326,6 +1348,7 @@ open class TijarioRepository(
 
     suspend fun updateProduct(product: Product): Result<Unit> = runCatching {
         val userId = requireUserId()
+        requireOperationalDataMode(userId)
         if (accountDataMode(userId) == AccountDataMode.LocalDrive) {
             updateProductLocal(product).getOrThrow()
             return@runCatching
@@ -1366,6 +1389,7 @@ open class TijarioRepository(
 
     suspend fun deleteProduct(productId: String): Result<Unit> = runCatching {
         val userId = requireUserId()
+        requireOperationalDataMode(userId)
         if (accountDataMode(userId) == AccountDataMode.LocalDrive) {
             deleteProductLocal(productId).getOrThrow()
             return@runCatching
@@ -1386,6 +1410,7 @@ open class TijarioRepository(
 
     suspend fun saveBusinessSettings(settings: BusinessSettings): Result<Unit> = runCatching {
         val userId = requireUserId()
+        requireOperationalDataMode(userId)
         if (accountDataMode(userId) == AccountDataMode.LocalDrive) {
             updateBusinessSettingsLocal(settings).getOrThrow()
             return@runCatching
@@ -1445,6 +1470,7 @@ open class TijarioRepository(
     // Legacy Document Remote Bridges
     suspend fun createDocument(request: CreateDocumentRequest): ApiResult<CreateDocumentResponse> {
         val userId = requireUserId()
+        requireOperationalDataMode(userId)
         if (accountDataMode(userId) == AccountDataMode.LocalDrive) return createDocumentLocal(request)
         return withContext(Dispatchers.IO) {
             val result = backendApiClient.createDocument(request)
@@ -1478,6 +1504,7 @@ open class TijarioRepository(
     suspend fun restoreDocumentLocal(documentId: String): ApiResult<CreateDocumentResponse> {
         return try {
             val userId = requireUserId()
+            requireOperationalDataMode(userId)
             val existing = dao.getDocument(userId, documentId) ?: error("Document not found locally")
             check(existing.isDeleted) { "Document is not deleted" }
             withContext(Dispatchers.IO) {
@@ -1501,6 +1528,7 @@ open class TijarioRepository(
 
     suspend fun updateDocument(documentId: String, request: CreateDocumentRequest): ApiResult<CreateDocumentResponse> {
         val userId = requireUserId()
+        requireOperationalDataMode(userId)
         if (accountDataMode(userId) == AccountDataMode.LocalDrive) return updateDocumentLocal(documentId, request)
         return withContext(Dispatchers.IO) {
             val result = backendApiClient.updateDocument(documentId, request)
@@ -1527,6 +1555,7 @@ open class TijarioRepository(
 
     suspend fun deleteDocument(documentId: String): ApiResult<CreateDocumentResponse> {
         val userId = requireUserId()
+        requireOperationalDataMode(userId)
         if (accountDataMode(userId) == AccountDataMode.LocalDrive) return deleteDocumentLocal(documentId)
         return withContext(Dispatchers.IO) {
             val result = backendApiClient.deleteDocument(documentId)
@@ -2530,6 +2559,13 @@ open class TijarioRepository(
         }
         require(usage.removeTijarioBranding == signed.removeTijarioBranding) { "ENTITLEMENT_PAYLOAD_MISMATCH" }
         require(usage.entitlementVersion == signed.entitlementVersion) { "ENTITLEMENT_PAYLOAD_MISMATCH" }
+        require(usage.offlineCreditBatchSize == signed.offlineCreditBatchSize) { "ENTITLEMENT_PAYLOAD_MISMATCH" }
+        require(usage.offlineEntitlementDays == signed.offlineEntitlementDays) { "ENTITLEMENT_PAYLOAD_MISMATCH" }
+        require(usage.maxPrimaryDevices == signed.maxPrimaryDevices) { "ENTITLEMENT_PAYLOAD_MISMATCH" }
+        require(usage.backupFrequency == signed.backupFrequency) { "ENTITLEMENT_PAYLOAD_MISMATCH" }
+        require(usage.backupRetentionDaily == signed.backupRetentionDaily) { "ENTITLEMENT_PAYLOAD_MISMATCH" }
+        require(usage.backupRetentionWeekly == signed.backupRetentionWeekly) { "ENTITLEMENT_PAYLOAD_MISMATCH" }
+        require(usage.backupRetentionMonthly == signed.backupRetentionMonthly) { "ENTITLEMENT_PAYLOAD_MISMATCH" }
     }
 
     private suspend fun refreshOfflineLease(userId: String, installationId: String) {

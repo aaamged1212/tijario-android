@@ -21,6 +21,10 @@ import java.util.Base64
 @Serializable
 data class SignedEntitlementPayload(
     @SerialName("allowed_template_ids") val allowedTemplateIds: List<String>,
+    @SerialName("backup_frequency") val backupFrequency: String,
+    @SerialName("backup_retention_daily") val backupRetentionDaily: Int,
+    @SerialName("backup_retention_monthly") val backupRetentionMonthly: Int,
+    @SerialName("backup_retention_weekly") val backupRetentionWeekly: Int,
     @SerialName("customer_limit") val customerLimit: Int? = null,
     @SerialName("data_mode") val dataMode: String,
     @SerialName("document_limit") val documentLimit: Int,
@@ -31,6 +35,9 @@ data class SignedEntitlementPayload(
     @SerialName("installation_id") val installationId: String,
     @SerialName("issued_at") val issuedAt: String,
     @SerialName("key_id") val keyId: String,
+    @SerialName("max_primary_devices") val maxPrimaryDevices: Int,
+    @SerialName("offline_credit_batch_size") val offlineCreditBatchSize: Int,
+    @SerialName("offline_entitlement_days") val offlineEntitlementDays: Int,
     @SerialName("plan_code") val planCode: String,
     @SerialName("product_limit") val productLimit: Int? = null,
     @SerialName("remove_tijario_branding") val removeTijarioBranding: Boolean,

@@ -85,6 +85,10 @@ class EntitlementVerifierTest {
 
     private fun payload() = SignedEntitlementPayload(
         allowedTemplateIds = listOf("tijario-classic"),
+        backupFrequency = "manual",
+        backupRetentionDaily = 1,
+        backupRetentionMonthly = 1,
+        backupRetentionWeekly = 1,
         customerLimit = 5,
         dataMode = "local_drive",
         documentLimit = 5,
@@ -95,6 +99,9 @@ class EntitlementVerifierTest {
         installationId = INSTALLATION_ID,
         issuedAt = "2020-01-01T00:00:00Z",
         keyId = KEY_ID,
+        maxPrimaryDevices = 1,
+        offlineCreditBatchSize = 2,
+        offlineEntitlementDays = 7,
         planCode = "free",
         productLimit = 5,
         removeTijarioBranding = false,

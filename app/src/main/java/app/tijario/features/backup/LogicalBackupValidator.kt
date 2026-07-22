@@ -39,10 +39,16 @@ object LogicalBackupValidator {
         targetTable: String,
     ) {
         val source = snapshots[sourceTable] ?: return
-        val target = snapshots[targetTable] ?: return
+        val target = snapshots[targetTable]
+            ?: throw BackupValidationException("Backup relationship target is missing: $targetTable")
         val sourceIndex = source.columns.indexOf(sourceColumn)
         val targetIdIndex = target.columns.indexOf("id")
-        if (sourceIndex < 0 || targetIdIndex < 0) return
+        if (sourceIndex < 0) {
+            throw BackupValidationException("Backup relationship column is missing: $sourceTable.$sourceColumn")
+        }
+        if (targetIdIndex < 0) {
+            throw BackupValidationException("Backup relationship identity is missing: $targetTable.id")
+        }
         val targetIds = target.rows.mapNotNull { it[targetIdIndex].value }.toSet()
         source.rows.forEach { row ->
             val reference = row[sourceIndex]

@@ -36,6 +36,26 @@ class LogicalBackupValidatorTest {
         LogicalBackupValidator.validate(listOf(customers, documents, items))
     }
 
+    @Test
+    fun requiredRelationshipColumnsAreNotSilentlySkipped() {
+        val documents = snapshot("documents_cache", listOf("id", "user_id"), listOf("doc-1", "user-1"))
+        val customers = snapshot("customers_cache", listOf("id", "user_id"), listOf("customer-1", "user-1"))
+
+        assertThrows(BackupValidationException::class.java) {
+            LogicalBackupValidator.validate(listOf(customers, documents))
+        }
+    }
+
+    @Test
+    fun documentMetadataRequiresAValidDocumentRelationship() {
+        val documents = snapshot("documents_cache", listOf("id", "user_id"), listOf("doc-1", "user-1"))
+        val metadata = snapshot("local_document_metadata", listOf("id", "user_id"), listOf("meta-1", "user-1"))
+
+        assertThrows(BackupValidationException::class.java) {
+            LogicalBackupValidator.validate(listOf(documents, metadata))
+        }
+    }
+
     private fun snapshot(table: String, columns: List<String>, vararg values: List<String>) = LogicalTableSnapshot(
         table = table,
         columns = columns,
