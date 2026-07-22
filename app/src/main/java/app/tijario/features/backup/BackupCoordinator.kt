@@ -6,6 +6,7 @@ import app.tijario.config.AppPreferences
 import app.tijario.data.local.BackupRecordEntity
 import app.tijario.data.local.TijarioDatabase
 import app.tijario.data.remote.BackendApiClient
+import java.io.File
 
 class BackupCoordinator(
     context: Context,
@@ -62,5 +63,29 @@ class BackupCoordinator(
         // Preserve a restorable snapshot of current data before replacing any account rows or assets.
         createLocalBackupUnlocked(userId, allowNetwork)
         restorer.restore(decoded, userId)
+    }
+
+    suspend fun restoreLocalBackup(
+        userId: String,
+        archiveFile: File,
+        allowNetwork: Boolean,
+    ): BackupManifest = BackupOperationGuard.withAccountLock(userId) {
+        val installationId = AppPreferences.getInstallationId(appContext)
+        val keyVersion = BackupArchiveCodec.peekKeyVersion(archiveFile)
+        val restorer = LocalBackupRestorer(database, appContext.filesDir)
+        val decoded = keyStore.resolve(userId, installationId, allowNetwork, keyVersion).let { key ->
+            try {
+                if (key.keyVersion != keyVersion) throw BackupValidationException("Backup key version does not match archive")
+                restorer.validate(archiveFile, key.keyBytes, userId, File(appContext.cacheDir, "backup-restore/$userId"))
+            } finally {
+                key.keyBytes.fill(0)
+            }
+        }
+        try {
+            createLocalBackupUnlocked(userId, allowNetwork)
+            restorer.restore(decoded, userId)
+        } finally {
+            decoded.discardStaging()
+        }
     }
 }

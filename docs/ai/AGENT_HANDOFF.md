@@ -8,6 +8,13 @@
 - **External blockers**: Three Local-First migrations are unapplied; production signing/envelope keys and Google Drive OAuth are unconfigured; SQL runtime and physical-device QA were not performed.
 - **Safety**: Local commits only. No push, deploy, production migration, external-console change, emulator/device test, or Google Play upload.
 
+## 2026-07-23 (Streaming backup restore)
+- **Branch**: `codex/backup-drive-production-ready`.
+- **Completed locally**: SAF and Drive restores now use an account-scoped bounded temporary archive file. The encrypted payload is decrypted as a stream, while PDF and other binary assets remain staged files rather than aggregate byte arrays. Existing V1 archive creation and byte-array compatibility tests remain supported.
+- **Validation**: Focused archive/input/UI JVM tests passed with `testDebugUnitTest`.
+- **Remaining**: Visible phone destination, secure sharing, Drive authorization/REST wiring, notifications, and physical-device SAF validation.
+- **Safety**: No push, deployment, migration apply, external-console action, or Google Play upload.
+
 ## 2026-07-18 (Local-First full validation)
 - **Agent**: Codex
 - **Branches**: Android `codex/local-first-complete`; backend `codex/local-first-control-plane`.

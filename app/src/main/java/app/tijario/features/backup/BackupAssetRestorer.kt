@@ -7,7 +7,11 @@ import java.util.UUID
 class BackupAssetRestorer(
     private val filesRoot: File,
 ) {
-    fun stage(userId: String, entries: Map<String, ByteArray>): StagedBackupAssets {
+    fun stage(
+        userId: String,
+        entries: Map<String, ByteArray>,
+        stagedAssetFiles: Map<String, File> = emptyMap(),
+    ): StagedBackupAssets {
         require(userId.isNotBlank()) { "Restore account is required" }
         val documentIds = ids(entries, "data/documents.json")
         val productIds = ids(entries, "data/products.json")
@@ -15,7 +19,7 @@ class BackupAssetRestorer(
         if (!stagingRoot.mkdirs()) throw BackupValidationException("Restore staging directory could not be created")
         val staged = mutableListOf<StagedAsset>()
         try {
-            entries.toSortedMap().forEach { (archivePath, bytes) ->
+            (entries.keys + stagedAssetFiles.keys).distinct().sorted().forEach { archivePath ->
                 val finalRelative = when {
                     archivePath.startsWith("assets/business-logo/") -> {
                         val relative = archivePath.removePrefix("assets/business-logo/")
@@ -42,7 +46,12 @@ class BackupAssetRestorer(
                 }
                 val stagedFile = File(stagingRoot, "new/$finalRelative")
                 requireNotNull(stagedFile.parentFile).mkdirs()
-                stagedFile.writeBytes(bytes)
+                val stagedArchiveFile = stagedAssetFiles[archivePath]
+                if (stagedArchiveFile != null) {
+                    stagedArchiveFile.copyTo(stagedFile, overwrite = true)
+                } else {
+                    stagedFile.writeBytes(entries.getValue(archivePath))
+                }
                 staged += StagedAsset(stagedFile, resolveInsideFiles(finalRelative), finalRelative)
             }
             return StagedBackupAssets(stagingRoot, staged)

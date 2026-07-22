@@ -299,3 +299,7 @@
 # 2026-07-23 - Backup control-plane fail-closed hardening
 - Blocked operational customer, product, document, and business-setting writes until entitlement initialization succeeds.
 - Bound Android verification to signed offline/backup policy values and rejected malformed logical relationship schemas.
+
+# 2026-07-23 - Streaming backup restore
+- Replaced SAF and Drive restore byte-array loading with bounded account-scoped temporary archive files.
+- Streamed encrypted archive decryption and staged binary assets to files while preserving the existing V1 format and transactional restore path.

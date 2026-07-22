@@ -3,7 +3,7 @@
 - **Current Active Agent**: Codex
 - **Last Agent**: Codex
 - **Last Task**: Complete and harden the Local-First Android/control-plane implementation locally.
-- **Status**: Work is local on `codex/local-first-complete`. Signed entitlements, offline leases/events, backup/restore, Drive abstractions, scheduling, safety validation, and release docs are complete in code. Production rollout and device QA remain pending.
+- **Status**: Work is local on `codex/backup-drive-production-ready`. Signed entitlements, offline leases/events, and fail-closed backup restore are implemented. Phone-visible backup, secure sharing, Drive authorization/REST wiring, notifications, production rollout, and device QA remain pending.
 - **Validation**:
   - Latest run: separate `testDebugUnitTest`, `assembleDebugAndroidTest`, `lintDebug`, `assembleDebug`, and `assembleRelease` commands passed. Instrumentation execution and visual/runtime QA were not performed.
   - Runtime instrumentation is blocked because `adb` is unavailable. One combined Gradle command timed out and was not counted.

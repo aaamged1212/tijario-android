@@ -38,9 +38,11 @@ class BackupUiContractTest {
     @Test
     fun oversizedArchivesAreRejectedBeforeRestore() {
         val source = File("src/main/java/app/tijario/features/backup/BackupViewModel.kt").readText()
+        val stager = File("src/main/java/app/tijario/features/backup/BackupArchiveInputStager.kt").readText()
 
-        assertTrue(source.contains("MAX_ARCHIVE_BYTES"))
-        assertTrue(source.contains("if (total > MAX_ARCHIVE_BYTES)"))
+        assertTrue(source.contains("BackupArchiveInputStager.copyToPrivateFile"))
+        assertFalse(source.contains("readBytes()"))
+        assertTrue(stager.contains("if (total > maxBytes)"))
         assertFalse(source.contains("Log."))
     }
 }

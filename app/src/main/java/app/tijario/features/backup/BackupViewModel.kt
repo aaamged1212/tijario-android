@@ -21,7 +21,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.ByteArrayOutputStream
 import java.io.File
 
 data class BackupUiState(
@@ -115,8 +114,16 @@ class BackupViewModel(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isBusy = true, messageKey = null)
             runCatching {
-                val archive = withContext(Dispatchers.IO) { readArchive(destination) }
-                coordinator.restoreLocalBackup(userId, archive, allowNetwork = true)
+                val staged = withContext(Dispatchers.IO) {
+                    val input = getApplication<Application>().contentResolver.openInputStream(destination)
+                        ?: throw BackupValidationException("Backup file is unavailable")
+                    input.use { BackupArchiveInputStager.copyToPrivateFile(it, getApplication<Application>().filesDir, userId) }
+                }
+                try {
+                    coordinator.restoreLocalBackup(userId, staged.file, allowNetwork = true)
+                } finally {
+                    staged.delete()
+                }
             }.onSuccess {
                 _uiState.value = _uiState.value.copy(isBusy = false, messageKey = "backup_restored_success")
                 refreshLatest()
@@ -160,10 +167,7 @@ class BackupViewModel(
                     DriveBackupRuntime.client,
                 )
                 repository.download(userId, remote, temporary)
-                if (temporary.length() > MAX_ARCHIVE_BYTES) {
-                    throw BackupValidationException("Backup archive is too large")
-                }
-                coordinator.restoreLocalBackup(userId, temporary.readBytes(), allowNetwork = true)
+                coordinator.restoreLocalBackup(userId, temporary, allowNetwork = true)
             }.onSuccess {
                 _uiState.value = _uiState.value.copy(isBusy = false, messageKey = "backup_restored_success")
                 refreshLatest()
@@ -253,27 +257,7 @@ class BackupViewModel(
         updatedAt = System.currentTimeMillis(),
     )
 
-    private fun readArchive(uri: Uri): ByteArray {
-        val input = getApplication<Application>().contentResolver.openInputStream(uri)
-            ?: throw BackupValidationException("Backup file is unavailable")
-        return input.use { stream ->
-            val output = ByteArrayOutputStream()
-            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-            var total = 0L
-            while (true) {
-                val count = stream.read(buffer)
-                if (count < 0) break
-                total += count
-                if (total > MAX_ARCHIVE_BYTES) throw BackupValidationException("Backup archive is too large")
-                output.write(buffer, 0, count)
-            }
-            output.toByteArray()
-        }
-    }
-
     companion object {
-        private const val MAX_ARCHIVE_BYTES = 256L * 1024L * 1024L
-
         fun factory(application: Application, userId: String): ViewModelProvider.Factory =
             object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")

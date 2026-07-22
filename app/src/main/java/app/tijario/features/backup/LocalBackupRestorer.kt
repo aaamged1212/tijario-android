@@ -23,6 +23,25 @@ class LocalBackupRestorer(
         decoded
     }
 
+    suspend fun validate(
+        archiveFile: File,
+        encryptionKey: ByteArray,
+        expectedUserId: String,
+        temporaryRoot: File,
+    ): DecodedBackup = withContext(Dispatchers.IO) {
+        val decoded = BackupArchiveCodec.open(archiveFile, encryptionKey, expectedUserId, temporaryRoot)
+        try {
+            if (decoded.manifest.roomDatabaseVersion > currentRoomVersion) {
+                throw BackupValidationException("Backup requires a newer application version")
+            }
+            validateManifestCounts(decoded)
+            decoded
+        } catch (error: Exception) {
+            decoded.discardStaging()
+            throw error
+        }
+    }
+
     suspend fun restore(
         decoded: DecodedBackup,
         expectedUserId: String,
@@ -30,7 +49,7 @@ class LocalBackupRestorer(
         if (decoded.manifest.accountId != expectedUserId) {
             throw BackupValidationException("Backup belongs to a different account")
         }
-        val assets = BackupAssetRestorer(filesRoot).stage(expectedUserId, decoded.entries)
+        val assets = BackupAssetRestorer(filesRoot).stage(expectedUserId, decoded.entries, decoded.stagedAssetFiles)
         val appliedAssets = assets.apply()
         try {
             RoomLogicalBackupStore(database).restoreAccount(expectedUserId, decoded.entries)
