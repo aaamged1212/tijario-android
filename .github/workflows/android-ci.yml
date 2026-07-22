@@ -3,7 +3,8 @@ name: Android CI
 on:
   push:
     branches:
-      - fix/full-audit-remediation
+      - codex/backup-drive-production-ready
+      - feature/**
   pull_request:
     branches:
       - main
