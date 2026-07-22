@@ -8,3 +8,4 @@
   - Latest run: separate `testDebugUnitTest`, `assembleDebugAndroidTest`, `lintDebug`, `assembleDebug`, and `assembleRelease` commands passed. Instrumentation execution and visual/runtime QA were not performed.
   - Runtime instrumentation is blocked because `adb` is unavailable. One combined Gradle command timed out and was not counted.
 - **Safety**: No push, GitHub API action, PR update, deployment, production migration, external console change, or Play Store upload.
+- **2026-07-23**: Local-only Backup/Drive control-plane hardening is active on `codex/backup-drive-production-ready`; no remote interaction is authorized.

@@ -410,6 +410,12 @@
   - Migration execution still requires an emulator/device because `adb` is unavailable.
 - **Safety Status**: Local Android work only. No push, deployment, migration apply, external-console change, or Play upload.
 
+## 2026-07-23 (Backup control-plane fail-closed hardening)
+- **Branch**: `codex/backup-drive-production-ready`
+- **Implemented**: Unknown data modes now block operational writes until a signed entitlement is persisted; signed policy fields are verified; logical backup relationship columns fail closed.
+- **Validation**: Focused JVM Gradle task passed. Device/emulator execution was not run.
+- **Safety Status**: Local commits only; no remote or production action occurred.
+
 ## 2026-07-18 (Logical Room backup and restore)
 - **Agent**: Codex
 - **Branch**: `codex/local-first-complete`

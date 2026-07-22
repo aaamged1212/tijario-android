@@ -295,3 +295,7 @@
 # 2026-07-18 - Local-First full validation
 - Passed the complete local Android JVM, instrumentation-compilation, lint, debug, and release assembly baseline.
 - Recorded external device, backend rollout, and Google Drive blockers without claiming runtime completion.
+
+# 2026-07-23 - Backup control-plane fail-closed hardening
+- Blocked operational customer, product, document, and business-setting writes until entitlement initialization succeeds.
+- Bound Android verification to signed offline/backup policy values and rejected malformed logical relationship schemas.
