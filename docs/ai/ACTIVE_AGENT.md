@@ -8,7 +8,7 @@
 - **Latest safety change**: The shared operational-write guard blocks unknown, missing, and expired entitlement state before legacy or local operational writes.
 - **Validation note**: Separate `testDebugUnitTest`, `assembleDebugAndroidTest`, `lintDebug`, `assembleDebug`, and `assembleRelease` passed locally. The safe Vercel production validator returned `ENTITLEMENT_SIGNING_KEY_ID_MISSING`; no secret value was viewed or changed.
 - **Validation**:
-  - Latest run: separate `testDebugUnitTest`, `assembleDebugAndroidTest`, `lintDebug`, `assembleDebug`, and `assembleRelease` commands passed. Instrumentation execution and visual/runtime QA were not performed.
+  - Latest run: separate `testDebugUnitTest`, `assembleDebugAndroidTest`, `lintDebug`, `assembleDebug`, and `assembleRelease` commands passed. GitHub Actions run `30048718414` passed compile/unit and lint/release validation. Instrumentation execution and visual/runtime QA were not performed.
   - Runtime instrumentation is blocked because `adb` is unavailable. One combined Gradle command timed out and was not counted.
-- **Safety**: No push, GitHub API action, PR update, deployment, production migration, external console change, or Play Store upload.
+- **Safety**: The approved Android CI commits were pushed to the existing branch. No PR update, deployment, production migration, external-console change, or Play Store upload occurred.
 - **2026-07-23**: Local-only Backup/Drive control-plane hardening is active on `codex/backup-drive-production-ready`; no remote interaction is authorized.

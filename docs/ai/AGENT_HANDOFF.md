@@ -3,7 +3,7 @@
 ## 2026-07-24 (API 36 CI runner repair)
 - **Branch**: `codex/backup-drive-production-ready`.
 - **Completed locally**: Added the official Android SDK setup action before both API 36 installation steps in the permanent Android CI workflow, including explicit license acceptance and Build Tools 36.0.0. Removed the obsolete source-modifying one-shot remediation workflow.
-- **Validation**: Separate `testDebugUnitTest`, `assembleDebugAndroidTest`, `lintDebug`, `assembleDebug`, and `assembleRelease` commands passed locally. Instrumentation execution was not run because no emulator/device was attached.
+- **Validation**: Separate `testDebugUnitTest`, `assembleDebugAndroidTest`, `lintDebug`, `assembleDebug`, and `assembleRelease` commands passed locally. Permanent GitHub Actions run `30048718414` also passed: compile/unit tests in 5m47s and lint/release assembly in 14m21s. Instrumentation execution was not run because no emulator/device was attached.
 - **Production blocker**: The safe Vercel Production validator returned `ENTITLEMENT_SIGNING_KEY_ID_MISSING`; no environment value was viewed or changed.
 
 ## 2026-07-23 (API 36 and committed entitlement trust)
