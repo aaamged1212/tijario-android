@@ -224,7 +224,7 @@ fun BackupSettingsScreen(
                                 selected = state.settings?.frequency == value,
                                 onClick = { backupViewModel.updateFrequency(value) },
                                 label = { Text(label) },
-                                enabled = !state.isBusy,
+                                enabled = !state.isBusy && state.backupPlanPolicy.allows(value),
                                 modifier = Modifier.weight(1f),
                             )
                         }

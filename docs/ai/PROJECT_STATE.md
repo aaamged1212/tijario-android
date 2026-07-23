@@ -10,7 +10,7 @@
 - Local architecture docs now define the future Local-First direction as planning only: Room as operational source of truth, Supabase as control plane, Google Drive as encrypted backup/restore transport, and document usage based on immutable creation events.
 - Room schema 16 implements the first Local-First foundation: `document_creation_events`, `account_entitlements`, `backup_settings`, `backup_records`, `backup_file_entries`, `device_bindings`, and `deleted_record_history`.
 - Legacy `local_usage_ledger` rows migrate into immutable creation events. Successful document sync changes `PENDING` to `ACKNOWLEDGED` and no longer deletes the event.
-- Explicit `local_drive` accounts now use Room for operational customer, product, document, and business-setting writes and do not enqueue those writes for cloud synchronization. Missing or unknown modes remain `legacy_cloud`.
+- Explicit `local_drive` accounts now use Room for operational customer, product, document, and business-setting writes and do not enqueue those writes for cloud synchronization. Missing, unknown, invalid, or expired entitlements fail closed before operational writes.
 - Account usage persists data mode, quota scope, limits, template policy, and entitlement version locally. Local-Drive document creation records an immutable lifetime or billing-cycle creation event.
 - Normal logout clears transient session state without deleting account-local Room data; destructive device-data removal remains a separate explicit path.
 - Local-Drive deletion retains customer, product, and document rows plus deletion history. Repository restore reactivates the same identity and does not create a second document usage event.
@@ -55,4 +55,5 @@
   migrations -> Web/API deploy -> verify logs and document flows -> Android update later.
 - Do not touch production until approved.
 - Local Backup/Drive hardening is in progress on `codex/backup-drive-production-ready`; control-plane claims and restore relationship validation are fail-closed. Google Identity authorization, Ktor Drive REST, transient token runtime, and Worker reconstruction are implemented and JVM-tested locally; real OAuth/Drive/device verification remains pending.
+- Backup scheduling now derives its maximum frequency and retention counts from the locally persisted, signed entitlement payload. A downgrade clamps an existing schedule; an upgrade keeps a user's less-frequent choice.
 - Android AAB artifact `app/release/app-release.aab` is present in the workspace but is correctly git-ignored. Do not upload it unless approved.

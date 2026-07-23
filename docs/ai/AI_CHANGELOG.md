@@ -314,3 +314,7 @@
 # 2026-07-23 - Google Drive authorization and streamed REST runtime
 - Added Google Identity AuthorizationClient handling for `drive.file`, Activity Result resolution, account change/disconnect, session-only OAuth tokens, and process-safe reauthorization states.
 - Added Ktor Drive v3 file streaming, folder/list/upload/download/delete paths, runtime reconstruction for Workers, and backup progress notification contracts.
+
+# 2026-07-23 - Plan-aware backup settings
+- Restricted backup frequency controls and retained archive counts to valid locally verified entitlement claims.
+- Downgrades clamp invalid schedules; upgrades retain a user's less-frequent choice. Missing or expired claims fail closed to manual backups.

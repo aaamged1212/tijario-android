@@ -2,6 +2,10 @@
 
 Status: documentation only. None of these migrations were applied by this work.
 
+Applied production migration history ends at `20260712103000`. The three
+Local-First migrations below are pending and must be applied together only in
+the documented order.
+
 ## Required order
 
 1. Back up the production database and record the current migration history.

@@ -32,6 +32,7 @@ data class BackupUiState(
     val latestBackup: BackupRecordEntity? = null,
     val settings: BackupSettingsEntity? = null,
     val history: List<BackupRecordEntity> = emptyList(),
+    val backupPlanPolicy: BackupPlanPolicy = BackupPlanPolicy.ManualOnly,
     val driveConnectionState: DriveConnectionState = DriveConnectionState.NotConfigured,
     val driveBackups: List<DriveBackupFile> = emptyList(),
     val openDriveFolderUrl: String? = null,
@@ -330,9 +331,14 @@ class BackupViewModel(
     private fun refreshLatest() {
         if (userId.isBlank()) return
         viewModelScope.launch {
-            val (records, settings) = withContext(Dispatchers.IO) {
+            val (records, persistedSettings, planPolicy) = withContext(Dispatchers.IO) {
                 val dao = database.tijarioDao()
-                dao.getBackupRecords(userId) to (dao.getBackupSettings(userId) ?: defaultSettings())
+                val policy = BackupPlanPolicy.from(dao.getAccountEntitlement(userId))
+                Triple(dao.getBackupRecords(userId), dao.getBackupSettings(userId) ?: defaultSettings(), policy)
+            }
+            val settings = planPolicy.apply(persistedSettings)
+            if (settings != persistedSettings) {
+                withContext(Dispatchers.IO) { database.tijarioDao().upsertBackupSettings(settings) }
             }
             val driveState = runCatching { BackupDriveContainer.authorizationState(getApplication(), userId) }
                 .getOrDefault(DriveConnectionState.NotConfigured)
@@ -346,6 +352,7 @@ class BackupViewModel(
                 latestBackup = records.firstOrNull(),
                 history = records,
                 settings = settings,
+                backupPlanPolicy = planPolicy,
                 driveConnectionState = driveState,
                 driveBackups = driveBackups,
                 phoneBackupDestination = PhoneBackupRepository(getApplication()).destinationKey(userId),
@@ -357,7 +364,7 @@ class BackupViewModel(
     private fun updateSettings(transform: (BackupSettingsEntity) -> BackupSettingsEntity) {
         if (userId.isBlank()) return
         viewModelScope.launch {
-            val settings = transform(_uiState.value.settings ?: defaultSettings())
+            val settings = (_uiState.value.backupPlanPolicy).apply(transform(_uiState.value.settings ?: defaultSettings()))
             withContext(Dispatchers.IO) { database.tijarioDao().upsertBackupSettings(settings) }
             BackupScheduler.apply(getApplication(), settings)
             _uiState.value = _uiState.value.copy(settings = settings, messageKey = "backup_schedule_saved")
