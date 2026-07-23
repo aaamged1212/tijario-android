@@ -1,5 +1,9 @@
 # AI Changelog
 
+## 2026-07-24 - Android API 36 CI runner repair
+- Configured the permanent Android CI jobs with the official SDK setup action, accepted SDK licenses, and installed API 36/Build Tools 36.0.0 before Gradle runs.
+- Removed the obsolete one-shot workflow that could modify, commit, and push source automatically.
+
 ## 2026-07-23 - API 36 and entitlement trust anchor
 - Targeted API 36 and replaced the local entitlement-key Gradle property with a committed RSA public-key registry protected by a SHA-256 fingerprint.
 

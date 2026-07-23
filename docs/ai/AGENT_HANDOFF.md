@@ -1,5 +1,11 @@
 # Agent Handoff (Android & Web Repos)
 
+## 2026-07-24 (API 36 CI runner repair)
+- **Branch**: `codex/backup-drive-production-ready`.
+- **Completed locally**: Added the official Android SDK setup action before both API 36 installation steps in the permanent Android CI workflow, including explicit license acceptance and Build Tools 36.0.0. Removed the obsolete source-modifying one-shot remediation workflow.
+- **Validation**: Separate `testDebugUnitTest`, `assembleDebugAndroidTest`, `lintDebug`, `assembleDebug`, and `assembleRelease` commands passed locally. Instrumentation execution was not run because no emulator/device was attached.
+- **Production blocker**: The safe Vercel Production validator returned `ENTITLEMENT_SIGNING_KEY_ID_MISSING`; no environment value was viewed or changed.
+
 ## 2026-07-23 (API 36 and committed entitlement trust)
 - **Branch**: `codex/backup-drive-production-ready`.
 - **Completed locally**: Set compile/target SDK to 36 while retaining minSdk 26. Android now verifies signed entitlements using a committed RSA-3072 public-key resource bound to `tijario-entitlement-prod-2026-v1` and its SHA-256 fingerprint, not a local Gradle property.

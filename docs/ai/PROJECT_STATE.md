@@ -1,5 +1,7 @@
 # Project State (Android & Web Repos)
 
+- **CI status**: The permanent Android API 36 workflow now initializes the Android SDK before installing API 36. Local unit tests, instrumentation APK assembly, lint, debug assembly, and release assembly pass; the replacement GitHub Actions run remains pending after publication.
+- **Production crypto status**: The safe Vercel production validator reports `ENTITLEMENT_SIGNING_KEY_ID_MISSING`. No production configuration was modified.
 - **Android Repo Branch**: `codex/local-first-complete`
 - **Web Repo Branch**: `codex/local-first-control-plane` reserved for local control-plane implementation.
 - **Current Local-First Phase**: Local code is complete for Room operational ownership, signed entitlements, lease-bound immutable usage, encrypted backup/restore, Drive transport abstractions, PDF/assets, scheduling, and release runbooks. Production rollout and physical-device QA remain blocked.
