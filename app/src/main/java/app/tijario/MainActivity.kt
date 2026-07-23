@@ -14,6 +14,7 @@ import app.tijario.config.AppRuntimeState
 import app.tijario.config.LocalLanguage
 import app.tijario.features.notifications.NotificationDeepLinkState
 import app.tijario.features.notifications.ensureAnnouncementNotificationChannel
+import app.tijario.features.backup.ensureBackupNotificationChannel
 import app.tijario.ui.TijarioApp
 import app.tijario.ui.theme.TijarioTheme
 
@@ -23,6 +24,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         AppRuntimeState.restorePreferences(applicationContext)
         ensureAnnouncementNotificationChannel(applicationContext)
+        ensureBackupNotificationChannel(applicationContext)
         app.tijario.analytics.TijarioAnalytics.initialize(applicationContext)
         NotificationDeepLinkState.handleUri(intent?.data)
         handleAuthDeepLink(intent)

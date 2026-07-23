@@ -55,6 +55,12 @@ class DriveConnectionRepository(context: Context) {
         get(userId)?.let { save(userId, it.copy(requiresReauthorization = true)) }
     }
 
+    fun updateFolders(userId: String, rootFolderId: String, backupsFolderId: String) {
+        get(userId)?.let {
+            save(userId, it.copy(rootFolderId = rootFolderId, backupsFolderId = backupsFolderId, requiresReauthorization = false))
+        }
+    }
+
     fun clear(userId: String) {
         val prefix = prefix(userId)
         preferences.edit().apply {

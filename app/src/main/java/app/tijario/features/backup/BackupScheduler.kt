@@ -76,6 +76,10 @@ object BackupScheduler {
         workManager.cancelAllWorkByTag(driveAccountTag(userId))
     }
 
+    fun cancelDriveUploads(context: Context, userId: String) {
+        WorkManager.getInstance(context.applicationContext).cancelAllWorkByTag(driveAccountTag(userId))
+    }
+
     internal fun intervalDays(frequency: String): Long? = when (frequency.lowercase()) {
         "daily" -> 1L
         "weekly" -> 7L

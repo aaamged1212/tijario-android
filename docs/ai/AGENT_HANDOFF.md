@@ -1,5 +1,12 @@
 # Agent Handoff (Android & Web Repos)
 
+## 2026-07-23 (Google Drive authorization and runtime)
+- **Branch**: `codex/backup-drive-production-ready`.
+- **Completed locally**: Added Google Identity `AuthorizationClient` flow for the minimal `drive.file` scope, Activity Result resolution, forced account selection, non-secret connected-account metadata, transient-only access tokens, account switching/disconnect, and worker-safe reauthorization handling. Added a Ktor Drive v3 transport that streams finalized encrypted archives for upload/download, a reconstructed process/Worker runtime, folder creation/reuse, Drive list/restore/delete UI, and a backup foreground notification channel.
+- **Validation**: Focused Drive authorization, Ktor transport, schedule/worker, notification, and existing Drive client JVM tests passed.
+- **External QA**: Google OAuth configuration and real-device authorization, Drive transfer, foreground notification, and account-switch behavior remain unverified.
+- **Safety**: No push, deployment, migration apply, external-console action, or Google Play upload.
+
 ## 2026-07-18 (Local-First completion and hardening)
 - **Agent**: Codex
 - **Branches**: Android `codex/local-first-complete`; Web `codex/local-first-control-plane`.

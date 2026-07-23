@@ -35,6 +35,9 @@ class BackupSchedulePolicyTest {
         assertEquals("TijarioDriveUpload:user-1:backup-1", BackupScheduler.driveWorkName("user-1", "backup-1"))
         assertEquals("TijarioDriveAccount:user-1", BackupScheduler.driveAccountTag("user-1"))
         assertEquals(3, DriveUploadWorker.MAX_ATTEMPTS)
+        val worker = File("src/main/java/app/tijario/features/backup/DriveUploadWorker.kt").readText()
+        assertTrue(worker.contains("DRIVE_REAUTH_REQUIRED"))
+        assertTrue(worker.contains("return Result.failure()"))
     }
 
     @Test
@@ -68,5 +71,12 @@ class BackupSchedulePolicyTest {
         assertEquals(7, BackupScheduler.driveRetentionCount(settings))
         assertEquals(4, BackupScheduler.driveRetentionCount(settings.copy(frequency = "weekly")))
         assertEquals(3, BackupScheduler.driveRetentionCount(settings.copy(frequency = "manual")))
+    }
+
+    @Test
+    fun localBackupWorkerKeepsPhoneCopiesIndependentFromDriveTransport() {
+        val worker = File("src/main/java/app/tijario/features/backup/BackupWorker.kt").readText()
+        assertTrue(worker.contains("PhoneBackupRepository"))
+        assertTrue(worker.contains("allowNetwork = false"))
     }
 }

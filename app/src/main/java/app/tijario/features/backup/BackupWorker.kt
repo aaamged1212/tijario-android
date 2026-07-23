@@ -19,6 +19,7 @@ open class LocalBackupWorker(
         return runCatching {
             val record = BackupCoordinator(applicationContext, database, Supabase.apiClient)
                 .createLocalBackup(userId, allowNetwork = false)
+            runCatching { PhoneBackupRepository(applicationContext).saveVisibleCopy(userId, record, applicationContext.filesDir) }
             BackupRetentionPruner(database, applicationContext.filesDir).prune(userId, settings)
             if (settings.driveEnabled) {
                 database.tijarioDao().upsertBackupRecord(record.copy(status = "DRIVE_PENDING"))

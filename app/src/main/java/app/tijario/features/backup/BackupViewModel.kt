@@ -2,6 +2,7 @@ package app.tijario.features.backup
 
 import android.app.Application
 import android.content.Intent
+import android.content.IntentSender
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
@@ -12,6 +13,8 @@ import app.tijario.data.local.BackupRecordEntity
 import app.tijario.data.local.BackupSettingsEntity
 import app.tijario.data.local.TijarioDatabase
 import app.tijario.features.backup.drive.DriveBackupRuntime
+import app.tijario.features.backup.drive.BackupDriveContainer
+import app.tijario.features.backup.drive.DriveAuthorizationOutcome
 import app.tijario.features.backup.drive.DriveConnectionState
 import app.tijario.features.backup.drive.DriveBackupFile
 import app.tijario.features.backup.drive.DriveBackupRepository
@@ -36,6 +39,7 @@ data class BackupUiState(
     val phoneBackup: PhoneBackupFile? = null,
     val phoneBackupDestination: String = "",
     val shareIntent: Intent? = null,
+    val driveAuthorizationIntentSender: IntentSender? = null,
     val messageKey: String? = null,
 )
 
@@ -191,12 +195,57 @@ class BackupViewModel(
         _uiState.value.latestBackup?.let { requestShareBackup(it, preferTelegram) }
     }
 
+    fun connectGoogleDrive(changeAccount: Boolean = false) {
+        if (userId.isBlank() || _uiState.value.isBusy) return
+        viewModelScope.launch {
+            if (changeAccount) BackupScheduler.cancelDriveUploads(getApplication(), userId)
+            _uiState.value = _uiState.value.copy(isBusy = true, driveConnectionState = DriveConnectionState.Authorizing, messageKey = null)
+            when (val outcome = BackupDriveContainer.beginAuthorization(getApplication(), userId, changeAccount)) {
+                is DriveAuthorizationOutcome.ResolutionRequired -> {
+                    _uiState.value = _uiState.value.copy(isBusy = false, driveAuthorizationIntentSender = outcome.intentSender)
+                }
+                else -> {
+                    val state = BackupDriveContainer.persistAuthorization(getApplication(), userId, outcome)
+                    _uiState.value = _uiState.value.copy(isBusy = false, driveConnectionState = state, messageKey = driveMessage(state))
+                    refreshLatest()
+                }
+            }
+        }
+    }
+
+    fun consumeDriveAuthorizationRequest() {
+        _uiState.value = _uiState.value.copy(driveAuthorizationIntentSender = null)
+    }
+
+    fun completeGoogleDriveAuthorization(resultIntent: Intent?) {
+        if (userId.isBlank()) return
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isBusy = true, messageKey = null)
+            val state = BackupDriveContainer.completeAuthorization(getApplication(), userId, resultIntent)
+            _uiState.value = _uiState.value.copy(isBusy = false, driveConnectionState = state, messageKey = driveMessage(state))
+            refreshLatest()
+        }
+    }
+
+    fun disconnectGoogleDrive(revoke: Boolean) {
+        if (userId.isBlank() || _uiState.value.isBusy) return
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isBusy = true, messageKey = null)
+            val state = BackupDriveContainer.disconnect(getApplication(), userId, revoke)
+            val settings = (_uiState.value.settings ?: defaultSettings()).copy(driveEnabled = false, updatedAt = System.currentTimeMillis())
+            withContext(Dispatchers.IO) { database.tijarioDao().upsertBackupSettings(settings) }
+            _uiState.value = _uiState.value.copy(isBusy = false, settings = settings, driveConnectionState = state, messageKey = "backup_drive_disconnected")
+            refreshLatest()
+        }
+    }
+
     fun requestOpenDriveFolder() {
         if (_uiState.value.driveConnectionState !is DriveConnectionState.Connected) return
         viewModelScope.launch {
             runCatching {
-                val folder = DriveFolderRepository(DriveBackupRuntime.client).resolve()
-                DriveBackupRuntime.client.openFolderUrl(folder.backupsId)
+                val client = driveClient()
+                val folder = DriveFolderRepository(client).resolve()
+                client.openFolderUrl(folder.backupsId)
             }.onSuccess { url ->
                 _uiState.value = _uiState.value.copy(openDriveFolderUrl = url)
             }.onFailure {
@@ -214,7 +263,7 @@ class BackupViewModel(
                 val repository = DriveBackupRepository(
                     database,
                     getApplication<Application>().filesDir,
-                    DriveBackupRuntime.client,
+                    driveClient(),
                 )
                 repository.download(userId, remote, temporary)
                 coordinator.restoreLocalBackup(userId, temporary, allowNetwork = true)
@@ -225,6 +274,25 @@ class BackupViewModel(
                 _uiState.value = _uiState.value.copy(isBusy = false, messageKey = "backup_restore_failed")
             }
             temporary.delete()
+        }
+    }
+
+    fun deleteDriveBackup(remote: DriveBackupFile) {
+        if (userId.isBlank() || _uiState.value.isBusy) return
+        if (_uiState.value.driveBackups.firstOrNull()?.id == remote.id) {
+            _uiState.value = _uiState.value.copy(messageKey = "backup_drive_keep_newest")
+            return
+        }
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isBusy = true, messageKey = null)
+            runCatching { driveClient().deleteFile(remote.id) }
+                .onSuccess {
+                    _uiState.value = _uiState.value.copy(isBusy = false, messageKey = "backup_drive_deleted")
+                    refreshLatest()
+                }
+                .onFailure {
+                    _uiState.value = _uiState.value.copy(isBusy = false, messageKey = "backup_drive_delete_failed")
+                }
         }
     }
 
@@ -266,11 +334,11 @@ class BackupViewModel(
                 val dao = database.tijarioDao()
                 dao.getBackupRecords(userId) to (dao.getBackupSettings(userId) ?: defaultSettings())
             }
-            val driveState = runCatching { DriveBackupRuntime.client.connectionState() }
+            val driveState = runCatching { BackupDriveContainer.authorizationState(getApplication(), userId) }
                 .getOrDefault(DriveConnectionState.NotConfigured)
             val driveBackups = if (driveState is DriveConnectionState.Connected) {
                 runCatching {
-                    DriveBackupRepository(database, getApplication<Application>().filesDir, DriveBackupRuntime.client)
+                    DriveBackupRepository(database, getApplication<Application>().filesDir, driveClient())
                         .list(userId)
                 }.getOrDefault(emptyList())
             } else emptyList()
@@ -315,5 +383,16 @@ class BackupViewModel(
                 override fun <T : ViewModel> create(modelClass: Class<T>): T =
                     BackupViewModel(application, userId) as T
             }
+    }
+
+    private fun driveClient() = DriveBackupRuntime.client(getApplication<Application>(), userId)
+
+    private fun driveMessage(state: DriveConnectionState): String? = when (state) {
+        is DriveConnectionState.Connected -> "backup_drive_connected"
+        DriveConnectionState.AuthorizationRequired -> "backup_drive_permission_denied"
+        DriveConnectionState.ReauthorizationRequired -> "backup_drive_reauthorization_required"
+        DriveConnectionState.NotConfigured -> "backup_drive_not_configured"
+        DriveConnectionState.TemporarilyUnavailable -> "backup_drive_temporarily_unavailable"
+        else -> null
     }
 }

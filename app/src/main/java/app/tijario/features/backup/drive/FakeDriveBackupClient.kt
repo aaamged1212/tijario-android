@@ -79,6 +79,10 @@ class FakeDriveBackupClient(
         when (val current = state) {
             DriveConnectionState.NotConfigured -> throw DriveBackupException.NotConfigured()
             DriveConnectionState.Disconnected -> throw DriveBackupException.NotConnected()
+            DriveConnectionState.AuthorizationRequired,
+            DriveConnectionState.Authorizing,
+            DriveConnectionState.ReauthorizationRequired,
+            DriveConnectionState.TemporarilyUnavailable -> throw DriveBackupException.ReauthorizationRequired()
             is DriveConnectionState.Connected -> if (expectedAccountId != null && current.accountId != expectedAccountId) {
                 throw DriveBackupException.AccountMismatch()
             }

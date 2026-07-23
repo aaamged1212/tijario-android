@@ -4,18 +4,24 @@ import app.tijario.data.local.BackupRecordEntity
 import app.tijario.data.local.TijarioDatabase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.io.File
 import java.security.MessageDigest
 
 data class DriveFolderIds(val rootId: String, val backupsId: String)
 
 class DriveFolderRepository(private val client: DriveBackupClient) {
-    suspend fun resolve(): DriveFolderIds {
+    suspend fun resolve(): DriveFolderIds = folderMutex.withLock {
         val root = client.findFolder(TIJARIO_DRIVE_FOLDER, null)
             ?: client.createFolder(TIJARIO_DRIVE_FOLDER, null)
         val backups = client.findFolder(TIJARIO_BACKUPS_FOLDER, root)
             ?: client.createFolder(TIJARIO_BACKUPS_FOLDER, root)
         return DriveFolderIds(root, backups)
+    }
+
+    private companion object {
+        val folderMutex = Mutex()
     }
 }
 
@@ -106,6 +112,6 @@ class DriveBackupRepository(
 }
 
 object DriveBackupRuntime {
-    @Volatile
-    var client: DriveBackupClient = UnavailableDriveBackupClient
+    fun client(context: android.content.Context, userId: String): DriveBackupClient =
+        BackupDriveContainer.runtime(context, userId).client
 }

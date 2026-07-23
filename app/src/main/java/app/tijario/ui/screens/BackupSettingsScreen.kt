@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -26,6 +27,7 @@ import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.CloudDownload
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -98,6 +100,11 @@ fun BackupSettingsScreen(
     val folderLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) {
         backupViewModel.rememberPhoneBackupFolder(it)
     }
+    val driveAuthorizationLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartIntentSenderForResult(),
+    ) { result ->
+        backupViewModel.completeGoogleDriveAuthorization(result.data)
+    }
 
     LaunchedEffect(state.exportFileName) {
         state.exportFileName?.let { name ->
@@ -123,6 +130,12 @@ fun BackupSettingsScreen(
         state.shareIntent?.let { intent ->
             backupViewModel.consumeShareRequest()
             runCatching { context.startActivity(intent) }
+        }
+    }
+    LaunchedEffect(state.driveAuthorizationIntentSender) {
+        state.driveAuthorizationIntentSender?.let { sender ->
+            backupViewModel.consumeDriveAuthorizationRequest()
+            driveAuthorizationLauncher.launch(IntentSenderRequest.Builder(sender).build())
         }
     }
 
@@ -264,6 +277,10 @@ fun BackupSettingsScreen(
                         when (state.driveConnectionState) {
                             DriveConnectionState.NotConfigured -> t("backup_drive_not_configured")
                             DriveConnectionState.Disconnected -> t("backup_drive_disconnected")
+                            DriveConnectionState.AuthorizationRequired -> t("backup_drive_permission_denied")
+                            DriveConnectionState.Authorizing -> t("backup_drive_authorizing")
+                            DriveConnectionState.ReauthorizationRequired -> t("backup_drive_reauthorization_required")
+                            DriveConnectionState.TemporarilyUnavailable -> t("backup_drive_temporarily_unavailable")
                             is DriveConnectionState.Connected -> t("backup_drive_connected")
                         },
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -280,6 +297,34 @@ fun BackupSettingsScreen(
                             onCheckedChange = backupViewModel::updateDriveEnabled,
                             enabled = !state.isBusy && state.driveConnectionState is DriveConnectionState.Connected,
                         )
+                    }
+                    val driveState = state.driveConnectionState
+                    when (driveState) {
+                        DriveConnectionState.Disconnected,
+                        DriveConnectionState.AuthorizationRequired,
+                        DriveConnectionState.ReauthorizationRequired,
+                        DriveConnectionState.TemporarilyUnavailable,
+                        DriveConnectionState.NotConfigured -> OutlinedButton(
+                            onClick = { backupViewModel.connectGoogleDrive() },
+                            enabled = !state.isBusy && driveState != DriveConnectionState.NotConfigured,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) { Text(t("backup_drive_connect")) }
+                        is DriveConnectionState.Connected -> {
+                            driveState.accountEmail?.let { email ->
+                                Text(email, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                            }
+                            OutlinedButton(
+                                onClick = { backupViewModel.connectGoogleDrive(changeAccount = true) },
+                                enabled = !state.isBusy,
+                                modifier = Modifier.fillMaxWidth(),
+                            ) { Text(t("backup_drive_change_account")) }
+                            TextButton(
+                                onClick = { backupViewModel.disconnectGoogleDrive(revoke = false) },
+                                enabled = !state.isBusy,
+                                modifier = Modifier.fillMaxWidth(),
+                            ) { Text(t("backup_drive_disconnect")) }
+                        }
+                        DriveConnectionState.Authorizing -> Unit
                     }
                     state.latestBackup?.takeIf { it.status == "DRIVE_FAILED" }?.let { record ->
                         OutlinedButton(
@@ -314,6 +359,10 @@ fun BackupSettingsScreen(
                                 IconButton(onClick = { pendingDriveRestore = remote }, enabled = !state.isBusy) {
                                     Icon(Icons.Filled.CloudDownload, contentDescription = t("backup_drive_restore"))
                                 }
+                                IconButton(
+                                    onClick = { backupViewModel.deleteDriveBackup(remote) },
+                                    enabled = !state.isBusy && state.driveBackups.firstOrNull()?.id != remote.id,
+                                ) { Icon(Icons.Filled.Delete, contentDescription = t("backup_drive_delete")) }
                             }
                         }
                     }

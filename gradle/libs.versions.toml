@@ -20,6 +20,7 @@ androidx-work = "2.9.0"
 firebase-bom = "34.15.0"
 google-services = "4.5.0"
 billing = "9.1.0"
+playServicesAuth = "21.6.0"
 
 [libraries]
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "coreKtx" }
@@ -60,6 +61,7 @@ androidx-work-runtime = { module = "androidx.work:work-runtime-ktx", version.ref
 firebase-bom = { module = "com.google.firebase:firebase-bom", version.ref = "firebase-bom" }
 firebase-messaging = { module = "com.google.firebase:firebase-messaging" }
 google-play-billing-ktx = { module = "com.android.billingclient:billing-ktx", version.ref = "billing" }
+google-play-services-auth = { module = "com.google.android.gms:play-services-auth", version.ref = "playServicesAuth" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

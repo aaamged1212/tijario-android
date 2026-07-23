@@ -19,7 +19,7 @@ The counters migration is required to manage sequential document numbers without
 - **Validation Status**: `compileDebugKotlin`, `testDebugUnitTest`, `assembleDebug`, and `git diff --check` passed. `lintDebug` previously timed out twice before a pass/fail result.
 - **Manual QA Pending**: Verify next-document number previews, edit-mode invoice item changes, PDF visibility in the phone Downloads folder, edited title/manual number persistence in list/detail/PDF, newest-first document ordering, automatic tax defaults, discount/extra-fee preset selection, email-app chooser filtering, sync idempotency, form state restoration after screen rotation, local document option bottom sheets, shipping/discount preview/PDF output, and visual QA on real compact/common Android devices in Arabic and English, including light/dark settings icons and phone country-code selectors.
 - **Android Release Artifact**: `app/release/app-release.aab` remains present and git-ignored; do not upload or commit it.
-- **Backup/Drive hardening**: Local commits require the pending Local-First migrations, server-only signing/envelope configuration, Google Drive OAuth configuration, and device QA before any release.
+- **Backup/Drive hardening**: Local Google Identity authorization, Ktor Drive file transport, transient-token runtime, Worker handling, and notification contracts require the pending Local-First migrations, server-only signing/envelope configuration, Google Drive OAuth configuration, and device QA before any release.
 
 ## Correct Release Order
 1. Preserve existing migration state and apply the three Local-First migrations only in the documented approved order.

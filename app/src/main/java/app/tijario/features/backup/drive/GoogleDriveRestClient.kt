@@ -36,6 +36,7 @@ class GoogleDriveRestClient(
     private val tokenProvider: suspend () -> String?,
     private val driveAccountIdProvider: suspend () -> String?,
     private val transport: DriveRestTransport,
+    private val onAuthorizationInvalid: suspend () -> Unit = {},
 ) : DriveBackupClient {
     override suspend fun connectionState(): DriveConnectionState {
         val token = tokenProvider()
@@ -47,14 +48,17 @@ class GoogleDriveRestClient(
         }
     }
 
-    override suspend fun findFolder(name: String, parentId: String?): String? =
+    override suspend fun findFolder(name: String, parentId: String?): String? = request {
         transport.list(token(), folderQuery(name, parentId)).firstOrNull()?.id
+    }
 
-    override suspend fun createFolder(name: String, parentId: String?): String =
+    override suspend fun createFolder(name: String, parentId: String?): String = request {
         transport.createFolder(token(), name, parentId).id
+    }
 
-    override suspend fun findBackup(folderId: String, accountId: String, backupId: String): DriveBackupFile? =
+    override suspend fun findBackup(folderId: String, accountId: String, backupId: String): DriveBackupFile? = request {
         transport.list(token(), backupQuery(folderId, accountId, backupId)).firstOrNull()?.toBackupFile()
+    }
 
     override suspend fun uploadBackup(
         folderId: String,
@@ -62,31 +66,33 @@ class GoogleDriveRestClient(
         metadata: DriveUploadMetadata,
     ): DriveBackupFile {
         requireConnectedDriveAccount()
-        return transport.uploadFile(
+        return request { transport.uploadFile(
             accessToken = token(),
             parentId = folderId,
             file = file,
             mimeType = BACKUP_MIME_TYPE,
             appProperties = mapOf(
-                "tijarioAccountId" to metadata.accountId,
-                "tijarioBackupId" to metadata.backupId,
-                "tijarioChecksum" to metadata.checksum,
-                "tijarioCreatedAt" to metadata.createdAt.toString(),
+                "tijario_account_id" to metadata.accountId,
+                "tijario_backup_id" to metadata.backupId,
+                "checksum_sha256" to metadata.checksum,
+                "created_at" to metadata.createdAt.toString(),
+                "format_version" to "1",
             ),
-        ).toBackupFile()
+        ).toBackupFile() }
     }
 
     override suspend fun listBackups(folderId: String, accountId: String): List<DriveBackupFile> {
         requireConnectedDriveAccount()
-        return transport.list(token(), accountBackupQuery(folderId, accountId))
+        return request { transport.list(token(), accountBackupQuery(folderId, accountId)) }
             .map { it.toBackupFile() }
             .sortedByDescending(DriveBackupFile::createdAt)
     }
 
-    override suspend fun downloadBackup(fileId: String, destination: File) =
+    override suspend fun downloadBackup(fileId: String, destination: File) = request {
         transport.downloadFile(token(), fileId, destination)
+    }
 
-    override suspend fun deleteFile(fileId: String) = transport.deleteFile(token(), fileId)
+    override suspend fun deleteFile(fileId: String) = request { transport.deleteFile(token(), fileId) }
 
     private suspend fun token(): String = tokenProvider()?.takeIf(String::isNotBlank)
         ?: throw DriveBackupException.NotConnected()
@@ -97,9 +103,9 @@ class GoogleDriveRestClient(
     }
 
     private fun DriveRestFile.toBackupFile(): DriveBackupFile {
-        val accountId = appProperties["tijarioAccountId"] ?: throw DriveBackupException.Permanent("Drive backup account metadata is missing")
-        val backupId = appProperties["tijarioBackupId"] ?: throw DriveBackupException.Permanent("Drive backup identity metadata is missing")
-        val checksumValue = appProperties["tijarioChecksum"] ?: checksum
+        val accountId = appProperties["tijario_account_id"] ?: throw DriveBackupException.Permanent("Drive backup account metadata is missing")
+        val backupId = appProperties["tijario_backup_id"] ?: throw DriveBackupException.Permanent("Drive backup identity metadata is missing")
+        val checksumValue = appProperties["checksum_sha256"] ?: checksum
             ?: throw DriveBackupException.Permanent("Drive backup checksum metadata is missing")
         return DriveBackupFile(
             id = id,
@@ -108,7 +114,7 @@ class GoogleDriveRestClient(
             checksum = checksumValue,
             accountId = accountId,
             backupId = backupId,
-            createdAt = appProperties["tijarioCreatedAt"]?.toLongOrNull() ?: createdAt,
+            createdAt = appProperties["created_at"]?.toLongOrNull() ?: createdAt,
         )
     }
 
@@ -120,11 +126,18 @@ class GoogleDriveRestClient(
     }.joinToString(" and ")
 
     private fun backupQuery(folderId: String, accountId: String, backupId: String): String =
-        accountBackupQuery(folderId, accountId) + " and appProperties has { key='tijarioBackupId' and value='${escape(backupId)}' }"
+        accountBackupQuery(folderId, accountId) + " and appProperties has { key='tijario_backup_id' and value='${escape(backupId)}' }"
 
     private fun accountBackupQuery(folderId: String, accountId: String): String =
         "trashed = false and '${escape(folderId)}' in parents" +
-            " and appProperties has { key='tijarioAccountId' and value='${escape(accountId)}' }"
+            " and appProperties has { key='tijario_account_id' and value='${escape(accountId)}' }"
+
+    private suspend fun <T> request(block: suspend () -> T): T = try {
+        block()
+    } catch (_: DriveHttpException.Unauthorized) {
+        onAuthorizationInvalid()
+        throw DriveBackupException.ReauthorizationRequired()
+    }
 
     private fun escape(value: String) = value.replace("\\", "\\\\").replace("'", "\\'")
 

@@ -25,7 +25,11 @@ data class DriveUploadMetadata(
 sealed class DriveConnectionState {
     data object NotConfigured : DriveConnectionState()
     data object Disconnected : DriveConnectionState()
-    data class Connected(val accountId: String) : DriveConnectionState()
+    data object AuthorizationRequired : DriveConnectionState()
+    data object Authorizing : DriveConnectionState()
+    data object ReauthorizationRequired : DriveConnectionState()
+    data object TemporarilyUnavailable : DriveConnectionState()
+    data class Connected(val accountId: String, val accountEmail: String? = null) : DriveConnectionState()
 }
 
 sealed class DriveBackupException(message: String, cause: Throwable? = null) : Exception(message, cause) {
@@ -33,6 +37,7 @@ sealed class DriveBackupException(message: String, cause: Throwable? = null) : E
     class NotConnected : DriveBackupException("Google Drive account is not connected")
     class AccountMismatch : DriveBackupException("Google Drive account does not match the Tijario account")
     class IntegrityFailure : DriveBackupException("Downloaded backup checksum does not match")
+    class ReauthorizationRequired : DriveBackupException("Google Drive authorization is required")
     class Retryable(message: String, cause: Throwable? = null) : DriveBackupException(message, cause)
     class Permanent(message: String, cause: Throwable? = null) : DriveBackupException(message, cause)
 }

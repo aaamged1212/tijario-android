@@ -54,5 +54,5 @@
 - Correct release order:
   migrations -> Web/API deploy -> verify logs and document flows -> Android update later.
 - Do not touch production until approved.
-- Local Backup/Drive hardening is in progress on `codex/backup-drive-production-ready`; control-plane claims and restore relationship validation are now fail-closed, while Drive authorization/transport remains unverified local work.
+- Local Backup/Drive hardening is in progress on `codex/backup-drive-production-ready`; control-plane claims and restore relationship validation are fail-closed. Google Identity authorization, Ktor Drive REST, transient token runtime, and Worker reconstruction are implemented and JVM-tested locally; real OAuth/Drive/device verification remains pending.
 - Android AAB artifact `app/release/app-release.aab` is present in the workspace but is correctly git-ignored. Do not upload it unless approved.

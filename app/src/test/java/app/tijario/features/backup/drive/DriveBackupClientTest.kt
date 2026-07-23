@@ -11,6 +11,12 @@ import java.security.MessageDigest
 
 class DriveBackupClientTest {
     @Test
+    fun folderNamesUseTheApprovedArabicVisibleContract() {
+        assertEquals("Tijario | تجاريو", TIJARIO_DRIVE_FOLDER)
+        assertEquals("Backups | النسخ الاحتياطية", TIJARIO_BACKUPS_FOLDER)
+    }
+
+    @Test
     fun folderResolutionCreatesAndReusesTijarioFolders() = runBlocking {
         val client = FakeDriveBackupClient(DriveConnectionState.Connected("account-a"))
         val repository = DriveFolderRepository(client)
@@ -87,9 +93,12 @@ class DriveBackupClientTest {
 
         assertEquals("tijario-user-uuid", remote.accountId)
         assertEquals("google-account-123", (client.connectionState() as DriveConnectionState.Connected).accountId)
+        assertEquals("tijario-user-uuid", transport.lastUploadProperties["tijario_account_id"])
+        assertEquals("backup-1", transport.lastUploadProperties["tijario_backup_id"])
     }
 
     private class RecordingDriveTransport : DriveRestTransport {
+        var lastUploadProperties: Map<String, String> = emptyMap()
         override suspend fun list(accessToken: String, query: String): List<DriveRestFile> = emptyList()
         override suspend fun createFolder(accessToken: String, name: String, parentId: String?) =
             DriveRestFile(id = "folder", name = name, mimeType = GoogleDriveRestClient.FOLDER_MIME_TYPE)
@@ -105,7 +114,7 @@ class DriveBackupClientTest {
             name = file.name,
             mimeType = mimeType,
             sizeBytes = file.length(),
-            appProperties = appProperties,
+            appProperties = appProperties.also { lastUploadProperties = it },
         )
 
         override suspend fun downloadFile(accessToken: String, fileId: String, destination: File) = Unit

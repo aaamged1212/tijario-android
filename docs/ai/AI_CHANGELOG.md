@@ -310,3 +310,7 @@
 
 # 2026-07-23 - Drive connection state foundation
 - Added account-scoped non-secret Drive connection metadata and explicit authorization states. Tokens remain transient and are not stored.
+
+# 2026-07-23 - Google Drive authorization and streamed REST runtime
+- Added Google Identity AuthorizationClient handling for `drive.file`, Activity Result resolution, account change/disconnect, session-only OAuth tokens, and process-safe reauthorization states.
+- Added Ktor Drive v3 file streaming, folder/list/upload/download/delete paths, runtime reconstruction for Workers, and backup progress notification contracts.
