@@ -5,8 +5,8 @@ This document tracks the Android release metadata and the manual Google Play Con
 ## 1. Current Android build
 
 - Package: `app.tijario`
-- `compileSdk`: 35
-- `targetSdk`: 35
+- `compileSdk`: 36
+- `targetSdk`: 36
 - Current source configuration: `versionCode 11`, `versionName 1.1.1`
 - Release minification and resource shrinking: enabled
 - WebView debugging: enabled only for debug builds
@@ -46,6 +46,13 @@ The current manifest declares:
 Users can deny notification permission and continue using in-app announcements.
 
 ## 5. SDK and security checklist
+
+### Android 16 / API 36 phone QA
+
+- Confirm edge-to-edge content and bottom navigation do not overlap status or navigation bars.
+- Verify Compose back handling, RTL sheets/dialogs, split-screen resizing, sharing intents, FileProvider PDF sharing, and Google Identity activity-result flows.
+- Verify foreground backup work and notification permission behavior on Android 13+ and Android 16.
+- Do not add broad storage permissions or `MANAGE_EXTERNAL_STORAGE`; scoped MediaStore and SAF remain the supported export paths.
 
 ### Firebase Cloud Messaging
 

@@ -7,11 +7,12 @@ Signed offline entitlements use RS256. No real signing key is committed.
 - `ENTITLEMENT_SIGNING_KEY_ID`: stable identifier for the active public key.
 - `ENTITLEMENT_SIGNING_PRIVATE_KEY_BASE64`: Base64 PKCS#8 DER RSA private key, minimum 2048 bits.
 
-## Android build configuration
+## Android trusted-key registry
 
-- `TIJARIO_ENTITLEMENT_PUBLIC_KEYS_BASE64`: Base64-encoded JSON object mapping key IDs to Base64 X.509 DER RSA public keys.
-- Include the current and still-valid previous public keys during rotation.
-- Public keys are not secrets, but their IDs and rollout must remain controlled.
+- The active public key is committed at `app/src/main/res/raw/entitlement_signing_public_key_base64.txt`.
+- `ProductionEntitlementKeyRegistry` binds that resource to its stable key ID and SHA-256 fingerprint before it can verify an entitlement.
+- Public keys are not secrets. Private signing keys and backup encryption keys must never be placed in Android source, resources, Gradle properties, or BuildConfig.
+- Include current and still-valid previous public keys during a future key rotation, then retire a key only after all entitlements signed by it have expired.
 
 ## Verification contract
 

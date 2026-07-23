@@ -529,16 +529,17 @@ class TijarioRepositoryOfflineTests {
             Unit
         }
 
-        val result = repository.createDocument(
-            CreateDocumentRequest(
-                type = DocumentType.Invoice,
-                customer = DocumentCustomerInput("Offline customer", "1234567"),
-                items = listOf(DocumentItemInput(name = "Service", quantity = 1, unitPrice = 10.0)),
-            ),
-        )
+        val failure = runCatching {
+            repository.createDocument(
+                CreateDocumentRequest(
+                    type = DocumentType.Invoice,
+                    customer = DocumentCustomerInput("Offline customer", "1234567"),
+                    items = listOf(DocumentItemInput(name = "Service", quantity = 1, unitPrice = 10.0)),
+                ),
+            )
+        }.exceptionOrNull()
 
-        assertTrue(!result.ok)
-        assertEquals("ENTITLEMENT_EXPIRED", result.message)
+        assertEquals("ENTITLEMENT_INITIALIZATION_REQUIRED", failure?.message)
         coVerify(exactly = 0) { dao.insertCreationEvent(any()) }
         coVerify(exactly = 0) { dao.deleteDocuments(any()) }
     }

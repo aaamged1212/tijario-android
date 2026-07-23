@@ -7,6 +7,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import java.io.File
 import java.security.KeyPair
 import java.security.KeyPairGenerator
 import java.security.Signature
@@ -35,14 +36,22 @@ class EntitlementVerifierTest {
     }
 
     @Test
-    fun tamperedPayloadAndUnknownKeyAreRejected() {
+    fun tamperedPayloadSignatureAndUnknownKeyAreRejected() {
         val envelope = sign(payload())
         val tampered = envelope.copy(
             payload = Base64.getUrlEncoder().withoutPadding()
                 .encodeToString(Base64.getUrlDecoder().decode(envelope.payload).plus(32.toByte())),
         )
+        val alteredSignature = envelope.copy(
+            signature = if (envelope.signature.first() == 'A') {
+                "B${envelope.signature.drop(1)}"
+            } else {
+                "A${envelope.signature.drop(1)}"
+            },
+        )
 
         assertTrue(verifier().verify(tampered, USER_ID, INSTALLATION_ID).isFailure)
+        assertTrue(verifier().verify(alteredSignature, USER_ID, INSTALLATION_ID).isFailure)
         assertTrue(verifier().verify(envelope.copy(keyId = "unknown"), USER_ID, INSTALLATION_ID).isFailure)
     }
 
@@ -67,7 +76,73 @@ class EntitlementVerifierTest {
         assertTrue(result.isSuccess)
     }
 
+    @Test
+    fun productionRegistryUsesTheExpectedCommittedPublicKey() {
+        val publicKey = appModuleDirectory()
+            .resolve("src/main/res/raw/entitlement_signing_public_key_base64.txt")
+            .readText()
+            .trim()
+        val verifier = EntitlementVerifier.fromBase64PublicKeys(
+            mapOf(ProductionEntitlementKeyRegistry.KEY_ID to publicKey),
+        )
+
+        assertEquals("tijario-entitlement-prod-2026-v1", ProductionEntitlementKeyRegistry.KEY_ID)
+        assertEquals(
+            ProductionEntitlementKeyRegistry.PUBLIC_KEY_SHA256,
+            EntitlementVerifier.publicKeyFingerprint(publicKey),
+        )
+        assertTrue(EntitlementVerifier.hasTrustedKey(verifier, ProductionEntitlementKeyRegistry.KEY_ID))
+    }
+
+    @Test
+    fun malformedInvalidAndWeakTrustedKeysAreRejected() {
+        assertConfigurationRejected("not-base64")
+        assertConfigurationRejected(Base64.getEncoder().encodeToString(byteArrayOf(1, 2, 3)))
+
+        val ecPublicKey = KeyPairGenerator.getInstance("EC").apply { initialize(256) }
+            .generateKeyPair()
+            .public
+        assertConfigurationRejected(Base64.getEncoder().encodeToString(ecPublicKey.encoded))
+
+        val weakRsaPublicKey = KeyPairGenerator.getInstance("RSA").apply { initialize(1024) }
+            .generateKeyPair()
+            .public
+        assertConfigurationRejected(Base64.getEncoder().encodeToString(weakRsaPublicKey.encoded))
+    }
+
+    @Test
+    fun androidMainSourcesContainNoPrivateEntitlementOrBackupKey() {
+        val forbiddenMarkers = listOf(
+            "BEGIN PRIVATE KEY",
+            "ENTITLEMENT_SIGNING_PRIVATE_KEY_BASE64",
+            "BACKUP_KEY_ENCRYPTION_KEY",
+        )
+        val sourceFiles = appModuleDirectory().resolve("src/main").walkTopDown()
+            .filter { it.isFile && it.extension in setOf("kt", "xml", "txt") }
+            .toList()
+
+        assertTrue(sourceFiles.isNotEmpty())
+        assertTrue(sourceFiles.none { file -> forbiddenMarkers.any { marker -> file.readTextContains(marker) } })
+    }
+
     private fun verifier() = EntitlementVerifier(mapOf(KEY_ID to keyPair.public)) { now.toEpochMilli() }
+
+    private fun assertConfigurationRejected(keyBase64: String) {
+        assertTrue(
+            runCatching {
+                EntitlementVerifier.fromBase64PublicKeys(mapOf(KEY_ID to keyBase64))
+            }.isFailure,
+        )
+    }
+
+    private fun File.readTextContains(marker: String): Boolean = readText().contains(marker)
+
+    private fun appModuleDirectory(): File {
+        val workingDirectory = File(System.getProperty("user.dir") ?: error("Working directory is unavailable"))
+        return listOf(workingDirectory, workingDirectory.resolve("app"))
+            .firstOrNull { it.resolve("src/main").isDirectory }
+            ?: error("Android app module directory is unavailable")
+    }
 
     private fun sign(payload: SignedEntitlementPayload): SignedEntitlementDto {
         val element = Json.encodeToJsonElement(SignedEntitlementPayload.serializer(), payload)

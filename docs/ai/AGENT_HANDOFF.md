@@ -1,5 +1,11 @@
 # Agent Handoff (Android & Web Repos)
 
+## 2026-07-23 (API 36 and committed entitlement trust)
+- **Branch**: `codex/backup-drive-production-ready`.
+- **Completed locally**: Set compile/target SDK to 36 while retaining minSdk 26. Android now verifies signed entitlements using a committed RSA-3072 public-key resource bound to `tijario-entitlement-prod-2026-v1` and its SHA-256 fingerprint, not a local Gradle property.
+- **Validation**: `testDebugUnitTest`, `assembleDebugAndroidTest`, `lintDebug`, `assembleDebug`, and `assembleRelease` passed separately. Device runtime QA remains pending.
+- **Release blocker**: Safe Vercel Production validation returned `ENTITLEMENT_SIGNING_KEY_ID_MISSING`; no Production value was changed.
+
 ## 2026-07-23 (Google Drive authorization and runtime)
 - **Branch**: `codex/backup-drive-production-ready`.
 - **Completed locally**: Added Google Identity `AuthorizationClient` flow for the minimal `drive.file` scope, Activity Result resolution, forced account selection, non-secret connected-account metadata, transient-only access tokens, account switching/disconnect, and worker-safe reauthorization handling. Added a Ktor Drive v3 transport that streams finalized encrypted archives for upload/download, a reconstructed process/Worker runtime, folder creation/reuse, Drive list/restore/delete UI, and a backup foreground notification channel.

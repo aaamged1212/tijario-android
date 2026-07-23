@@ -1,5 +1,8 @@
 # AI Changelog
 
+## 2026-07-23 - API 36 and entitlement trust anchor
+- Targeted API 36 and replaced the local entitlement-key Gradle property with a committed RSA public-key registry protected by a SHA-256 fingerprint.
+
 ## 2026-07-18 - Local-First completion and release documentation
 - Enforced signed, account/device-bound offline entitlements and active lease ownership before Local-Drive document creation.
 - Added immutable event reconciliation, Drive backup transport/list/restore/retention controls, and bounded retry behavior.

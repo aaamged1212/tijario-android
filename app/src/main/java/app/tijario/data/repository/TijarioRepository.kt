@@ -17,6 +17,7 @@ import app.tijario.data.model.ProfileFullNameUpdateDto
 import app.tijario.domain.DocumentNumbering
 import app.tijario.domain.DocumentCalculator
 import app.tijario.domain.EntitlementVerifier
+import app.tijario.domain.ProductionEntitlementKeyRegistry
 import app.tijario.data.remote.ApiResult
 import app.tijario.data.remote.NextNumberResponse
 import app.tijario.data.remote.BackendApiClient
@@ -81,7 +82,7 @@ open class TijarioRepository(
     private val dao = database.tijarioDao()
     private val notificationsDao = database.notificationsDao()
     private val entitlementVerifier by lazy {
-        EntitlementVerifier.fromBase64Configuration(BuildConfig.ENTITLEMENT_PUBLIC_KEYS_BASE64)
+        ProductionEntitlementKeyRegistry.verifier(context)
     }
     private val syncStateMutable = MutableStateFlow(CacheSyncState())
     private var lastFullRefreshUserId: String? = null

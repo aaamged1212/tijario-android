@@ -14,6 +14,7 @@ import java.security.KeyFactory
 import java.security.MessageDigest
 import java.security.PublicKey
 import java.security.Signature
+import java.security.interfaces.RSAPublicKey
 import java.security.spec.X509EncodedKeySpec
 import java.time.Instant
 import java.util.Base64
@@ -55,6 +56,7 @@ class EntitlementVerifier(
     ): Result<SignedEntitlementPayload> = runCatching {
         require(envelope.algorithm == "RS256") { "ENTITLEMENT_ALGORITHM_INVALID" }
         val key = publicKeys[envelope.keyId] ?: error("ENTITLEMENT_KEY_UNKNOWN")
+        requireTrustedRsaKey(key)
         val payloadBytes = Base64.getUrlDecoder().decode(envelope.payload)
         val signatureBytes = Base64.getUrlDecoder().decode(envelope.signature)
         val payloadText = payloadBytes.toString(Charsets.UTF_8)
@@ -83,20 +85,56 @@ class EntitlementVerifier(
 
         fun fromBase64Configuration(encoded: String): EntitlementVerifier {
             if (encoded.isBlank()) return EntitlementVerifier(emptyMap())
-            val decoded = Base64.getDecoder().decode(encoded).toString(Charsets.UTF_8)
+            val decoded = decodeStrictBase64(encoded).toString(Charsets.UTF_8)
             val keyMap = json.decodeFromString<Map<String, String>>(decoded)
-            val factory = KeyFactory.getInstance("RSA")
-            return EntitlementVerifier(
-                keyMap.mapValues { (_, keyBase64) ->
-                    factory.generatePublic(X509EncodedKeySpec(Base64.getDecoder().decode(keyBase64)))
-                },
-            )
+            return fromBase64PublicKeys(keyMap)
         }
 
+        fun fromBase64PublicKeys(keyMap: Map<String, String>): EntitlementVerifier =
+            EntitlementVerifier(
+                keyMap.mapValues { (keyId, keyBase64) ->
+                    require(keyId.isNotBlank()) { "ENTITLEMENT_KEY_ID_INVALID" }
+                    parseTrustedRsaPublicKey(keyBase64)
+                },
+            )
+
+        internal fun publicKeyFingerprint(keyBase64: String): String =
+            sha256(parseTrustedRsaPublicKey(keyBase64).encoded)
+
+        internal fun hasTrustedKey(verifier: EntitlementVerifier, keyId: String): Boolean =
+            verifier.publicKeys.containsKey(keyId)
+
         fun payloadHash(value: String): String =
+            sha256(value.toByteArray(Charsets.UTF_8))
+
+        private fun parseTrustedRsaPublicKey(keyBase64: String): RSAPublicKey {
+            val key = KeyFactory.getInstance("RSA")
+                .generatePublic(X509EncodedKeySpec(decodeStrictBase64(keyBase64)))
+            return requireTrustedRsaKey(key)
+        }
+
+        private fun requireTrustedRsaKey(key: PublicKey): RSAPublicKey {
+            val rsaKey = key as? RSAPublicKey ?: error("ENTITLEMENT_KEY_TYPE_INVALID")
+            require(rsaKey.modulus.bitLength() >= MINIMUM_RSA_BITS) { "ENTITLEMENT_KEY_TOO_SMALL" }
+            return rsaKey
+        }
+
+        private fun decodeStrictBase64(value: String): ByteArray {
+            require(value.isNotBlank() && BASE64_REGEX.matches(value) && value.length % 4 == 0) {
+                "ENTITLEMENT_KEY_ENCODING_INVALID"
+            }
+            val decoded = Base64.getDecoder().decode(value)
+            require(Base64.getEncoder().encodeToString(decoded) == value) { "ENTITLEMENT_KEY_ENCODING_INVALID" }
+            return decoded
+        }
+
+        private fun sha256(bytes: ByteArray): String =
             MessageDigest.getInstance("SHA-256")
-                .digest(value.toByteArray(Charsets.UTF_8))
+                .digest(bytes)
                 .joinToString("") { "%02x".format(it) }
+
+        private const val MINIMUM_RSA_BITS = 2048
+        private val BASE64_REGEX = Regex("[A-Za-z0-9+/]+={0,2}")
 
         internal fun canonicalJson(element: JsonElement): String = when (element) {
             JsonNull -> "null"
