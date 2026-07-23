@@ -137,6 +137,10 @@ class GoogleDriveRestClient(
     } catch (_: DriveHttpException.Unauthorized) {
         onAuthorizationInvalid()
         throw DriveBackupException.ReauthorizationRequired()
+    } catch (_: DriveHttpException.Forbidden) {
+        throw DriveBackupException.Permanent("Drive permission or quota was denied")
+    } catch (_: DriveHttpException.NotFound) {
+        throw DriveBackupException.Permanent("Drive resource was not found")
     }
 
     private fun escape(value: String) = value.replace("\\", "\\\\").replace("'", "\\'")

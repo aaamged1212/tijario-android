@@ -27,5 +27,9 @@ class KtorDriveRestTransportContractTest {
         assertTrue(source.contains("in 500..599 -> throw DriveBackupException.Retryable"))
         assertFalse(source.contains("println("))
         assertFalse(source.contains("Log."))
+
+        val client = File("src/main/java/app/tijario/features/backup/drive/GoogleDriveRestClient.kt").readText()
+        assertTrue(client.contains("catch (_: DriveHttpException.Forbidden)"))
+        assertTrue(client.contains("catch (_: DriveHttpException.NotFound)"))
     }
 }

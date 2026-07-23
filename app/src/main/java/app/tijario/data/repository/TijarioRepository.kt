@@ -321,9 +321,9 @@ open class TijarioRepository(
         AccountDataMode.from(dao.getAccountEntitlement(userId)?.dataMode)
 
     private suspend fun requireOperationalDataMode(userId: String): AccountDataMode {
-        val mode = accountDataMode(userId)
-        check(mode.allowsOperationalWrites) { "ENTITLEMENT_INITIALIZATION_REQUIRED" }
-        return mode
+        val entitlement = dao.getAccountEntitlement(userId)
+        check(hasValidOperationalEntitlement(entitlement)) { "ENTITLEMENT_INITIALIZATION_REQUIRED" }
+        return AccountDataMode.from(entitlement?.dataMode)
     }
 
     private suspend fun enforceActiveEntityLimit(userId: String, entityType: String) {

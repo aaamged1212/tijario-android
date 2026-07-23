@@ -84,6 +84,17 @@ class DriveBackupRepository(
         list(userId).drop(keep).forEach { client.deleteFile(it.id) }
     }
 
+    suspend fun delete(userId: String, remote: DriveBackupFile) {
+        if (remote.accountId != userId) throw DriveBackupException.AccountMismatch()
+        val backups = list(userId)
+        val current = backups.firstOrNull { it.id == remote.id }
+            ?: throw DriveBackupException.Permanent("Drive backup was not found")
+        if (backups.firstOrNull()?.id == current.id) {
+            throw DriveBackupException.Permanent("The newest Drive backup is retained")
+        }
+        client.deleteFile(current.id)
+    }
+
     private fun safeLocalFile(record: BackupRecordEntity): File {
         val root = filesRoot.canonicalFile
         val file = File(root, record.localRelativePath).canonicalFile

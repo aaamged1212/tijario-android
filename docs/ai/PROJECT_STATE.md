@@ -11,6 +11,7 @@
 - Room schema 16 implements the first Local-First foundation: `document_creation_events`, `account_entitlements`, `backup_settings`, `backup_records`, `backup_file_entries`, `device_bindings`, and `deleted_record_history`.
 - Legacy `local_usage_ledger` rows migrate into immutable creation events. Successful document sync changes `PENDING` to `ACKNOWLEDGED` and no longer deletes the event.
 - Explicit `local_drive` accounts now use Room for operational customer, product, document, and business-setting writes and do not enqueue those writes for cloud synchronization. Missing, unknown, invalid, or expired entitlements fail closed before operational writes.
+- The shared operational-write guard now also requires a future `expires_at`; explicit `legacy_cloud` remains valid only when represented by a trusted, unexpired persisted entitlement.
 - Account usage persists data mode, quota scope, limits, template policy, and entitlement version locally. Local-Drive document creation records an immutable lifetime or billing-cycle creation event.
 - Normal logout clears transient session state without deleting account-local Room data; destructive device-data removal remains a separate explicit path.
 - Local-Drive deletion retains customer, product, and document rows plus deletion history. Repository restore reactivates the same identity and does not create a second document usage event.

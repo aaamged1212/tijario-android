@@ -318,3 +318,6 @@
 # 2026-07-23 - Plan-aware backup settings
 - Restricted backup frequency controls and retained archive counts to valid locally verified entitlement claims.
 - Downgrades clamp invalid schedules; upgrades retain a user's less-frequent choice. Missing or expired claims fail closed to manual backups.
+
+# 2026-07-23 - Fail-closed operational entitlement guard
+- Blocked operational writes unless the persisted entitlement has an explicit trusted data mode and future expiry.

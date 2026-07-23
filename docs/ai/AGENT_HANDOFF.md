@@ -13,6 +13,12 @@
 - **Validation**: Focused policy tests, complete JVM tests, and `assembleDebugAndroidTest`/`assembleDebug` passed. `lintDebug` and `assembleRelease` exceeded the local 184-second execution window without a result and remain unverified.
 - **Safety**: No push, deployment, migration apply, external-console action, or Google Play upload.
 
+## 2026-07-23 (Unknown data-mode write protection)
+- **Branch**: `codex/backup-drive-production-ready`.
+- **Completed locally**: The common operational-write guard now requires a known explicit data mode and a future entitlement expiry. Missing, invalid, unknown, and expired persisted entitlement state cannot fall through to legacy cloud CRUD.
+- **Validation**: Focused AccountDataMode and Drive JVM tests passed.
+- **Safety**: No push, deployment, migration apply, external-console action, or Google Play upload.
+
 ## 2026-07-18 (Local-First completion and hardening)
 - **Agent**: Codex
 - **Branches**: Android `codex/local-first-complete`; Web `codex/local-first-control-plane`.

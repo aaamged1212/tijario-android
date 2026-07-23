@@ -286,7 +286,9 @@ class BackupViewModel(
         }
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isBusy = true, messageKey = null)
-            runCatching { driveClient().deleteFile(remote.id) }
+            runCatching {
+                DriveBackupRepository(database, getApplication<Application>().filesDir, driveClient()).delete(userId, remote)
+            }
                 .onSuccess {
                     _uiState.value = _uiState.value.copy(isBusy = false, messageKey = "backup_drive_deleted")
                     refreshLatest()
