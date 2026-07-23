@@ -10,7 +10,7 @@
 ## 2026-07-23 (Plan-aware backup scheduling)
 - **Branch**: `codex/backup-drive-production-ready`.
 - **Completed locally**: Backup settings now clamp manual/weekly/daily selection and retention to the valid persisted signed entitlement. Expired, missing, or malformed cached entitlement data permits manual backups only; a later upgrade preserves a user's manual or weekly preference.
-- **Validation**: Focused policy tests, complete JVM tests, and `assembleDebugAndroidTest`/`assembleDebug` passed. `lintDebug` and `assembleRelease` exceeded the local 184-second execution window without a result and remain unverified.
+- **Validation**: Focused policy tests, complete JVM tests, and `assembleDebugAndroidTest`/`assembleDebug` passed. Re-run with a sufficient timeout also passed: `lintDebug` in 4m26s and `assembleRelease` in 6m26s.
 - **Safety**: No push, deployment, migration apply, external-console action, or Google Play upload.
 
 ## 2026-07-23 (Unknown data-mode write protection)

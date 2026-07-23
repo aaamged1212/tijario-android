@@ -6,7 +6,7 @@
 - **Status**: Work is local on `codex/backup-drive-production-ready`. Signed entitlements, offline leases/events, fail-closed restore, scoped phone copies, Google Identity Drive authorization, Ktor Drive REST runtime, and backup notifications are implemented. Production rollout and device QA remain pending.
 - **Latest local change**: Backup schedules now use the valid locally persisted signed policy; incomplete or expired policy permits only manual backup.
 - **Latest safety change**: The shared operational-write guard blocks unknown, missing, and expired entitlement state before legacy or local operational writes.
-- **Validation note**: JVM tests and debug/test APK assembly passed. The separate local `lintDebug` and `assembleRelease` commands timed out before a result.
+- **Validation note**: JVM tests, debug/test APK assembly, `lintDebug` (4m26s), and `assembleRelease` (6m26s) passed locally.
 - **Validation**:
   - Latest run: separate `testDebugUnitTest`, `assembleDebugAndroidTest`, `lintDebug`, `assembleDebug`, and `assembleRelease` commands passed. Instrumentation execution and visual/runtime QA were not performed.
   - Runtime instrumentation is blocked because `adb` is unavailable. One combined Gradle command timed out and was not counted.
