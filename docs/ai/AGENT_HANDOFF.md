@@ -19,6 +19,11 @@
 - **Validation**: Focused AccountDataMode and Drive JVM tests passed.
 - **Safety**: No push, deployment, migration apply, external-console action, or Google Play upload.
 
+## 2026-07-23 (Published local Backup/Drive branch)
+- **Branch**: `codex/backup-drive-production-ready`.
+- **Action**: Published the reviewed local commits to the matching origin branch after explicit user approval.
+- **Safety**: No merge, deployment, migration apply, external-console action, or Google Play upload.
+
 ## 2026-07-18 (Local-First completion and hardening)
 - **Agent**: Codex
 - **Branches**: Android `codex/local-first-complete`; Web `codex/local-first-control-plane`.
