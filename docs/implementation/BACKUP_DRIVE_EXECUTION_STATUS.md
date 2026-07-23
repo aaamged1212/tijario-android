@@ -15,7 +15,7 @@
 - `COMPLETE_LOCAL` Signed entitlement backup policy and plan-safe scheduling.
 - `TESTED` Streamed archive input, strict relationship validation, and temporary-file cleanup.
 - `TESTED` Visible phone destination, history, restore selection, and secure sharing.
-- `NOT_STARTED` Google Identity authorization, runtime wiring, and production Drive REST transport.
+- `IN_PROGRESS` Google Identity authorization, runtime wiring, and production Drive REST transport. Non-secret per-account connection metadata and typed authorization states are now persisted locally; no access token is persisted.
 - `NOT_STARTED` Foreground backup progress, notifications, and final settings UX.
 - `NOT_STARTED` Final static review, local validation, release documentation, and post-flight status.
 

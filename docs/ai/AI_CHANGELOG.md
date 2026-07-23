@@ -307,3 +307,6 @@
 # 2026-07-23 - Visible phone backups and secure sharing
 - Added scoped MediaStore phone copies, persisted SAF backup-folder selection for Android 8-9, and history restore/share controls.
 - Added FileProvider content-URI sharing and Telegram preference with sharesheet fallback; no broad storage permission was added.
+
+# 2026-07-23 - Drive connection state foundation
+- Added account-scoped non-secret Drive connection metadata and explicit authorization states. Tokens remain transient and are not stored.
