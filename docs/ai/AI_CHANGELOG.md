@@ -1,5 +1,8 @@
 # AI Changelog
 
+## 2026-07-24 - Closed Testing 1.1.4 release preparation
+- Prepared version code `14` / version name `1.1.4`, verified dependency-provided AD_ID permissions and disabled Meta advertiser-ID collection, and generated a signed local Release AAB with provenance.
+
 ## 2026-07-24 - Android API 36 CI runner repair
 - Configured the permanent Android CI jobs with the official SDK setup action, accepted SDK licenses, and installed API 36/Build Tools 36.0.0 before Gradle runs.
 - Removed the obsolete one-shot workflow that could modify, commit, and push source automatically.

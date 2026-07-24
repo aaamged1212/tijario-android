@@ -2,6 +2,8 @@
 
 - **Current Active Agent**: Codex
 - **Last Agent**: Codex
+- **Last Task**: Prepare Android 1.1.4 Closed Testing metadata and signed local Release artifact without uploading it.
+- **Release status**: Code `14` / name `1.1.4` was validated locally. AD_ID is dependency-provided by `facebook-core`; Meta auto-log and advertiser-ID collection remain false. Physical-device QA and explicitly approved Play upload remain pending.
 - **Last Task**: Repair the permanent Android API 36 CI runner and validate the Production crypto contract without exposing or changing secrets.
 - **Status**: Work is local on `codex/backup-drive-production-ready`. Signed entitlements, offline leases/events, fail-closed restore, scoped phone copies, Google Identity Drive authorization, Ktor Drive REST runtime, and backup notifications are implemented. Production rollout and device QA remain pending.
 - **Latest local change**: Permanent Android CI now installs the Android SDK/API 36/Build Tools 36.0.0 before Gradle; the obsolete source-modifying one-shot workflow was removed.

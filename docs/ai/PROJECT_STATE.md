@@ -2,6 +2,7 @@
 
 - **CI status**: The permanent Android API 36 workflow now initializes the Android SDK before installing API 36. Local unit tests, instrumentation APK assembly, lint, debug assembly, and release assembly pass. GitHub Actions run `30048718414` also passed both compile/unit and lint/release jobs.
 - **Production crypto status**: The safe Vercel production validator reports `ENTITLEMENT_SIGNING_KEY_ID_MISSING`. No production configuration was modified.
+- **Android Closed Testing preparation**: Version code `14` / version name `1.1.4` has a locally validated signed AAB on `codex/backup-drive-production-ready`. Google Play upload and physical-device QA remain pending.
 - **Android Repo Branch**: `codex/local-first-complete`
 - **Web Repo Branch**: `codex/local-first-control-plane` reserved for local control-plane implementation.
 - **Current Local-First Phase**: Local code is complete for Room operational ownership, signed entitlements, lease-bound immutable usage, encrypted backup/restore, Drive transport abstractions, PDF/assets, scheduling, and release runbooks. Production rollout and physical-device QA remain blocked.

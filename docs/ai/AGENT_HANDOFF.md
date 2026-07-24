@@ -1,5 +1,11 @@
 # Agent Handoff (Android & Web Repos)
 
+## 2026-07-24 (Closed Testing 1.1.4 preparation)
+- **Branch**: `codex/backup-drive-production-ready`.
+- **Completed locally**: Accepted the user-provided version-only change to code `14` / name `1.1.4`; no historical branch was merged or cherry-picked. The Release manifest receives AD_ID and AdServices permissions transitively from `facebook-core:18.3.0`; source manifest privacy flags remain false.
+- **Validation**: `processReleaseMainManifest`, `signingReport`, `testDebugUnitTest`, `assembleDebugAndroidTest`, `lintDebug`, `assembleDebug`, `assembleRelease`, and `bundleRelease` passed. Release AAB provenance is in `docs/release/ANDROID_1_1_4_RELEASE_PROVENANCE.md`.
+- **Remaining**: Physical-device QA and an explicitly approved Google Play upload. No upload occurred during preparation.
+
 ## 2026-07-24 (API 36 CI runner repair)
 - **Branch**: `codex/backup-drive-production-ready`.
 - **Completed locally**: Added the official Android SDK setup action before both API 36 installation steps in the permanent Android CI workflow, including explicit license acceptance and Build Tools 36.0.0. Removed the obsolete source-modifying one-shot remediation workflow.

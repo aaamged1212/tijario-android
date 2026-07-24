@@ -8,6 +8,7 @@
 The counters migration is required to manage sequential document numbers without concurrency collisions.
 
 ## Status
+- **Android 1.1.4 Closed Testing**: Local Release AAB for code `14` / name `1.1.4` passed unit tests, instrumentation APK assembly, lint, debug/release assembly, and bundle generation. Provenance: `docs/release/ANDROID_1_1_4_RELEASE_PROVENANCE.md`. Upload and physical-device QA remain pending; no Play action occurred.
 - **Production Crypto Contract**: Blocked. The safe Vercel Production validator returned `ENTITLEMENT_SIGNING_KEY_ID_MISSING`; configure the expected server-only key ID and rerun the validator before any release. No value was viewed or changed.
 - **Android CI Status**: Permanent workflow now bootstraps the Android SDK and installs API 36/Build Tools 36.0.0. Local Gradle validation and GitHub Actions run `30048718414` passed.
 - **Migration Status**: NOT applied.
