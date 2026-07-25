@@ -18,6 +18,7 @@ import app.tijario.data.remote.AiV2ReplyRequest
 import app.tijario.data.remote.AiV2ReportRequest
 import app.tijario.data.remote.AiV2Response
 import app.tijario.data.repository.TijarioRepository
+import app.tijario.data.repository.AccountInitializationException
 import app.tijario.config.AppRuntimeState
 import app.tijario.config.Localization
 import kotlinx.coroutines.Job
@@ -52,17 +53,29 @@ sealed interface PlanUsageState {
     data class Error(val message: String) : PlanUsageState
 }
 
+sealed interface AccountInitializationState {
+    data object Idle : AccountInitializationState
+    data object Initializing : AccountInitializationState
+    data object Ready : AccountInitializationState
+    data object RetryableFailure : AccountInitializationState
+    data object DeviceConflict : AccountInitializationState
+    data object InvalidEntitlement : AccountInitializationState
+    data object Unauthenticated : AccountInitializationState
+}
+
 class TijarioDataViewModel(
     private val repository: TijarioRepository,
     private val aiRepository: app.tijario.data.repository.AiRepository,
 ) : ViewModel() {
     private val uiStateMutable = MutableStateFlow(TijarioDataUiState())
     private val planUsageStateMutable = MutableStateFlow<PlanUsageState>(PlanUsageState.Idle)
+    private val accountInitializationStateMutable = MutableStateFlow<AccountInitializationState>(AccountInitializationState.Idle)
     private var cacheCollectionJob: Job? = null
     private var refreshJob: Job? = null
 
     val uiState: StateFlow<TijarioDataUiState> = uiStateMutable.asStateFlow()
     val planUsageState: StateFlow<PlanUsageState> = planUsageStateMutable.asStateFlow()
+    val accountInitializationState: StateFlow<AccountInitializationState> = accountInitializationStateMutable.asStateFlow()
 
     fun startForCurrentUser(forceRefresh: Boolean = false) {
         viewModelScope.launch {
@@ -70,6 +83,7 @@ class TijarioDataViewModel(
             if (userId == null) {
                 cacheCollectionJob?.cancel()
                 uiStateMutable.value = TijarioDataUiState()
+                accountInitializationStateMutable.value = AccountInitializationState.Unauthenticated
                 return@launch
             }
 
@@ -77,6 +91,7 @@ class TijarioDataViewModel(
                 cacheCollectionJob?.cancel()
                 uiStateMutable.value = TijarioDataUiState(userId = userId, isInitialLoading = true)
                 cacheCollectionJob = collectCache(userId)
+                accountInitializationStateMutable.value = AccountInitializationState.Idle
             }
 
             repository.getCachedPlanUsage(userId)?.let { cached ->
@@ -84,9 +99,27 @@ class TijarioDataViewModel(
                 uiStateMutable.update { it.copy(planUsage = cached) }
             }
 
+            initializeAccount()
             refreshAll(force = forceRefresh)
         }
     }
+
+    fun initializeAccount() {
+        if (
+            accountInitializationStateMutable.value == AccountInitializationState.Initializing ||
+            accountInitializationStateMutable.value == AccountInitializationState.Ready
+        ) return
+        viewModelScope.launch {
+            accountInitializationStateMutable.value = AccountInitializationState.Initializing
+            val result = refreshPlanUsageNow(force = true)
+            accountInitializationStateMutable.value = result.fold(
+                onSuccess = { AccountInitializationState.Ready },
+                onFailure = { initializationStateFor(it) },
+            )
+        }
+    }
+
+    fun retryAccountInitialization() = initializeAccount()
 
     suspend fun hasCachedBusinessSettingsForCurrentUser(): Boolean {
         val userId = repository.currentUserId() ?: return false
@@ -159,6 +192,17 @@ class TijarioDataViewModel(
             }
 
         return result
+    }
+
+    private fun initializationStateFor(error: Throwable): AccountInitializationState {
+        val code = ((error as? AccountInitializationException)?.code
+            ?: error.message.orEmpty()).uppercase()
+        return when {
+            code == "UNAUTHENTICATED" -> AccountInitializationState.Unauthenticated
+            code in setOf("DEVICE_LIMIT_REACHED", "DEVICE_NOT_REGISTERED", "BACKUP_DEVICE_NOT_PRIMARY") -> AccountInitializationState.DeviceConflict
+            code in setOf("ENTITLEMENT_SIGNATURE_INVALID", "ENTITLEMENT_EXPIRED") -> AccountInitializationState.InvalidEntitlement
+            else -> AccountInitializationState.RetryableFailure
+        }
     }
 
     suspend fun refreshUntilPlanMatches(

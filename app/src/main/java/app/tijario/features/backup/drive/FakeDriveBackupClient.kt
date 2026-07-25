@@ -83,6 +83,7 @@ class FakeDriveBackupClient(
             DriveConnectionState.Authorizing,
             DriveConnectionState.ReauthorizationRequired,
             DriveConnectionState.TemporarilyUnavailable -> throw DriveBackupException.ReauthorizationRequired()
+            DriveConnectionState.InvalidConfiguration -> throw DriveBackupException.InvalidRequest()
             is DriveConnectionState.Connected -> if (expectedAccountId != null && current.accountId != expectedAccountId) {
                 throw DriveBackupException.AccountMismatch()
             }

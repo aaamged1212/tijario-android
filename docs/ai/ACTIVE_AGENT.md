@@ -2,8 +2,8 @@
 
 - **Current Active Agent**: Codex
 - **Last Agent**: Codex
-- **Last Task**: Prepare Android 1.1.4 Closed Testing metadata and signed local Release artifact without uploading it.
-- **Release status**: Code `14` / name `1.1.4` was validated locally. AD_ID is dependency-provided by `facebook-core`; Meta auto-log and advertiser-ID collection remain false. Physical-device QA and explicitly approved Play upload remain pending.
+- **Last Task**: Fix Google Drive post-consent connection failure without changing OAuth scopes or external Google settings.
+- **Release status**: Local uncommitted code `15` / name `1.1.5` resolves Drive `about.user.permissionId` after valid `drive.file` consent. Unit tests, Android test APK assembly, lint, release assembly, and AAB bundling passed; real-device Drive QA and an explicitly approved Play upload remain pending.
 - **Last Task**: Repair the permanent Android API 36 CI runner and validate the Production crypto contract without exposing or changing secrets.
 - **Status**: Work is local on `codex/backup-drive-production-ready`. Signed entitlements, offline leases/events, fail-closed restore, scoped phone copies, Google Identity Drive authorization, Ktor Drive REST runtime, and backup notifications are implemented. Production rollout and device QA remain pending.
 - **Latest local change**: Permanent Android CI now installs the Android SDK/API 36/Build Tools 36.0.0 before Gradle; the obsolete source-modifying one-shot workflow was removed.
@@ -14,3 +14,4 @@
   - Runtime instrumentation is blocked because `adb` is unavailable. One combined Gradle command timed out and was not counted.
 - **Safety**: The approved Android CI commits were pushed to the existing branch. No PR update, deployment, production migration, external-console change, or Play Store upload occurred.
 - **2026-07-23**: Local-only Backup/Drive control-plane hardening is active on `codex/backup-drive-production-ready`; no remote interaction is authorized.
+- **2026-07-25**: Android `1.1.5` adds single-flight signed-entitlement initialization, gated LocalDrive onboarding saves, typed backup-key/primary-device errors, and local `playQa` support. The requested Gradle validation passed; physical QA remains pending.

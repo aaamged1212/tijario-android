@@ -1,5 +1,6 @@
 package app.tijario.features.backup.drive
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -19,17 +20,23 @@ class KtorDriveRestTransportContractTest {
     }
 
     @Test
-    fun transportMapsAuthorizationAndRetryableHttpFailuresWithoutLoggingSecrets() {
+    fun transportResolvesDriveIdentityAndMapsHttpFailuresWithoutLoggingSecrets() {
         val source = File("src/main/java/app/tijario/features/backup/drive/KtorDriveRestTransport.kt").readText()
 
-        assertTrue(source.contains("401 -> throw DriveHttpException.Unauthorized"))
-        assertTrue(source.contains("429 -> throw DriveBackupException.Retryable"))
-        assertTrue(source.contains("in 500..599 -> throw DriveBackupException.Retryable"))
+        assertTrue(source.contains("/about"))
+        assertTrue(source.contains("user(permissionId,emailAddress)"))
+        assertTrue(source.contains("safeDriveLog"))
         assertFalse(source.contains("println("))
-        assertFalse(source.contains("Log."))
-
-        val client = File("src/main/java/app/tijario/features/backup/drive/GoogleDriveRestClient.kt").readText()
-        assertTrue(client.contains("catch (_: DriveHttpException.Forbidden)"))
-        assertTrue(client.contains("catch (_: DriveHttpException.NotFound)"))
+        assertFalse(source.contains("accessToken="))
+        assertTrue(driveFailureFor(401, "authError") is DriveHttpException.Unauthorized)
+        assertTrue(driveFailureFor(403, "accessNotConfigured") is DriveHttpException.NotConfigured)
+        assertTrue(driveFailureFor(403, "permissionDenied") is DriveHttpException.PermissionDenied)
+        assertTrue(driveFailureFor(400, "invalid") is DriveHttpException.BadRequest)
+        assertTrue(driveFailureFor(429, "rateLimitExceeded") is DriveBackupException.Retryable)
+        assertTrue(driveFailureFor(503, "backendError") is DriveBackupException.Retryable)
+        assertEquals(
+            DriveConnectionState.ReauthorizationRequired,
+            driveConnectionStateFor(driveFailureFor(401, "authError")),
+        )
     }
 }

@@ -280,6 +280,7 @@ fun BackupSettingsScreen(
                             DriveConnectionState.AuthorizationRequired -> t("backup_drive_permission_denied")
                             DriveConnectionState.Authorizing -> t("backup_drive_authorizing")
                             DriveConnectionState.ReauthorizationRequired -> t("backup_drive_reauthorization_required")
+                            DriveConnectionState.InvalidConfiguration -> t("backup_drive_invalid_configuration")
                             DriveConnectionState.TemporarilyUnavailable -> t("backup_drive_temporarily_unavailable")
                             is DriveConnectionState.Connected -> t("backup_drive_connected")
                         },
@@ -303,6 +304,7 @@ fun BackupSettingsScreen(
                         DriveConnectionState.Disconnected,
                         DriveConnectionState.AuthorizationRequired,
                         DriveConnectionState.ReauthorizationRequired,
+                        DriveConnectionState.InvalidConfiguration,
                         DriveConnectionState.TemporarilyUnavailable,
                         DriveConnectionState.NotConfigured -> OutlinedButton(
                             onClick = { backupViewModel.connectGoogleDrive() },

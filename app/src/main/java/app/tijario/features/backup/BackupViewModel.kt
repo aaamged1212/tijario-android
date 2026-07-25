@@ -88,8 +88,8 @@ class BackupViewModel(
                     )
                     refreshLatest()
                 }
-                .onFailure {
-                    _uiState.value = _uiState.value.copy(isBusy = false, messageKey = "backup_create_failed")
+                .onFailure { error ->
+                    _uiState.value = _uiState.value.copy(isBusy = false, messageKey = backupMessageKeyFor(error))
                 }
         }
     }
@@ -143,8 +143,8 @@ class BackupViewModel(
             }.onSuccess {
                 _uiState.value = _uiState.value.copy(isBusy = false, messageKey = "backup_restored_success")
                 refreshLatest()
-            }.onFailure {
-                _uiState.value = _uiState.value.copy(isBusy = false, messageKey = "backup_restore_failed")
+            }.onFailure { error ->
+                _uiState.value = _uiState.value.copy(isBusy = false, messageKey = backupMessageKeyFor(error, "backup_restore_failed"))
             }
         }
     }
@@ -159,8 +159,8 @@ class BackupViewModel(
             }.onSuccess {
                 _uiState.value = _uiState.value.copy(isBusy = false, messageKey = "backup_restored_success")
                 refreshLatest()
-            }.onFailure {
-                _uiState.value = _uiState.value.copy(isBusy = false, messageKey = "backup_restore_failed")
+            }.onFailure { error ->
+                _uiState.value = _uiState.value.copy(isBusy = false, messageKey = backupMessageKeyFor(error, "backup_restore_failed"))
             }
         }
     }
@@ -271,8 +271,8 @@ class BackupViewModel(
             }.onSuccess {
                 _uiState.value = _uiState.value.copy(isBusy = false, messageKey = "backup_restored_success")
                 refreshLatest()
-            }.onFailure {
-                _uiState.value = _uiState.value.copy(isBusy = false, messageKey = "backup_restore_failed")
+            }.onFailure { error ->
+                _uiState.value = _uiState.value.copy(isBusy = false, messageKey = backupMessageKeyFor(error, "backup_restore_failed"))
             }
             temporary.delete()
         }
@@ -401,6 +401,7 @@ class BackupViewModel(
         DriveConnectionState.AuthorizationRequired -> "backup_drive_permission_denied"
         DriveConnectionState.ReauthorizationRequired -> "backup_drive_reauthorization_required"
         DriveConnectionState.NotConfigured -> "backup_drive_not_configured"
+        DriveConnectionState.InvalidConfiguration -> "backup_drive_invalid_configuration"
         DriveConnectionState.TemporarilyUnavailable -> "backup_drive_temporarily_unavailable"
         else -> null
     }

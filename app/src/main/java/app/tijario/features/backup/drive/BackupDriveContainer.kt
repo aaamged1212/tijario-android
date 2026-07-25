@@ -21,6 +21,7 @@ class DriveTokenProvider {
 data class DriveRuntime(
     val connectionRepository: DriveConnectionRepository,
     val authorizationManager: GoogleDriveAuthorizationManager,
+    val transport: DriveRestTransport,
     val client: DriveBackupClient,
 )
 
@@ -33,6 +34,7 @@ object BackupDriveContainer {
         val applicationContext = context.applicationContext
         val connections = DriveConnectionRepository(applicationContext)
         val authorization = ProductionGoogleDriveAuthorizationManager(applicationContext)
+        val transport = KtorDriveRestTransport()
         val metadata = connections.get(userId)
         val client = when {
             userId.isBlank() -> UnavailableDriveBackupClient
@@ -41,14 +43,14 @@ object BackupDriveContainer {
             else -> GoogleDriveRestClient(
                 tokenProvider = { tokenProvider.get(userId) },
                 driveAccountIdProvider = { connections.get(userId)?.accountId },
-                transport = KtorDriveRestTransport(),
+                transport = transport,
                 onAuthorizationInvalid = {
                     tokenProvider.clear(userId)
                     connections.markReauthorizationRequired(userId)
                 },
             )
         }
-        return DriveRuntime(connections, authorization, client)
+        return DriveRuntime(connections, authorization, transport, client)
     }
 
     suspend fun authorizationState(context: Context, userId: String): DriveConnectionState {
@@ -68,43 +70,43 @@ object BackupDriveContainer {
 
     suspend fun completeAuthorization(context: Context, userId: String, resultIntent: Intent?): DriveConnectionState {
         val runtime = runtime(context, userId)
-        return persistOutcome(context, userId, runtime, runtime.authorizationManager.completeAuthorization(resultIntent))
+        return persistOutcome(userId, runtime, runtime.authorizationManager.completeAuthorization(resultIntent))
     }
 
     suspend fun persistAuthorization(context: Context, userId: String, outcome: DriveAuthorizationOutcome): DriveConnectionState {
         val runtime = runtime(context, userId)
-        return persistOutcome(context, userId, runtime, outcome)
+        return persistOutcome(userId, runtime, outcome)
     }
 
     private suspend fun persistOutcome(
-        context: Context,
         userId: String,
         runtime: DriveRuntime,
         outcome: DriveAuthorizationOutcome,
     ): DriveConnectionState = when (outcome) {
         is DriveAuthorizationOutcome.Authorized -> {
             tokenProvider.put(userId, outcome.session.accessToken)
-            runtime.connectionRepository.save(
-                userId,
-                DriveConnectionMetadata(
-                    accountId = outcome.session.accountId,
-                    accountEmail = outcome.session.accountEmail,
-                    connectedAt = System.currentTimeMillis(),
-                ),
-            )
-            // This minimal request verifies the token before connected UI is displayed.
-            val verifiedClient = runtime(context, userId).client
             try {
+                val metadata = resolveDriveConnectionMetadata(runtime.transport, outcome.session)
+                runtime.connectionRepository.save(userId, metadata)
+                val verifiedClient = GoogleDriveRestClient(
+                    tokenProvider = { tokenProvider.get(userId) },
+                    driveAccountIdProvider = { metadata.accountId },
+                    transport = runtime.transport,
+                    onAuthorizationInvalid = {
+                        tokenProvider.clear(userId)
+                        runtime.connectionRepository.markReauthorizationRequired(userId)
+                    },
+                )
                 DriveFolderRepository(verifiedClient).resolve().also { folders ->
                     runtime.connectionRepository.updateFolders(userId, folders.rootId, folders.backupsId)
                 }
-                DriveConnectionState.Connected(outcome.session.accountId, outcome.session.accountEmail)
-            } catch (error: DriveBackupException.ReauthorizationRequired) {
+                DriveConnectionState.Connected(metadata.accountId, metadata.accountEmail)
+            } catch (error: Exception) {
                 tokenProvider.clear(userId)
-                runtime.connectionRepository.markReauthorizationRequired(userId)
-                DriveConnectionState.ReauthorizationRequired
-            } catch (_: DriveBackupException) {
-                DriveConnectionState.TemporarilyUnavailable
+                if (error is DriveBackupException.ReauthorizationRequired) {
+                    runtime.connectionRepository.markReauthorizationRequired(userId)
+                }
+                driveConnectionStateFor(error)
             }
         }
         is DriveAuthorizationOutcome.ResolutionRequired -> DriveConnectionState.Authorizing
@@ -123,6 +125,35 @@ object BackupDriveContainer {
         runtime.connectionRepository.clear(userId)
         return DriveConnectionState.Disconnected
     }
+}
+
+internal suspend fun resolveDriveConnectionMetadata(
+    transport: DriveRestTransport,
+    session: DriveAuthorizationSession,
+): DriveConnectionMetadata {
+    val user = transport.getCurrentUser(session.accessToken)
+    if (user.permissionId.isBlank()) throw DriveBackupException.InvalidRequest()
+    return DriveConnectionMetadata(
+        accountId = user.permissionId,
+        accountEmail = user.emailAddress,
+        connectedAt = System.currentTimeMillis(),
+    )
+}
+
+internal fun driveConnectionStateFor(error: Throwable): DriveConnectionState = when (error) {
+    is DriveHttpException.Unauthorized,
+    is DriveBackupException.ReauthorizationRequired -> DriveConnectionState.ReauthorizationRequired
+    is DriveHttpException.NotConfigured,
+    is DriveBackupException.NotConfigured -> DriveConnectionState.NotConfigured
+    is DriveHttpException.PermissionDenied,
+    is DriveBackupException.PermissionDenied,
+    is DriveBackupException.NotConnected,
+    is DriveBackupException.AccountMismatch -> DriveConnectionState.AuthorizationRequired
+    is DriveHttpException.BadRequest,
+    is DriveBackupException.InvalidRequest,
+    is DriveBackupException.Permanent -> DriveConnectionState.InvalidConfiguration
+    is DriveBackupException.Retryable -> DriveConnectionState.TemporarilyUnavailable
+    else -> DriveConnectionState.TemporarilyUnavailable
 }
 
 /** Keeps Drive code decoupled from WorkManager internals for unit tests. */

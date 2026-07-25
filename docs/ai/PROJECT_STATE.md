@@ -1,5 +1,7 @@
 # Project State (Android & Web Repos)
 
+- **Google Drive post-consent fix**: Prepared work on `codex/backup-drive-production-ready` resolves the stable Drive account identity through `about.user.permissionId` rather than optional Google profile data. Version is code `15` / name `1.1.5`; real-device OAuth/Drive validation remains pending.
+
 - **CI status**: The permanent Android API 36 workflow now initializes the Android SDK before installing API 36. Local unit tests, instrumentation APK assembly, lint, debug assembly, and release assembly pass. GitHub Actions run `30048718414` also passed both compile/unit and lint/release jobs.
 - **Production crypto status**: The safe Vercel production validator reports `ENTITLEMENT_SIGNING_KEY_ID_MISSING`. No production configuration was modified.
 - **Android Closed Testing preparation**: Version code `14` / version name `1.1.4` has a locally validated signed AAB on `codex/backup-drive-production-ready`. Google Play upload and physical-device QA remain pending.
@@ -61,3 +63,5 @@
 - Local Backup/Drive hardening is in progress on `codex/backup-drive-production-ready`; control-plane claims and restore relationship validation are fail-closed. Google Identity authorization, Ktor Drive REST, transient token runtime, and Worker reconstruction are implemented and JVM-tested locally; real OAuth/Drive/device verification remains pending.
 - Backup scheduling now derives its maximum frequency and retention counts from the locally persisted, signed entitlement payload. A downgrade clamps an existing schedule; an upgrade keeps a user's less-frequent choice.
 - Android AAB artifact `app/release/app-release.aab` is present in the workspace but is correctly git-ignored. Do not upload it unless approved.
+- Android `1.1.5` includes onboarding/backup-key hardening: verified entitlement initialization is single-flight, onboarding saves wait for Room-ready claims, LocalDrive saves avoid cloud outbox writes, and primary-device backup-key failures are typed. Full local Gradle validation passed; device QA remains pending.
+- A local-only debuggable `playQa` build type now uses the release/upload signing config with package `app.tijario` and version `15` / `1.1.5`. The Upload Key Android OAuth client must be verified manually before physical Google Sign-In/Drive QA.

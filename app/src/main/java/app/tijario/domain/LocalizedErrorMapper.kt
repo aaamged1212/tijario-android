@@ -80,6 +80,18 @@ object LocalizedErrorMapper {
         "billing_purchase_pending" to "billing_purchase_pending",
         "billing_plan_refresh_failed" to "billing_unavailable",
         "notifications_refresh_failed" to "doc_error_unexpected",
+        "ENTITLEMENT_INITIALIZATION_REQUIRED" to "account_initialization_retry",
+        "ENTITLEMENT_SIGNATURE_INVALID" to "account_initialization_invalid",
+        "ENTITLEMENT_EXPIRED" to "account_initialization_invalid",
+        "DEVICE_LIMIT_REACHED" to "account_initialization_device_conflict",
+        "DEVICE_NOT_REGISTERED" to "account_initialization_device_conflict",
+        "NETWORK_UNAVAILABLE" to "account_initialization_retry",
+        "LOCAL_DATABASE_WRITE_FAILED" to "save_settings_error",
+        "INVALID_ONBOARDING_FIELDS" to "save_settings_error",
+        "backup_device_not_primary" to "backup_device_not_primary",
+        "backup_key_unavailable" to "backup_key_unavailable",
+        "backup_device_key_invalid" to "backup_device_key_invalid",
+        "server_configuration_error" to "backup_server_configuration_error",
     )
 
     private val messagePatterns = linkedMapOf(

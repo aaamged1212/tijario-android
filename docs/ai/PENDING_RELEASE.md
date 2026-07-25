@@ -8,6 +8,7 @@
 The counters migration is required to manage sequential document numbers without concurrency collisions.
 
 ## Status
+- **Android 1.1.5 Google Drive fix**: Local uncommitted code `15` / name `1.1.5` resolves Drive identity through `about.user.permissionId` after minimal `drive.file` consent. Local unit tests, Android test APK assembly, lint, release assembly, and AAB bundling passed. Real-device consent/folder/upload/restore QA is pending. If the exact Drive error reason is `accessNotConfigured`, the Google Drive API must be enabled manually in the existing OAuth Google Cloud project; no console change occurred.
 - **Android 1.1.4 Closed Testing**: Local Release AAB for code `14` / name `1.1.4` passed unit tests, instrumentation APK assembly, lint, debug/release assembly, and bundle generation. Provenance: `docs/release/ANDROID_1_1_4_RELEASE_PROVENANCE.md`. Upload and physical-device QA remain pending; no Play action occurred.
 - **Production Crypto Contract**: Blocked. The safe Vercel Production validator returned `ENTITLEMENT_SIGNING_KEY_ID_MISSING`; configure the expected server-only key ID and rerun the validator before any release. No value was viewed or changed.
 - **Android CI Status**: Permanent workflow now bootstraps the Android SDK and installs API 36/Build Tools 36.0.0. Local Gradle validation and GitHub Actions run `30048718414` passed.
@@ -29,3 +30,8 @@ The counters migration is required to manage sequential document numbers without
 2. Configure server-only signing/envelope keys and deploy the compatible Web/API branch.
 3. Run database post-deploy checks and the physical-phone checklist, including Drive OAuth behavior.
 4. Upload Android only after explicit approval and successful staged verification.
+
+## Android 1.1.5 Unified Local Fix
+- Prepared for review. Includes Drive post-consent identity resolution, typed backup-key primary-device errors, and onboarding entitlement gating. It is not approved for Play upload.
+- Required manual QA: first Google signup/onboarding, transient initialization retry, second-installation primary-device conflict, offline backup after online key preparation, and Drive consent/folder/upload/restore.
+- **Local QA variant**: `playQa` is local and uncommitted. It is signed with the existing Upload Key configuration, is debuggable, and is intended for USB testing only. Verify or create the Upload Key Android OAuth client manually before Google Sign-In/Drive testing; do not upload this APK to Play.

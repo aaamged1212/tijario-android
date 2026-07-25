@@ -54,6 +54,7 @@ import app.tijario.ui.components.TijarioButton
 import app.tijario.ui.components.TijarioTextField
 import app.tijario.ui.state.BusinessSettingsFormState
 import app.tijario.ui.state.TijarioDataViewModel
+import app.tijario.ui.state.AccountInitializationState
 import app.tijario.ui.state.LoginFormState
 import app.tijario.ui.state.RegisterFormState
 import app.tijario.ui.state.AuthViewModel
@@ -1045,6 +1046,7 @@ fun OnboardingScreen(
     onDone: () -> Unit,
 ) {
     val language = LocalLanguage.current
+    val initializationState by dataViewModel.accountInitializationState.collectAsState()
     val countries = if (language == AppLanguage.AR) listOf("السعودية", "اليمن", "مصر", "الإمارات", "الكويت", "قطر", "عمان", "البحرين", "الأردن", "لبنان", "المغرب", "تونس", "الجزائر", "ليبيا", "السودان", "العراق", "سوريا", "فلسطين") else listOf("Saudi Arabia", "Yemen", "Egypt", "United Arab Emirates", "Kuwait", "Qatar", "Oman", "Bahrain", "Jordan", "Lebanon", "Morocco", "Tunisia", "Algeria", "Libya", "Sudan", "Iraq", "Syria", "Palestine")
     val countryDialCodes = listOf("+966", "+967", "+20", "+971", "+965", "+974", "+968", "+973", "+962", "+961", "+212", "+216", "+213", "+218", "+249", "+964", "+963", "+970")
     val currencies = listOf("SAR", "YER", "EGP", "AED", "KWD", "QAR", "OMR", "BHD", "JOD", "LBP", "MAD", "TND", "DZD", "LYD", "SDG", "IQD", "SYP", "USD", "EUR")
@@ -1065,6 +1067,10 @@ fun OnboardingScreen(
     var selectedLogoUri by remember { mutableStateOf<Uri?>(null) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+
+    LaunchedEffect(Unit) {
+        dataViewModel.initializeAccount()
+    }
 
     var countryMenuExpanded by remember { mutableStateOf(false) }
     var currencyMenuExpanded by remember { mutableStateOf(false) }
@@ -1294,10 +1300,57 @@ fun OnboardingScreen(
                         )
                     }
 
+                    when (initializationState) {
+                        AccountInitializationState.Initializing,
+                        AccountInitializationState.Idle -> Text(
+                            text = Localization.getString("account_initialization_preparing", language),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 13.sp,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        AccountInitializationState.RetryableFailure -> {
+                            Text(
+                                text = Localization.getString("account_initialization_retry", language),
+                                color = MaterialTheme.colorScheme.error,
+                                fontSize = 13.sp,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                            TextButton(
+                                onClick = dataViewModel::retryAccountInitialization,
+                                modifier = Modifier.align(Alignment.CenterHorizontally),
+                            ) { Text(t("retry")) }
+                        }
+                        AccountInitializationState.DeviceConflict -> Text(
+                            text = Localization.getString("account_initialization_device_conflict", language),
+                            color = MaterialTheme.colorScheme.error,
+                            fontSize = 13.sp,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        AccountInitializationState.InvalidEntitlement -> Text(
+                            text = Localization.getString("account_initialization_invalid", language),
+                            color = MaterialTheme.colorScheme.error,
+                            fontSize = 13.sp,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        AccountInitializationState.Unauthenticated -> Text(
+                            text = Localization.getString("error_session_expired", language),
+                            color = MaterialTheme.colorScheme.error,
+                            fontSize = 13.sp,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        AccountInitializationState.Ready -> Unit
+                    }
+
                     TijarioButton(
                         text = t("btn_save_continue"),
                         onClick = {
                             scope.launch {
+                                if (initializationState != AccountInitializationState.Ready) return@launch
                                 try {
                                     isLoading = true
                                     errorMessage = null
@@ -1317,7 +1370,12 @@ fun OnboardingScreen(
                                         )
                                         val result = dataViewModel.saveBusinessSettings(baseSettings)
                                         if (result.isFailure) {
-                                            errorMessage = LocalizedErrorMapper.map(null, result.exceptionOrNull()?.message, language)
+                                            val error = result.exceptionOrNull()
+                                            errorMessage = LocalizedErrorMapper.map(
+                                                (error as? app.tijario.data.repository.AccountInitializationException)?.code,
+                                                error?.message,
+                                                language,
+                                            )
                                             return@launch
                                         }
 
@@ -1332,7 +1390,12 @@ fun OnboardingScreen(
                                             clearBusinessLogoCache(context)
                                             val logoSave = dataViewModel.saveBusinessSettings(baseSettings.copy(logoUrl = uploadedUrl))
                                             if (logoSave.isFailure) {
-                                                errorMessage = LocalizedErrorMapper.map(null, logoSave.exceptionOrNull()?.message, language)
+                                                val error = logoSave.exceptionOrNull()
+                                                errorMessage = LocalizedErrorMapper.map(
+                                                    (error as? app.tijario.data.repository.AccountInitializationException)?.code,
+                                                    error?.message,
+                                                    language,
+                                                )
                                                 return@launch
                                             }
                                         }
@@ -1341,14 +1404,18 @@ fun OnboardingScreen(
                                     } else {
                                         errorMessage = Localization.getString("save_settings_error", language)
                                     }
-                                } catch (e: Exception) {
-                                    errorMessage = LocalizedErrorMapper.map(null, e.message, language)
+                                } catch (error: Exception) {
+                                    errorMessage = LocalizedErrorMapper.map(
+                                        (error as? app.tijario.data.repository.AccountInitializationException)?.code,
+                                        error.message,
+                                        language,
+                                    )
                                 } finally {
                                     isLoading = false
                                 }
                             }
                         },
-                        enabled = form.canSubmit,
+                        enabled = form.canSubmit && initializationState == AccountInitializationState.Ready,
                         isLoading = isLoading
                     )
                 }

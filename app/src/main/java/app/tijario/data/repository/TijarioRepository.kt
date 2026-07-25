@@ -3,6 +3,8 @@ package app.tijario.data.repository
 import android.content.Context
 import java.io.File
 import app.tijario.features.sync.SyncScheduler
+import app.tijario.features.backup.BackupKeyException
+import app.tijario.features.backup.DeviceBackupKeyStore
 import androidx.room.withTransaction
 import app.tijario.config.AppPreferences
 import app.tijario.data.local.TijarioDatabase
@@ -39,6 +41,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import java.math.BigDecimal
@@ -84,7 +87,9 @@ open class TijarioRepository(
     private val entitlementVerifier by lazy {
         ProductionEntitlementKeyRegistry.verifier(context)
     }
+    private val backupKeyStore by lazy { DeviceBackupKeyStore(context, backendApiClient) }
     private val syncStateMutable = MutableStateFlow(CacheSyncState())
+    private val accountInitializationCoordinator = AccountInitializationCoordinator()
     private var lastFullRefreshUserId: String? = null
     private var lastFullRefreshAt: Long = 0L
 
@@ -1182,37 +1187,60 @@ open class TijarioRepository(
     // Local Business Settings update
     suspend fun updateBusinessSettingsLocal(settings: BusinessSettings): Result<Unit> = runCatching {
         val userId = requireUserId()
-        requireOperationalDataMode(userId)
-        val syncedAt = System.currentTimeMillis()
-        withContext(Dispatchers.IO) {
-            database.withTransaction {
-                val existing = dao.getBusinessSettings(userId)
-                val nextRev = (existing?.localRevision ?: 0) + 1
-                val nextStatus = if (existing?.syncStatus == "LOCAL_ONLY") "LOCAL_ONLY" else "PENDING_SYNC"
-                val entity = app.tijario.data.local.BusinessSettingsEntity(
-                    userId = userId,
-                    remoteId = existing?.remoteId ?: settings.id,
-                    businessName = settings.businessName,
-                    whatsappNumber = settings.whatsappNumber,
-                    country = settings.country,
-                    city = settings.city,
-                    address = settings.address,
-                    email = settings.email,
-                    websiteUrl = settings.websiteUrl,
-                    currency = settings.currency,
-                    logoUrl = settings.logoUrl,
-                    instagramUrl = settings.instagramUrl,
-                    invoiceNote = settings.invoiceNote,
-                    termsText = settings.termsText,
-                    syncedAt = syncedAt,
-                    localRevision = nextRev,
-                    syncStatus = nextStatus
-                )
-                dao.upsertBusinessSettings(entity)
-                enqueueOperationalOutbox(userId, "business_settings", userId, "UPDATE", existing?.serverId())
-            }
+        val dataMode = requireOperationalDataMode(userId)
+        persistBusinessSettingsLocal(userId, settings, dataMode)
+    }
+
+    private suspend fun persistBusinessSettingsLocal(
+        userId: String,
+        settings: BusinessSettings,
+        dataMode: AccountDataMode,
+    ) {
+        if (
+            settings.businessName.isBlank() ||
+            settings.whatsappNumber.isBlank() ||
+            settings.country.isBlank() ||
+            settings.currency.isBlank()
+        ) {
+            throw AccountInitializationException("INVALID_ONBOARDING_FIELDS")
         }
-        if (accountDataMode(userId) != AccountDataMode.LocalDrive) {
+        val syncedAt = System.currentTimeMillis()
+        val baseServerRevision = try {
+            withContext(Dispatchers.IO) {
+                database.withTransaction {
+                    val existing = dao.getBusinessSettings(userId)
+                    val nextRev = (existing?.localRevision ?: 0) + 1
+                    val nextStatus = if (dataMode == AccountDataMode.LocalDrive) "LOCAL_ONLY" else "PENDING_SYNC"
+                    val entity = app.tijario.data.local.BusinessSettingsEntity(
+                        userId = userId,
+                        remoteId = existing?.remoteId ?: settings.id,
+                        businessName = settings.businessName,
+                        whatsappNumber = settings.whatsappNumber,
+                        country = settings.country,
+                        city = settings.city,
+                        address = settings.address,
+                        email = settings.email,
+                        websiteUrl = settings.websiteUrl,
+                        currency = settings.currency,
+                        logoUrl = settings.logoUrl,
+                        instagramUrl = settings.instagramUrl,
+                        invoiceNote = settings.invoiceNote,
+                        termsText = settings.termsText,
+                        syncedAt = syncedAt,
+                        localRevision = nextRev,
+                        syncStatus = nextStatus
+                    )
+                    dao.upsertBusinessSettings(entity)
+                    existing?.serverId()
+                }
+            }
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Throwable) {
+            throw AccountInitializationException("LOCAL_DATABASE_WRITE_FAILED", error)
+        }
+        if (dataMode != AccountDataMode.LocalDrive) {
+            enqueueOperationalOutbox(userId, "business_settings", userId, "UPDATE", baseServerRevision)
             sync(userId).onFailure {
                 SyncScheduler(context).triggerSync(userId)
             }
@@ -1411,9 +1439,9 @@ open class TijarioRepository(
 
     suspend fun saveBusinessSettings(settings: BusinessSettings): Result<Unit> = runCatching {
         val userId = requireUserId()
-        requireOperationalDataMode(userId)
-        if (accountDataMode(userId) == AccountDataMode.LocalDrive) {
-            updateBusinessSettingsLocal(settings).getOrThrow()
+        val dataMode = requireOperationalDataMode(userId)
+        if (dataMode == AccountDataMode.LocalDrive) {
+            persistBusinessSettingsLocal(userId, settings, dataMode)
             return@runCatching
         }
         withContext(Dispatchers.IO) {
@@ -1577,19 +1605,37 @@ open class TijarioRepository(
     }
 
     // Plans and usage
-    suspend fun fetchUserPlanUsage(): Result<app.tijario.data.model.UserPlanUsage> =
-        runCatching {
-            val userId = requireUserId()
-            withContext(Dispatchers.IO) {
-                val installationId = AppPreferences.getInstallationId(context)
-                val response = backendApiClient.fetchSignedAccountEntitlement(
+    suspend fun fetchUserPlanUsage(): Result<app.tijario.data.model.UserPlanUsage> {
+        val userId = currentUserId()
+            ?: return Result.failure(AccountInitializationException("UNAUTHENTICATED"))
+        val installationId = AppPreferences.getInstallationId(context)
+        return accountInitializationCoordinator.initialize(userId, installationId) {
+            fetchUserPlanUsageOnce(userId, installationId)
+        }
+    }
+
+    private suspend fun fetchUserPlanUsageOnce(
+        userId: String,
+        installationId: String,
+    ): app.tijario.data.model.UserPlanUsage = withContext(Dispatchers.IO) {
+        try {
+            val response = backendApiClient.fetchSignedAccountEntitlement(
                     EntitlementIssueRequest(installationId = installationId),
                 )
-                val usage = response.data ?: error(response.message ?: "Plan usage not found.")
-                val envelope = usage.signedEntitlement ?: error("ENTITLEMENT_SIGNATURE_REQUIRED")
-                val signed = entitlementVerifier.verify(envelope, userId, installationId).getOrThrow()
+            if (!response.ok) {
+                throw AccountInitializationException(response.code ?: "NETWORK_UNAVAILABLE")
+            }
+            val usage = response.data ?: throw AccountInitializationException("ENTITLEMENT_INITIALIZATION_REQUIRED")
+            val envelope = usage.signedEntitlement
+                ?: throw AccountInitializationException("ENTITLEMENT_SIGNATURE_INVALID")
+            val signed = entitlementVerifier.verify(envelope, userId, installationId)
+                .getOrElse { throw classifyInitializationFailure(it) }
+            try {
                 requireEntitlementClaimsMatch(usage, signed)
-                val baseUsage = app.tijario.data.model.UserPlanUsage(
+            } catch (error: IllegalArgumentException) {
+                throw AccountInitializationException("ENTITLEMENT_SIGNATURE_INVALID", error)
+            }
+            val baseUsage = app.tijario.data.model.UserPlanUsage(
                     planCode = signed.planCode,
                     planName = signed.planCode,
                     periodMonth = currentUtcPeriodMonth(),
@@ -1605,6 +1651,7 @@ open class TijarioRepository(
                     allowedTemplateIds = signed.allowedTemplateIds,
                     removeTijarioBranding = signed.removeTijarioBranding,
                 )
+            database.withTransaction {
                 dao.upsertAccountEntitlement(
                     app.tijario.data.local.AccountEntitlementEntity(
                         userId = userId,
@@ -1626,12 +1673,22 @@ open class TijarioRepository(
                         signature = envelope.signature,
                     ),
                 )
-                refreshOfflineLease(userId, installationId)
-                val effectiveUsage = overlayLocalUsage(userId, baseUsage)
-                AppPreferences.setPlanUsage(context, userId, baseUsage)
-                effectiveUsage
             }
+            refreshOfflineLease(userId, installationId)
+            if (AccountDataMode.from(signed.dataMode) == AccountDataMode.LocalDrive) {
+                backupKeyStore.resolve(userId, installationId, allowNetwork = true).keyBytes.fill(0)
+            }
+            val effectiveUsage = overlayLocalUsage(userId, baseUsage)
+            AppPreferences.setPlanUsage(context, userId, baseUsage)
+            effectiveUsage
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: AccountInitializationException) {
+            throw error
+        } catch (error: Throwable) {
+            throw classifyInitializationFailure(error)
         }
+    }
 
     suspend fun getCachedPlanUsage(userId: String): app.tijario.data.model.UserPlanUsage? =
         withContext(Dispatchers.IO) {
@@ -2567,6 +2624,22 @@ open class TijarioRepository(
         require(usage.backupRetentionDaily == signed.backupRetentionDaily) { "ENTITLEMENT_PAYLOAD_MISMATCH" }
         require(usage.backupRetentionWeekly == signed.backupRetentionWeekly) { "ENTITLEMENT_PAYLOAD_MISMATCH" }
         require(usage.backupRetentionMonthly == signed.backupRetentionMonthly) { "ENTITLEMENT_PAYLOAD_MISMATCH" }
+    }
+
+    private fun classifyInitializationFailure(error: Throwable): AccountInitializationException {
+        if (error is AccountInitializationException) return error
+        val message = error.message.orEmpty().uppercase()
+        val code = when {
+            error is BackupKeyException && error.code.equals("backup_device_not_primary", ignoreCase = true) -> "DEVICE_NOT_REGISTERED"
+            error is BackupKeyException && error.code.equals("unauthenticated", ignoreCase = true) -> "UNAUTHENTICATED"
+            error is BackupKeyException -> "ENTITLEMENT_INITIALIZATION_REQUIRED"
+            error is java.io.IOException -> "NETWORK_UNAVAILABLE"
+            "EXPIRED" in message -> "ENTITLEMENT_EXPIRED"
+            "INSTALLATION" in message || "DEVICE" in message -> "DEVICE_NOT_REGISTERED"
+            "SIGNATURE" in message || "PAYLOAD" in message || "ENTITLEMENT" in message -> "ENTITLEMENT_SIGNATURE_INVALID"
+            else -> "ENTITLEMENT_INITIALIZATION_REQUIRED"
+        }
+        return AccountInitializationException(code, error)
     }
 
     private suspend fun refreshOfflineLease(userId: String, installationId: String) {

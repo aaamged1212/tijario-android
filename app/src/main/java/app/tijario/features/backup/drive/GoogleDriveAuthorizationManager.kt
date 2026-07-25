@@ -20,8 +20,6 @@ const val GOOGLE_DRIVE_FILE_SCOPE = "https://www.googleapis.com/auth/drive.file"
 /** A token is deliberately session-only and is never persisted with Drive metadata. */
 data class DriveAuthorizationSession(
     val accessToken: String,
-    val accountId: String,
-    val accountEmail: String?,
 )
 
 sealed interface DriveAuthorizationOutcome {
@@ -83,15 +81,18 @@ class ProductionGoogleDriveAuthorizationManager(context: Context) : GoogleDriveA
             return result.pendingIntent?.intentSender?.let(DriveAuthorizationOutcome::ResolutionRequired)
                 ?: DriveAuthorizationOutcome.TemporarilyUnavailable
         }
-        val scopesGranted = result.grantedScopes.orEmpty().any { it == GOOGLE_DRIVE_FILE_SCOPE }
-        if (!scopesGranted) return DriveAuthorizationOutcome.ScopeDenied
-        val token = result.accessToken?.takeIf(String::isNotBlank) ?: return DriveAuthorizationOutcome.TemporarilyUnavailable
-        val account = result.toGoogleSignInAccount()
-        val accountId = account?.id?.takeIf(String::isNotBlank)
-            ?: account?.email?.takeIf(String::isNotBlank)
-            ?: return DriveAuthorizationOutcome.TemporarilyUnavailable
-        return DriveAuthorizationOutcome.Authorized(DriveAuthorizationSession(token, accountId, account?.email))
+        return driveFileAuthorizationOutcome(result.grantedScopes.orEmpty(), result.accessToken)
     }
+}
+
+/** Google Identity may omit profile fields for a valid drive.file-only authorization. */
+internal fun driveFileAuthorizationOutcome(
+    grantedScopes: Collection<String>,
+    accessToken: String?,
+): DriveAuthorizationOutcome {
+    if (GOOGLE_DRIVE_FILE_SCOPE !in grantedScopes) return DriveAuthorizationOutcome.ScopeDenied
+    val token = accessToken?.takeIf(String::isNotBlank) ?: return DriveAuthorizationOutcome.TemporarilyUnavailable
+    return DriveAuthorizationOutcome.Authorized(DriveAuthorizationSession(token))
 }
 
 /** Deterministic test double. No production token or Google API behavior is faked by this class. */

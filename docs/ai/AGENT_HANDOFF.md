@@ -1,5 +1,13 @@
 # Agent Handoff (Android & Web Repos)
 
+## 2026-07-24 (Google Drive post-consent connection fix)
+- **Branch**: `codex/backup-drive-production-ready`.
+- **Root cause**: A valid `drive.file` authorization was incorrectly rejected when Google Identity omitted profile `id` and `email`. The runtime now resolves Drive `about.user.permissionId` after consent and uses it as the stable Drive identity; email remains optional display metadata.
+- **Completed locally**: Added typed `about` transport resolution, folder verification after identity resolution, safe HTTP classification/logging, localized configuration feedback, and focused JVM coverage. OAuth scope remains only `drive.file`. Version is code `15` / name `1.1.5`.
+- **Validation**: `testDebugUnitTest`, `assembleDebugAndroidTest`, `lintDebug`, `assembleRelease`, `bundleRelease`, and `git diff --check` passed locally.
+- **Remaining**: Real-device consent, Drive API `about`/folder verification, upload/restore, and Play upload need explicit later approval. If Drive returns `accessNotConfigured`, enable Google Drive API in the existing OAuth project manually; no external setting was changed.
+- **Safety**: No commit, push, deployment, migration, external-console action, or Google Play upload occurred.
+
 ## 2026-07-24 (Closed Testing 1.1.4 preparation)
 - **Branch**: `codex/backup-drive-production-ready`.
 - **Completed locally**: Accepted the user-provided version-only change to code `14` / name `1.1.4`; no historical branch was merged or cherry-picked. The Release manifest receives AD_ID and AdServices permissions transitively from `facebook-core:18.3.0`; source manifest privacy flags remain false.
@@ -464,6 +472,21 @@
   - Android test APK compilation passed with `assembleDebugAndroidTest`.
   - Migration execution still requires an emulator/device because `adb` is unavailable.
 - **Safety Status**: Local Android work only. No push, deployment, migration apply, external-console change, or Play upload.
+
+## 2026-07-25 (Local playQa physical-device build)
+- **Branch**: `codex/backup-drive-production-ready`
+- **Action**: Added a local-only `playQa` build type for USB QA using the existing release/upload signing configuration.
+- **Details**: `playQa` keeps `app.tijario`, version `15` / `1.1.5`, production BuildConfig values, and is debuggable. It disables release shrinking only for the local QA variant. The Android Studio and OAuth prerequisite are documented in `docs/release/LOCAL_PLAY_QA_BUILD.md`.
+- **Validation**: Separate unit tests, test APK assembly, lint, `assemblePlayQa`, release assembly, and release bundle passed. Gradle reported the expected Upload Key SHA-256 for `playQa`.
+- **Remaining**: Verify the Upload Key Android OAuth client in Google Cloud and perform physical-device Google Sign-In/Drive QA. Gradle confirmed the configured SHA-1 and SHA-256; `apksigner` was unavailable for an additional direct APK inspection.
+- **Safety Status**: No commit, push, deployment, migration apply, Play upload, or external-console change.
+
+## 2026-07-25 (Unified 1.1.5 onboarding and backup-key hardening)
+- **Branch**: `codex/backup-drive-production-ready`
+- **Action**: Added single-flight entitlement initialization, onboarding gating, LocalDrive-only Room persistence, and typed backup-key primary-device failures alongside the existing Drive consent fix.
+- **Validation**: `testDebugUnitTest`, `assembleDebugAndroidTest`, `lintDebug`, `assembleDebug`, `assembleRelease`, and `bundleRelease` passed.
+- **Remaining**: Physical-device Google signup/onboarding, primary-device conflict, offline cached-backup, and Drive consent/folder/upload/restore QA.
+- **Safety Status**: No deployment, migration, console change, or Play upload.
 
 ## 2026-07-23 (Backup control-plane fail-closed hardening)
 - **Branch**: `codex/backup-drive-production-ready`

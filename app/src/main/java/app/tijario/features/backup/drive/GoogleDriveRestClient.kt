@@ -13,12 +13,18 @@ data class DriveRestFile(
     val appProperties: Map<String, String> = emptyMap(),
 )
 
+data class DriveCurrentUser(
+    val permissionId: String,
+    val emailAddress: String?,
+)
+
 /**
  * Streaming HTTP boundary for Google Drive REST v3. The OAuth module supplies
  * the access token and the implementation streams files without loading an
  * archive into memory.
  */
 interface DriveRestTransport {
+    suspend fun getCurrentUser(accessToken: String): DriveCurrentUser
     suspend fun list(accessToken: String, query: String): List<DriveRestFile>
     suspend fun createFolder(accessToken: String, name: String, parentId: String?): DriveRestFile
     suspend fun uploadFile(
@@ -137,8 +143,12 @@ class GoogleDriveRestClient(
     } catch (_: DriveHttpException.Unauthorized) {
         onAuthorizationInvalid()
         throw DriveBackupException.ReauthorizationRequired()
-    } catch (_: DriveHttpException.Forbidden) {
-        throw DriveBackupException.Permanent("Drive permission or quota was denied")
+    } catch (_: DriveHttpException.NotConfigured) {
+        throw DriveBackupException.NotConfigured()
+    } catch (_: DriveHttpException.PermissionDenied) {
+        throw DriveBackupException.PermissionDenied()
+    } catch (_: DriveHttpException.BadRequest) {
+        throw DriveBackupException.InvalidRequest()
     } catch (_: DriveHttpException.NotFound) {
         throw DriveBackupException.Permanent("Drive resource was not found")
     }

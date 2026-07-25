@@ -99,6 +99,7 @@ class DriveBackupClientTest {
 
     private class RecordingDriveTransport : DriveRestTransport {
         var lastUploadProperties: Map<String, String> = emptyMap()
+        override suspend fun getCurrentUser(accessToken: String) = DriveCurrentUser("google-account-123", null)
         override suspend fun list(accessToken: String, query: String): List<DriveRestFile> = emptyList()
         override suspend fun createFolder(accessToken: String, name: String, parentId: String?) =
             DriveRestFile(id = "folder", name = name, mimeType = GoogleDriveRestClient.FOLDER_MIME_TYPE)

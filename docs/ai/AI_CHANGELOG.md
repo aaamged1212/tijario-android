@@ -331,3 +331,16 @@
 
 # 2026-07-23 - Fail-closed operational entitlement guard
 - Blocked operational writes unless the persisted entitlement has an explicit trusted data mode and future expiry.
+
+# 2026-07-24 - Google Drive post-consent identity resolution
+- Replaced the invalid Google profile-ID requirement with Drive `about.user.permissionId` resolution after valid `drive.file` consent.
+- Added safe Drive error classification, localized configuration feedback, and focused JVM coverage; code `15` / name `1.1.5` is prepared for review.
+
+# 2026-07-25 - 1.1.5 onboarding and backup-key typed failures
+- Account initialization is single-flight per user and installation, verifies and persists the signed entitlement before LocalDrive onboarding saves are enabled, and reports typed initialization failures.
+- LocalDrive business settings now use one local Room transaction with `LOCAL_ONLY` state and no legacy cloud outbox.
+- Backup-key envelope failures preserve primary-device, unavailable-key, invalid-device-key, server configuration, unauthenticated, and true offline/no-cache outcomes without exposing secrets.
+
+# 2026-07-25 - Local playQa physical-device build
+- Added a debuggable `playQa` variant that keeps the production package, version, endpoint BuildConfig, and release/upload signing configuration for local USB QA.
+- Added the Android Studio workflow and the required Upload Key Android OAuth client documentation. No external Google Cloud change was made.

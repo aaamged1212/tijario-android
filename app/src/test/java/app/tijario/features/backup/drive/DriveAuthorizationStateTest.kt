@@ -21,17 +21,28 @@ class DriveAuthorizationStateTest {
     fun immediateAuthorizationReturnsSessionWithoutPersistingTheToken() = runBlocking {
         val manager = FakeGoogleDriveAuthorizationManager(
             DriveAuthorizationOutcome.Authorized(
-                DriveAuthorizationSession("short-lived-token", "google-id", "seller@example.com"),
+                DriveAuthorizationSession("short-lived-token"),
             ),
         )
 
         val result = manager.authorize()
 
         assertTrue(result is DriveAuthorizationOutcome.Authorized)
-        assertEquals("google-id", (result as DriveAuthorizationOutcome.Authorized).session.accountId)
+        assertEquals("short-lived-token", (result as DriveAuthorizationOutcome.Authorized).session.accessToken)
         val connectionSource = File("src/main/java/app/tijario/features/backup/drive/DriveConnectionRepository.kt").readText()
         assertFalse(connectionSource.contains("access_token"))
         assertFalse(connectionSource.contains("refresh_token"))
+    }
+
+    @Test
+    fun driveFileConsentDoesNotRequireGoogleProfileIdentity() {
+        val result = driveFileAuthorizationOutcome(
+            grantedScopes = listOf(GOOGLE_DRIVE_FILE_SCOPE),
+            accessToken = "short-lived-token",
+        )
+
+        assertTrue(result is DriveAuthorizationOutcome.Authorized)
+        assertEquals("short-lived-token", (result as DriveAuthorizationOutcome.Authorized).session.accessToken)
     }
 
     @Test

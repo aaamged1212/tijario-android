@@ -28,6 +28,7 @@ sealed class DriveConnectionState {
     data object AuthorizationRequired : DriveConnectionState()
     data object Authorizing : DriveConnectionState()
     data object ReauthorizationRequired : DriveConnectionState()
+    data object InvalidConfiguration : DriveConnectionState()
     data object TemporarilyUnavailable : DriveConnectionState()
     data class Connected(val accountId: String, val accountEmail: String? = null) : DriveConnectionState()
 }
@@ -38,6 +39,8 @@ sealed class DriveBackupException(message: String, cause: Throwable? = null) : E
     class AccountMismatch : DriveBackupException("Google Drive account does not match the Tijario account")
     class IntegrityFailure : DriveBackupException("Downloaded backup checksum does not match")
     class ReauthorizationRequired : DriveBackupException("Google Drive authorization is required")
+    class PermissionDenied : DriveBackupException("Google Drive permission was denied")
+    class InvalidRequest : DriveBackupException("Google Drive rejected the connection request")
     class Retryable(message: String, cause: Throwable? = null) : DriveBackupException(message, cause)
     class Permanent(message: String, cause: Throwable? = null) : DriveBackupException(message, cause)
 }

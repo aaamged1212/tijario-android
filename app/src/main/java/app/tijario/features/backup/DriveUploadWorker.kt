@@ -65,6 +65,8 @@ class DriveUploadWorker(
         is DriveBackupException.AccountMismatch -> "drive_account_mismatch"
         is DriveBackupException.IntegrityFailure -> "drive_integrity_failed"
         is DriveBackupException.ReauthorizationRequired -> "drive_reauthorization_required"
+        is DriveBackupException.PermissionDenied -> "drive_permission_denied"
+        is DriveBackupException.InvalidRequest -> "drive_invalid_request"
         is DriveBackupException.Permanent -> "drive_upload_failed"
         is DriveBackupException.Retryable -> "drive_retryable"
     }

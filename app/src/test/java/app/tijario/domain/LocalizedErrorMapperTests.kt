@@ -3,9 +3,18 @@ package app.tijario.domain
 import app.tijario.config.AppLanguage
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Test
 
 class LocalizedErrorMapperTests {
+    @Test
+    fun accountInitializationCodesUseLocalizedMessagesInsteadOfRawCodes() {
+        val message = LocalizedErrorMapper.map("ENTITLEMENT_INITIALIZATION_REQUIRED", null, AppLanguage.AR)
+
+        assertNotEquals("ENTITLEMENT_INITIALIZATION_REQUIRED", message)
+        assertFalse(message.contains("ENTITLEMENT"))
+    }
+
     @Test
     fun arabicMessagesHideRawDocumentLimitCodes() {
         val limitMessage = LocalizedErrorMapper.map("DOCUMENT_LIMIT_REACHED", "quota limit exceeded", AppLanguage.AR)

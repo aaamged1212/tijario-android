@@ -1,6 +1,7 @@
 package app.tijario.features.backup.drive
 
 import app.tijario.data.remote.defaultHttpClient
+import android.util.Log
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.bearerAuth
@@ -24,18 +25,34 @@ import io.ktor.utils.io.writeFully
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import java.io.IOException
 import java.io.File
 import java.time.Instant
 
 private const val DRIVE_API_BASE = "https://www.googleapis.com/drive/v3"
 private const val DRIVE_UPLOAD_BASE = "https://www.googleapis.com/upload/drive/v3"
 private const val DRIVE_LIST_FIELDS = "files(id,name,mimeType,parents,size,createdTime,appProperties)"
+private const val DRIVE_ABOUT_FIELDS = "user(permissionId,emailAddress)"
 
 /** Ktor-only Drive v3 transport. Archive bytes are copied from/to files, never materialized as a ByteArray. */
 class KtorDriveRestTransport(
     private val httpClient: HttpClient = defaultHttpClient(),
 ) : DriveRestTransport {
-    override suspend fun list(accessToken: String, query: String): List<DriveRestFile> {
+    override suspend fun getCurrentUser(accessToken: String): DriveCurrentUser = driveRequest("about", accountIdResolved = false) {
+        val response = httpClient.get("$DRIVE_API_BASE/about") {
+            bearerAuth(accessToken)
+            url { parameters.append("fields", DRIVE_ABOUT_FIELDS) }
+        }.requireSuccess("about", accountIdResolved = false)
+        val user = driveJson.decodeFromString<DriveAboutResponse>(response.bodyAsText()).user
+        val permissionId = user?.permissionId?.takeIf(String::isNotBlank)
+        if (permissionId == null) {
+            safeDriveLog("about", 200, "missing_permission_id", accountIdResolved = false)
+            throw DriveBackupException.InvalidRequest()
+        }
+        DriveCurrentUser(permissionId, user.emailAddress?.takeIf(String::isNotBlank))
+    }
+
+    override suspend fun list(accessToken: String, query: String): List<DriveRestFile> = driveRequest("list", accountIdResolved = true) {
         val response = httpClient.get("$DRIVE_API_BASE/files") {
             bearerAuth(accessToken)
             url {
@@ -43,11 +60,11 @@ class KtorDriveRestTransport(
                 parameters.append("fields", DRIVE_LIST_FIELDS)
                 parameters.append("orderBy", "createdTime desc")
             }
-        }.requireSuccess()
-        return driveJson.decodeFromString<DriveListResponse>(response.bodyAsText()).files.map(DriveFileResponse::toRestFile)
+        }.requireSuccess("list", accountIdResolved = true)
+        driveJson.decodeFromString<DriveListResponse>(response.bodyAsText()).files.map(DriveFileResponse::toRestFile)
     }
 
-    override suspend fun createFolder(accessToken: String, name: String, parentId: String?): DriveRestFile {
+    override suspend fun createFolder(accessToken: String, name: String, parentId: String?): DriveRestFile = driveRequest("create_folder", accountIdResolved = true) {
         val request = DriveCreateRequest(
             name = name,
             mimeType = GoogleDriveRestClient.FOLDER_MIME_TYPE,
@@ -58,8 +75,8 @@ class KtorDriveRestTransport(
             contentType(ContentType.Application.Json)
             url { parameters.append("fields", DRIVE_FILE_FIELDS) }
             setBody(driveJson.encodeToString(request))
-        }.requireSuccess()
-        return driveJson.decodeFromString<DriveFileResponse>(response.bodyAsText()).toRestFile()
+        }.requireSuccess("create_folder", accountIdResolved = true)
+        driveJson.decodeFromString<DriveFileResponse>(response.bodyAsText()).toRestFile()
     }
 
     override suspend fun uploadFile(
@@ -70,36 +87,38 @@ class KtorDriveRestTransport(
         appProperties: Map<String, String>,
     ): DriveRestFile {
         if (!file.isFile) throw DriveBackupException.Permanent("Encrypted backup file is missing")
-        val metadata = DriveCreateRequest(
-            name = file.name,
-            mimeType = mimeType,
-            parents = listOf(parentId),
-            appProperties = appProperties,
-        )
-        val session = httpClient.post("$DRIVE_UPLOAD_BASE/files") {
-            bearerAuth(accessToken)
-            contentType(ContentType.Application.Json)
-            header("X-Upload-Content-Type", mimeType)
-            header("X-Upload-Content-Length", file.length().toString())
-            url { parameters.append("uploadType", "resumable") }
-            setBody(driveJson.encodeToString(metadata))
-        }.requireSuccess()
-        val uploadUrl = session.headers[HttpHeaders.Location]
-            ?: throw DriveBackupException.Retryable("Drive upload session is unavailable")
-        val response = httpClient.put(uploadUrl) {
-            bearerAuth(accessToken)
-            contentType(ContentType.parse(mimeType))
-            header(HttpHeaders.ContentLength, file.length().toString())
-            setBody(FileStreamingContent(file, ContentType.parse(mimeType)))
-        }.requireSuccess()
-        return driveJson.decodeFromString<DriveFileResponse>(response.bodyAsText()).toRestFile()
+        return driveRequest("upload", accountIdResolved = true) {
+            val metadata = DriveCreateRequest(
+                name = file.name,
+                mimeType = mimeType,
+                parents = listOf(parentId),
+                appProperties = appProperties,
+            )
+            val session = httpClient.post("$DRIVE_UPLOAD_BASE/files") {
+                bearerAuth(accessToken)
+                contentType(ContentType.Application.Json)
+                header("X-Upload-Content-Type", mimeType)
+                header("X-Upload-Content-Length", file.length().toString())
+                url { parameters.append("uploadType", "resumable") }
+                setBody(driveJson.encodeToString(metadata))
+            }.requireSuccess("upload", accountIdResolved = true)
+            val uploadUrl = session.headers[HttpHeaders.Location]
+                ?: throw DriveBackupException.Retryable("Drive upload session is unavailable")
+            val response = httpClient.put(uploadUrl) {
+                bearerAuth(accessToken)
+                contentType(ContentType.parse(mimeType))
+                header(HttpHeaders.ContentLength, file.length().toString())
+                setBody(FileStreamingContent(file, ContentType.parse(mimeType)))
+            }.requireSuccess("upload", accountIdResolved = true)
+            driveJson.decodeFromString<DriveFileResponse>(response.bodyAsText()).toRestFile()
+        }
     }
 
-    override suspend fun downloadFile(accessToken: String, fileId: String, destination: File) {
+    override suspend fun downloadFile(accessToken: String, fileId: String, destination: File) = driveRequest("download", accountIdResolved = true) {
         val response = httpClient.get("$DRIVE_API_BASE/files/$fileId") {
             bearerAuth(accessToken)
             url { parameters.append("alt", "media") }
-        }.requireSuccess()
+        }.requireSuccess("download", accountIdResolved = true)
         val advertisedSize = response.headers[HttpHeaders.ContentLength]?.toLongOrNull()
         if (advertisedSize != null && advertisedSize > MAX_DOWNLOAD_BYTES) {
             throw DriveBackupException.Permanent("Drive backup exceeds the safe download limit")
@@ -127,20 +146,28 @@ class KtorDriveRestTransport(
         }
     }
 
-    override suspend fun deleteFile(accessToken: String, fileId: String) {
-        httpClient.delete("$DRIVE_API_BASE/files/$fileId") { bearerAuth(accessToken) }.requireSuccess()
+    override suspend fun deleteFile(accessToken: String, fileId: String): Unit = driveRequest("delete", accountIdResolved = true) {
+        httpClient.delete("$DRIVE_API_BASE/files/$fileId") { bearerAuth(accessToken) }
+            .requireSuccess("delete", accountIdResolved = true)
+        Unit
     }
 
-    private suspend fun HttpResponse.requireSuccess(): HttpResponse {
+    private suspend fun HttpResponse.requireSuccess(operation: String, accountIdResolved: Boolean): HttpResponse {
         if (status.isSuccess()) return this
-        when (status.value) {
-            401 -> throw DriveHttpException.Unauthorized
-            403 -> throw DriveHttpException.Forbidden
-            404 -> throw DriveHttpException.NotFound
-            429 -> throw DriveBackupException.Retryable("Google Drive rate limited the request")
-            in 500..599 -> throw DriveBackupException.Retryable("Google Drive is temporarily unavailable")
-            else -> throw DriveBackupException.Permanent("Google Drive rejected the request")
-        }
+        val error = parseDriveError(bodyAsText())
+        safeDriveLog(operation, status.value, error.reason ?: "unknown", accountIdResolved)
+        throw driveFailureFor(status.value, error.reason)
+    }
+
+    private suspend fun <T> driveRequest(
+        operation: String,
+        accountIdResolved: Boolean,
+        block: suspend () -> T,
+    ): T = try {
+        block()
+    } catch (error: IOException) {
+        safeDriveLog(operation, null, "network", accountIdResolved)
+        throw DriveBackupException.Retryable("Google Drive is temporarily unavailable", error)
     }
 
     companion object {
@@ -149,10 +176,23 @@ class KtorDriveRestTransport(
     }
 }
 
-sealed class DriveHttpException(message: String) : Exception(message) {
-    data object Unauthorized : DriveHttpException("Drive authorization expired")
-    data object Forbidden : DriveHttpException("Drive permission was denied")
-    data object NotFound : DriveHttpException("Drive resource was not found")
+internal fun driveFailureFor(status: Int, reason: String?): Throwable = when (status) {
+    401 -> DriveHttpException.Unauthorized(reason)
+    403 -> if (reason.isDriveApiDisabled()) DriveHttpException.NotConfigured(reason)
+        else DriveHttpException.PermissionDenied(reason)
+    400 -> DriveHttpException.BadRequest(reason)
+    404 -> DriveHttpException.NotFound(reason)
+    429 -> DriveBackupException.Retryable("Google Drive rate limited the request")
+    in 500..599 -> DriveBackupException.Retryable("Google Drive is temporarily unavailable")
+    else -> DriveBackupException.Permanent("Google Drive rejected the request")
+}
+
+sealed class DriveHttpException(message: String, val reason: String?) : Exception(message) {
+    class Unauthorized(reason: String?) : DriveHttpException("Drive authorization expired", reason)
+    class NotConfigured(reason: String?) : DriveHttpException("Google Drive API is not configured", reason)
+    class PermissionDenied(reason: String?) : DriveHttpException("Drive permission was denied", reason)
+    class BadRequest(reason: String?) : DriveHttpException("Google Drive rejected the request", reason)
+    class NotFound(reason: String?) : DriveHttpException("Drive resource was not found", reason)
 }
 
 private class FileStreamingContent(
@@ -175,6 +215,27 @@ private class FileStreamingContent(
 
 @Serializable
 private data class DriveListResponse(val files: List<DriveFileResponse> = emptyList())
+
+@Serializable
+private data class DriveAboutResponse(val user: DriveAboutUser? = null)
+
+@Serializable
+private data class DriveAboutUser(
+    val permissionId: String? = null,
+    val emailAddress: String? = null,
+)
+
+@Serializable
+private data class DriveErrorEnvelope(val error: DriveErrorPayload? = null)
+
+@Serializable
+private data class DriveErrorPayload(
+    val message: String? = null,
+    val errors: List<DriveErrorItem> = emptyList(),
+)
+
+@Serializable
+private data class DriveErrorItem(val reason: String? = null)
 
 @Serializable
 private data class DriveFileResponse(
@@ -206,3 +267,17 @@ private data class DriveCreateRequest(
 )
 
 private val driveJson = Json { ignoreUnknownKeys = true; explicitNulls = false }
+
+private data class SafeDriveError(val reason: String?, val message: String?)
+
+private fun parseDriveError(body: String): SafeDriveError = runCatching {
+    val error = driveJson.decodeFromString<DriveErrorEnvelope>(body).error
+    SafeDriveError(error?.errors?.firstOrNull()?.reason, error?.message)
+}.getOrDefault(SafeDriveError(null, null))
+
+private fun String?.isDriveApiDisabled(): Boolean = this.equals("accessNotConfigured", ignoreCase = true) ||
+    this.equals("serviceDisabled", ignoreCase = true)
+
+private fun safeDriveLog(operation: String, status: Int?, reason: String, accountIdResolved: Boolean) {
+    Log.d("TijarioDrive", "operation=$operation status=${status ?: "network"} reason=$reason accountIdResolved=$accountIdResolved")
+}
