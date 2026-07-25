@@ -488,6 +488,13 @@
 - **Remaining**: Physical-device Google signup/onboarding, primary-device conflict, offline cached-backup, and Drive consent/folder/upload/restore QA.
 - **Safety Status**: No deployment, migration, console change, or Play upload.
 
+## 2026-07-25 (Physical QA findings, open)
+- **Branch**: `codex/backup-drive-production-ready`
+- **Evidence**: Email/password authentication works from Yemen without VPN. Local Upload-Key Google sign-in remains unresolved even with the exact local 1.1.4 source, while the Play-signed 1.1.4 build works.
+- **Open defects**: Current-plan retry has no visible result, Business appears as a stale fourth plan, Google Play purchase synchronization does not update the plan, and document deletion returns a generic error.
+- **Documentation**: Exact reproduction steps and investigation boundaries are in `docs/release/ANDROID_1_1_5_PHYSICAL_QA.md`.
+- **Safety Status**: Findings only. No production, console, deployment, migration, or Play change.
+
 ## 2026-07-23 (Backup control-plane fail-closed hardening)
 - **Branch**: `codex/backup-drive-production-ready`
 - **Implemented**: Unknown data modes now block operational writes until a signed entitlement is persisted; signed policy fields are verified; logical backup relationship columns fail closed.

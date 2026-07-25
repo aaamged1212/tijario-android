@@ -34,4 +34,5 @@ The counters migration is required to manage sequential document numbers without
 ## Android 1.1.5 Unified Local Fix
 - Prepared for review. Includes Drive post-consent identity resolution, typed backup-key primary-device errors, and onboarding entitlement gating. It is not approved for Play upload.
 - Required manual QA: first Google signup/onboarding, transient initialization retry, second-installation primary-device conflict, offline backup after online key preparation, and Drive consent/folder/upload/restore.
-- **Local QA variant**: `playQa` is local and uncommitted. It is signed with the existing Upload Key configuration, is debuggable, and is intended for USB testing only. Verify or create the Upload Key Android OAuth client manually before Google Sign-In/Drive testing; do not upload this APK to Play.
+- **Local QA variant**: `playQa` is available on this branch, signed with the existing Upload Key configuration, debuggable, and intended for USB testing only. Verify or create the Upload Key Android OAuth client manually before Google Sign-In/Drive testing; do not upload this APK to Play.
+- **Physical QA findings**: `docs/release/ANDROID_1_1_5_PHYSICAL_QA.md` records unresolved local Google sign-in, current-plan refresh, stale Business catalog, purchase synchronization, and document deletion defects. These require separate diagnosis before release.

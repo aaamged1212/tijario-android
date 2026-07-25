@@ -344,3 +344,6 @@
 # 2026-07-25 - Local playQa physical-device build
 - Added a debuggable `playQa` variant that keeps the production package, version, endpoint BuildConfig, and release/upload signing configuration for local USB QA.
 - Added the Android Studio workflow and the required Upload Key Android OAuth client documentation. No external Google Cloud change was made.
+
+# 2026-07-25 - Physical QA findings recorded
+- Recorded open Google sign-in, plan refresh/catalog, purchase synchronization, and document deletion findings without speculative fixes.

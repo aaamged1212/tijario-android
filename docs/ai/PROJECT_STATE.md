@@ -65,3 +65,4 @@
 - Android AAB artifact `app/release/app-release.aab` is present in the workspace but is correctly git-ignored. Do not upload it unless approved.
 - Android `1.1.5` includes onboarding/backup-key hardening: verified entitlement initialization is single-flight, onboarding saves wait for Room-ready claims, LocalDrive saves avoid cloud outbox writes, and primary-device backup-key failures are typed. Full local Gradle validation passed; device QA remains pending.
 - A local-only debuggable `playQa` build type now uses the release/upload signing config with package `app.tijario` and version `15` / `1.1.5`. The Upload Key Android OAuth client must be verified manually before physical Google Sign-In/Drive QA.
+- Physical QA evidence is recorded in `docs/release/ANDROID_1_1_5_PHYSICAL_QA.md`; unresolved Google sign-in, plan, purchase synchronization, and document deletion defects are not fixed by the 1.1.5 implementation.

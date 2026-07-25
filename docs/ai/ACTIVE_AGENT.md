@@ -15,3 +15,4 @@
 - **Safety**: The approved Android CI commits were pushed to the existing branch. No PR update, deployment, production migration, external-console change, or Play Store upload occurred.
 - **2026-07-23**: Local-only Backup/Drive control-plane hardening is active on `codex/backup-drive-production-ready`; no remote interaction is authorized.
 - **2026-07-25**: Android `1.1.5` adds single-flight signed-entitlement initialization, gated LocalDrive onboarding saves, typed backup-key/primary-device errors, and local `playQa` support. The requested Gradle validation passed; physical QA remains pending.
+- **Physical QA**: Open findings are recorded in `docs/release/ANDROID_1_1_5_PHYSICAL_QA.md`. They were not changed in the 1.1.5 implementation commit.
