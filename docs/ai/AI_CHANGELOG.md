@@ -355,3 +355,6 @@
 
 # 2026-07-26 - Removed legacy primary-device entitlement fields
 - Removed `max_primary_devices` and unreachable device-conflict UI from the signed entitlement path; retained local historical binding storage.
+
+# 2026-07-26 - Published multi-installation Android branch
+- Pushed `df99d4b2f8966f166ef14a8ec19c5e0c32c7289e` to `codex/backup-drive-production-ready`; no Play upload or external action occurred.

@@ -73,3 +73,4 @@
 - The multi-installation backend migration is not applied; no release path may use the updated entitlement/backup RPCs until that migration is explicitly approved and deployed with compatible Web code.
 
 - Runtime Android entitlement validation is active-installation based and no longer depends on primary-device fields. Version remains `15` / `1.1.5`.
+- **2026-07-26**: Multi-installation Android source is published at `df99d4b2f8966f166ef14a8ec19c5e0c32c7289e` on `codex/backup-drive-production-ready`; it remains release-blocked on the Web migration/API rollout.

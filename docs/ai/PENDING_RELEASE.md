@@ -43,3 +43,4 @@ The counters migration is required to manage sequential document numbers without
 - Do not ship the Android source change before the compatible Web migration/API release is approved.
 
 - Apply migration, deploy compatible Web API, then release Android. This order establishes installation authorization before either app requests the new contract.
+- **2026-07-26**: Source commit `df99d4b2f8966f166ef14a8ec19c5e0c32c7289e` is pushed. Do not upload Android until the Web migration and API are explicitly approved and verified.

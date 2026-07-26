@@ -473,6 +473,10 @@
   - Migration execution still requires an emulator/device because `adb` is unavailable.
 - **Safety Status**: Local Android work only. No push, deployment, migration apply, external-console change, or Play upload.
 
+## 2026-07-26 (Published multi-installation Android branch)
+- Commit `df99d4b2f8966f166ef14a8ec19c5e0c32c7289e` was pushed to `codex/backup-drive-production-ready`.
+- Android remains versionCode `15` / versionName `1.1.5`. No Play upload, migration apply, deployment, or external configuration action occurred.
+
 ## 2026-07-26 (Multi-installation review publication)
 - **Contract**: Android no longer validates or displays primary-device entitlement fields; LocalDrive save stays Room-only and avoids operational sync scheduling.
 - **Validation**: JVM tests, test APK, lint, playQa, Release APK, and Release AAB builds passed. Physical-device QA remains pending.
