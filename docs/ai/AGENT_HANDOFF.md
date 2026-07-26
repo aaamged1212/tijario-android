@@ -473,6 +473,16 @@
   - Migration execution still requires an emulator/device because `adb` is unavailable.
 - **Safety Status**: Local Android work only. No push, deployment, migration apply, external-console change, or Play upload.
 
+## 2026-07-26 (Multi-installation review publication)
+- **Contract**: Android no longer validates or displays primary-device entitlement fields; LocalDrive save stays Room-only and avoids operational sync scheduling.
+- **Validation**: JVM tests, test APK, lint, playQa, Release APK, and Release AAB builds passed. Physical-device QA remains pending.
+
+## 2026-07-25 (Multi-installation Local-First readiness, uncommitted)
+- **Action**: Removed normal LocalDrive document-create/update scheduling and primary-device messaging from Android. Local save now returns typed bootstrap/lease failures without exposing internal Room errors.
+- **Details**: Android public purchases are limited to Starter and Pro; stale Business plan data is normalized to Pro for display. Compatible Web work has an unapplied non-exclusive installation migration.
+- **Validation**: Android `testDebugUnitTest` passed. The combined Android assembly/lint command exceeded the local 10-minute execution window and is not a passing result.
+- **Safety Status**: No commit, push, deployment, Production migration, data mutation, external-console change, or Play upload.
+
 ## 2026-07-25 (Local playQa physical-device build)
 - **Branch**: `codex/backup-drive-production-ready`
 - **Action**: Added a local-only `playQa` build type for USB QA using the existing release/upload signing configuration.

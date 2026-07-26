@@ -5,10 +5,10 @@ import org.junit.Test
 
 class BackupKeyErrorMappingTest {
     @Test
-    fun primaryDeviceConflictIsNotCollapsedIntoOfflineKeyMessage() {
+    fun unregisteredInstallationDoesNotUsePrimaryDeviceLanguage() {
         assertEquals(
-            "backup_device_not_primary",
-            backupMessageKeyFor(BackupKeyException("backup_device_not_primary")),
+            "backup_installation_not_registered",
+            backupMessageKeyFor(BackupKeyException("backup_installation_not_registered")),
         )
     }
 

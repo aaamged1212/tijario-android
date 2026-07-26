@@ -58,7 +58,6 @@ sealed interface AccountInitializationState {
     data object Initializing : AccountInitializationState
     data object Ready : AccountInitializationState
     data object RetryableFailure : AccountInitializationState
-    data object DeviceConflict : AccountInitializationState
     data object InvalidEntitlement : AccountInitializationState
     data object Unauthenticated : AccountInitializationState
 }
@@ -199,7 +198,7 @@ class TijarioDataViewModel(
             ?: error.message.orEmpty()).uppercase()
         return when {
             code == "UNAUTHENTICATED" -> AccountInitializationState.Unauthenticated
-            code in setOf("DEVICE_LIMIT_REACHED", "DEVICE_NOT_REGISTERED", "BACKUP_DEVICE_NOT_PRIMARY") -> AccountInitializationState.DeviceConflict
+            code in setOf("DEVICE_NOT_REGISTERED", "BACKUP_INSTALLATION_NOT_REGISTERED") -> AccountInitializationState.RetryableFailure
             code in setOf("ENTITLEMENT_SIGNATURE_INVALID", "ENTITLEMENT_EXPIRED") -> AccountInitializationState.InvalidEntitlement
             else -> AccountInitializationState.RetryableFailure
         }

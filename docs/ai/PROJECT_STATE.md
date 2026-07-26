@@ -66,3 +66,10 @@
 - Android `1.1.5` includes onboarding/backup-key hardening: verified entitlement initialization is single-flight, onboarding saves wait for Room-ready claims, LocalDrive saves avoid cloud outbox writes, and primary-device backup-key failures are typed. Full local Gradle validation passed; device QA remains pending.
 - A local-only debuggable `playQa` build type now uses the release/upload signing config with package `app.tijario` and version `15` / `1.1.5`. The Upload Key Android OAuth client must be verified manually before physical Google Sign-In/Drive QA.
 - Physical QA evidence is recorded in `docs/release/ANDROID_1_1_5_PHYSICAL_QA.md`; unresolved Google sign-in, plan, purchase synchronization, and document deletion defects are not fixed by the 1.1.5 implementation.
+
+## 2026-07-25 Multi-installation follow-up (local, uncommitted)
+- Android remains versionCode `15` / versionName `1.1.5`.
+- LocalDrive document create/update uses Room and does not schedule operational cloud sync after a local save. Missing initial entitlement or offline lease is a typed error state.
+- The multi-installation backend migration is not applied; no release path may use the updated entitlement/backup RPCs until that migration is explicitly approved and deployed with compatible Web code.
+
+- Runtime Android entitlement validation is active-installation based and no longer depends on primary-device fields. Version remains `15` / `1.1.5`.

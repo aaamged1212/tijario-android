@@ -1191,16 +1191,12 @@ fun UpgradePlanScreen(
     }
 
     val usage = (planUsageState as? PlanUsageState.Success)?.value
-    val currentPlanCode = when (usage?.planCode?.lowercase()) {
-        null, "" -> "free"
-        else -> usage.planCode.lowercase()
-    }
+    val currentPlanCode = BillingCatalog.publicPlanCode(usage?.planCode.orEmpty()) ?: "free"
 
     upgradedPlanCode?.let { planCode ->
         val planName = when (planCode.lowercase()) {
             "starter" -> "Starter"
             "pro" -> "Pro"
-            "business" -> "Business"
             else -> planCode
         }
 
@@ -1534,7 +1530,6 @@ private fun CurrentUsagePricingCard(
                         text = when (currentPlanCode) {
                             "free" -> if (isArabic) "الخطة المجانية" else "Free"
                             "pro" -> "Pro"
-                            "business" -> "Business"
                             else -> currentPlanCode
                         },
                         fontSize = 22.sp,
@@ -1578,6 +1573,7 @@ private fun PricingPlansSection(
     onPurchase: (String) -> Unit,
 ) {
     val plans = billingState.backendPlans
+        .filter { BillingCatalog.publicPlanCode(it.code) == it.code.lowercase() }
         .map { it.toPricingPlanUi() }
     val interval = if (annualBilling) BillingCatalog.INTERVAL_YEARLY else BillingCatalog.INTERVAL_MONTHLY
 
@@ -1643,7 +1639,6 @@ private fun PricingPlanCard(
         "free" -> Color(0xFF0D9488)
         "starter" -> Color(0xFF7C3AED)
         "pro" -> Color(0xFF2563EB)
-        "business" -> Color(0xFFEA580C)
         else -> MaterialTheme.colorScheme.primary
     }
     val priceLabel = if (plan.code == "free") {
@@ -2119,12 +2114,6 @@ private fun ComparisonTableHeader(isArabic: Boolean) {
             isHeader = true,
             modifier = Modifier.weight(1f),
         )
-        ComparisonCell(
-            text = if (isArabic) "أعمال" else "Business",
-            column = ComparisonColumn.BUSINESS,
-            isHeader = true,
-            modifier = Modifier.weight(1f),
-        )
     }
 }
 
@@ -2185,11 +2174,6 @@ private fun PricingComparisonFeatureRow(
         ComparisonCell(
             text = if (isArabic) row.proAr else row.proEn,
             column = ComparisonColumn.PRO,
-            modifier = Modifier.weight(1f),
-        )
-        ComparisonCell(
-            text = if (isArabic) row.businessAr else row.businessEn,
-            column = ComparisonColumn.BUSINESS,
             modifier = Modifier.weight(1f),
         )
     }

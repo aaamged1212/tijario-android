@@ -76,6 +76,15 @@ internal fun syncRetryDelayMs(attempts: Int): Long =
 internal fun syncStatusAfterFailure(attempts: Int): String =
     if (attempts >= MAX_SYNC_ATTEMPTS) "failed_non_retryable" else "PENDING"
 
+internal fun localDocumentFailureCode(error: Throwable): String = when (error.message?.uppercase()) {
+    "ENTITLEMENT_INITIALIZATION_REQUIRED",
+    "ENTITLEMENT_EXPIRED",
+    "OFFLINE_LEASE_REQUIRED",
+    "PLAN_REQUIRED",
+    "QUOTA_LIMIT_EXCEEDED" -> error.message!!.uppercase()
+    else -> "LOCAL_DOCUMENT_SAVE_FAILED"
+}
+
 open class TijarioRepository(
     protected val context: Context,
     private val database: TijarioDatabase,
@@ -320,7 +329,9 @@ open class TijarioRepository(
             }
         }
         }
-        SyncScheduler(context).triggerSync(userId)
+        if (accountDataMode(userId) != AccountDataMode.LocalDrive) {
+            SyncScheduler(context).triggerSync(userId)
+        }
     }
 
     private suspend fun accountDataMode(userId: String): AccountDataMode =
@@ -899,6 +910,7 @@ open class TijarioRepository(
         return try {
             val userId = requireUserId()
             requireOperationalDataMode(userId)
+            val isLocalDrive = accountDataMode(userId) == AccountDataMode.LocalDrive
             val docId = java.util.UUID.randomUUID().toString()
             val dateStr = LocalDate.now(ZoneOffset.UTC).format(DateTimeFormatter.ISO_LOCAL_DATE)
             val existingDocs = dao.observeDocuments(userId).first()
@@ -918,7 +930,7 @@ open class TijarioRepository(
                 localRevision = if (customerChanged) existingCustomer.localRevision + 1 else existingCustomer.localRevision,
                 syncStatus = when {
                     !customerChanged -> existingCustomer.syncStatus
-                    existingCustomer.syncStatus == "LOCAL_ONLY" -> "LOCAL_ONLY"
+                    isLocalDrive || existingCustomer.syncStatus == "LOCAL_ONLY" -> "LOCAL_ONLY"
                     else -> "PENDING_SYNC"
                 },
             ) ?: app.tijario.data.local.CustomerEntity(
@@ -929,7 +941,7 @@ open class TijarioRepository(
                 city = request.customer.city,
                 notes = null,
                 syncedAt = 0L,
-                syncStatus = if (requestedCustomerId == null) "LOCAL_ONLY" else "SYNCED",
+                syncStatus = if (isLocalDrive || requestedCustomerId == null) "LOCAL_ONLY" else "SYNCED",
                 localRevision = 1,
                 serverRevision = null,
                 serverUpdatedAt = null,
@@ -1042,12 +1054,9 @@ open class TijarioRepository(
                 }
             }
 
-            if (accountDataMode(userId) == AccountDataMode.LocalDrive) {
-                SyncScheduler(context).triggerSync(userId)
-            }
             ApiResult(ok = true, data = CreateDocumentResponse(documentId = docId, documentNumber = docNum))
         } catch (e: Exception) {
-            ApiResult(ok = false, message = e.message ?: "Failed to save document locally.")
+            localDocumentFailure("create", e)
         }
     }
 
@@ -1090,7 +1099,11 @@ open class TijarioRepository(
             }
 
             val nextRev = existing.localRevision + 1
-            val nextStatus = if (existing.syncStatus == "LOCAL_ONLY") "LOCAL_ONLY" else "PENDING_SYNC"
+            val nextStatus = if (accountDataMode(userId) == AccountDataMode.LocalDrive || existing.syncStatus == "LOCAL_ONLY") {
+                "LOCAL_ONLY"
+            } else {
+                "PENDING_SYNC"
+            }
 
             val docEntity = existing.copy(
                 paymentStatus = request.paymentStatus,
@@ -1133,8 +1146,16 @@ open class TijarioRepository(
 
             ApiResult(ok = true, data = CreateDocumentResponse(documentId = documentId, documentNumber = existing.documentNumber))
         } catch (e: Exception) {
-            ApiResult(ok = false, message = e.message ?: "Failed to update document locally.")
+            localDocumentFailure("update", e)
         }
+    }
+
+    private fun localDocumentFailure(operation: String, error: Throwable): ApiResult<CreateDocumentResponse> {
+        val code = localDocumentFailureCode(error)
+        if (BuildConfig.DEBUG) {
+            android.util.Log.d("TijarioLocalDocument", "operation=$operation code=$code success=false")
+        }
+        return ApiResult(ok = false, code = code, message = "Local document save failed.")
     }
 
     suspend fun deleteDocumentLocal(documentId: String): ApiResult<CreateDocumentResponse> {
@@ -1927,7 +1948,9 @@ open class TijarioRepository(
                 delay(250)
             }
         }
-        SyncScheduler(context).triggerSync(userId)
+        if (accountDataMode(userId) != AccountDataMode.LocalDrive) {
+            SyncScheduler(context).triggerSync(userId)
+        }
     }
 
     internal fun currentUtcPeriodMonth(reference: LocalDate = LocalDate.now(ZoneOffset.UTC)): String =
@@ -2053,7 +2076,7 @@ open class TijarioRepository(
                 status = "sent",
                 syncStatus = "LOCAL_ONLY"
             ))
-            enqueueOutbox(userId, "document", documentId, "CREATE")
+            enqueueOperationalOutbox(userId, "document", documentId, "CREATE")
         }
     }
 
@@ -2619,7 +2642,6 @@ open class TijarioRepository(
         require(usage.entitlementVersion == signed.entitlementVersion) { "ENTITLEMENT_PAYLOAD_MISMATCH" }
         require(usage.offlineCreditBatchSize == signed.offlineCreditBatchSize) { "ENTITLEMENT_PAYLOAD_MISMATCH" }
         require(usage.offlineEntitlementDays == signed.offlineEntitlementDays) { "ENTITLEMENT_PAYLOAD_MISMATCH" }
-        require(usage.maxPrimaryDevices == signed.maxPrimaryDevices) { "ENTITLEMENT_PAYLOAD_MISMATCH" }
         require(usage.backupFrequency == signed.backupFrequency) { "ENTITLEMENT_PAYLOAD_MISMATCH" }
         require(usage.backupRetentionDaily == signed.backupRetentionDaily) { "ENTITLEMENT_PAYLOAD_MISMATCH" }
         require(usage.backupRetentionWeekly == signed.backupRetentionWeekly) { "ENTITLEMENT_PAYLOAD_MISMATCH" }
@@ -2630,7 +2652,7 @@ open class TijarioRepository(
         if (error is AccountInitializationException) return error
         val message = error.message.orEmpty().uppercase()
         val code = when {
-            error is BackupKeyException && error.code.equals("backup_device_not_primary", ignoreCase = true) -> "DEVICE_NOT_REGISTERED"
+            error is BackupKeyException && error.code.equals("backup_installation_not_registered", ignoreCase = true) -> "ENTITLEMENT_INITIALIZATION_REQUIRED"
             error is BackupKeyException && error.code.equals("unauthenticated", ignoreCase = true) -> "UNAUTHENTICATED"
             error is BackupKeyException -> "ENTITLEMENT_INITIALIZATION_REQUIRED"
             error is java.io.IOException -> "NETWORK_UNAVAILABLE"

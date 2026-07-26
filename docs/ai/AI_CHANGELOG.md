@@ -347,3 +347,11 @@
 
 # 2026-07-25 - Physical QA findings recorded
 - Recorded open Google sign-in, plan refresh/catalog, purchase synchronization, and document deletion findings without speculative fixes.
+
+# 2026-07-25 - Multi-installation LocalDrive readiness (uncommitted)
+- Removed the LocalDrive document-create scheduler trigger and prevented direct operational outbox enqueueing from local quota finalization.
+- Kept Room transactions authoritative for local create/update and returned typed initialization/lease failures instead of raw local exceptions.
+- Removed Business from new Google Play product queries and normalized legacy Business display data to Pro.
+
+# 2026-07-26 - Removed legacy primary-device entitlement fields
+- Removed `max_primary_devices` and unreachable device-conflict UI from the signed entitlement path; retained local historical binding storage.

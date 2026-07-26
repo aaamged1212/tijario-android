@@ -32,7 +32,7 @@ class BackupKeyException(
 internal fun backupMessageKeyFor(error: Throwable, fallback: String = "backup_create_failed"): String = when (
     (error as? BackupKeyException)?.code?.uppercase()
 ) {
-    "BACKUP_DEVICE_NOT_PRIMARY" -> "backup_device_not_primary"
+    "BACKUP_INSTALLATION_NOT_REGISTERED" -> "backup_installation_not_registered"
     "BACKUP_KEY_UNAVAILABLE" -> "backup_key_unavailable"
     "BACKUP_DEVICE_KEY_INVALID" -> "backup_device_key_invalid"
     "SERVER_CONFIGURATION_ERROR" -> "backup_server_configuration_error"

@@ -234,7 +234,6 @@ data class AccountUsageData(
     @SerialName("remove_tijario_branding") val removeTijarioBranding: Boolean = false,
     @SerialName("offline_credit_batch_size") val offlineCreditBatchSize: Int = 0,
     @SerialName("offline_entitlement_days") val offlineEntitlementDays: Int = 0,
-    @SerialName("max_primary_devices") val maxPrimaryDevices: Int = 0,
     @SerialName("backup_frequency") val backupFrequency: String = "manual",
     @SerialName("backup_retention_daily") val backupRetentionDaily: Int = 0,
     @SerialName("backup_retention_weekly") val backupRetentionWeekly: Int = 0,

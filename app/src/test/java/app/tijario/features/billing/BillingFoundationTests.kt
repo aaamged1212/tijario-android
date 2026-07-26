@@ -20,7 +20,10 @@ class BillingFoundationTests {
     fun paidProductIdsUseOneGooglePlayProductPerPlan() {
         assertEquals("tijario_starter", BillingCatalog.productIdForPlan("starter"))
         assertEquals("tijario_pro", BillingCatalog.productIdForPlan("pro"))
-        assertEquals("tijario_business", BillingCatalog.productIdForPlan("business"))
+        assertEquals(null, BillingCatalog.productIdForPlan("business"))
+        assertEquals("business", BillingCatalog.planCodeForProduct("tijario_business"))
+        assertEquals("pro", BillingCatalog.publicPlanCode("business"))
+        assertFalse(BillingCatalog.paidProductIds.contains("tijario_business"))
         assertFalse(BillingCatalog.paidProductIds.any { it.contains("yearly") || it.contains("monthly") })
     }
 

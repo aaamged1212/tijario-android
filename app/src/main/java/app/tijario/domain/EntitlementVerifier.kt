@@ -36,7 +36,6 @@ data class SignedEntitlementPayload(
     @SerialName("installation_id") val installationId: String,
     @SerialName("issued_at") val issuedAt: String,
     @SerialName("key_id") val keyId: String,
-    @SerialName("max_primary_devices") val maxPrimaryDevices: Int,
     @SerialName("offline_credit_batch_size") val offlineCreditBatchSize: Int,
     @SerialName("offline_entitlement_days") val offlineEntitlementDays: Int,
     @SerialName("plan_code") val planCode: String,

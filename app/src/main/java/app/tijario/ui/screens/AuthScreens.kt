@@ -1322,13 +1322,6 @@ fun OnboardingScreen(
                                 modifier = Modifier.align(Alignment.CenterHorizontally),
                             ) { Text(t("retry")) }
                         }
-                        AccountInitializationState.DeviceConflict -> Text(
-                            text = Localization.getString("account_initialization_device_conflict", language),
-                            color = MaterialTheme.colorScheme.error,
-                            fontSize = 13.sp,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
                         AccountInitializationState.InvalidEntitlement -> Text(
                             text = Localization.getString("account_initialization_invalid", language),
                             color = MaterialTheme.colorScheme.error,

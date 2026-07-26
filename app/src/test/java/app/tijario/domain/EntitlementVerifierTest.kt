@@ -4,6 +4,7 @@ import app.tijario.data.remote.SignedEntitlementDto
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -33,6 +34,14 @@ class EntitlementVerifierTest {
         assertEquals("local_drive", result.dataMode)
         assertEquals(5, result.documentLimit)
         assertEquals(listOf("tijario-classic"), result.allowedTemplateIds)
+    }
+
+    @Test
+    fun signedEntitlementOmitsLegacyPrimaryDeviceFields() {
+        val encoded = Json.encodeToString(SignedEntitlementPayload.serializer(), payload())
+
+        assertFalse(encoded.contains("max_primary_devices"))
+        assertFalse(encoded.contains("primary_device_id"))
     }
 
     @Test
@@ -174,7 +183,6 @@ class EntitlementVerifierTest {
         installationId = INSTALLATION_ID,
         issuedAt = "2020-01-01T00:00:00Z",
         keyId = KEY_ID,
-        maxPrimaryDevices = 1,
         offlineCreditBatchSize = 2,
         offlineEntitlementDays = 7,
         planCode = "free",

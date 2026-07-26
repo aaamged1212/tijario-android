@@ -36,3 +36,10 @@ The counters migration is required to manage sequential document numbers without
 - Required manual QA: first Google signup/onboarding, transient initialization retry, second-installation primary-device conflict, offline backup after online key preparation, and Drive consent/folder/upload/restore.
 - **Local QA variant**: `playQa` is available on this branch, signed with the existing Upload Key configuration, debuggable, and intended for USB testing only. Verify or create the Upload Key Android OAuth client manually before Google Sign-In/Drive testing; do not upload this APK to Play.
 - **Physical QA findings**: `docs/release/ANDROID_1_1_5_PHYSICAL_QA.md` records unresolved local Google sign-in, current-plan refresh, stale Business catalog, purchase synchronization, and document deletion defects. These require separate diagnosis before release.
+
+## Pending Multi-installation release gate
+- `20260725123000_multi_installation_local_first.sql` is created locally in the Web repository and is **not applied**.
+- Required order: review/apply the migration with explicit approval, deploy compatible Web API, then verify two installations for one account can bootstrap entitlement, receive separate wrapped envelopes for the same account key, and receive bounded account-wide offline leases.
+- Do not ship the Android source change before the compatible Web migration/API release is approved.
+
+- Apply migration, deploy compatible Web API, then release Android. This order establishes installation authorization before either app requests the new contract.

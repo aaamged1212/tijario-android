@@ -51,7 +51,7 @@ class BackupPlanPolicyTest {
           "backup_retention_monthly":3,"backup_retention_weekly":4,"data_mode":"local_drive",
           "document_limit":100,"document_limit_scope":"billing_cycle","documents_used":0,
           "entitlement_version":1,"expires_at":"2026-12-01T00:00:00Z","installation_id":"device",
-          "issued_at":"2026-01-01T00:00:00Z","key_id":"key","max_primary_devices":1,
+          "issued_at":"2026-01-01T00:00:00Z","key_id":"key",
           "offline_credit_batch_size":10,"offline_entitlement_days":7,"plan_code":"starter",
           "remove_tijario_branding":false,"user_id":"user-1"
         }""".replace(Regex("\\s+"), "")

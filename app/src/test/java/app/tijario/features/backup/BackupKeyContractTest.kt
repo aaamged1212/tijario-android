@@ -46,6 +46,8 @@ class BackupKeyContractTest {
         assertTrue(source.contains("AndroidKeyStore"))
         assertTrue(source.contains("KeyProperties.PURPOSE_DECRYPT"))
         assertTrue(source.contains("RSA/ECB/OAEPPadding"))
+        assertTrue(source.contains("BACKUP_INSTALLATION_NOT_REGISTERED"))
+        assertFalse(source.contains("BACKUP_DEVICE_NOT_PRIMARY"))
         assertTrue(source.contains("key.fill(0)"))
         assertFalse(source.contains("Log."))
         assertFalse(source.contains("println("))
