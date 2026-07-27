@@ -3,6 +3,7 @@ package app.tijario.features.backup.drive
 import android.content.Context
 import android.content.Intent
 import android.content.IntentSender
+import android.util.Log
 import com.google.android.gms.auth.api.identity.AuthorizationClient
 import com.google.android.gms.auth.api.identity.AuthorizationRequest
 import com.google.android.gms.auth.api.identity.AuthorizationResult
@@ -10,6 +11,8 @@ import com.google.android.gms.auth.api.identity.ClearTokenRequest
 import com.google.android.gms.auth.api.identity.Identity
 import com.google.android.gms.auth.api.identity.RevokeAccessRequest
 import com.google.android.gms.common.api.Scope
+import com.google.android.gms.common.api.ApiException
+import com.google.android.gms.common.api.CommonStatusCodes
 import com.google.android.gms.tasks.Task
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
@@ -53,14 +56,16 @@ class ProductionGoogleDriveAuthorizationManager(context: Context) : GoogleDriveA
             .build()
         toOutcome(authorizationClient.authorize(request).awaitResult())
     } catch (error: Exception) {
-        error.toAuthorizationOutcome()
+        logAuthorizationFailure("authorize", error)
+        authorizationFailureOutcome(error)
     }
 
     override fun completeAuthorization(resultIntent: Intent?): DriveAuthorizationOutcome = try {
         if (resultIntent == null) DriveAuthorizationOutcome.Cancelled
         else toOutcome(authorizationClient.getAuthorizationResultFromIntent(resultIntent))
     } catch (error: Exception) {
-        error.toAuthorizationOutcome()
+        logAuthorizationFailure("complete_authorization", error)
+        authorizationFailureOutcome(error)
     }
 
     override suspend fun clearCachedToken(accessToken: String) {
@@ -134,9 +139,21 @@ private suspend fun <T> Task<T>.awaitResult(): T = suspendCancellableCoroutine {
     addOnCanceledListener { continuation.cancel() }
 }
 
-private fun Exception.toAuthorizationOutcome(): DriveAuthorizationOutcome = when {
-    javaClass.name.contains("ApiException") && message.orEmpty().contains("CANCELED", ignoreCase = true) ->
-        DriveAuthorizationOutcome.Cancelled
-    javaClass.name.contains("GooglePlayServices") -> DriveAuthorizationOutcome.PlayServicesUnavailable
-    else -> DriveAuthorizationOutcome.TemporarilyUnavailable
+internal fun authorizationFailureOutcome(error: Exception): DriveAuthorizationOutcome = when (error) {
+    is ApiException -> when (error.statusCode) {
+        CommonStatusCodes.CANCELED -> DriveAuthorizationOutcome.Cancelled
+        CommonStatusCodes.DEVELOPER_ERROR -> DriveAuthorizationOutcome.PlayServicesUnavailable
+        else -> DriveAuthorizationOutcome.TemporarilyUnavailable
+    }
+    else -> when {
+        error.javaClass.name.contains("GooglePlayServices") -> DriveAuthorizationOutcome.PlayServicesUnavailable
+        else -> DriveAuthorizationOutcome.TemporarilyUnavailable
+    }
+}
+
+private fun logAuthorizationFailure(operation: String, error: Exception) {
+    val status = (error as? ApiException)?.statusCode
+        ?.let(CommonStatusCodes::getStatusCodeString)
+        ?: "identity"
+    Log.w("TijarioDrive", "operation=$operation status=$status reason=${error.javaClass.simpleName} accountIdResolved=false")
 }

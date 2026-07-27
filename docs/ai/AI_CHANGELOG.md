@@ -358,3 +358,23 @@
 
 # 2026-07-26 - Published multi-installation Android branch
 - Pushed `df99d4b2f8966f166ef14a8ec19c5e0c32c7289e` to `codex/backup-drive-production-ready`; no Play upload or external action occurred.
+
+# 2026-07-26 - LocalDrive document save follow-up (uncommitted)
+- Made LocalDrive document saves bypass operational outbox calls, remain cache-only for usage refresh, and expose typed entitlement, lease, and document-limit feedback.
+
+# 2026-07-26 - LocalDrive forced entitlement bootstrap repair (uncommitted)
+- Forced startup and retry refreshes no longer return `ENTITLEMENT_INITIALIZATION_REQUIRED` from an empty local cache. Non-forced LocalDrive refreshes remain cache-only after bootstrap.
+
+# 2026-07-26 - Signed entitlement JSON compatibility (uncommitted)
+- Removed the redundant canonical JSON text-equality gate. Android now verifies the server-signed payload bytes directly while retaining JSON parsing, RSA verification, key ID, user, installation, and expiry validation.
+
+# 2026-07-26 - Onboarding no longer depends on backup-key availability (uncommitted)
+- Deferred optional backup-key envelope preparation after a valid LocalDrive entitlement bootstrap; account setup and business-settings onboarding no longer fail solely because backup encryption is unavailable.
+
+# 2026-07-26 - Android Keystore local backup repair (uncommitted)
+- Replaced caller-supplied AES-GCM IV generation with Android Keystore-generated IVs while sealing per-installation RSA private material.
+- Preserved RSA-OAEP-256 account-key envelopes, no-primary multi-installation behavior, and safe stage-only diagnostics. A connected Android 13 device created a local encrypted backup successfully.
+
+# 2026-07-26 - Google Drive authorization diagnosis (uncommitted)
+- Added safe Google Identity authorization failure diagnostics. The connected QA device returned `INTERNAL_ERROR` while completing Google Drive consent, before any Drive REST request or folder resolution.
+- Device QA verified the shown Android OAuth client matches package `app.tijario` and the local `playQa` APK SHA-1. The remaining external checks are the Drive scope/Audience configuration and Google Identity service behavior. No external setting was changed.

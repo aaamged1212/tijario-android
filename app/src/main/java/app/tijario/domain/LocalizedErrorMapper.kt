@@ -81,6 +81,7 @@ object LocalizedErrorMapper {
         "billing_plan_refresh_failed" to "billing_unavailable",
         "notifications_refresh_failed" to "doc_error_unexpected",
         "ENTITLEMENT_INITIALIZATION_REQUIRED" to "account_initialization_retry",
+        "OFFLINE_LEASE_REQUIRED" to "offline_lease_required",
         "ENTITLEMENT_SIGNATURE_INVALID" to "account_initialization_invalid",
         "ENTITLEMENT_EXPIRED" to "account_initialization_invalid",
         "DEVICE_NOT_REGISTERED" to "account_initialization_retry",

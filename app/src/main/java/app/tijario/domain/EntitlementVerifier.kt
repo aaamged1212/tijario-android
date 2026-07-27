@@ -59,8 +59,7 @@ class EntitlementVerifier(
         val payloadBytes = Base64.getUrlDecoder().decode(envelope.payload)
         val signatureBytes = Base64.getUrlDecoder().decode(envelope.signature)
         val payloadText = payloadBytes.toString(Charsets.UTF_8)
-        val jsonElement = json.parseToJsonElement(payloadText)
-        require(canonicalJson(jsonElement) == payloadText) { "ENTITLEMENT_PAYLOAD_NOT_CANONICAL" }
+        json.parseToJsonElement(payloadText)
 
         val verifier = Signature.getInstance("SHA256withRSA")
         verifier.initVerify(key)

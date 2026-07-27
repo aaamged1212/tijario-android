@@ -9,6 +9,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
+import javax.crypto.spec.SecretKeySpec
 
 class BackupKeyContractTest {
     @Test
@@ -40,16 +41,30 @@ class BackupKeyContractTest {
     }
 
     @Test
-    fun deviceKeyImplementationUsesAndroidKeystoreAndNeverLogsKeys() {
+    fun deviceKeyImplementationUsesAndroidKeystoreAndLogsOnlySafeFailureMetadata() {
         val source = File("src/main/java/app/tijario/features/backup/DeviceBackupKeyStore.kt").readText()
 
         assertTrue(source.contains("AndroidKeyStore"))
+        assertTrue(source.contains("KeyProperties.KEY_ALGORITHM_AES"))
         assertTrue(source.contains("KeyProperties.PURPOSE_DECRYPT"))
         assertTrue(source.contains("RSA/ECB/OAEPPadding"))
         assertTrue(source.contains("BACKUP_INSTALLATION_NOT_REGISTERED"))
         assertFalse(source.contains("BACKUP_DEVICE_NOT_PRIMARY"))
         assertTrue(source.contains("key.fill(0)"))
-        assertFalse(source.contains("Log."))
+        assertTrue(source.contains("operation=backup_key stage="))
+        assertTrue(source.contains("exception=${'$'}{error.javaClass.simpleName}"))
         assertFalse(source.contains("println("))
+    }
+
+    @Test
+    fun softwareRsaPrivateKeyMaterialIsProtectedByAnAndroidKeystoreCompatibleAesEnvelope() {
+        val wrappingKey = SecretKeySpec(ByteArray(32) { it.toByte() }, "AES")
+        val original = ByteArray(96) { (it + 1).toByte() }
+
+        val envelope = DeviceKeyMaterialCodec.seal(original, wrappingKey)
+        val restored = DeviceKeyMaterialCodec.open(envelope, wrappingKey)
+
+        assertTrue(envelope.startsWith("v1."))
+        assertTrue(original.contentEquals(restored))
     }
 }

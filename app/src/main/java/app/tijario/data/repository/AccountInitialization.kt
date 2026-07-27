@@ -55,3 +55,15 @@ internal class AccountInitializationException(
     val code: String,
     cause: Throwable? = null,
 ) : IllegalStateException(code, cause)
+
+/** Backup encryption is prepared after account bootstrap and must not block core account setup. */
+internal suspend fun optionalBackupBootstrapFailure(
+    operation: suspend () -> Unit,
+): Exception? = try {
+    operation()
+    null
+} catch (error: CancellationException) {
+    throw error
+} catch (error: Exception) {
+    error
+}

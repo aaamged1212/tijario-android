@@ -3,6 +3,8 @@ package app.tijario.domain
 import app.tijario.data.remote.SignedEntitlementDto
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -34,6 +36,13 @@ class EntitlementVerifierTest {
         assertEquals("local_drive", result.dataMode)
         assertEquals(5, result.documentLimit)
         assertEquals(listOf("tijario-classic"), result.allowedTemplateIds)
+    }
+
+    @Test
+    fun validSignatureDoesNotDependOnJsonPropertyOrder() {
+        val envelope = signWithReversedPropertyOrder(payload())
+
+        assertTrue(verifier().verify(envelope, USER_ID, INSTALLATION_ID).isSuccess)
     }
 
     @Test
@@ -163,6 +172,24 @@ class EntitlementVerifierTest {
             algorithm = "RS256",
             keyId = KEY_ID,
             payload = Base64.getUrlEncoder().withoutPadding().encodeToString(canonical.toByteArray()),
+            signature = Base64.getUrlEncoder().withoutPadding().encodeToString(signer.sign()),
+        )
+    }
+
+    private fun signWithReversedPropertyOrder(payload: SignedEntitlementPayload): SignedEntitlementDto {
+        val rawJson = Json.encodeToJsonElement(SignedEntitlementPayload.serializer(), payload)
+            .jsonObject
+            .entries
+            .toList()
+            .asReversed()
+            .joinToString(prefix = "{", postfix = "}") { (key, value) -> "${JsonPrimitive(key)}:$value" }
+        val signer = Signature.getInstance("SHA256withRSA")
+        signer.initSign(keyPair.private)
+        signer.update(rawJson.toByteArray())
+        return SignedEntitlementDto(
+            algorithm = "RS256",
+            keyId = KEY_ID,
+            payload = Base64.getUrlEncoder().withoutPadding().encodeToString(rawJson.toByteArray()),
             signature = Base64.getUrlEncoder().withoutPadding().encodeToString(signer.sign()),
         )
     }

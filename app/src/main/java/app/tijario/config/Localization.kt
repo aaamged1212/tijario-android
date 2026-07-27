@@ -295,6 +295,7 @@ object Localization {
         "onboarding_logo_hint" to mapOf(AppLanguage.AR to "أضف شعار متجرك الآن أو أكمل بدون شعار ويمكنك تغييره لاحقًا.", AppLanguage.EN to "Add your store logo now, or continue without it and update it later."),
         "account_initialization_preparing" to mapOf(AppLanguage.AR to "جارٍ تجهيز حسابك للعمل على هذا الجهاز…", AppLanguage.EN to "Preparing your account for this device…"),
         "account_initialization_retry" to mapOf(AppLanguage.AR to "تعذر إكمال تجهيز الحساب. تحقق من الاتصال ثم حاول مجددًا.", AppLanguage.EN to "Could not finish preparing your account. Check your connection and try again."),
+        "offline_lease_required" to mapOf(AppLanguage.AR to "يلزم الاتصال مرة واحدة لتجهيز صلاحية إنشاء المستندات على هذا الجهاز.", AppLanguage.EN to "Connect once to prepare document creation on this device."),
         "account_initialization_invalid" to mapOf(AppLanguage.AR to "تعذر تهيئة صلاحيات الحساب. حاول تسجيل الدخول مجددًا.", AppLanguage.EN to "Could not initialize account permissions. Sign in again and try again."),
         "personal_account_desc" to mapOf(AppLanguage.AR to "مرحباً بك، إدارة حسابك ومعلوماتك الشخصية في مكان آمن.", AppLanguage.EN to "Welcome, manage your account and personal info in a secure place."),
         "personal_account" to mapOf(AppLanguage.AR to "حساب شخصي", AppLanguage.EN to "Personal Account"),

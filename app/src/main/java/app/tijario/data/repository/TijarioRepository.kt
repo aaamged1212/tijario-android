@@ -1,6 +1,7 @@
 package app.tijario.data.repository
 
 import android.content.Context
+import android.util.Log
 import java.io.File
 import app.tijario.features.sync.SyncScheduler
 import app.tijario.features.backup.BackupKeyException
@@ -79,9 +80,9 @@ internal fun syncStatusAfterFailure(attempts: Int): String =
 internal fun localDocumentFailureCode(error: Throwable): String = when (error.message?.uppercase()) {
     "ENTITLEMENT_INITIALIZATION_REQUIRED",
     "ENTITLEMENT_EXPIRED",
-    "OFFLINE_LEASE_REQUIRED",
-    "PLAN_REQUIRED",
-    "QUOTA_LIMIT_EXCEEDED" -> error.message!!.uppercase()
+    "PLAN_REQUIRED" -> "ENTITLEMENT_INITIALIZATION_REQUIRED"
+    "OFFLINE_LEASE_REQUIRED" -> "OFFLINE_LEASE_REQUIRED"
+    "QUOTA_LIMIT_EXCEEDED" -> "DOCUMENT_LIMIT_REACHED"
     else -> "LOCAL_DOCUMENT_SAVE_FAILED"
 }
 
@@ -909,8 +910,8 @@ open class TijarioRepository(
     suspend fun createDocumentLocal(request: CreateDocumentRequest): ApiResult<CreateDocumentResponse> {
         return try {
             val userId = requireUserId()
-            requireOperationalDataMode(userId)
-            val isLocalDrive = accountDataMode(userId) == AccountDataMode.LocalDrive
+            val isLocalDrive = requireOperationalDataMode(userId) == AccountDataMode.LocalDrive
+            logLocalDocumentSave("create", userId, isLocalDrive, "started")
             val docId = java.util.UUID.randomUUID().toString()
             val dateStr = LocalDate.now(ZoneOffset.UTC).format(DateTimeFormatter.ISO_LOCAL_DATE)
             val existingDocs = dao.observeDocuments(userId).first()
@@ -1037,8 +1038,9 @@ open class TijarioRepository(
 
             withContext(Dispatchers.IO) {
                 database.withTransaction {
+                    logLocalDocumentSave("create", userId, isLocalDrive, "transaction_started")
                     dao.upsertCustomer(customerEntityToUpsert)
-                    customerOutboxOperation?.let { operation ->
+                    if (!isLocalDrive) customerOutboxOperation?.let { operation ->
                         enqueueOperationalOutbox(
                             userId = userId,
                             entityType = "customer",
@@ -1050,7 +1052,10 @@ open class TijarioRepository(
                     dao.upsertDocument(docEntity)
                     dao.insertDocumentItems(itemsEntities)
                     reserveDocumentQuotaLedger(userId, docId)
-                    enqueueOperationalOutbox(userId, "document", docId, "CREATE")
+                    if (!isLocalDrive) {
+                        enqueueOperationalOutbox(userId, "document", docId, "CREATE")
+                    }
+                    logLocalDocumentSave("create", userId, isLocalDrive, "transaction_completed")
                 }
             }
 
@@ -1063,7 +1068,8 @@ open class TijarioRepository(
     suspend fun updateDocumentLocal(documentId: String, request: CreateDocumentRequest): ApiResult<CreateDocumentResponse> {
         return try {
             val userId = requireUserId()
-            requireOperationalDataMode(userId)
+            val isLocalDrive = requireOperationalDataMode(userId) == AccountDataMode.LocalDrive
+            logLocalDocumentSave("update", userId, isLocalDrive, "started")
             val existing = dao.getDocument(userId, documentId) ?: error("Document not found locally")
 
             val itemsEntities = request.items.mapIndexed { index, item ->
@@ -1099,7 +1105,7 @@ open class TijarioRepository(
             }
 
             val nextRev = existing.localRevision + 1
-            val nextStatus = if (accountDataMode(userId) == AccountDataMode.LocalDrive || existing.syncStatus == "LOCAL_ONLY") {
+            val nextStatus = if (isLocalDrive || existing.syncStatus == "LOCAL_ONLY") {
                 "LOCAL_ONLY"
             } else {
                 "PENDING_SYNC"
@@ -1134,13 +1140,17 @@ open class TijarioRepository(
 
             withContext(Dispatchers.IO) {
                 database.withTransaction {
+                    logLocalDocumentSave("update", userId, isLocalDrive, "transaction_started")
                     // Replace all document items atomically
                     dao.deleteDocumentItems(userId, documentId)
                     dao.insertDocumentItems(itemsEntities)
                     dao.upsertDocument(docEntity)
 
-                    val outboxOp = if (existing.syncStatus == "LOCAL_ONLY") "CREATE" else "UPDATE"
-                    enqueueOperationalOutbox(userId, "document", documentId, outboxOp, existing.serverRevision)
+                    if (!isLocalDrive) {
+                        val outboxOp = if (existing.syncStatus == "LOCAL_ONLY") "CREATE" else "UPDATE"
+                        enqueueOperationalOutbox(userId, "document", documentId, outboxOp, existing.serverRevision)
+                    }
+                    logLocalDocumentSave("update", userId, isLocalDrive, "transaction_completed")
                 }
             }
 
@@ -1156,6 +1166,25 @@ open class TijarioRepository(
             android.util.Log.d("TijarioLocalDocument", "operation=$operation code=$code success=false")
         }
         return ApiResult(ok = false, code = code, message = "Local document save failed.")
+    }
+
+    private suspend fun logLocalDocumentSave(
+        operation: String,
+        userId: String,
+        isLocalDrive: Boolean,
+        stage: String,
+    ) {
+        if (!BuildConfig.DEBUG) return
+        val entitlement = dao.getAccountEntitlement(userId)
+        val hasLease = isLocalDrive && dao.getActiveLease(
+            userId,
+            AppPreferences.getInstallationId(context),
+            System.currentTimeMillis(),
+        ) != null
+        android.util.Log.d(
+            "TijarioLocalDocument",
+            "operation=$operation local_drive=$isLocalDrive entitlement_available=${hasValidOperationalEntitlement(entitlement)} lease_available=$hasLease transaction=$stage",
+        )
     }
 
     suspend fun deleteDocumentLocal(documentId: String): ApiResult<CreateDocumentResponse> {
@@ -1697,7 +1726,14 @@ open class TijarioRepository(
             }
             refreshOfflineLease(userId, installationId)
             if (AccountDataMode.from(signed.dataMode) == AccountDataMode.LocalDrive) {
-                backupKeyStore.resolve(userId, installationId, allowNetwork = true).keyBytes.fill(0)
+                optionalBackupBootstrapFailure {
+                    backupKeyStore.resolve(userId, installationId, allowNetwork = true).keyBytes.fill(0)
+                }?.let { error ->
+                    Log.w(
+                        "TijarioEntitlement",
+                        "operation=backup_key_bootstrap result=deferred code=${(error as? BackupKeyException)?.code ?: "unexpected"}",
+                    )
+                }
             }
             val effectiveUsage = overlayLocalUsage(userId, baseUsage)
             AppPreferences.setPlanUsage(context, userId, baseUsage)
@@ -1715,6 +1751,9 @@ open class TijarioRepository(
         withContext(Dispatchers.IO) {
             AppPreferences.getPlanUsage(context, userId)?.let { overlayLocalUsage(userId, it) }
         }
+
+    suspend fun isLocalDriveAccount(userId: String): Boolean =
+        accountDataMode(userId) == AccountDataMode.LocalDrive
 
     fun isCachedPlanUsageFresh(userId: String): Boolean =
         AppPreferences.isPlanUsageFresh(context, userId, PLAN_USAGE_TTL_MS)
@@ -2666,8 +2705,8 @@ open class TijarioRepository(
 
     private suspend fun refreshOfflineLease(userId: String, installationId: String) {
         val response = backendApiClient.requestOfflineLease(OfflineLeaseRequest(installationId))
-        val lease = response.data ?: return
-        if (!response.ok) return
+        val lease = response.data
+        if (!response.ok || lease == null) return
         dao.upsertLease(
             app.tijario.data.local.OfflineQuotaLeaseEntity(
                 id = lease.leaseId,

@@ -1,5 +1,12 @@
 # Agent Handoff (Android & Web Repos)
 
+## 2026-07-26 (Onboarding backup-key decoupling, local uncommitted)
+- **Branch**: `codex/backup-drive-production-ready`.
+- **Root cause**: A LocalDrive onboarding bootstrap treated optional backup-key envelope preparation as a required account-initialization dependency.
+- **Fix**: A valid signed entitlement and Room persistence now make onboarding ready; backup-key preparation is deferred with a safe code-only log.
+- **Validation**: Focused `AccountInitializationCoordinatorTest` passed, `assemblePlayQa` passed, and the connected device opened onboarding without the retry state. No store settings were submitted.
+- **Safety**: No commit, push, deployment, production migration, external-console change, or Play upload occurred.
+
 ## 2026-07-24 (Google Drive post-consent connection fix)
 - **Branch**: `codex/backup-drive-production-ready`.
 - **Root cause**: A valid `drive.file` authorization was incorrectly rejected when Google Identity omitted profile `id` and `email`. The runtime now resolves Drive `about.user.permissionId` after consent and uses it as the stable Drive identity; email remains optional display metadata.
@@ -473,6 +480,21 @@
   - Migration execution still requires an emulator/device because `adb` is unavailable.
 - **Safety Status**: Local Android work only. No push, deployment, migration apply, external-console change, or Play upload.
 
+## 2026-07-26 (LocalDrive entitlement bootstrap repair, uncommitted)
+- **Root cause**: The LocalDrive cache-only branch ran even for forced startup/retry refreshes, so an account without an AppPreferences plan cache never called the signed entitlement endpoint.
+- **Fix**: Non-forced LocalDrive refreshes still use the cached entitlement; forced initialization now reaches backend bootstrap and can persist the entitlement and lease.
+- **Validation**: `PlanUsageRefreshPolicyTest` and `assemblePlayQa` passed. Physical-device retest is pending; no commit, push, deployment, migration, or Play upload occurred.
+
+## 2026-07-26 (Signed entitlement verification compatibility, uncommitted)
+- **Root cause**: Android rejected a valid RSA-signed entitlement before signature verification because it required its own Kotlin JSON property ordering to exactly match Node's serialized property order.
+- **Fix**: The verifier now validates JSON and verifies the original signed payload bytes, then keeps the existing key, account, installation, and expiry checks. Canonical text equality was redundant and cross-runtime brittle.
+- **Device evidence**: The connected `playQa` install received `200`, persisted one entitlement and one offline lease in Room, and preserved app data during reinstall.
+
+## 2026-07-26 (LocalDrive document save follow-up, uncommitted)
+- **Root cause**: Local typed lease/quota failures were not fully translated and displayed as a generic document error. LocalDrive save also retained guarded outbox calls inside its Room transaction.
+- **Fix**: LocalDrive create/update now bypasses operational outbox calls explicitly, preserves typed entitlement/lease/limit results, and keeps plan-usage refresh cache-only for LocalDrive.
+- **Validation**: Focused `LocalDocumentSave*` JVM tests and `assemblePlayQa` passed. No commit, push, deployment, migration, or Play upload occurred.
+
 ## 2026-07-26 (Published multi-installation Android branch)
 - Commit `df99d4b2f8966f166ef14a8ec19c5e0c32c7289e` was pushed to `codex/backup-drive-production-ready`.
 - Android remains versionCode `15` / versionName `1.1.5`. No Play upload, migration apply, deployment, or external configuration action occurred.
@@ -553,3 +575,18 @@
 - **Validation**: Focused JVM tests and `assembleDebugAndroidTest` passed. Real Keystore behavior still requires a device/emulator.
 - **Remaining**: Unapplied backend migrations/configuration, backup UI/SAF, missing-PDF generation, scheduling, Drive, and device QA.
 - **Safety Status**: Local Android work only. No push, deployment, migration apply, external-console change, or Play upload.
+
+## 2026-07-26 (Local backup key Android Keystore repair, uncommitted)
+- **Branch**: `codex/backup-drive-production-ready`.
+- **Root cause**: Android Keystore rejected a caller-supplied AES-GCM IV while sealing the installation RSA private key, yielding `BACKUP_DEVICE_KEY_INVALID` before a backup could be created.
+- **Fix**: The Keystore AES key now generates its own random encryption IV. The IV remains inside the authenticated local envelope; the account key stays server-wrapped with RSA-OAEP-256 and no primary-device rule is introduced.
+- **Validation**: Focused `BackupKey*` JVM tests passed; `assemblePlayQa` passed; the rebuilt QA APK was installed through ADB and created a new encrypted local backup on the connected phone.
+- **Remaining**: Drive account selection/consent, Drive API `about`/folder verification, upload, and restore remain real-device QA. No account was selected by the agent.
+- **Safety Status**: No commit, push, deployment, production migration, external-console action, or Play upload occurred.
+
+## 2026-07-26 (Google Drive consent diagnosis, uncommitted)
+- **Branch**: `codex/backup-drive-production-ready`.
+- **Observed on device**: Completing consent for the user-approved test Google account returned Google Identity `ApiException` status `INTERNAL_ERROR`; no `Drive about` HTTP request occurred.
+- **Code**: Authorization failures now record only the operation, named Google status, exception class, and account-resolution flag. No tokens, account details, authorization codes, or key material are logged.
+- **External gate**: Device QA verified the shown Google Cloud Android OAuth client matches package `app.tijario` and the local `playQa` APK SHA-1. Verify the configured `drive.file` data-access scope and the OAuth Audience/test-user state; Google Drive API enablement has not yet been reached or evaluated.
+- **Safety Status**: No commit, push, deployment, production migration, external-console action, or Play upload occurred.

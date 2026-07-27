@@ -44,3 +44,14 @@ The counters migration is required to manage sequential document numbers without
 
 - Apply migration, deploy compatible Web API, then release Android. This order establishes installation authorization before either app requests the new contract.
 - **2026-07-26**: Source commit `df99d4b2f8966f166ef14a8ec19c5e0c32c7289e` is pushed. Do not upload Android until the Web migration and API are explicitly approved and verified.
+- **2026-07-26**: LocalDrive document-save follow-up is uncommitted and requires physical offline invoice/quote create and edit verification before any release.
+
+## 2026-07-26 LocalDrive bootstrap follow-up
+- A local fix lets forced account initialization request the signed entitlement instead of failing from an empty local plan cache. Rebuild/install `playQa` and verify the plan card plus invoice/quote create and edit before release action.
+- The current physical diagnosis also fixed a signed-payload JSON-order compatibility check. The verifier retains RSA and claim validation; manually verify plan-card rendering and an invoice save before release.
+- Local onboarding now defers backup-key preparation after entitlement success. Manually complete a newly registered account's store settings, then verify the backup screen reports any key issue independently.
+
+## 2026-07-26 Local backup-key repair follow-up
+- The connected Android 13 phone now creates encrypted local backups after the Keystore IV repair. Re-run local backup creation, export through SAF, and restore from the generated archive before release.
+- Google Drive remains release-blocked on a user-selected real account completing consent, the Drive `about` identity request, folder resolution, upload, and restore. No Google account or external setting was changed during QA.
+- **2026-07-26 Google Identity gate**: Device consent completion returned `INTERNAL_ERROR` before the Drive `about` call. The shown Android OAuth package/SHA-1 matches the local `playQa` APK. Before another Drive QA run, verify the Google Cloud `drive.file` data-access scope and OAuth Audience/test-user configuration. Do not enable or change external services without approval.

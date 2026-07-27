@@ -1,5 +1,8 @@
 package app.tijario.features.backup.drive
 
+import com.google.android.gms.common.api.ApiException
+import com.google.android.gms.common.api.CommonStatusCodes
+import com.google.android.gms.common.api.Status
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -53,6 +56,20 @@ class DriveAuthorizationStateTest {
         assertEquals(DriveAuthorizationOutcome.ScopeDenied, runBlocking { manager.authorize() })
         assertEquals(DriveAuthorizationState.NotConfigured, DriveAuthorizationState.NotConfigured)
         assertEquals(DriveAuthorizationState.TemporarilyUnavailable, DriveAuthorizationState.TemporarilyUnavailable)
+    }
+
+    @Test
+    fun developerErrorIsReportedAsGoogleConfigurationFailure() {
+        val error = ApiException(Status(CommonStatusCodes.DEVELOPER_ERROR))
+
+        assertEquals(DriveAuthorizationOutcome.PlayServicesUnavailable, authorizationFailureOutcome(error))
+    }
+
+    @Test
+    fun identityInternalErrorRemainsRetryableWithoutExposingDetails() {
+        val error = ApiException(Status(CommonStatusCodes.INTERNAL_ERROR))
+
+        assertEquals(DriveAuthorizationOutcome.TemporarilyUnavailable, authorizationFailureOutcome(error))
     }
 
     @Test

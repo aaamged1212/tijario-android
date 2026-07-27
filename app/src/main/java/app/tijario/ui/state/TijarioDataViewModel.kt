@@ -62,6 +62,11 @@ sealed interface AccountInitializationState {
     data object Unauthenticated : AccountInitializationState
 }
 
+internal fun shouldUseCachedLocalDrivePlanUsage(
+    isLocalDriveAccount: Boolean,
+    force: Boolean,
+): Boolean = isLocalDriveAccount && !force
+
 class TijarioDataViewModel(
     private val repository: TijarioRepository,
     private val aiRepository: app.tijario.data.repository.AiRepository,
@@ -156,6 +161,20 @@ class TijarioDataViewModel(
         val currentState = planUsageStateMutable.value
         val userId = repository.currentUserId()
         val cachedUsage = userId?.let { repository.getCachedPlanUsage(it) }
+        if (
+            userId != null &&
+            shouldUseCachedLocalDrivePlanUsage(
+                isLocalDriveAccount = repository.isLocalDriveAccount(userId),
+                force = force,
+            )
+        ) {
+            if (cachedUsage != null) {
+                planUsageStateMutable.value = PlanUsageState.Success(cachedUsage)
+                uiStateMutable.update { it.copy(planUsage = cachedUsage) }
+                return Result.success(cachedUsage)
+            }
+            return Result.failure(IllegalStateException("ENTITLEMENT_INITIALIZATION_REQUIRED"))
+        }
         if (
             !force &&
             userId != null &&

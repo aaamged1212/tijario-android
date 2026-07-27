@@ -5,6 +5,12 @@ import org.junit.Test
 
 class BackupKeyErrorMappingTest {
     @Test
+    fun invalidCachedEnvelopeRefreshesOnlyWhenNetworkIsAllowed() {
+        assertEquals(true, shouldRefreshInvalidCachedBackupKey(allowNetwork = true))
+        assertEquals(false, shouldRefreshInvalidCachedBackupKey(allowNetwork = false))
+    }
+
+    @Test
     fun unregisteredInstallationDoesNotUsePrimaryDeviceLanguage() {
         assertEquals(
             "backup_installation_not_registered",

@@ -3,12 +3,29 @@ package app.tijario.data.repository
 import app.tijario.data.model.UserPlanUsage
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AccountInitializationCoordinatorTest {
+    @Test
+    fun optionalBackupFailureDoesNotFailAccountBootstrap() = runBlocking {
+        val failure = optionalBackupBootstrapFailure {
+            throw AccountInitializationException("BACKUP_KEY_UNAVAILABLE")
+        }
+
+        assertEquals("BACKUP_KEY_UNAVAILABLE", (failure as AccountInitializationException).code)
+    }
+
+    @Test(expected = CancellationException::class)
+    fun optionalBackupBootstrapPreservesCancellation() {
+        runBlocking {
+            optionalBackupBootstrapFailure { throw CancellationException("cancel") }
+        }
+    }
+
     @Test
     fun concurrentRequestsForOneInstallationShareOneEntitlementOperation() = runBlocking {
         val coordinator = AccountInitializationCoordinator()
