@@ -33,6 +33,7 @@ class BackupUiContractTest {
         assertTrue(source.contains("ActivityResultContracts.OpenDocument"))
         assertTrue(source.contains("backup_restore_confirm_body"))
         assertTrue(source.contains("pendingRestoreUri"))
+        assertFalse(source.contains("createLocalBackup(exportAfterCreate = true)"))
     }
 
     @Test
@@ -43,6 +44,7 @@ class BackupUiContractTest {
         assertTrue(source.contains("BackupArchiveInputStager.copyToPrivateFile"))
         assertFalse(source.contains("readBytes()"))
         assertTrue(stager.contains("if (total > maxBytes)"))
-        assertFalse(source.contains("Log."))
+        assertTrue(source.contains("visible_backup_copy_failed error=\${error.javaClass.simpleName}"))
+        assertFalse(source.contains("error.message"))
     }
 }

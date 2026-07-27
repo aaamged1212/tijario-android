@@ -4,6 +4,8 @@ import app.tijario.config.AppLanguage
 import app.tijario.data.model.DocumentType
 import app.tijario.features.documents.mapper.DraftDocumentRenderMapper
 import app.tijario.features.documents.mapper.SavedDocumentRenderMapper
+import app.tijario.features.documents.mapper.TijarioDocumentMapper
+import app.tijario.features.documents.model.resolveDocumentLogoForRender
 import app.tijario.features.documents.pdf.PdfCacheKeyFactory
 import app.tijario.features.documents.pdf.PdfFileNameSanitizer
 import app.tijario.features.documents.template.DocumentHtmlRenderer
@@ -108,6 +110,49 @@ class DocumentEngineTests {
         assertEquals("INV-1130", model.documentNumber)
         assertEquals("360.5", model.totals.total.stripTrailingZeros().toPlainString())
         assertEquals("paid", model.status.paymentStatus)
+    }
+
+    @Test
+    fun missingCachedRemoteLogoFallsBackLocallyWithoutDroppingDocumentContent() {
+        assertEquals(
+            null,
+            resolveDocumentLogoForRender("https://example.com/logo.png", null),
+        )
+        assertEquals(
+            "data:image/png;base64,abc",
+            resolveDocumentLogoForRender(
+                "https://example.com/logo.png",
+                "data:image/png;base64,abc",
+            ),
+        )
+
+        val html = renderer.render(
+            SavedDocumentRenderMapper.map(
+                document = DocumentFixtures.saved(),
+                businessSettings = DocumentFixtures.business.copy(logoUrl = null),
+            ),
+        )
+        assertTrue(html.contains("logo-initials"))
+        DocumentFixtures.saved().items.forEach { item -> assertTrue(html.contains(item.name)) }
+    }
+
+    @Test
+    fun savedDocumentKeepsItsItemsAndTemplateForPreviewAndPdf() {
+        val document = DocumentFixtures.saved().copy(templateId = "tijario-modern")
+        val model = TijarioDocumentMapper.fromSaved(
+            document = document,
+            businessSettings = DocumentFixtures.business,
+        )
+
+        val previewHtml = renderer.render(model, DocumentRenderTarget.Preview)
+        val pdfHtml = renderer.render(model, DocumentRenderTarget.Pdf)
+
+        assertEquals("tijario-modern", model.templateId)
+        assertEquals(document.items.size, model.items.size)
+        document.items.forEach { item ->
+            assertTrue(previewHtml.contains(item.name))
+            assertTrue(pdfHtml.contains(item.name))
+        }
     }
 
     @Test
@@ -344,6 +389,52 @@ class DocumentEngineTests {
     }
 
     @Test
+    fun localPdfUsesTheWebViewPrintPipelineAfterLayoutAndInvalidatesRasterCache() {
+        val source = File(
+            "src/main/java/app/tijario/features/documents/pdf/LocalPdfGenerator.kt",
+        ).readText()
+        val printHelper = File("src/main/java/android/print/PrintHelper.kt").readText()
+
+        assertTrue(source.contains("layoutWebView(webView, A4_HEIGHT_CSS_PX)"))
+        assertTrue(source.contains("awaitPageLoad(webView, html)"))
+        assertTrue(source.contains("layoutWebView(webView, cssContentHeight)"))
+        assertTrue(source.contains("awaitVisualState(webView)"))
+        assertTrue(source.contains("webView.createPrintDocumentAdapter(\"Document\")"))
+        assertTrue(source.contains("android.print.PrintHelper.runWrite"))
+        assertFalse(source.contains("PrintedPdfDocument"))
+        assertFalse(source.contains("webView.draw(canvas)"))
+        assertTrue(printHelper.contains("adapter.onLayout("))
+        assertTrue(printHelper.contains("adapter.onWrite("))
+    }
+
+    @Test
+    fun previewUsesACssPixelA4SurfaceInsteadOfDensityExpandedDpDimensions() {
+        val source = File(
+            "src/main/java/app/tijario/features/documents/preview/DocumentPreviewWebView.kt",
+        ).readText()
+
+        assertTrue(source.contains("A4_WIDTH_CSS_PX.toDp()"))
+        assertTrue(source.contains("A4_HEIGHT_CSS_PX.toDp()"))
+        assertTrue(source.contains("graphicsLayer"))
+        assertFalse(source.contains("A4_LAYOUT_WIDTH = 794.dp"))
+    }
+
+    @Test
+    fun savedDocumentPreviewKeepsOneWebViewAndDoesNotReloadUnchangedHtml() {
+        val previewSource = File(
+            "src/main/java/app/tijario/features/documents/preview/DocumentPreviewWebView.kt",
+        ).readText()
+        val detailSource = File(
+            "src/main/java/app/tijario/ui/screens/DocumentDetailScreen.kt",
+        ).readText()
+
+        assertTrue(previewSource.contains("if (webView.tag != html)"))
+        assertTrue(previewSource.contains("webView.tag = html"))
+        assertFalse(detailSource.contains("DocumentTemplatePicker("))
+        assertTrue(detailSource.contains("DocumentTemplateRegistry.normalizeId(savedTemplateId)"))
+    }
+
+    @Test
     fun quotationOmitsPaymentStatus() {
         val html = renderer.render(
             SavedDocumentRenderMapper.map(
@@ -372,7 +463,7 @@ class DocumentEngineTests {
         val revisionChanged = base.copy(updatedAt = "2026-06-21")
         val key = PdfCacheKeyFactory.key(base)
 
-        assertTrue(key.startsWith("pdfv3-"))
+        assertTrue(key.startsWith("pdfv5-"))
         assertNotEquals(key, PdfCacheKeyFactory.key(templateChanged))
         assertNotEquals(key, PdfCacheKeyFactory.key(localeChanged))
         assertNotEquals(key, PdfCacheKeyFactory.key(revisionChanged))

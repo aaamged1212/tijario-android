@@ -590,3 +590,34 @@
 - **Code**: Authorization failures now record only the operation, named Google status, exception class, and account-resolution flag. No tokens, account details, authorization codes, or key material are logged.
 - **External gate**: Device QA verified the shown Google Cloud Android OAuth client matches package `app.tijario` and the local `playQa` APK SHA-1. Verify the configured `drive.file` data-access scope and the OAuth Audience/test-user state; Google Drive API enablement has not yet been reached or evaluated.
 - **Safety Status**: No commit, push, deployment, production migration, external-console action, or Play upload occurred.
+
+## 2026-07-27 (Local document render parity and store-settings mirror, uncommitted)
+- **Branch**: `codex/backup-drive-production-ready`.
+- **Document fix**: Detail and list export no longer substitute the app-wide template preference for a document's persisted `template_id`. `TijarioDocumentMapper.fromSaved` now defaults to the saved template, so the local Room items and selected template feed the same renderer for preview and PDF.
+- **Settings fix**: LocalDrive store settings commit to Room first. The same changed payload is mirrored once to the existing `business_settings` table only after the transaction succeeds. A per-account SHA-256 payload fingerprint records only successful mirrors, so unchanged saves do not issue repeated calls; failures remain local and do not start outbox/scheduler retries.
+- **Validation**: `DocumentEngineTests` (26 tests) and `LocalDocumentSavePolicyTest` (5 tests) passed. `assemblePlayQa` passed.
+- **Remaining**: Physical offline invoice/quote preview/detail/PDF parity and one online store-settings persistence check. No migration, deployment, push, external-console change, or Play upload occurred.
+
+## 2026-07-27 (Document rendering memory fix and picker recovery, uncommitted)
+- **Root cause**: Device logcat confirms Room save transactions complete while Chromium reports `tile memory limits exceeded`; several full A4 WebViews were allocated and then scaled in the saved-document screen.
+- **Fix**: Preview WebViews now render at their visible viewport size. An unavailable remote logo falls back to initials in local HTML. Empty customer/product document pickers expose create actions beside search; customer forms show only the dial code; the default local-backup path is English in both languages.
+- **Validation**: Focused document, backup-path, and picker JVM tests passed; `compileDebugKotlin` and `assemblePlayQa` passed.
+- **Remaining**: Physical online/offline invoice and quote detail/PDF verification. No commit, push, deployment, migration, external-console action, or Play upload occurred.
+
+## 2026-07-27 (Local save quota, detail rendering, and automatic backup follow-up, uncommitted)
+- **Root causes**: A LocalDrive save treated a two-credit offline lease batch as the Free plan's five-document limit. Completed Room saves could then display blank because the detail screen allocated template-picker WebViews alongside the saved-document WebView, and the main WebView reloaded unchanged HTML on recomposition.
+- **Fix**: LocalDrive saves now use the verified entitlement limit as the local creation guard and attach a lease only when it has capacity. Saved-document detail uses the document's persisted template without an extra picker, and unchanged HTML is not reloaded. Automatic local backups use MediaStore under `Downloads/Tijario/Backup` and do not open a file picker.
+- **Validation**: Focused repository, document rendering, and backup contract JVM tests passed; `assemblePlayQa` passed.
+- **Remaining**: A disconnected device prevented physical online/offline detail, PDF, five-document Free-limit, and MediaStore path verification. Events created without an active lease remain locally pending until the backend lease/reconciliation contract can acknowledge them. No commit, push, deployment, migration, external-console action, or Play upload occurred.
+
+## 2026-07-27 (PDF layout ordering and compact document/settings UI, uncommitted)
+- **Root cause**: The manual local PDF renderer loaded document HTML before its `WebView` had an A4 width, then drew it after late layout. This can capture an empty surface. Old empty output also remained eligible through the `pdfv3` cache key.
+- **Fix**: The renderer now lays out at A4 width before load, relays out after content height is known, waits for visual completion, then draws. `pdfv4` invalidates previously generated files. Detail actions are above the preview, settings rows are compact/title-only, document empty states are tab-specific, and the customer dial-code selector preserves the chosen code.
+- **Validation**: Focused JVM tests and `assemblePlayQa` passed. Physical online/offline preview-to-PDF comparison remains required because no device is connected.
+- **Safety Status**: No commit, push, deployment, production migration, external-console action, or Play upload occurred.
+
+## 2026-07-27 (Vector local PDF export, uncommitted)
+- **Root cause**: The replacement PDF renderer called `webView.draw(canvas)` into `PrintedPdfDocument`. That flattens the Chromium page to pixels, so the saved document becomes blurry when zoomed.
+- **Fix**: Local export now keeps the A4 layout/load/visual-state ordering and sends the `WebView` through `createPrintDocumentAdapter`, which writes Chromium's native vector PDF output. The cache key is `pdfv5` so raster `pdfv4` files are not reused.
+- **Validation**: `DocumentEngineTests`, full `testDebugUnitTest`, `lintDebug`, `assembleDebug`, `assemblePlayQa`, and `bundleRelease` passed. Physical PDF zoom verification remains required.
+- **Safety Status**: No commit, push, deployment, production migration, external-console action, or Play upload occurred.

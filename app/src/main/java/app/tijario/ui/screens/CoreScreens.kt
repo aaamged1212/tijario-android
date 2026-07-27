@@ -937,26 +937,36 @@ fun DashboardScreen(
                         }
                     }
                     Text(
-                        t("no_docs_yet"),
+                        t(
+                            if (latestDocumentsType == app.tijario.data.model.DocumentType.Invoice) {
+                                "no_invoices_yet"
+                            } else {
+                                "no_quotes_yet"
+                            },
+                        ),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 14.sp,
                         textAlign = TextAlign.Center
                     )
-                    Row(
+                    TijarioButton(
+                        text = t(
+                            if (latestDocumentsType == app.tijario.data.model.DocumentType.Invoice) {
+                                "btn_create_invoice"
+                            } else {
+                                "btn_create_quote"
+                            },
+                        ),
+                        onClick = {
+                            if (isDocLimitReached) {
+                                showLimitAlert = true
+                            } else if (latestDocumentsType == app.tijario.data.model.DocumentType.Invoice) {
+                                onNewInvoice()
+                            } else {
+                                onNewQuote()
+                            }
+                        },
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        TijarioButton(
-                            text = t("btn_create_invoice"),
-                            onClick = { if (isDocLimitReached) showLimitAlert = true else onNewInvoice() },
-                            modifier = Modifier.weight(1f)
-                        )
-                        TijarioButton(
-                            text = t("btn_create_quote"),
-                            onClick = { if (isDocLimitReached) showLimitAlert = true else onNewQuote() },
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
+                    )
                 }
             }
         } else {
@@ -2300,11 +2310,15 @@ fun DocumentsScreen(
     // Filter documents depending on selection and status filter
     val filteredDocs = documents.filter { doc ->
         val matchesTab = if (selectedSection == 0) doc.type == app.tijario.data.model.DocumentType.Invoice else doc.type == app.tijario.data.model.DocumentType.Quote
-        val matchesFilter = when (selectedFilter) {
-            "unpaid" -> doc.paymentStatus?.lowercase() == "unpaid"
-            "paid" -> doc.paymentStatus?.lowercase() == "paid"
-            "partial" -> doc.paymentStatus?.lowercase() == "partial"
-            else -> true
+        val matchesFilter = if (selectedSection == 1) {
+            true
+        } else {
+            when (selectedFilter) {
+                "unpaid" -> doc.paymentStatus?.lowercase() == "unpaid"
+                "paid" -> doc.paymentStatus?.lowercase() == "paid"
+                "partial" -> doc.paymentStatus?.lowercase() == "partial"
+                else -> true
+            }
         }
         matchesTab && matchesFilter
     }
@@ -2313,21 +2327,23 @@ fun DocumentsScreen(
         newestDocuments(filteredDocs)
     }
 
-    suspend fun renderModelForDocument(documentId: String) =
-        TijarioDocumentMapper.fromSaved(
-            document = dataViewModel.fetchCompleteDocument(documentId).getOrThrow().let { document ->
-                document.copy(
-                    documentNumber = invoiceOptionPreferences.getDocumentNumberOverride(document.id)
-                        ?: document.documentNumber,
-                    documentTitle = invoiceOptionPreferences.getDocumentTitleOverride(document.id)
-                        ?: document.documentTitle,
-                )
-            },
+    suspend fun renderModelForDocument(documentId: String): app.tijario.features.documents.model.DocumentRenderModel {
+        val document = dataViewModel.fetchCompleteDocument(documentId).getOrThrow().let { savedDocument ->
+            savedDocument.copy(
+                documentNumber = invoiceOptionPreferences.getDocumentNumberOverride(savedDocument.id)
+                    ?: savedDocument.documentNumber,
+                documentTitle = invoiceOptionPreferences.getDocumentTitleOverride(savedDocument.id)
+                    ?: savedDocument.documentTitle,
+            )
+        }
+        return TijarioDocumentMapper.fromSaved(
+            document = document,
             businessSettings = uiState.businessSettings,
             language = language,
-            templateId = templatePreferences.getDefaultTemplateId(),
+            templateId = document.templateId ?: templatePreferences.getDefaultTemplateId(),
             showTijarioBranding = uiState.planUsage?.removeTijarioBranding?.not() ?: true,
         )
+    }
 
     fun exportDocument(documentId: String, action: DocumentExportAction) {
         scope.launch {
@@ -2613,26 +2629,16 @@ fun DocumentsScreen(
                             }
                         }
                         Text(
-                            t("no_docs_yet"),
+                            t(if (selectedSection == 0) "no_invoices_yet" else "no_quotes_yet"),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 14.sp,
                             textAlign = TextAlign.Center
                         )
-                        Row(
+                        TijarioButton(
+                            text = t(if (selectedSection == 0) "btn_create_invoice" else "btn_create_quote"),
+                            onClick = if (selectedSection == 0) onNewInvoice else onNewQuote,
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            TijarioButton(
-                                text = t("btn_create_invoice"),
-                                onClick = onNewInvoice,
-                                modifier = Modifier.weight(1f)
-                            )
-                            TijarioButton(
-                                text = t("btn_create_quote"),
-                                onClick = onNewQuote,
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
+                        )
                     }
                 }
             } else {

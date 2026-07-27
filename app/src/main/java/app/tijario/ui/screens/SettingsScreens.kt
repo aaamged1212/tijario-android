@@ -165,15 +165,15 @@ fun SettingsHomeScreen(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(24.dp))
+                    .clip(RoundedCornerShape(20.dp))
                     .background(
                         Brush.linearGradient(
                             colors = listOf(Color(0xFF022C30), Color(0xFF0D6E76))
                         )
                     )
-                    .padding(20.dp)
+                    .padding(16.dp)
             ) {
-                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     when (planUsageState) {
                         is PlanUsageState.Loading, PlanUsageState.Idle -> {
                             PlanUsageSkeleton()
@@ -203,12 +203,12 @@ fun SettingsHomeScreen(
                             ) {
                                 Column(horizontalAlignment = Alignment.Start) {
                                     Text(t("current_plan"), color = Color.White.copy(alpha = 0.72f), fontSize = 13.sp)
-                                    Text(displayPlanName, color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Black)
+                                    Text(displayPlanName, color = Color.White, fontSize = 21.sp, fontWeight = FontWeight.Black)
                                 }
                                 Surface(
                                     color = Color.White.copy(alpha = 0.15f),
                                     shape = CircleShape,
-                                    modifier = Modifier.size(54.dp)
+                                    modifier = Modifier.size(48.dp)
                                 ) {
                                     Box(contentAlignment = Alignment.Center) {
                                         Icon(
@@ -221,7 +221,7 @@ fun SettingsHomeScreen(
                                 }
                             }
 
-                            Spacer(modifier = Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.height(4.dp))
 
                             UsageLine(t("documents"), usage.documentsUsed, usage.documentsLimit, Icons.Filled.Description, Color(0xFFCCFBF1))
                             UsageLine(t("ai_uses"), usage.aiUsed, usage.aiLimit, Icons.Filled.AutoAwesome, Color(0xFFBAE6FD))
@@ -232,11 +232,23 @@ fun SettingsHomeScreen(
                 }
             }
 
-            SettingsOption(Icons.Filled.Business, t("store_settings"), t("store_settings_desc"), onStoreSettings)
-            SettingsOption(Icons.Filled.AccountCircle, t("account_settings"), t("account_settings_desc"), onAccountSettings)
-            SettingsOption(Icons.Filled.Settings, t("app_settings"), t("app_settings_desc"), onAppSettings)
-            SettingsOption(Icons.Filled.Description, t("backup_restore"), t("backup_restore_desc"), onBackupSettings)
-            SettingsOption(Icons.Filled.WorkspacePremium, t("upgrade_plan"), t("upgrade_plan_desc"), onUpgrade)
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            ) {
+                Column {
+                    SettingsOption(Icons.Filled.Business, t("store_settings"), onStoreSettings)
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f))
+                    SettingsOption(Icons.Filled.AccountCircle, t("account_settings"), onAccountSettings)
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f))
+                    SettingsOption(Icons.Filled.Settings, t("app_settings"), onAppSettings)
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f))
+                    SettingsOption(Icons.Filled.Description, t("backup_restore"), onBackupSettings)
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f))
+                    SettingsOption(Icons.Filled.WorkspacePremium, t("upgrade_plan"), onUpgrade)
+                }
+            }
 
             Button(
                 onClick = { showLogoutConfirmation = true },
@@ -2369,22 +2381,19 @@ private fun PricingFaqSection(isArabic: Boolean) {
 }
 
 @Composable
-private fun SettingsOption(icon: ImageVector, title: String, subtitle: String, onClick: () -> Unit) {
-    val adaptive = LocalAdaptiveLayoutInfo.current
-    Card(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+private fun SettingsOption(icon: ImageVector, title: String, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Row(modifier = Modifier.padding(adaptive.cardPadding), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(adaptive.cardSpacing)) {
-            Surface(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f), shape = RoundedCornerShape(14.dp), modifier = Modifier.size(44.dp)) {
-                Box(contentAlignment = Alignment.Center) { Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface) }
-            }
-            Column(modifier = Modifier.weight(1f)) {
-                Text(title, fontWeight = FontWeight.Bold, maxLines = 1)
-                Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, maxLines = if (adaptive.isExtraCompact) 2 else 3)
-            }
+        Surface(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f), shape = RoundedCornerShape(12.dp), modifier = Modifier.size(40.dp)) {
+            Box(contentAlignment = Alignment.Center) { Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface) }
         }
+        Text(title, modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold, maxLines = 1)
     }
 }
 

@@ -2,6 +2,7 @@ package app.tijario.features.backup
 
 import app.tijario.config.AppLanguage
 import app.tijario.config.Localization
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -13,6 +14,7 @@ class PhoneBackupContractTest {
         val source = File("src/main/java/app/tijario/features/backup/PhoneBackupRepository.kt").readText()
 
         assertTrue(source.contains("MediaStore.Downloads.getContentUri"))
+        assertTrue(source.contains("\${Environment.DIRECTORY_DOWNLOADS}/Tijario/Backup/"))
         assertTrue(source.contains("DocumentsContract.createDocument"))
         assertTrue(source.contains("takePersistableUriPermission"))
         assertFalse(source.contains("MANAGE_EXTERNAL_STORAGE"))
@@ -35,6 +37,30 @@ class PhoneBackupContractTest {
             assertFalse(Localization.getString(key, AppLanguage.AR) == key)
             assertFalse(Localization.getString(key, AppLanguage.EN) == key)
         }
+    }
+
+    @Test
+    fun defaultLocalBackupFolderPathUsesEnglishSegmentsInBothLanguages() {
+        assertEquals(
+            "Downloads / Tijario / Backup",
+            Localization.getString("backup_phone_folder_downloads", AppLanguage.AR),
+        )
+        assertEquals(
+            "Downloads / Tijario / Backup",
+            Localization.getString("backup_phone_folder_downloads", AppLanguage.EN),
+        )
+    }
+
+    @Test
+    fun androidQAndNewerAlwaysUseTheDefaultDownloadsBackupFolder() {
+        val source = File("src/main/java/app/tijario/features/backup/PhoneBackupRepository.kt").readText()
+        assertTrue(source.contains("Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> saveToMediaStore(source)"))
+        assertTrue(source.contains("backup_phone_folder_downloads_tijario"))
+        assertTrue(source.contains("backup_phone_folder_downloads_root"))
+        assertTrue(
+            source.indexOf("Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> saveToMediaStore(source)") <
+                source.indexOf("selectedTree != null -> saveToTree(source, selectedTree)"),
+        )
     }
 
     @Test

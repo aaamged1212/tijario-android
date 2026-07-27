@@ -24,9 +24,22 @@ object TijarioDocumentMapper {
         document: CompleteDocument,
         businessSettings: BusinessSettings?,
         language: AppLanguage = AppLanguage.AR,
-        templateId: String = DocumentTemplateRegistry.defaultTemplateId,
+        templateId: String? = null,
         metadata: app.tijario.data.local.LocalDocumentMetadataEntity? = null,
         showTijarioBranding: Boolean = true,
-    ): DocumentRenderModel =
-        SavedDocumentRenderMapper.map(document, businessSettings, language, templateId, metadata, showTijarioBranding)
+    ): DocumentRenderModel {
+        val resolvedTemplateId = DocumentTemplateRegistry.normalizeId(
+            templateId?.takeIf { it.isNotBlank() }
+                ?: document.templateId?.takeIf { it.isNotBlank() }
+                ?: DocumentTemplateRegistry.defaultTemplateId,
+        )
+        return SavedDocumentRenderMapper.map(
+            document,
+            businessSettings,
+            language,
+            resolvedTemplateId,
+            metadata,
+            showTijarioBranding,
+        )
+    }
 }

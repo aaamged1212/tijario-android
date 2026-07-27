@@ -1,7 +1,6 @@
 package app.tijario.features.documents.pdf
 
 import android.content.Context
-import android.graphics.Color
 import android.os.Bundle
 import android.os.CancellationSignal
 import android.os.ParcelFileDescriptor
@@ -9,7 +8,6 @@ import android.print.PageRange
 import android.print.PrintAttributes
 import android.print.PrintDocumentAdapter
 import android.print.PrintDocumentInfo
-import android.print.pdf.PrintedPdfDocument
 import android.view.View
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
@@ -19,6 +17,7 @@ import java.net.URL
 import java.security.MessageDigest
 import io.github.jan.supabase.auth.auth
 import app.tijario.features.documents.model.DocumentRenderModel
+import app.tijario.features.documents.model.resolveDocumentLogoForRender
 import app.tijario.features.documents.template.AndroidAssetDocumentTemplateLoader
 import app.tijario.features.documents.template.DocumentHtmlRenderer
 import app.tijario.features.documents.template.DocumentRenderTarget
@@ -27,14 +26,12 @@ import java.io.FileInputStream
 import java.io.FileOutputStream
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
-import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 
 private const val A4_WIDTH_CSS_PX = 794
 private const val A4_HEIGHT_CSS_PX = 1123
-
 class LocalPdfGenerator(
     private val context: Context,
     private val renderer: DocumentHtmlRenderer = DocumentHtmlRenderer(AndroidAssetDocumentTemplateLoader(context)),
@@ -54,9 +51,11 @@ class LocalPdfGenerator(
         val logoUrl = model.business.logoUrl ?: return model
         if (!logoUrl.startsWith("http")) return model
 
-        val base64 = getCachedLogoBase64(logoUrl) ?: return model
+        val base64 = getCachedLogoBase64(logoUrl)
+        val resolvedLogoUrl = resolveDocumentLogoForRender(logoUrl, base64)
+        if (resolvedLogoUrl == logoUrl) return model
         return model.copy(
-            business = model.business.copy(logoUrl = base64)
+            business = model.business.copy(logoUrl = resolvedLogoUrl)
         )
     }
 
@@ -108,7 +107,10 @@ class LocalPdfGenerator(
             val webView = WebView(context)
             try {
                 configure(webView)
+                layoutWebView(webView, A4_HEIGHT_CSS_PX)
                 awaitPageLoad(webView, html)
+                val cssContentHeight = maxOf(webView.contentHeight, A4_HEIGHT_CSS_PX)
+                layoutWebView(webView, cssContentHeight)
                 awaitVisualState(webView)
                 writeWebViewToPdf(webView, outputFile)
                 require(cacheManager.isValid(outputFile)) { "Generated PDF is invalid" }
@@ -221,50 +223,59 @@ class LocalPdfGenerator(
         }
     }
 
-    private fun writeWebViewToPdf(webView: WebView, outputFile: File) {
+    private fun layoutWebView(webView: WebView, height: Int) {
+        webView.measure(
+            View.MeasureSpec.makeMeasureSpec(A4_WIDTH_CSS_PX, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY),
+        )
+        webView.layout(0, 0, A4_WIDTH_CSS_PX, height)
+    }
+
+    private suspend fun writeWebViewToPdf(webView: WebView, outputFile: File): Unit = suspendCancellableCoroutine { cont ->
         outputFile.parentFile?.mkdirs()
         if (outputFile.exists()) outputFile.delete()
-
         val attributes = PrintAttributes.Builder()
             .setMediaSize(PrintAttributes.MediaSize.ISO_A4.asPortrait())
             .setMinMargins(PrintAttributes.Margins.NO_MARGINS)
             .setResolution(PrintAttributes.Resolution("pdf", "pdf", 300, 300))
             .setColorMode(PrintAttributes.COLOR_MODE_COLOR)
             .build()
-        val document = PrintedPdfDocument(context, attributes)
 
-        try {
-            val contentRect = document.pageContentRect
-            val cssContentHeight = maxOf(webView.contentHeight, A4_HEIGHT_CSS_PX)
-            webView.measure(
-                View.MeasureSpec.makeMeasureSpec(A4_WIDTH_CSS_PX, View.MeasureSpec.EXACTLY),
-                View.MeasureSpec.makeMeasureSpec(cssContentHeight, View.MeasureSpec.EXACTLY),
+        val destination = runCatching {
+            ParcelFileDescriptor.open(
+                outputFile,
+                ParcelFileDescriptor.MODE_WRITE_ONLY or
+                    ParcelFileDescriptor.MODE_CREATE or
+                    ParcelFileDescriptor.MODE_TRUNCATE,
             )
-            webView.layout(0, 0, A4_WIDTH_CSS_PX, cssContentHeight)
+        }.getOrElse { error ->
+            if (cont.isActive) cont.resumeWithException(error)
+            return@suspendCancellableCoroutine
+        }
 
-            val renderScale = contentRect.width().toFloat() / A4_WIDTH_CSS_PX.toFloat()
-            val pageHeightCss = (contentRect.height().toFloat() / renderScale)
-                .roundToInt()
-                .coerceAtLeast(1)
-            val pageCount = ((cssContentHeight + pageHeightCss - 1) / pageHeightCss)
-                .coerceAtLeast(1)
-
-            repeat(pageCount) { pageIndex ->
-                val page = document.startPage(pageIndex)
-                val canvas = page.canvas
-                val saveCount = canvas.save()
-                canvas.translate(contentRect.left.toFloat(), contentRect.top.toFloat())
-                canvas.scale(renderScale, renderScale)
-                canvas.clipRect(0f, 0f, A4_WIDTH_CSS_PX.toFloat(), pageHeightCss.toFloat())
-                canvas.translate(0f, -(pageIndex * pageHeightCss).toFloat())
-                webView.draw(canvas)
-                canvas.restoreToCount(saveCount)
-                document.finishPage(page)
-            }
-
-            FileOutputStream(outputFile, false).use(document::writeTo)
-        } finally {
-            document.close()
+        fun closeDestination() = runCatching { destination.close() }
+        try {
+            android.print.PrintHelper.runWrite(
+                adapter = webView.createPrintDocumentAdapter("Document"),
+                attributes = attributes,
+                pfd = destination,
+                onComplete = {
+                    closeDestination()
+                    if (cont.isActive) cont.resume(Unit)
+                },
+                onFailed = { error ->
+                    closeDestination()
+                    if (cont.isActive) {
+                        cont.resumeWithException(IllegalStateException(error ?: "Failed to write PDF"))
+                    }
+                },
+            )
+        } catch (error: Throwable) {
+            closeDestination()
+            if (cont.isActive) cont.resumeWithException(error)
+        }
+        cont.invokeOnCancellation {
+            closeDestination()
         }
     }
 }

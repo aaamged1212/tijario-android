@@ -378,3 +378,25 @@
 # 2026-07-26 - Google Drive authorization diagnosis (uncommitted)
 - Added safe Google Identity authorization failure diagnostics. The connected QA device returned `INTERNAL_ERROR` while completing Google Drive consent, before any Drive REST request or folder resolution.
 - Device QA verified the shown Android OAuth client matches package `app.tijario` and the local `playQa` APK SHA-1. The remaining external checks are the Drive scope/Audience configuration and Google Identity service behavior. No external setting was changed.
+
+# 2026-07-27 - Local document render parity and settings mirror (uncommitted)
+- Saved document detail and list export now resolve the document's persisted template ID, so the local Room-backed document uses the same template and item model for preview and PDF output.
+- LocalDrive business settings remain Room-authoritative and mirror to `business_settings` only after a successful local save. A per-account payload fingerprint prevents duplicate unchanged writes; no outbox, scheduler, retry loop, or error log is added.
+
+# 2026-07-27 - Document preview memory and local presentation recovery (uncommitted)
+- Replaced scaled full-A4 WebView preview surfaces with viewport-sized WebViews to avoid Chromium tile-memory exhaustion and blank saved-document previews.
+- Local preview/PDF logo resolution now uses cached logo data or initials, never an unresolved remote URL.
+- Added empty customer/product picker create actions, dial-code-only display for customer forms, and English local-backup folder path display.
+
+# 2026-07-27 - Local document quota and automatic backup recovery (uncommitted)
+- LocalDrive document creation now enforces the verified plan limit rather than treating an exhausted temporary offline-lease batch as the account limit; lease-less local events remain pending for later reconciliation.
+- Saved document detail keeps one persisted-template WebView and avoids identical HTML reloads to prevent Chromium surface exhaustion after save.
+- Automatic local backups target `Downloads/Tijario/Backup` through MediaStore without opening the export file chooser, with a documented provider fallback when nested MediaStore paths are refused.
+
+# 2026-07-27 - Local PDF layout and compact document/settings UI (uncommitted)
+- Local PDF export now lays out the `WebView` before HTML load and before visual-state capture, then invalidates old `pdfv3` cached exports with `pdfv4`; this addresses blank saved PDFs caused by drawing an unmeasured WebView.
+- Document detail actions remain reachable on narrow screens, invoice/quote empty states remain independent, customer dial-code selection persists, and settings use compact title-only rows with a smaller plan card.
+
+# 2026-07-27 - Vector local PDF export (uncommitted)
+- Replaced the raster `WebView.draw(canvas)` export with the native `WebView.createPrintDocumentAdapter` write path. New `pdfv5` cache entries prevent blurred `pdfv4` exports from being reused.
+- Full local gates subsequently passed: `testDebugUnitTest`, `lintDebug`, `assembleDebug`, `assemblePlayQa`, and signed `bundleRelease`.

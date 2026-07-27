@@ -9,20 +9,17 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.requiredWidth
-import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import android.content.Context
 import android.util.Base64
@@ -30,6 +27,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import io.github.jan.supabase.auth.auth
 import app.tijario.features.documents.model.DocumentRenderModel
+import app.tijario.features.documents.model.resolveDocumentLogoForRender
 import app.tijario.features.documents.template.AndroidAssetDocumentTemplateLoader
 import app.tijario.features.documents.template.DocumentHtmlRenderer
 import app.tijario.features.documents.template.DocumentRenderTarget
@@ -40,8 +38,9 @@ import java.net.URL
 import java.security.MessageDigest
 
 private const val A4_WIDTH_TO_HEIGHT = 210f / 297f
-private val A4_LAYOUT_WIDTH = 794.dp
-private val A4_LAYOUT_HEIGHT = 1123.dp
+// Render at the actual CSS A4 size, not a density-expanded dp size.
+private const val A4_WIDTH_CSS_PX = 794
+private const val A4_HEIGHT_CSS_PX = 1123
 
 @SuppressLint("SetJavaScriptEnabled", "ClickableViewAccessibility")
 @Composable
@@ -59,12 +58,11 @@ fun DocumentPreviewWebView(
     }
 
     val finalModel = remember(model, cachedLogoBase64) {
-        if (cachedLogoBase64 != null) {
-            model.copy(
-                business = model.business.copy(logoUrl = cachedLogoBase64)
-            )
-        } else {
+        val resolvedLogoUrl = resolveDocumentLogoForRender(logoUrl, cachedLogoBase64)
+        if (resolvedLogoUrl == logoUrl) {
             model
+        } else {
+            model.copy(business = model.business.copy(logoUrl = resolvedLogoUrl))
         }
     }
 
@@ -75,16 +73,21 @@ fun DocumentPreviewWebView(
         modifier = modifier,
         contentAlignment = Alignment.Center,
     ) {
+        val density = LocalDensity.current
+        val a4LayoutWidth = with(density) { A4_WIDTH_CSS_PX.toDp() }
+        val a4LayoutHeight = with(density) { A4_HEIGHT_CSS_PX.toDp() }
         val boundedHeight = if (maxHeight == Dp.Infinity) maxWidth / A4_WIDTH_TO_HEIGHT else maxHeight
         val pageWidth = minOf(maxWidth, boundedHeight * A4_WIDTH_TO_HEIGHT)
-        val pageHeight = pageWidth / A4_WIDTH_TO_HEIGHT
-        val pageScale = pageWidth.value / A4_LAYOUT_WIDTH.value
-
+        val pageScale = pageWidth.value / a4LayoutWidth.value
         Box(
             modifier = Modifier
-                .width(pageWidth)
-                .height(pageHeight)
-                .clipToBounds(),
+                .requiredWidth(a4LayoutWidth)
+                .requiredHeight(a4LayoutHeight)
+                .graphicsLayer {
+                    scaleX = pageScale
+                    scaleY = pageScale
+                    transformOrigin = TransformOrigin.Center
+                },
             contentAlignment = Alignment.Center,
         ) {
             AndroidView(
@@ -128,22 +131,20 @@ fun DocumentPreviewWebView(
                     webView.overScrollMode = if (interactive) View.OVER_SCROLL_IF_CONTENT_SCROLLS else View.OVER_SCROLL_NEVER
                     webView.isFocusable = interactive
                     webView.setOnTouchListener { _, _ -> !interactive }
-                    webView.loadDataWithBaseURL(
-                        "file:///android_asset/documents/",
-                        html,
-                        "text/html",
-                        "utf-8",
-                        null,
-                    )
+                    if (webView.tag != html) {
+                        webView.tag = html
+                        webView.loadDataWithBaseURL(
+                            "file:///android_asset/documents/",
+                            html,
+                            "text/html",
+                            "utf-8",
+                            null,
+                        )
+                    }
                 },
                 modifier = Modifier
-                    .requiredWidth(A4_LAYOUT_WIDTH)
-                    .requiredHeight(A4_LAYOUT_HEIGHT)
-                    .graphicsLayer {
-                        scaleX = pageScale
-                        scaleY = pageScale
-                        transformOrigin = TransformOrigin.Center
-                    },
+                    .requiredWidth(a4LayoutWidth)
+                    .requiredHeight(a4LayoutHeight),
             )
         }
     }

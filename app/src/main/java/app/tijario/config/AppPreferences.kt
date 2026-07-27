@@ -28,6 +28,7 @@ private const val KEY_NOTIFICATION_EXPLAINED = "notification_explained"
 private const val KEY_SUBSCRIBED_TOPIC = "subscribed_topic"
 private const val KEY_INSTALLATION_ID = "installation_id"
 private const val KEY_PHONE_BACKUP_TREE_URI = "phone_backup_tree_uri"
+private const val KEY_BUSINESS_SETTINGS_MIRROR_FINGERPRINT = "business_settings_mirror_fingerprint"
 
 private fun planKey(userId: String, suffix: String) = "plan_usage_${userId}_$suffix"
 
@@ -201,6 +202,17 @@ object AppPreferences {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit()
             .putString(planKey(userId, KEY_PHONE_BACKUP_TREE_URI), uri)
+            .apply()
+    }
+
+    fun getBusinessSettingsMirrorFingerprint(context: Context, userId: String): String? =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(planKey(userId, KEY_BUSINESS_SETTINGS_MIRROR_FINGERPRINT), null)
+
+    fun setBusinessSettingsMirrorFingerprint(context: Context, userId: String, fingerprint: String) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(planKey(userId, KEY_BUSINESS_SETTINGS_MIRROR_FINGERPRINT), fingerprint)
             .apply()
     }
 }

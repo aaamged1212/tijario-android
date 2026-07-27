@@ -506,6 +506,7 @@ fun CustomerFormScreen(
                         onValueChange = { form = form.copy(whatsapp = it) },
                         error = if (form.whatsapp.isNotEmpty()) form.whatsappError else null,
                         defaultDialCode = defaultCustomerDialCode,
+                        showCountryNameInDialCode = false,
                     )
 
                     TijarioTextField(
@@ -2372,6 +2373,8 @@ fun DocumentFormScreen(
     onDocumentSaved: (String) -> Unit = {},
     onNavigateToSelectCustomer: () -> Unit = {},
     onNavigateToSelectProduct: (Int) -> Unit = {},
+    onNavigateToCreateCustomer: () -> Unit = {},
+    onNavigateToCreateProduct: () -> Unit = {},
     selectedCustomer: app.tijario.data.model.Customer? = null,
     selectedProduct: app.tijario.data.model.Product? = null,
     selectedProductRowIndex: Int? = null,
@@ -3935,12 +3938,27 @@ fun DocumentFormScreen(
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth(),
                 )
-                TijarioTextField(
-                    label = t("search_placeholder"),
-                    value = customerPickerQuery,
-                    onValueChange = { customerPickerQuery = it },
-                    leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
-                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TijarioTextField(
+                        label = t("search_placeholder"),
+                        value = customerPickerQuery,
+                        onValueChange = { customerPickerQuery = it },
+                        leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+                        modifier = Modifier.weight(1f),
+                    )
+                    if (uiState.customers.isEmpty()) {
+                        OutlinedButton(
+                            onClick = {
+                                showCustomerPickerSheet = false
+                                onNavigateToCreateCustomer()
+                            },
+                        ) {
+                            Icon(Icons.Filled.Add, contentDescription = null)
+                            Spacer(Modifier.width(4.dp))
+                            Text(t("btn_add_customer"))
+                        }
+                    }
+                }
                 LazyColumn(
                     modifier = Modifier.heightIn(max = 420.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -3994,12 +4012,27 @@ fun DocumentFormScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Text(t("select_product"), fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                TijarioTextField(
-                    label = t("search_products"),
-                    value = productPickerQuery,
-                    onValueChange = { productPickerQuery = it },
-                    leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
-                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TijarioTextField(
+                        label = t("search_products"),
+                        value = productPickerQuery,
+                        onValueChange = { productPickerQuery = it },
+                        leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+                        modifier = Modifier.weight(1f),
+                    )
+                    if (uiState.products.isEmpty()) {
+                        OutlinedButton(
+                            onClick = {
+                                showProductPickerRowIndex = null
+                                onNavigateToCreateProduct()
+                            },
+                        ) {
+                            Icon(Icons.Filled.Add, contentDescription = null)
+                            Spacer(Modifier.width(4.dp))
+                            Text(t("btn_add_product"))
+                        }
+                    }
+                }
                 LazyColumn(
                     modifier = Modifier.heightIn(max = 420.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),

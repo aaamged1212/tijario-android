@@ -693,6 +693,8 @@ private fun TijarioAppContent() {
                             activeSelectedProductRowIndex = rowIndex
                             navController.navigate("products")
                         },
+                        onNavigateToCreateCustomer = { navController.navigate("customer-form") },
+                        onNavigateToCreateProduct = { navController.navigate("product-form") },
                         selectedCustomer = activeSelectedCustomer,
                         selectedProduct = activeSelectedProduct,
                         selectedProductRowIndex = activeSelectedProductRowIndex,
@@ -718,6 +720,8 @@ private fun TijarioAppContent() {
                             activeSelectedProductRowIndex = rowIndex
                             navController.navigate("products")
                         },
+                        onNavigateToCreateCustomer = { navController.navigate("customer-form") },
+                        onNavigateToCreateProduct = { navController.navigate("product-form") },
                         selectedCustomer = activeSelectedCustomer,
                         selectedProduct = activeSelectedProduct,
                         selectedProductRowIndex = activeSelectedProductRowIndex,
@@ -753,6 +757,8 @@ private fun TijarioAppContent() {
                             activeSelectedProductRowIndex = rowIndex
                             navController.navigate("products")
                         },
+                        onNavigateToCreateCustomer = { navController.navigate("customer-form") },
+                        onNavigateToCreateProduct = { navController.navigate("product-form") },
                         selectedCustomer = activeSelectedCustomer,
                         selectedProduct = activeSelectedProduct,
                         selectedProductRowIndex = activeSelectedProductRowIndex,
@@ -788,6 +794,8 @@ private fun TijarioAppContent() {
                             activeSelectedProductRowIndex = rowIndex
                             navController.navigate("products")
                         },
+                        onNavigateToCreateCustomer = { navController.navigate("customer-form") },
+                        onNavigateToCreateProduct = { navController.navigate("product-form") },
                         selectedCustomer = activeSelectedCustomer,
                         selectedProduct = activeSelectedProduct,
                         selectedProductRowIndex = activeSelectedProductRowIndex,

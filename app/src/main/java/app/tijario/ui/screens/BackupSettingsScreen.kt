@@ -383,7 +383,7 @@ fun BackupSettingsScreen(
             }
 
             OutlinedButton(
-                onClick = { backupViewModel.createLocalBackup(exportAfterCreate = true) },
+                onClick = { backupViewModel.createLocalBackup(exportAfterCreate = false) },
                 enabled = !state.isBusy && userId.isNotBlank(),
                 modifier = Modifier.fillMaxWidth().height(52.dp),
                 shape = RoundedCornerShape(16.dp),

@@ -483,9 +483,9 @@ class TijarioRepositoryOfflineTests {
     }
 
     @Test
-    fun createDocument_routesLocalDriveToRoomWithSignedLease() = runBlocking {
+    fun createDocument_routesLocalDriveToRoomWithoutAnActiveLease() = runBlocking {
         coEvery { dao.getAccountEntitlement(userId) } returns localDriveEntitlement()
-        coEvery { dao.getActiveLease(userId, any(), any()) } returns validOfflineQuotaLease().copy(periodMonth = "lifetime")
+        coEvery { dao.getActiveLease(userId, any(), any()) } returns null
         every { dao.observeDocuments(userId) } returns flowOf(emptyList())
         coEvery { dao.upsertCustomer(any()) } returns Unit
         coEvery { dao.insertDocumentItems(any()) } returns Unit
@@ -511,7 +511,7 @@ class TijarioRepositoryOfflineTests {
         coVerify(exactly = 0) { backendApiClient.createDocument(any()) }
         coVerify(exactly = 0) { dao.upsertOutbox(any()) }
         coVerify(exactly = 1) {
-            dao.insertCreationEvent(match { it.quotaScope == "lifetime" && it.leaseId == "lease_for_document_creation" })
+            dao.insertCreationEvent(match { it.quotaScope == "lifetime" && it.leaseId == null })
         }
     }
 

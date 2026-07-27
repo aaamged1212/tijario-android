@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Intent
 import android.content.IntentSender
 import android.net.Uri
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -64,13 +65,20 @@ class BackupViewModel(
             _uiState.value = _uiState.value.copy(isBusy = true, messageKey = null)
             runCatching { coordinator.createLocalBackup(userId, allowNetwork = true) }
                 .onSuccess { record ->
-                    val file = File(getApplication<Application>().filesDir, record.localRelativePath)
-                    preparedExport = file.takeIf(File::isFile)
-                    val phoneBackup = withContext(Dispatchers.IO) {
+                    preparedExport = resolveBackupArchiveFile(
+                        filesRoot = getApplication<Application>().filesDir,
+                        userId = userId,
+                        storedRelativePath = record.localRelativePath,
+                    )
+                    val phoneBackupResult = withContext(Dispatchers.IO) {
                         runCatching {
                             PhoneBackupRepository(getApplication()).saveVisibleCopy(userId, record, getApplication<Application>().filesDir)
-                        }.getOrNull()
+                        }
                     }
+                    phoneBackupResult.exceptionOrNull()?.let { error ->
+                        Log.w(LOG_TAG, "visible_backup_copy_failed error=${error.javaClass.simpleName}")
+                    }
+                    val phoneBackup = phoneBackupResult.getOrNull()
                     val settings = _uiState.value.settings ?: defaultSettings()
                     val effectiveRecord = if (settings.driveEnabled) {
                         record.copy(status = "DRIVE_PENDING").also {
@@ -82,9 +90,10 @@ class BackupViewModel(
                         isBusy = false,
                         latestBackup = effectiveRecord,
                         phoneBackup = phoneBackup,
-                        phoneBackupDestination = PhoneBackupRepository(getApplication()).destinationKey(userId),
+                        phoneBackupDestination = phoneBackup?.destinationKey
+                            ?: PhoneBackupRepository(getApplication()).destinationKey(userId),
                         exportFileName = if (exportAfterCreate) preparedExport?.name else null,
-                        messageKey = if (exportAfterCreate) null else if (phoneBackup != null) "backup_phone_saved" else "backup_created_success",
+                        messageKey = if (exportAfterCreate) null else if (phoneBackup != null) "backup_phone_saved" else "backup_phone_save_failed",
                     )
                     refreshLatest()
                 }
@@ -154,7 +163,11 @@ class BackupViewModel(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isBusy = true, messageKey = null)
             runCatching {
-                val file = File(getApplication<Application>().filesDir, record.localRelativePath)
+                val file = resolveBackupArchiveFile(
+                    filesRoot = getApplication<Application>().filesDir,
+                    userId = userId,
+                    storedRelativePath = record.localRelativePath,
+                ) ?: throw BackupValidationException("Backup file is unavailable")
                 coordinator.restoreLocalBackup(userId, file, allowNetwork = true)
             }.onSuccess {
                 _uiState.value = _uiState.value.copy(isBusy = false, messageKey = "backup_restored_success")
@@ -186,7 +199,14 @@ class BackupViewModel(
 
     fun requestShareBackup(record: BackupRecordEntity, preferTelegram: Boolean) {
         if (record.userId != userId) return
-        val file = File(getApplication<Application>().filesDir, record.localRelativePath)
+        val file = resolveBackupArchiveFile(
+            filesRoot = getApplication<Application>().filesDir,
+            userId = userId,
+            storedRelativePath = record.localRelativePath,
+        ) ?: run {
+            _uiState.value = _uiState.value.copy(messageKey = "backup_share_failed")
+            return
+        }
         runCatching { BackupShareIntents.create(getApplication(), file, preferTelegram) }
             .onSuccess { _uiState.value = _uiState.value.copy(shareIntent = it) }
             .onFailure { _uiState.value = _uiState.value.copy(messageKey = "backup_share_failed") }
@@ -386,6 +406,8 @@ class BackupViewModel(
     )
 
     companion object {
+        private const val LOG_TAG = "TijarioBackup"
+
         fun factory(application: Application, userId: String): ViewModelProvider.Factory =
             object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")

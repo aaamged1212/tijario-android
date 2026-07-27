@@ -35,9 +35,11 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -178,6 +180,7 @@ fun TijarioPhoneField(
     modifier: Modifier = Modifier,
     defaultDialCode: String = MvpDialCodeOptions.first().dialCode,
     onDialCodeChange: ((String) -> Unit)? = null,
+    showCountryNameInDialCode: Boolean = true,
 ) {
     val language = LocalLanguage.current
     val adaptive = LocalAdaptiveLayoutInfo.current
@@ -188,7 +191,14 @@ fun TijarioPhoneField(
     } else {
         splitPhoneNumber(value)
     }
-    val selectedOption = MvpDialCodeOptions.firstOrNull { it.dialCode == parts.dialCode }
+    var selectedDialCode by rememberSaveable { mutableStateOf(safeDefaultDialCode) }
+    LaunchedEffect(value) {
+        if (value.isNotBlank()) {
+            selectedDialCode = parts.dialCode
+        }
+    }
+    val activeDialCode = if (value.isBlank()) selectedDialCode else parts.dialCode
+    val selectedOption = MvpDialCodeOptions.firstOrNull { it.dialCode == activeDialCode }
         ?: MvpDialCodeOptions.first()
     var menuExpanded by remember { mutableStateOf(false) }
 
@@ -200,7 +210,7 @@ fun TijarioPhoneField(
         ) {
             TijarioTextField(
                 label = t("country_code"),
-                value = selectedOption.label(language),
+                value = if (showCountryNameInDialCode) selectedOption.label(language) else selectedOption.dialCode,
                 onValueChange = {},
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = menuExpanded) },
                 modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable),
@@ -214,6 +224,7 @@ fun TijarioPhoneField(
                     DropdownMenuItem(
                         text = { Text(option.label(language), maxLines = 1) },
                         onClick = {
+                            selectedDialCode = option.dialCode
                             onDialCodeChange?.invoke(option.dialCode)
                             onValueChange(normalizePhoneWithDialCode(option.dialCode, parts.localNumber))
                             menuExpanded = false
@@ -227,7 +238,7 @@ fun TijarioPhoneField(
         TijarioTextField(
             label = t("whatsapp_phone"),
             value = parts.localNumber,
-            onValueChange = { onValueChange(normalizePhoneWithDialCode(parts.dialCode, it)) },
+            onValueChange = { onValueChange(normalizePhoneWithDialCode(activeDialCode, it)) },
             error = error,
             leadingIcon = { Icon(Icons.Filled.Phone, contentDescription = null) },
             keyboardOptions = KeyboardOptions(
@@ -252,8 +263,8 @@ fun TijarioPhoneField(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.Top,
         ) {
-            dialCodeField(Modifier.weight(0.9f))
-            numberField(Modifier.weight(1.1f))
+            dialCodeField(Modifier.weight(0.75f))
+            numberField(Modifier.weight(1.25f))
         }
     }
 }

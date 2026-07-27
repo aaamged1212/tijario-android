@@ -77,8 +77,6 @@ import app.tijario.features.documents.preview.DocumentPreviewWebView
 import app.tijario.features.documents.template.DocumentTemplateRegistry
 import app.tijario.features.documents.ui.DocumentExportSheet
 import app.tijario.features.documents.ui.DocumentInvoiceOptionPreferences
-import app.tijario.features.documents.ui.DocumentTemplatePicker
-import app.tijario.features.documents.ui.DocumentTemplatePreferences
 import app.tijario.domain.LocalizedErrorMapper
 import app.tijario.ui.state.TijarioDataViewModel
 import kotlinx.coroutines.launch
@@ -99,14 +97,13 @@ fun DocumentDetailScreen(
     val planUsage = uiState.planUsage
     val exportManager = remember(context) { DocumentExportManager(context) }
     val invoiceOptionPreferences = remember(context) { DocumentInvoiceOptionPreferences(context) }
-    val templatePreferences = remember(context) { DocumentTemplatePreferences(context) }
 
     var document by remember { mutableStateOf<CompleteDocument?>(null) }
     var documentMetadata by remember { mutableStateOf<app.tijario.data.local.LocalDocumentMetadataEntity?>(null) }
     var isLoading by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var isBusy by remember { mutableStateOf(false) }
-    var selectedTemplateId by remember { mutableStateOf(templatePreferences.getDefaultTemplateId()) }
+    var selectedTemplateId by remember { mutableStateOf(DocumentTemplateRegistry.defaultTemplateId) }
     var showExportSheet by remember { mutableStateOf(false) }
     var showFullScreenPreview by remember { mutableStateOf(false) }
 
@@ -117,6 +114,9 @@ fun DocumentDetailScreen(
             val result = dataViewModel.fetchCompleteDocument(documentId)
             document = result.getOrNull()
             if (document != null) {
+                document?.templateId?.takeIf { it.isNotBlank() }?.let { savedTemplateId ->
+                    selectedTemplateId = DocumentTemplateRegistry.normalizeId(savedTemplateId)
+                }
                 documentMetadata = dataViewModel.getDocumentMetadata(documentId)
             }
             errorMessage = LocalizedErrorMapper.map(
@@ -260,6 +260,47 @@ fun DocumentDetailScreen(
                             }
                         }
 
+                        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                            val compact = maxWidth < 340.dp
+                            val editButton: @Composable (Modifier) -> Unit = { modifier ->
+                                Button(
+                                    onClick = { onEditClick(doc.id, doc.type) },
+                                    modifier = modifier,
+                                    enabled = !isBusy,
+                                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    ),
+                                ) {
+                                    Icon(Icons.Filled.Edit, contentDescription = null)
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(t("edit"))
+                                }
+                            }
+                            val exportButton: @Composable (Modifier) -> Unit = { modifier ->
+                                Button(
+                                    onClick = { showExportSheet = true },
+                                    modifier = modifier,
+                                    enabled = !isBusy,
+                                ) {
+                                    Icon(Icons.Filled.Share, contentDescription = null)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(if (isBusy) t("preparing_doc") else t("open_export_options"))
+                                }
+                            }
+                            if (compact) {
+                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    editButton(Modifier.fillMaxWidth())
+                                    exportButton(Modifier.fillMaxWidth())
+                                }
+                            } else {
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    editButton(Modifier.weight(0.35f))
+                                    exportButton(Modifier.weight(0.65f))
+                                }
+                            }
+                        }
+
                         Text(
                             text = t("document_preview"),
                             fontWeight = FontWeight.Bold,
@@ -268,17 +309,6 @@ fun DocumentDetailScreen(
                         )
 
 
-
-                        DocumentTemplatePicker(
-                            selectedTemplateId = selectedTemplateId,
-                            allowedTemplateIds = planUsage?.allowedTemplateIds.orEmpty(),
-                            isEntitlementLoaded = planUsage != null,
-                            onTemplateSelected = {
-                                selectedTemplateId = DocumentTemplateRegistry.requireTemplate(it).id
-                                templatePreferences.setDefaultTemplateId(selectedTemplateId)
-                            },
-                            renderModel = renderModel,
-                        )
 
                         Box(
                             modifier = Modifier
@@ -289,50 +319,6 @@ fun DocumentDetailScreen(
                                 model = renderModel,
                                 modifier = Modifier.fillMaxSize(),
                             )
-                        }
-
-                        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-                            val compact = maxWidth < 340.dp
-                            val editButton: @Composable (Modifier) -> Unit = { modifier ->
-                                Button(
-                                onClick = { onEditClick(doc.id, doc.type) },
-                                modifier = modifier,
-                                enabled = !isBusy,
-                                colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                                )
-                            ) {
-                                Icon(Icons.Filled.Edit, contentDescription = null)
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(t("edit"))
-                            }
-                            }
-                            val exportButton: @Composable (Modifier) -> Unit = { modifier ->
-                                Button(
-                                onClick = { showExportSheet = true },
-                                modifier = modifier,
-                                enabled = !isBusy,
-                            ) {
-                                Icon(Icons.Filled.Share, contentDescription = null)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(if (isBusy) t("preparing_doc") else t("open_export_options"))
-                            }
-                            }
-                            if (compact) {
-                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    editButton(Modifier.fillMaxWidth())
-                                    exportButton(Modifier.fillMaxWidth())
-                                }
-                            } else {
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    editButton(Modifier.weight(0.35f))
-                                    exportButton(Modifier.weight(0.65f))
-                                }
-                            }
                         }
                     }
 

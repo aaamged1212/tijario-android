@@ -52,6 +52,7 @@ import java.time.OffsetDateTime
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.util.Date
+import java.security.MessageDigest
 import app.tijario.data.remote.*
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.addJsonObject
@@ -1163,7 +1164,9 @@ open class TijarioRepository(
     private fun localDocumentFailure(operation: String, error: Throwable): ApiResult<CreateDocumentResponse> {
         val code = localDocumentFailureCode(error)
         if (BuildConfig.DEBUG) {
-            android.util.Log.d("TijarioLocalDocument", "operation=$operation code=$code success=false")
+            runCatching {
+                android.util.Log.d("TijarioLocalDocument", "operation=$operation code=$code success=false")
+            }
         }
         return ApiResult(ok = false, code = code, message = "Local document save failed.")
     }
@@ -1181,10 +1184,12 @@ open class TijarioRepository(
             AppPreferences.getInstallationId(context),
             System.currentTimeMillis(),
         ) != null
-        android.util.Log.d(
-            "TijarioLocalDocument",
-            "operation=$operation local_drive=$isLocalDrive entitlement_available=${hasValidOperationalEntitlement(entitlement)} lease_available=$hasLease transaction=$stage",
-        )
+        runCatching {
+            android.util.Log.d(
+                "TijarioLocalDocument",
+                "operation=$operation local_drive=$isLocalDrive entitlement_available=${hasValidOperationalEntitlement(entitlement)} lease_available=$hasLease transaction=$stage",
+            )
+        }
     }
 
     suspend fun deleteDocumentLocal(documentId: String): ApiResult<CreateDocumentResponse> {
@@ -1239,6 +1244,7 @@ open class TijarioRepository(
         val userId = requireUserId()
         val dataMode = requireOperationalDataMode(userId)
         persistBusinessSettingsLocal(userId, settings, dataMode)
+        mirrorLocalDriveBusinessSettings(userId, settings, dataMode)
     }
 
     private suspend fun persistBusinessSettingsLocal(
@@ -1299,6 +1305,49 @@ open class TijarioRepository(
 
     private fun app.tijario.data.local.BusinessSettingsEntity.serverId(): String? =
         remoteId
+
+    private suspend fun mirrorLocalDriveBusinessSettings(
+        userId: String,
+        settings: BusinessSettings,
+        dataMode: AccountDataMode,
+    ) {
+        if (dataMode != AccountDataMode.LocalDrive) return
+
+        val remoteSettings = settings.copy(userId = userId)
+        val fingerprint = businessSettingsMirrorFingerprint(remoteSettings)
+        if (AppPreferences.getBusinessSettingsMirrorFingerprint(context, userId) == fingerprint) return
+
+        // Room remains authoritative. This is one best-effort mirror per changed payload.
+        runCatching {
+            withContext(Dispatchers.IO) {
+                supabaseClient.from("business_settings").upsert(remoteSettings)
+            }
+        }.onSuccess {
+            AppPreferences.setBusinessSettingsMirrorFingerprint(context, userId, fingerprint)
+        }
+    }
+
+    private fun businessSettingsMirrorFingerprint(settings: BusinessSettings): String {
+        val payload = listOf(
+            settings.id.orEmpty(),
+            settings.userId.orEmpty(),
+            settings.businessName,
+            settings.whatsappNumber,
+            settings.country,
+            settings.city.orEmpty(),
+            settings.address.orEmpty(),
+            settings.email.orEmpty(),
+            settings.websiteUrl.orEmpty(),
+            settings.currency,
+            settings.logoUrl.orEmpty(),
+            settings.instagramUrl.orEmpty(),
+            settings.invoiceNote.orEmpty(),
+            settings.termsText.orEmpty(),
+        ).joinToString("\u0000")
+        return MessageDigest.getInstance("SHA-256")
+            .digest(payload.toByteArray(Charsets.UTF_8))
+            .joinToString("") { byte -> "%02x".format(byte) }
+    }
 
     // Legacy Save / Cache adapters for backward compatibility
     suspend fun createCustomer(customer: Customer): Result<Unit> = runCatching {
@@ -1492,6 +1541,7 @@ open class TijarioRepository(
         val dataMode = requireOperationalDataMode(userId)
         if (dataMode == AccountDataMode.LocalDrive) {
             persistBusinessSettingsLocal(userId, settings, dataMode)
+            mirrorLocalDriveBusinessSettings(userId, settings, dataMode)
             return@runCatching
         }
         withContext(Dispatchers.IO) {
@@ -2794,11 +2844,15 @@ open class TijarioRepository(
             }
             val lease = dao.getActiveLease(userId, deviceId, System.currentTimeMillis())
                 ?.takeIf { it.planCode == entitlement.planCode && it.periodMonth == periodKey }
-                ?: error("OFFLINE_LEASE_REQUIRED")
-            val leasePending = dao.getPendingCreationEvents(userId).count { it.leaseId == lease.id }
-            if (lease.consumedCount + leasePending >= lease.allowedLimit) {
-                error("QUOTA_LIMIT_EXCEEDED")
-            }
+            val leasePending = lease?.let { activeLease ->
+                dao.getPendingCreationEvents(userId).count { it.leaseId == activeLease.id }
+            } ?: 0
+            // A lease is a server-reconciliation grant, not a prerequisite for an
+            // already-entitled local save. The signed plan limit above remains the
+            // local guard while an offline device cannot renew its credit batch.
+            val leaseIdForEvent = lease
+                ?.takeIf { it.consumedCount + leasePending < it.allowedLimit }
+                ?.id
             dao.insertCreationEvent(
                 app.tijario.data.local.DocumentCreationEventEntity(
                     id = java.util.UUID.randomUUID().toString(),
@@ -2806,7 +2860,7 @@ open class TijarioRepository(
                     documentId = documentId,
                     operationId = java.util.UUID.randomUUID().toString(),
                     installationId = deviceId,
-                    leaseId = lease.id,
+                    leaseId = leaseIdForEvent,
                     planCode = entitlement.planCode,
                     quotaScope = entitlement.documentLimitScope,
                     periodKey = periodKey,

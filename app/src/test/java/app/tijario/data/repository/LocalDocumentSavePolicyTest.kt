@@ -34,6 +34,18 @@ class LocalDocumentSavePolicyTest {
     }
 
     @Test
+    fun localDriveSaveUsesTheSignedPlanLimitWithoutRequiringALease() {
+        val source = File("src/main/java/app/tijario/data/repository/TijarioRepository.kt").readText()
+        val localDriveReservation = source.substringAfter("if (dataMode == AccountDataMode.LocalDrive)")
+            .substringBefore("val pendingLedgers")
+
+        assertTrue(localDriveReservation.contains("entitlement.documentsUsed + pendingEvents >= limit"))
+        assertTrue(localDriveReservation.contains("leaseIdForEvent"))
+        assertFalse(localDriveReservation.contains("?: error(\"OFFLINE_LEASE_REQUIRED\")"))
+        assertFalse(localDriveReservation.contains("lease.consumedCount + leasePending >= lease.allowedLimit"))
+    }
+
+    @Test
     fun unknownLocalFailureDoesNotExposeItsMessage() {
         assertEquals(
             "LOCAL_DOCUMENT_SAVE_FAILED",
@@ -70,5 +82,18 @@ class LocalDocumentSavePolicyTest {
         assertTrue(update.contains("syncStatus = nextStatus"))
         assertTrue(update.contains("dao.deleteDocumentItems(userId, documentId)"))
         assertFalse(update.contains("reserveDocumentQuotaLedger"))
+    }
+
+    @Test
+    fun localDriveBusinessSettingsMirrorRunsOnceForEachChangedPayload() {
+        val source = File("src/main/java/app/tijario/data/repository/TijarioRepository.kt").readText()
+        val mirror = source.substringAfter("private suspend fun mirrorLocalDriveBusinessSettings")
+            .substringBefore("// Legacy Save / Cache adapters")
+
+        assertTrue(mirror.contains("getBusinessSettingsMirrorFingerprint"))
+        assertTrue(mirror.contains("supabaseClient.from(\"business_settings\").upsert(remoteSettings)"))
+        assertTrue(mirror.contains("setBusinessSettingsMirrorFingerprint"))
+        assertFalse(mirror.contains("SyncScheduler(context).triggerSync"))
+        assertFalse(mirror.contains("enqueueOperationalOutbox"))
     }
 }

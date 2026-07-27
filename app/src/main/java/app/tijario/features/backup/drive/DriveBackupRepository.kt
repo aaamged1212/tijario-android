@@ -96,12 +96,11 @@ class DriveBackupRepository(
     }
 
     private fun safeLocalFile(record: BackupRecordEntity): File {
-        val root = filesRoot.canonicalFile
-        val file = File(root, record.localRelativePath).canonicalFile
-        if (!file.toPath().startsWith(root.toPath()) || !file.isFile) {
-            throw DriveBackupException.Permanent("Local backup path is invalid")
-        }
-        return file
+        return app.tijario.features.backup.resolveBackupArchiveFile(
+            filesRoot = filesRoot,
+            userId = record.userId,
+            storedRelativePath = record.localRelativePath,
+        ) ?: throw DriveBackupException.Permanent("Local backup path is invalid")
     }
 
     private fun verifyLocalChecksum(file: File, expected: String?) {

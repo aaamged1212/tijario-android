@@ -14,11 +14,9 @@ class BackupRetentionPruner(
         val keep = backupRetentionCount(settings) ?: return@withContext
         val dao = database.tijarioDao()
         dao.getBackupRecords(userId).drop(keep).forEach { record ->
-            val file = File(filesRoot, record.localRelativePath).canonicalFile
-            if (file.toPath().startsWith(filesRoot.canonicalFile.toPath())) {
-                if (!file.exists() || file.delete()) {
-                    dao.deleteBackupRecord(userId, record.id)
-                }
+            val file = resolveBackupArchiveFile(filesRoot, userId, record.localRelativePath)
+            if (file == null || file.delete()) {
+                dao.deleteBackupRecord(userId, record.id)
             }
         }
     }

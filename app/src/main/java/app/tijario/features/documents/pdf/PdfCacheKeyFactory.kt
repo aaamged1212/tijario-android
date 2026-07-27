@@ -3,7 +3,7 @@ package app.tijario.features.documents.pdf
 import app.tijario.features.documents.model.DocumentRenderModel
 
 object PdfCacheKeyFactory {
-    private const val PDF_RENDER_ENGINE_VERSION = "pdfv3"
+    private const val PDF_RENDER_ENGINE_VERSION = "pdfv5"
 
     fun key(model: DocumentRenderModel): String {
         val identity = model.documentId ?: "draft"

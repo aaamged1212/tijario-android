@@ -18,6 +18,14 @@ class PhoneNumberTests {
     }
 
     @Test
+    fun appliesTheSelectedCountryDialCodeToAnExistingLocalNumber() {
+        val localNumber = splitPhoneNumber("+966501234567").localNumber
+
+        assertEquals("+971501234567", normalizePhoneWithDialCode("+971", localNumber))
+        assertEquals("+971", splitPhoneNumber("+971501234567").dialCode)
+    }
+
+    @Test
     fun validatesE164LengthAndPrefix() {
         assertTrue(isValidE164Phone("+966501234567"))
         assertTrue(isValidE164Phone("+٩٦٦٥٠١٢٣٤٥٦٧"))
