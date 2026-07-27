@@ -400,3 +400,6 @@
 # 2026-07-27 - Vector local PDF export (uncommitted)
 - Replaced the raster `WebView.draw(canvas)` export with the native `WebView.createPrintDocumentAdapter` write path. New `pdfv5` cache entries prevent blurred `pdfv4` exports from being reused.
 - Full local gates subsequently passed: `testDebugUnitTest`, `lintDebug`, `assembleDebug`, `assemblePlayQa`, and signed `bundleRelease`.
+
+# 2026-07-27 - Authorized branch publication
+- Pushed the validated Android branch to `origin/codex/backup-drive-production-ready`; no Play upload or deployment occurred.

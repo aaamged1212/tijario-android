@@ -621,3 +621,7 @@
 - **Fix**: Local export now keeps the A4 layout/load/visual-state ordering and sends the `WebView` through `createPrintDocumentAdapter`, which writes Chromium's native vector PDF output. The cache key is `pdfv5` so raster `pdfv4` files are not reused.
 - **Validation**: `DocumentEngineTests`, full `testDebugUnitTest`, `lintDebug`, `assembleDebug`, `assemblePlayQa`, and `bundleRelease` passed. Physical PDF zoom verification remains required.
 - **Safety Status**: No commit, push, deployment, production migration, external-console action, or Play upload occurred.
+
+## 2026-07-27 (Authorized branch publication)
+- **Published**: The validated LocalDrive/document/PDF commits through `1f8f54b2e3302752d954758ae21e05f96bc43077` were pushed to `origin/codex/backup-drive-production-ready`.
+- **Safety**: No deployment, production migration, external-console action, or Play upload occurred. Local `.agents` files remain excluded.
