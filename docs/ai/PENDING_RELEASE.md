@@ -62,3 +62,8 @@ The counters migration is required to manage sequential document numbers without
 - **2026-07-27 Vector PDF follow-up**: Verify the newly generated `pdfv5` download with zoom in a PDF viewer: text and table lines must remain sharp rather than scale as one image. Also rerun `assembleRelease` without the local command timeout before any release decision.
 - **2026-07-27 Validation update**: The signed `bundleRelease` now passes locally. Keep only physical online/offline preview, reopened-detail, and PDF zoom comparison as the PDF release gate.
 - **2026-07-27**: GitHub branch publication completed. Physical PDF, Google Drive, and other release QA remain required; no Play upload occurred.
+
+## 2026-07-29 Pending release blockers
+- Do not ship LocalDrive quota hardening until the matching Web migrations and API are explicitly approved, applied, and deployed in order.
+- Physical Closed Testing must verify two installations cannot overspend one lease credit, legacy pending event recovery, and complete deletion on a disposable account.
+- Re-run Google Drive, Google native sign-in, and PDF zoom QA separately; they are out of scope for this change.

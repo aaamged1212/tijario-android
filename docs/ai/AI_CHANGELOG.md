@@ -403,3 +403,8 @@
 
 # 2026-07-27 - Authorized branch publication
 - Pushed the validated Android branch to `origin/codex/backup-drive-production-ready`; no Play upload or deployment occurred.
+
+# 2026-07-29 - Reconciliable LocalDrive quota and account deletion
+- LocalDrive creates reserve a validated lease credit under a mutex and persist the document, items, customer changes, and creation event in one Room transaction.
+- Legacy lease-less events are assigned a safe lease before reconciliation or explicitly blocked on a terminal quota result.
+- Account deletion now retains local data until the unified server deletion endpoint confirms success, then cancels backup, sync, and notification jobs.

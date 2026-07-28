@@ -82,6 +82,8 @@ object LocalizedErrorMapper {
         "notifications_refresh_failed" to "doc_error_unexpected",
         "ENTITLEMENT_INITIALIZATION_REQUIRED" to "account_initialization_retry",
         "OFFLINE_LEASE_REQUIRED" to "offline_lease_required",
+        "OFFLINE_QUOTA_UNAVAILABLE" to "offline_lease_required",
+        "account_delete_failed" to "account_delete_failed",
         "ENTITLEMENT_SIGNATURE_INVALID" to "account_initialization_invalid",
         "ENTITLEMENT_EXPIRED" to "account_initialization_invalid",
         "DEVICE_NOT_REGISTERED" to "account_initialization_retry",

@@ -87,3 +87,7 @@
 - **2026-07-27**: Current uncommitted export follow-up replaces the manual raster draw path with WebView's native print adapter and uses `pdfv5`. Focused document tests and `assemblePlayQa` pass; physical zoom verification remains pending. `assembleRelease` exceeded local three- and seven-minute command limits and is not a release gate pass.
 - **2026-07-27**: A later cached signed `bundleRelease` completed successfully, alongside full JVM tests, `lintDebug`, `assembleDebug`, and `assemblePlayQa`. The only open PDF gate is physical zoom/render verification.
 - **2026-07-27**: The validated Android branch is published to `origin/codex/backup-drive-production-ready`; no release deployment or Play upload occurred.
+
+## 2026-07-29 Release-blocker branch
+- `codex/fix-production-release-blockers` is locally validated for lease-backed LocalDrive creation-event reconciliation and safe post-confirmation account cleanup.
+- The compatible Web migrations/API are not deployed. Device-based multi-installation quota and disposable-account deletion verification remain pending.

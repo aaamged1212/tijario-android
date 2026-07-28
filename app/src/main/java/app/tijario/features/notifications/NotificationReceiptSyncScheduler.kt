@@ -29,4 +29,9 @@ class NotificationReceiptSyncScheduler(private val context: Context) {
             request,
         )
     }
+
+    fun cancel(userId: String) {
+        if (userId.isBlank()) return
+        WorkManager.getInstance(context).cancelUniqueWork("TijarioNotificationReceipts:$userId")
+    }
 }

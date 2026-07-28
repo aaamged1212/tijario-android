@@ -886,7 +886,7 @@ private fun TijarioAppContent() {
                                 authViewModel.logout()
                                 Result.success(Unit)
                             } else {
-                                Result.failure(Exception(res.message ?: "Failed to delete account"))
+                                Result.failure(IllegalStateException(res.code ?: "account_delete_failed"))
                             }
                         }
                     )

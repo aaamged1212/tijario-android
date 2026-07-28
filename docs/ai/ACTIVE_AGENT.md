@@ -33,3 +33,7 @@
 - **2026-07-27**: Current local follow-up replaces the raster local PDF path with `WebView.createPrintDocumentAdapter` and invalidates it with `pdfv5`. Focused document tests and `assemblePlayQa` passed; device zoom QA and an untimed release build remain pending. No commit, push, deployment, migration, or Play action occurred.
 - **2026-07-27**: Full local Android gates now pass, including signed `bundleRelease`. Device PDF zoom QA remains the only PDF-specific release check; no Play upload is authorized.
 - **2026-07-27**: Published the validated Android branch to GitHub only. `.agents` remains local and excluded; no deployment, migration, or Play action occurred.
+
+## 2026-07-29
+- **Current task**: Production release blocker hardening on `codex/fix-production-release-blockers`.
+- **State**: Local validation passed; no Production migration, deployment, external configuration, or Play upload occurred. `.agents` remains local and excluded.

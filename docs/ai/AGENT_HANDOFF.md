@@ -625,3 +625,9 @@
 ## 2026-07-27 (Authorized branch publication)
 - **Published**: The validated LocalDrive/document/PDF commits through `1f8f54b2e3302752d954758ae21e05f96bc43077` were pushed to `origin/codex/backup-drive-production-ready`.
 - **Safety**: No deployment, production migration, external-console action, or Play upload occurred. Local `.agents` files remain excluded.
+
+## 2026-07-29 (Production release blockers, validated locally)
+- **Quota contract**: LocalDrive document creation serializes quota-credit preparation, refreshes a lease at most once, and refuses atomic Room persistence with `OFFLINE_QUOTA_UNAVAILABLE` when no server-issued credit is available. New creation events always contain a lease ID.
+- **Legacy events**: Lease-less pending events are recovered before reconciliation. They receive a valid compatible lease when capacity exists or become `BLOCKED` for a verified terminal limit; transient failures remain pending without being silently filtered.
+- **Account deletion**: Android calls the unified mobile endpoint first and cleans Room/files/account-scoped workers only after server success.
+- **Validation**: Full JVM tests, debug Android-test assembly, lint, PlayQa, signed Release APK, and signed AAB passed. Version remains `15` / `1.1.5`.
