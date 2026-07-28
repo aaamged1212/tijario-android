@@ -1,6 +1,7 @@
 package app.tijario.data.repository
 
 import android.content.Context
+import app.tijario.config.AppPreferences
 import app.tijario.data.local.TijarioDao
 import app.tijario.data.local.TijarioDatabase
 import app.tijario.data.local.BusinessSettingsEntity
@@ -18,9 +19,12 @@ import app.tijario.data.model.DocumentType
 import app.tijario.data.model.Product
 import app.tijario.data.model.ProductKind
 import app.tijario.data.remote.BackendApiClient
+import app.tijario.data.remote.ApiResult
 import app.tijario.data.remote.CreateDocumentRequest
 import app.tijario.data.remote.DocumentCustomerInput
 import app.tijario.data.remote.DocumentItemInput
+import app.tijario.data.remote.OfflineLeaseData
+import app.tijario.data.remote.OfflineLeaseRequest
 import io.github.jan.supabase.SupabaseClient
 import androidx.room.withTransaction
 import io.mockk.coEvery
@@ -483,20 +487,14 @@ class TijarioRepositoryOfflineTests {
     }
 
     @Test
-    fun createDocument_routesLocalDriveToRoomWithoutAnActiveLease() = runBlocking {
+    fun createDocument_rejectsLocalDriveWithoutAnActiveLeaseAtomically() = runBlocking {
         coEvery { dao.getAccountEntitlement(userId) } returns localDriveEntitlement()
         coEvery { dao.getActiveLease(userId, any(), any()) } returns null
+        coEvery { backendApiClient.requestOfflineLease(any<OfflineLeaseRequest>()) } returns ApiResult<OfflineLeaseData>(
+            ok = false,
+            code = "OFFLINE_QUOTA_UNAVAILABLE",
+        )
         every { dao.observeDocuments(userId) } returns flowOf(emptyList())
-        coEvery { dao.upsertCustomer(any()) } returns Unit
-        coEvery { dao.insertDocumentItems(any()) } returns Unit
-        coEvery { dao.getCreationEventByDocument(userId, any()) } returns null
-        coEvery { dao.getPendingCreationEvents(userId) } returns emptyList()
-        coEvery { dao.insertCreationEvent(any()) } returns 1L
-        val documentSlot = slot<DocumentEntity>()
-        coEvery { dao.upsertDocument(capture(documentSlot)) } answers {
-            coEvery { dao.getDocument(userId, documentSlot.captured.id) } returns documentSlot.captured
-            Unit
-        }
 
         val result = repository.createDocument(
             CreateDocumentRequest(
@@ -507,12 +505,51 @@ class TijarioRepositoryOfflineTests {
             ),
         )
 
-        assertTrue(result.ok)
+        assertTrue(!result.ok)
+        assertEquals("OFFLINE_QUOTA_UNAVAILABLE", result.code)
         coVerify(exactly = 0) { backendApiClient.createDocument(any()) }
         coVerify(exactly = 0) { dao.upsertOutbox(any()) }
-        coVerify(exactly = 1) {
-            dao.insertCreationEvent(match { it.quotaScope == "lifetime" && it.leaseId == null })
+        coVerify(exactly = 0) { dao.upsertCustomer(any()) }
+        coVerify(exactly = 0) { dao.upsertDocument(any()) }
+        coVerify(exactly = 0) { dao.insertDocumentItems(any()) }
+        coVerify(exactly = 0) { dao.insertCreationEvent(any()) }
+    }
+
+    @Test
+    fun createDocument_localDrivePersistsThePreparedLeaseId() = runBlocking {
+        val installationId = AppPreferences.getInstallationId(context)
+        val lease = validOfflineQuotaLease().copy(
+            deviceId = installationId,
+            entitlementVersion = 1L,
+            periodMonth = "lifetime",
+        )
+        coEvery { dao.getAccountEntitlement(userId) } returns localDriveEntitlement()
+        coEvery { dao.getActiveLease(userId, installationId, any()) } returns lease
+        every { dao.observeDocuments(userId) } returns flowOf(emptyList())
+        coEvery { dao.getPendingCreationEvents(userId) } returns emptyList()
+        coEvery { dao.getCreationEventByDocument(userId, any()) } returns null
+        coEvery { dao.upsertCustomer(any()) } returns Unit
+        coEvery { dao.upsertDocument(any()) } answers {
+            val saved = firstArg<DocumentEntity>()
+            coEvery { dao.getDocument(userId, saved.id) } returns saved
+            Unit
         }
+        coEvery { dao.insertDocumentItems(any()) } returns Unit
+        val event = slot<DocumentCreationEventEntity>()
+        coEvery { dao.insertCreationEvent(capture(event)) } returns 1L
+
+        val result = repository.createDocument(
+            CreateDocumentRequest(
+                type = DocumentType.Quote,
+                customer = DocumentCustomerInput("Offline customer", "1234567"),
+                items = listOf(DocumentItemInput(name = "Service", quantity = 1, unitPrice = 10.0)),
+                currency = "SAR",
+            ),
+        )
+
+        assertTrue(result.ok)
+        assertEquals(lease.id, event.captured.leaseId)
+        coVerify(exactly = 0) { dao.upsertOutbox(any()) }
     }
 
     @Test

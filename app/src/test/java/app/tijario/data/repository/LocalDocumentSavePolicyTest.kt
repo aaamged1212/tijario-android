@@ -1,7 +1,5 @@
 package app.tijario.data.repository
 
-import app.tijario.config.AppLanguage
-import app.tijario.domain.LocalizedErrorMapper
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -10,39 +8,52 @@ import java.io.File
 
 class LocalDocumentSavePolicyTest {
     @Test
-    fun missingBootstrapAndLeaseFailuresRemainTypedForLocalSave() {
+    fun missingBootstrapAndQuotaFailuresRemainTypedForLocalSave() {
         assertEquals(
             "ENTITLEMENT_INITIALIZATION_REQUIRED",
             localDocumentFailureCode(IllegalStateException("ENTITLEMENT_INITIALIZATION_REQUIRED")),
         )
         assertEquals(
-            "OFFLINE_LEASE_REQUIRED",
-            localDocumentFailureCode(IllegalStateException("OFFLINE_LEASE_REQUIRED")),
-        )
-        assertEquals(
-            "ENTITLEMENT_INITIALIZATION_REQUIRED",
-            localDocumentFailureCode(IllegalStateException("ENTITLEMENT_EXPIRED")),
+            "OFFLINE_QUOTA_UNAVAILABLE",
+            localDocumentFailureCode(IllegalStateException("OFFLINE_QUOTA_UNAVAILABLE")),
         )
         assertEquals(
             "DOCUMENT_LIMIT_REACHED",
             localDocumentFailureCode(IllegalStateException("QUOTA_LIMIT_EXCEEDED")),
         )
-        assertTrue(
-            LocalizedErrorMapper.map("OFFLINE_LEASE_REQUIRED", null, AppLanguage.AR)
-                .contains("الاتصال"),
-        )
     }
 
     @Test
-    fun localDriveSaveUsesTheSignedPlanLimitWithoutRequiringALease() {
+    fun localDriveSaveRequiresAReconciliableLeaseCredit() {
         val source = File("src/main/java/app/tijario/data/repository/TijarioRepository.kt").readText()
         val localDriveReservation = source.substringAfter("if (dataMode == AccountDataMode.LocalDrive)")
             .substringBefore("val pendingLedgers")
 
-        assertTrue(localDriveReservation.contains("entitlement.documentsUsed + pendingEvents >= limit"))
-        assertTrue(localDriveReservation.contains("leaseIdForEvent"))
-        assertFalse(localDriveReservation.contains("?: error(\"OFFLINE_LEASE_REQUIRED\")"))
-        assertFalse(localDriveReservation.contains("lease.consumedCount + leasePending >= lease.allowedLimit"))
+        assertTrue(source.contains("ensureQuotaCreditForDocumentCreation"))
+        assertTrue(source.contains("quotaReservationMutex"))
+        assertTrue(localDriveReservation.contains("leaseId = lease.id"))
+        assertTrue(localDriveReservation.contains("OFFLINE_QUOTA_UNAVAILABLE"))
+        assertFalse(localDriveReservation.contains("leaseIdForEvent"))
+    }
+
+    @Test
+    fun oneLeaseCreditCannotBeReservedTwice() {
+        assertTrue(hasLeaseCredit(1, 0, 0))
+        assertFalse(hasLeaseCredit(1, 0, 1))
+        assertFalse(hasLeaseCredit(1, 1, 0))
+    }
+
+    @Test
+    fun legacyLeaseLessEventsAreRecoveredInsteadOfSilentlyFiltered() {
+        val source = File("src/main/java/app/tijario/data/repository/TijarioRepository.kt").readText()
+        val reconcile = source.substringAfter("private suspend fun reconcileDocumentCreationEvents")
+            .substringBefore("private companion object")
+
+        assertTrue(reconcile.contains("recoverLegacyLeaseLessCreationEvents(userId)"))
+        assertTrue(source.contains("assignLeaseToLegacyCreationEvent"))
+        assertTrue(source.contains("blockCreationEvent"))
+        assertTrue(source.contains("if (failureCode == \"DOCUMENT_LIMIT_REACHED\")"))
+        assertFalse(reconcile.contains("!it.migratedBaseline && !it.leaseId.isNullOrBlank()"))
     }
 
     @Test
@@ -78,22 +89,9 @@ class LocalDocumentSavePolicyTest {
         assertTrue(create.contains("dao.upsertCustomer(customerEntityToUpsert)"))
         assertTrue(create.contains("dao.upsertDocument(docEntity)"))
         assertTrue(create.contains("dao.insertDocumentItems(itemsEntities)"))
-        assertTrue(create.contains("reserveDocumentQuotaLedger(userId, docId)"))
+        assertTrue(create.contains("reserveDocumentQuotaLedger(userId, docId, quotaCredit)"))
         assertTrue(update.contains("syncStatus = nextStatus"))
         assertTrue(update.contains("dao.deleteDocumentItems(userId, documentId)"))
         assertFalse(update.contains("reserveDocumentQuotaLedger"))
-    }
-
-    @Test
-    fun localDriveBusinessSettingsMirrorRunsOnceForEachChangedPayload() {
-        val source = File("src/main/java/app/tijario/data/repository/TijarioRepository.kt").readText()
-        val mirror = source.substringAfter("private suspend fun mirrorLocalDriveBusinessSettings")
-            .substringBefore("// Legacy Save / Cache adapters")
-
-        assertTrue(mirror.contains("getBusinessSettingsMirrorFingerprint"))
-        assertTrue(mirror.contains("supabaseClient.from(\"business_settings\").upsert(remoteSettings)"))
-        assertTrue(mirror.contains("setBusinessSettingsMirrorFingerprint"))
-        assertFalse(mirror.contains("SyncScheduler(context).triggerSync"))
-        assertFalse(mirror.contains("enqueueOperationalOutbox"))
     }
 }

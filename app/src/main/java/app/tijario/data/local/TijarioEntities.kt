@@ -307,6 +307,8 @@ data class OfflineQuotaLeaseEntity(
     val deviceId: String,
     @ColumnInfo(name = "plan_code")
     val planCode: String,
+    @ColumnInfo(name = "entitlement_version")
+    val entitlementVersion: Long? = null,
     @ColumnInfo(name = "period_month")
     val periodMonth: String,
     @ColumnInfo(name = "allowed_limit")

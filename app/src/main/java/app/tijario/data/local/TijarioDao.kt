@@ -265,6 +265,12 @@ interface TijarioDao {
     @Query("UPDATE document_creation_events SET status = 'REJECTED', acknowledged_at_server = :resolvedAt WHERE user_id = :userId AND operation_id = :operationId AND status = 'PENDING'")
     suspend fun rejectCreationEvent(userId: String, operationId: String, resolvedAt: Long): Int
 
+    @Query("UPDATE document_creation_events SET lease_id = :leaseId WHERE user_id = :userId AND operation_id = :operationId AND status = 'PENDING' AND lease_id IS NULL")
+    suspend fun assignLeaseToLegacyCreationEvent(userId: String, operationId: String, leaseId: String): Int
+
+    @Query("UPDATE document_creation_events SET status = 'BLOCKED', acknowledged_at_server = :resolvedAt WHERE user_id = :userId AND operation_id = :operationId AND status = 'PENDING'")
+    suspend fun blockCreationEvent(userId: String, operationId: String, resolvedAt: Long): Int
+
     @Query("SELECT COUNT(*) FROM document_creation_events WHERE user_id = :userId AND migrated_baseline = 0")
     suspend fun countDocumentCreationEvents(userId: String): Int
 
