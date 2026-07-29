@@ -44,16 +44,32 @@ class LocalDocumentSavePolicyTest {
     }
 
     @Test
-    fun legacyLeaseLessEventsAreRecoveredInsteadOfSilentlyFiltered() {
-        val source = File("src/main/java/app/tijario/data/repository/TijarioRepository.kt").readText()
-        val reconcile = source.substringAfter("private suspend fun reconcileDocumentCreationEvents")
-            .substringBefore("private companion object")
+    fun consumedLeaseCreditRemainsUnavailableWhenALaterRefreshFails() {
+        // A refresh result cannot reset the persisted consumed count.
+        assertFalse(hasLeaseCredit(1, 1, 0))
+    }
 
-        assertTrue(reconcile.contains("recoverLegacyLeaseLessCreationEvents(userId)"))
-        assertTrue(source.contains("assignLeaseToLegacyCreationEvent"))
-        assertTrue(source.contains("blockCreationEvent"))
-        assertTrue(source.contains("if (failureCode == \"DOCUMENT_LIMIT_REACHED\")"))
-        assertFalse(reconcile.contains("!it.migratedBaseline && !it.leaseId.isNullOrBlank()"))
+    @Test
+    fun leaseMustMatchTheCurrentPeriodForEveryQuotaScope() {
+        assertTrue(leaseMatchesPeriod("lifetime", "lifetime"))
+        assertTrue(leaseMatchesPeriod("2026-07-01", "2026-07-01"))
+        assertFalse(leaseMatchesPeriod("2026-06-01", "2026-07-01"))
+    }
+
+    @Test
+    fun legacyLeaseRecoveryAssignsOnlyAvailableCreditsAndLeavesExcessPending() {
+        assertEquals(1, assignableLegacyEventCount(5, 3, 1, 3))
+        assertEquals(0, assignableLegacyEventCount(5, 5, 0, 3))
+        assertEquals(3, assignableLegacyEventCount(5, 0, 0, 3))
+    }
+
+    @Test
+    fun onlyServerTerminalCreationResultsBlockLegacyEvents() {
+        assertTrue(isTerminalDocumentCreationEventFailure("DOCUMENT_LIMIT_REACHED"))
+        assertTrue(isTerminalDocumentCreationEventFailure("INSTALLATION_REVOKED"))
+        assertTrue(isTerminalDocumentCreationEventFailure("ENTITLEMENT_VERSION_MISMATCH"))
+        assertFalse(isTerminalDocumentCreationEventFailure("OFFLINE_LEASE_EXHAUSTED"))
+        assertFalse(isTerminalDocumentCreationEventFailure("OFFLINE_QUOTA_UNAVAILABLE"))
     }
 
     @Test

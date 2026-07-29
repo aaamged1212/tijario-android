@@ -631,3 +631,9 @@
 - **Legacy events**: Lease-less pending events are recovered before reconciliation. They receive a valid compatible lease when capacity exists or become `BLOCKED` for a verified terminal limit; transient failures remain pending without being silently filtered.
 - **Account deletion**: Android calls the unified mobile endpoint first and cleans Room/files/account-scoped workers only after server success.
 - **Validation**: Full JVM tests, debug Android-test assembly, lint, PlayQa, signed Release APK, and signed AAB passed. Version remains `15` / `1.1.5`.
+
+## 2026-07-29 (Release-blocker contract correction, local only)
+- **Lease accounting**: A LocalDrive event consumes its lease credit only in the same Room transaction that changes that event from pending to acknowledged. Reconciliation uses the lease's exact usage-cycle period.
+- **Legacy events**: Lease-less events are assigned only up to current compatible capacity; unassignable excess stays pending for later reconciliation rather than being incorrectly marked blocked.
+- **Deletion retry**: A successful server deletion records a local pending-cleanup marker. Retrying after a local cleanup failure performs only the local cleanup, and cleanup aborts before job cancellation if a scoped file cannot be deleted.
+- **Validation**: Focused `LocalDocumentSave`, quota, and account-deletion JVM tests plus `assemblePlayQa` passed. Version remains `15` / `1.1.5`; branch publication is authorized, with no migration, deploy, or Play action.

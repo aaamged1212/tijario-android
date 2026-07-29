@@ -262,6 +262,19 @@ interface TijarioDao {
     @Query("UPDATE document_creation_events SET status = 'ACKNOWLEDGED', acknowledged_at_server = :acknowledgedAt WHERE user_id = :userId AND document_id = :documentId AND status = 'PENDING'")
     suspend fun acknowledgeCreationEvent(userId: String, documentId: String, acknowledgedAt: Long): Int
 
+    @Query(
+        """
+        UPDATE offline_quota_lease
+        SET consumed_count = consumed_count + 1,
+            status = CASE WHEN consumed_count + 1 >= allowed_limit THEN 'EXHAUSTED' ELSE 'ACTIVE' END
+        WHERE id = :leaseId
+          AND user_id = :userId
+          AND status = 'ACTIVE'
+          AND consumed_count < allowed_limit
+        """
+    )
+    suspend fun consumeLeaseCredit(userId: String, leaseId: String): Int
+
     @Query("UPDATE document_creation_events SET status = 'REJECTED', acknowledged_at_server = :resolvedAt WHERE user_id = :userId AND operation_id = :operationId AND status = 'PENDING'")
     suspend fun rejectCreationEvent(userId: String, operationId: String, resolvedAt: Long): Int
 

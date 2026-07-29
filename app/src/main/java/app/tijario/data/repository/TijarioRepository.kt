@@ -2381,7 +2381,7 @@ open class TijarioRepository(
                                             syncErrorCode = null,
                                             syncedAt = System.currentTimeMillis()
                                         ))
-                                        dao.acknowledgeCreationEvent(
+                                        acknowledgeCreationEventAndConsumeLease(
                                             userId = userId,
                                             documentId = outboxItem.entityId,
                                             acknowledgedAt = System.currentTimeMillis(),
@@ -2707,16 +2707,18 @@ open class TijarioRepository(
                 dao.deleteDeletedRecordsForUser(userId)
             }
 
-            app.tijario.features.business.logo.LogoAssetManager(context).getLocalLogoFile(userId)?.delete()
-            val userPdfDir = File(context.filesDir, "documents/pdfs/$userId")
-            if (userPdfDir.exists()) {
-                userPdfDir.deleteRecursively()
-            }
+            deleteAccountLocalPath(app.tijario.features.business.logo.LogoAssetManager(context).getLocalLogoFile(userId))
+            deleteAccountLocalPath(File(context.filesDir, "documents/pdfs/$userId"))
             app.tijario.features.backup.BackupScheduler.cancelAccountWork(context, userId)
             SyncScheduler(context).cancel(userId)
             app.tijario.features.notifications.NotificationReceiptSyncScheduler(context).cancel(userId)
-            val accountRoot = File(context.filesDir, "users/$userId")
-            if (accountRoot.exists()) accountRoot.deleteRecursively()
+            deleteAccountLocalPath(File(context.filesDir, "users/$userId"))
+        }
+    }
+
+    private fun deleteAccountLocalPath(path: File?) {
+        if (path?.exists() == true && !path.deleteRecursively()) {
+            error("ACCOUNT_LOCAL_CLEANUP_FAILED")
         }
     }
 
@@ -2819,9 +2821,9 @@ open class TijarioRepository(
             val result = byOperation[event.operationId]
                 ?: error("DOCUMENT_EVENT_RESULT_MISSING")
             if (result.success && result.eventStatus.equals("acknowledged", ignoreCase = true)) {
-                dao.acknowledgeCreationEvent(userId, event.documentId, System.currentTimeMillis())
+                acknowledgeCreationEventAndConsumeLease(userId, event.documentId, System.currentTimeMillis())
             } else if (!result.success) {
-                if (result.errorCode in TERMINAL_QUOTA_CODES) {
+                if (isTerminalDocumentCreationEventFailure(result.errorCode)) {
                     dao.blockCreationEvent(userId, event.operationId, System.currentTimeMillis())
                 } else {
                     dao.rejectCreationEvent(userId, event.operationId, System.currentTimeMillis())
@@ -2835,13 +2837,6 @@ open class TijarioRepository(
         const val PLAN_USAGE_TTL_MS = 12 * 60 * 60 * 1000L
         const val PULL_SYNC_TTL_MS = 15 * 60 * 1000L
         const val LEASE_REFRESH_MARGIN_MS = 60 * 60 * 1000L
-        val TERMINAL_QUOTA_CODES = setOf(
-            "DOCUMENT_LIMIT_REACHED",
-            "OFFLINE_LEASE_EXHAUSTED",
-            "OFFLINE_LEASE_EXPIRED",
-            "INSTALLATION_REVOKED",
-            "ENTITLEMENT_VERSION_MISMATCH",
-        )
     }
 
     private suspend fun withQuotaCreditReservation(
@@ -2874,7 +2869,7 @@ open class TijarioRepository(
                     it.expiresAt > System.currentTimeMillis() &&
                     it.planCode == entitlement.planCode &&
                     it.entitlementVersion == entitlement.entitlementVersion &&
-                    (entitlement.documentLimitScope == "billing_cycle" || it.periodMonth == periodKey)
+                    leaseMatchesPeriod(it.periodMonth, periodKey)
             } ?: return null
             val reservations = dao.getPendingCreationEvents(userId).count { it.leaseId == candidate.id }
             return candidate.takeIf { hasLeaseCredit(it.allowedLimit, it.consumedCount, reservations) }
@@ -2886,7 +2881,7 @@ open class TijarioRepository(
         val refreshFailureCode = refreshOfflineLease(userId, installationId)
         return available(dao.getActiveLease(userId, installationId, System.currentTimeMillis()))
             ?: throw IllegalStateException(
-                if (refreshFailureCode in TERMINAL_QUOTA_CODES) "QUOTA_LIMIT_EXCEEDED"
+                if (isTerminalDocumentCreationEventFailure(refreshFailureCode)) "QUOTA_LIMIT_EXCEEDED"
                 else "OFFLINE_QUOTA_UNAVAILABLE",
             )
     }
@@ -2899,24 +2894,32 @@ open class TijarioRepository(
         quotaReservationMutex.withLock {
             val preparedCredit = runCatching { ensureQuotaCreditForDocumentCreation(userId) }
             val credit = preparedCredit.getOrNull()
-            if (credit == null) {
-                val failureCode = preparedCredit.exceptionOrNull()?.let(::localDocumentFailureCode)
-                if (failureCode == "DOCUMENT_LIMIT_REACHED") {
-                    legacyEvents.forEach { event ->
-                        dao.blockCreationEvent(userId, event.operationId, System.currentTimeMillis())
-                    }
-                }
-                return@withLock
-            }
-            legacyEvents.forEach { event ->
-                val alreadyReserved = dao.getPendingCreationEvents(userId).count { it.leaseId == credit.id }
-                if (!hasLeaseCredit(credit.allowedLimit, credit.consumedCount, alreadyReserved)) {
-                    dao.blockCreationEvent(userId, event.operationId, System.currentTimeMillis())
-                } else if (dao.assignLeaseToLegacyCreationEvent(userId, event.operationId, credit.id) == 0) {
-                    dao.blockCreationEvent(userId, event.operationId, System.currentTimeMillis())
-                }
+            if (credit == null) return@withLock
+            val alreadyReserved = dao.getPendingCreationEvents(userId).count { it.leaseId == credit.id }
+            legacyEvents.take(
+                assignableLegacyEventCount(
+                    credit.allowedLimit,
+                    credit.consumedCount,
+                    alreadyReserved,
+                    legacyEvents.size,
+                ),
+            ).forEach { event ->
+                dao.assignLeaseToLegacyCreationEvent(userId, event.operationId, credit.id)
             }
         }
+    }
+
+    internal suspend fun acknowledgeCreationEventAndConsumeLease(
+        userId: String,
+        documentId: String,
+        acknowledgedAt: Long,
+    ): Boolean = database.withTransaction {
+        val event = dao.getCreationEventByDocument(userId, documentId) ?: return@withTransaction false
+        if (dao.acknowledgeCreationEvent(userId, documentId, acknowledgedAt) == 0) return@withTransaction false
+        event.leaseId?.let { leaseId ->
+            check(dao.consumeLeaseCredit(userId, leaseId) == 1) { "OFFLINE_LEASE_EXHAUSTED" }
+        }
+        true
     }
 
     private suspend fun reserveDocumentQuotaLedger(
@@ -2949,6 +2952,7 @@ open class TijarioRepository(
                 lease.userId != userId || lease.deviceId != deviceId ||
                 lease.planCode != entitlement.planCode ||
                 lease.entitlementVersion != entitlement.entitlementVersion ||
+                !leaseMatchesPeriod(lease.periodMonth, periodKey) ||
                 lease.status != "ACTIVE" || lease.expiresAt <= System.currentTimeMillis() ||
                 !hasLeaseCredit(lease.allowedLimit, lease.consumedCount, leasePending)
             ) throw IllegalStateException("OFFLINE_QUOTA_UNAVAILABLE")

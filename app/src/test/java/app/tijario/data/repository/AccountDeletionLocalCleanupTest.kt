@@ -11,7 +11,11 @@ class AccountDeletionLocalCleanupTest {
         val deleteFlow = app.substringAfter("onDeleteAccount = {").substringBefore("}\n                    )")
 
         assertTrue(deleteFlow.indexOf("apiClient.deleteAccount()") < deleteFlow.indexOf("deleteAccountLocal(userId)"))
-        assertTrue(deleteFlow.contains("if (res.ok)"))
+        assertTrue(deleteFlow.contains("if (deleteResponse != null && !deleteResponse.ok)"))
+        assertTrue(deleteFlow.contains("AppPreferences.markAccountDeletionCleanupPending(context, userId)"))
+        assertTrue(deleteFlow.contains("AppPreferences.clearPendingAccountDeletionCleanup(context, userId)"))
+        assertTrue(deleteFlow.contains("pendingAccountDeletionCleanupUserId(context) == userId"))
+        assertTrue(deleteFlow.indexOf("authViewModel.logout()") == -1)
     }
 
     @Test
@@ -21,5 +25,7 @@ class AccountDeletionLocalCleanupTest {
         assertTrue(repository.contains("BackupScheduler.cancelAccountWork(context, userId)"))
         assertTrue(repository.contains("SyncScheduler(context).cancel(userId)"))
         assertTrue(repository.contains("NotificationReceiptSyncScheduler(context).cancel(userId)"))
+        assertTrue(repository.contains("deleteAccountLocalPath"))
+        assertTrue(repository.contains("ACCOUNT_LOCAL_CLEANUP_FAILED"))
     }
 }

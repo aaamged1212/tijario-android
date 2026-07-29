@@ -553,6 +553,65 @@ class TijarioRepositoryOfflineTests {
     }
 
     @Test
+    fun acknowledgedQuotaCreationEventConsumesItsLeaseExactlyOnce() = runBlocking {
+        val event = DocumentCreationEventEntity(
+            id = "event_ack",
+            userId = userId,
+            documentId = "doc_ack",
+            operationId = "operation_ack",
+            installationId = "test_installation",
+            leaseId = "lease_ack",
+            planCode = "free",
+            quotaScope = "lifetime",
+            periodKey = "lifetime",
+            status = "PENDING",
+            createdAtClient = 1L,
+            acknowledgedAtServer = null,
+            entitlementVersion = 1L,
+            source = "local_create",
+        )
+        coEvery { dao.getCreationEventByDocument(userId, event.documentId) } returns event
+        coEvery { dao.acknowledgeCreationEvent(userId, event.documentId, any()) } returns 1
+        coEvery { dao.consumeLeaseCredit(userId, "lease_ack") } returns 1
+
+        assertTrue(repository.acknowledgeCreationEventAndConsumeLease(userId, event.documentId, 2L))
+        coVerify(exactly = 1) { dao.consumeLeaseCredit(userId, "lease_ack") }
+
+        coEvery { dao.acknowledgeCreationEvent(userId, event.documentId, any()) } returns 0
+        assertTrue(!repository.acknowledgeCreationEventAndConsumeLease(userId, event.documentId, 3L))
+        coVerify(exactly = 1) { dao.consumeLeaseCredit(userId, "lease_ack") }
+    }
+
+    @Test
+    fun acknowledgedQuotaCreationEventCannotReuseAnExhaustedLease() = runBlocking {
+        val event = DocumentCreationEventEntity(
+            id = "event_exhausted",
+            userId = userId,
+            documentId = "doc_exhausted",
+            operationId = "operation_exhausted",
+            installationId = "test_installation",
+            leaseId = "lease_exhausted",
+            planCode = "free",
+            quotaScope = "lifetime",
+            periodKey = "lifetime",
+            status = "PENDING",
+            createdAtClient = 1L,
+            acknowledgedAtServer = null,
+            entitlementVersion = 1L,
+            source = "local_create",
+        )
+        coEvery { dao.getCreationEventByDocument(userId, event.documentId) } returns event
+        coEvery { dao.acknowledgeCreationEvent(userId, event.documentId, any()) } returns 1
+        coEvery { dao.consumeLeaseCredit(userId, "lease_exhausted") } returns 0
+
+        val failure = runCatching {
+            repository.acknowledgeCreationEventAndConsumeLease(userId, event.documentId, 2L)
+        }.exceptionOrNull()
+        assertEquals("OFFLINE_LEASE_EXHAUSTED", failure?.message)
+        coVerify(exactly = 1) { dao.consumeLeaseCredit(userId, "lease_exhausted") }
+    }
+
+    @Test
     fun createDocument_rejectsExpiredLocalDriveEntitlementWithoutDeletingCachedData() = runBlocking {
         coEvery { dao.getAccountEntitlement(userId) } returns localDriveEntitlement().copy(expiresAt = 1L)
         every { dao.observeDocuments(userId) } returns flowOf(emptyList())

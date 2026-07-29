@@ -29,6 +29,7 @@ private const val KEY_SUBSCRIBED_TOPIC = "subscribed_topic"
 private const val KEY_INSTALLATION_ID = "installation_id"
 private const val KEY_PHONE_BACKUP_TREE_URI = "phone_backup_tree_uri"
 private const val KEY_BUSINESS_SETTINGS_MIRROR_FINGERPRINT = "business_settings_mirror_fingerprint"
+private const val KEY_PENDING_ACCOUNT_DELETION_CLEANUP_USER_ID = "pending_account_deletion_cleanup_user_id"
 
 private fun planKey(userId: String, suffix: String) = "plan_usage_${userId}_$suffix"
 
@@ -214,5 +215,23 @@ object AppPreferences {
             .edit()
             .putString(planKey(userId, KEY_BUSINESS_SETTINGS_MIRROR_FINGERPRINT), fingerprint)
             .apply()
+    }
+
+    fun pendingAccountDeletionCleanupUserId(context: Context): String? =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(KEY_PENDING_ACCOUNT_DELETION_CLEANUP_USER_ID, null)
+
+    fun markAccountDeletionCleanupPending(context: Context, userId: String) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(KEY_PENDING_ACCOUNT_DELETION_CLEANUP_USER_ID, userId)
+            .apply()
+    }
+
+    fun clearPendingAccountDeletionCleanup(context: Context, userId: String) {
+        val preferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        if (preferences.getString(KEY_PENDING_ACCOUNT_DELETION_CLEANUP_USER_ID, null) == userId) {
+            preferences.edit().remove(KEY_PENDING_ACCOUNT_DELETION_CLEANUP_USER_ID).apply()
+        }
     }
 }

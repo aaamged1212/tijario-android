@@ -878,15 +878,27 @@ private fun TijarioAppContent() {
                         onLogout = { authViewModel.logout() },
                         onDeleteAccount = {
                             val userId = dataViewModel.currentUserId() ?: ""
-                            val res = app.tijario.config.Supabase.apiClient.deleteAccount()
-                            if (res.ok) {
-                                if (userId.isNotBlank()) {
-                                    dataViewModel.deleteAccountLocal(userId)
-                                }
-                                authViewModel.logout()
-                                Result.success(Unit)
+                            if (userId.isBlank()) {
+                                Result.failure(IllegalStateException("account_delete_failed"))
                             } else {
-                                Result.failure(IllegalStateException(res.code ?: "account_delete_failed"))
+                                val cleanupPending = AppPreferences.pendingAccountDeletionCleanupUserId(context) == userId
+                                val deleteResponse = if (cleanupPending) null else {
+                                    app.tijario.config.Supabase.apiClient.deleteAccount()
+                                }
+                                if (deleteResponse != null && !deleteResponse.ok) {
+                                    Result.failure(IllegalStateException(deleteResponse.code ?: "account_delete_failed"))
+                                } else {
+                                    if (deleteResponse != null) {
+                                        AppPreferences.markAccountDeletionCleanupPending(context, userId)
+                                    }
+                                    dataViewModel.deleteAccountLocal(userId).fold(
+                                        onSuccess = {
+                                            AppPreferences.clearPendingAccountDeletionCleanup(context, userId)
+                                            Result.success(Unit)
+                                        },
+                                        onFailure = { error -> Result.failure(error) },
+                                    )
+                                }
                             }
                         }
                     )

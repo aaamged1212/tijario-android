@@ -67,3 +67,4 @@ The counters migration is required to manage sequential document numbers without
 - Do not ship LocalDrive quota hardening until the matching Web migrations and API are explicitly approved, applied, and deployed in order.
 - Physical Closed Testing must verify two installations cannot overspend one lease credit, legacy pending event recovery, and complete deletion on a disposable account.
 - Re-run Google Drive, Google native sign-in, and PDF zoom QA separately; they are out of scope for this change.
+- Re-run the same-device acknowledgement/retry path: the first accepted event must consume one lease credit, duplicate acknowledgement must not consume another, and lease-less legacy excess must remain pending until reconciliation can safely assign it.

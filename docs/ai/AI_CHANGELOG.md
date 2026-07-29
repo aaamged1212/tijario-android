@@ -408,3 +408,7 @@
 - LocalDrive creates reserve a validated lease credit under a mutex and persist the document, items, customer changes, and creation event in one Room transaction.
 - Legacy lease-less events are assigned a safe lease before reconciliation or explicitly blocked on a terminal quota result.
 - Account deletion now retains local data until the unified server deletion endpoint confirms success, then cancels backup, sync, and notification jobs.
+
+# 2026-07-29 - Release-blocker contract correction
+- Lease consumption now occurs exactly once with the acknowledgement transaction, legacy lease-less events retain pending state when capacity is unavailable, and failed local account cleanup remains retryable after server confirmation.
+- Focused JVM tests and `assemblePlayQa` passed locally. Version remains `15` / `1.1.5`; branch publication is authorized, with no deploy, migration, or Play action.

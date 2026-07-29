@@ -91,3 +91,4 @@
 ## 2026-07-29 Release-blocker branch
 - `codex/fix-production-release-blockers` is locally validated for lease-backed LocalDrive creation-event reconciliation and safe post-confirmation account cleanup.
 - The compatible Web migrations/API are not deployed. Device-based multi-installation quota and disposable-account deletion verification remain pending.
+- Local reconciliation now requires an exact lease cycle, consumes a credit only with the first acknowledgement, and retains unassignable legacy events as pending. Account cleanup persists a retry marker after server confirmation. These changes are local only.

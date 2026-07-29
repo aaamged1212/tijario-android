@@ -7,3 +7,19 @@ internal fun hasLeaseCredit(
     pendingReservations: Int,
 ): Boolean = allowedCount >= 0 && consumedCount >= 0 && pendingReservations >= 0 &&
     consumedCount + pendingReservations < allowedCount
+
+internal fun leaseMatchesPeriod(leasePeriod: String, expectedPeriod: String): Boolean =
+    leasePeriod == expectedPeriod
+
+internal fun assignableLegacyEventCount(
+    allowedCount: Int,
+    consumedCount: Int,
+    pendingReservations: Int,
+    legacyEventCount: Int,
+): Int = (allowedCount - consumedCount - pendingReservations).coerceIn(0, legacyEventCount)
+
+internal fun isTerminalDocumentCreationEventFailure(errorCode: String?): Boolean = errorCode in setOf(
+    "DOCUMENT_LIMIT_REACHED",
+    "INSTALLATION_REVOKED",
+    "ENTITLEMENT_VERSION_MISMATCH",
+)
