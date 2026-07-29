@@ -65,6 +65,16 @@ class PhoneBackupContractTest {
     }
 
     @Test
+    fun selectedSafFolderUsesItsActualDisplayNameInTheBackupScreen() {
+        val repository = File("src/main/java/app/tijario/features/backup/PhoneBackupRepository.kt").readText()
+        val screen = File("src/main/java/app/tijario/ui/screens/BackupSettingsScreen.kt").readText()
+
+        assertTrue(repository.contains("setPhoneBackupTreeName"))
+        assertTrue(repository.contains("destinationDisplayName"))
+        assertTrue(screen.contains("phoneBackupDestinationDisplayName"))
+    }
+
+    @Test
     fun localHistorySupportsExplicitRestoreConfirmationAndSharing() {
         val source = File("src/main/java/app/tijario/ui/screens/BackupSettingsScreen.kt").readText()
 

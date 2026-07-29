@@ -25,6 +25,13 @@ class BackupRestoreException(
     }
 }
 
+enum class BackupRestoreStage(val progressKey: String) {
+    VALIDATING("backup_validating"),
+    CREATING_SAFETY_BACKUP("backup_creating_safety_backup"),
+    RESTORING_FILES("backup_restoring_files"),
+    RESTORING_RECORDS("backup_restoring"),
+}
+
 internal fun restoreFailureFor(error: Throwable): BackupRestoreException {
     if (error is BackupRestoreException) return error
     if (error is BackupKeyException) {

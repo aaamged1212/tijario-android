@@ -12,5 +12,7 @@ class BackupNotificationContractTest {
         assertEquals("tijario_backup_restore", BACKUP_NOTIFICATION_CHANNEL_ID)
         assertTrue(source.contains("areNotificationsEnabled"))
         assertTrue(source.contains("Backup and Restore"))
+        assertTrue(source.contains("createCancelPendingIntent"))
+        assertTrue(source.contains("foregroundInfo"))
     }
 }

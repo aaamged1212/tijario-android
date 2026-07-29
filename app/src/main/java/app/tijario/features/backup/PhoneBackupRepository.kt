@@ -47,6 +47,7 @@ class PhoneBackupRepository(private val context: Context) {
         val flags = android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION
         context.contentResolver.takePersistableUriPermission(uri, flags)
         AppPreferences.setPhoneBackupTreeUri(context, userId, uri.toString())
+        AppPreferences.setPhoneBackupTreeName(context, userId, treeDisplayName(uri))
     }
 
     fun destinationKey(userId: String): String =
@@ -61,6 +62,22 @@ class PhoneBackupRepository(private val context: Context) {
     fun restoreInitialUri(userId: String): Uri =
         AppPreferences.getPhoneBackupTreeUri(context, userId)
             ?: Uri.parse("content://com.android.externalstorage.documents/document/primary%3ADownload%2FTijario%2FBackup")
+
+    fun destinationDisplayName(userId: String): String? =
+        AppPreferences.getPhoneBackupTreeName(context, userId)
+
+    private fun treeDisplayName(treeUri: Uri): String? = runCatching {
+        val root = DocumentsContract.buildDocumentUriUsingTree(treeUri, DocumentsContract.getTreeDocumentId(treeUri))
+        context.contentResolver.query(
+            root,
+            arrayOf(DocumentsContract.Document.COLUMN_DISPLAY_NAME),
+            null,
+            null,
+            null,
+        )?.use { cursor ->
+            if (cursor.moveToFirst()) cursor.getString(0)?.trim()?.takeIf(String::isNotEmpty) else null
+        }
+    }.getOrNull()
 
     @RequiresApi(Build.VERSION_CODES.Q)
     private fun saveToMediaStore(source: File): PhoneBackupFile =

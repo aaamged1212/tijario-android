@@ -15,6 +15,8 @@ open class LocalBackupWorker(
         val database = TijarioDatabase.getInstance(applicationContext)
         val settings = database.tijarioDao().getBackupSettings(userId) ?: return Result.success()
         if (BackupScheduler.intervalDays(settings.frequency) == null) return Result.success()
+        val notifier = BackupWorkNotifier(applicationContext)
+        setForeground(notifier.foregroundInfo(id, "Tijario backup", "Creating encrypted phone backup", 0))
 
         return runCatching {
             val record = BackupCoordinator(applicationContext, database, Supabase.apiClient)
@@ -28,7 +30,7 @@ open class LocalBackupWorker(
         }.fold(
             onSuccess = { Result.success() },
             onFailure = { Result.failure() },
-        )
+        ).also { notifier.clear(id) }
     }
 
     companion object {

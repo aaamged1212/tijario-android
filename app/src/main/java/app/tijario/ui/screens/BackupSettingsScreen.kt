@@ -1,8 +1,12 @@
 package app.tijario.ui.screens
 
+import android.Manifest
 import android.app.Application
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -59,10 +63,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.core.content.ContextCompat
 import app.tijario.config.LocalLanguage
 import app.tijario.config.Localization
 import app.tijario.config.t
 import app.tijario.features.backup.BackupViewModel
+import app.tijario.features.backup.BackupWorkNotifier
 import app.tijario.features.backup.RestoreBackupDocumentContract
 import app.tijario.features.backup.drive.DriveConnectionState
 import app.tijario.features.backup.drive.DriveBackupFile
@@ -89,6 +95,9 @@ fun BackupSettingsScreen(
     var pendingRestoreUri by remember { mutableStateOf<android.net.Uri?>(null) }
     var pendingDriveRestore by remember { mutableStateOf<DriveBackupFile?>(null) }
     var pendingLocalRestore by remember { mutableStateOf<app.tijario.data.local.BackupRecordEntity?>(null) }
+    var pendingNotificationAction by remember { mutableStateOf<(() -> Unit)?>(null) }
+    var showNotificationRationale by remember { mutableStateOf(false) }
+    val backupNotifier = remember(context) { BackupWorkNotifier(context) }
 
     val exportLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/octet-stream"),
@@ -106,6 +115,22 @@ fun BackupSettingsScreen(
         ActivityResultContracts.StartIntentSenderForResult(),
     ) { result ->
         backupViewModel.completeGoogleDriveAuthorization(result.data)
+    }
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) {
+        pendingNotificationAction?.invoke()
+        pendingNotificationAction = null
+    }
+    val startTrackedOperation: ((() -> Unit) -> Unit) = { action ->
+        val permissionMissing = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        if (permissionMissing) {
+            pendingNotificationAction = action
+            showNotificationRationale = true
+        } else {
+            action()
+        }
     }
 
     LaunchedEffect(state.exportFileName) {
@@ -186,7 +211,7 @@ fun BackupSettingsScreen(
                             style = MaterialTheme.typography.bodySmall,
                         )
                         Text(
-                            text = "${t("backup_phone_location")}: ${t(state.phoneBackupDestination.ifBlank { "backup_phone_folder_required" })}",
+                            text = "${t("backup_phone_location")}: ${state.phoneBackupDestinationDisplayName ?: t(state.phoneBackupDestination.ifBlank { "backup_phone_folder_required" })}",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.bodySmall,
                         )
@@ -289,6 +314,17 @@ fun BackupSettingsScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodySmall,
                     )
+                    if (!backupNotifier.notificationsAvailable()) {
+                        TextButton(
+                            onClick = {
+                                context.startActivity(
+                                    Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                                        .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName),
+                                )
+                            },
+                            enabled = !state.isBusy,
+                        ) { Text(t("backup_notifications_settings")) }
+                    }
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -332,7 +368,7 @@ fun BackupSettingsScreen(
                     }
                     state.latestBackup?.takeIf { it.status == "DRIVE_FAILED" }?.let { record ->
                         OutlinedButton(
-                            onClick = { backupViewModel.retryDriveUpload(record.id) },
+                            onClick = { startTrackedOperation { backupViewModel.retryDriveUpload(record.id) } },
                             enabled = !state.isBusy && state.driveConnectionState is DriveConnectionState.Connected,
                             modifier = Modifier.fillMaxWidth(),
                         ) { Text(t("backup_drive_retry")) }
@@ -371,7 +407,7 @@ fun BackupSettingsScreen(
                         }
                     }
                     Button(
-                        onClick = backupViewModel::backupNowToGoogleDrive,
+                        onClick = { startTrackedOperation(backupViewModel::backupNowToGoogleDrive) },
                         enabled = !state.isBusy && state.driveConnectionState is DriveConnectionState.Connected,
                         modifier = Modifier.fillMaxWidth(),
                     ) {
@@ -383,7 +419,7 @@ fun BackupSettingsScreen(
             }
 
             Button(
-                onClick = { backupViewModel.saveBackupToPhone() },
+                onClick = { startTrackedOperation { backupViewModel.saveBackupToPhone() } },
                 enabled = !state.isBusy && userId.isNotBlank(),
                 modifier = Modifier.fillMaxWidth().height(52.dp),
                 shape = RoundedCornerShape(16.dp),
@@ -454,7 +490,7 @@ fun BackupSettingsScreen(
             }
 
             OutlinedButton(
-                onClick = { restoreLauncher.launch(arrayOf("application/octet-stream", "application/zip", "application/x-tijario-backup")) },
+                onClick = { startTrackedOperation { restoreLauncher.launch(arrayOf("application/octet-stream", "application/zip", "application/x-tijario-backup")) } },
                 enabled = !state.isBusy && userId.isNotBlank(),
                 modifier = Modifier.fillMaxWidth().height(52.dp),
                 shape = RoundedCornerShape(16.dp),
@@ -497,7 +533,7 @@ fun BackupSettingsScreen(
             confirmButton = {
                 Button(onClick = {
                     pendingRestoreUri = null
-                    backupViewModel.restoreFrom(uri)
+                    startTrackedOperation { backupViewModel.restoreFrom(uri) }
                 }) { Text(t("backup_restore_confirm")) }
             },
             dismissButton = {
@@ -514,7 +550,7 @@ fun BackupSettingsScreen(
             confirmButton = {
                 Button(onClick = {
                     pendingDriveRestore = null
-                    backupViewModel.restoreFromDrive(remote)
+                    startTrackedOperation { backupViewModel.restoreFromDrive(remote) }
                 }) { Text(t("backup_restore_confirm")) }
             },
             dismissButton = {
@@ -531,11 +567,42 @@ fun BackupSettingsScreen(
             confirmButton = {
                 Button(onClick = {
                     pendingLocalRestore = null
-                    backupViewModel.restoreLocalRecord(record)
+                    startTrackedOperation { backupViewModel.restoreLocalRecord(record) }
                 }) { Text(t("backup_restore_confirm")) }
             },
             dismissButton = {
                 TextButton(onClick = { pendingLocalRestore = null }) { Text(t("cancel")) }
+            },
+        )
+    }
+
+    if (showNotificationRationale) {
+        AlertDialog(
+            onDismissRequest = {
+                showNotificationRationale = false
+                pendingNotificationAction?.invoke()
+                pendingNotificationAction = null
+            },
+            title = { Text(t("backup_notifications_title"), fontWeight = FontWeight.Bold) },
+            text = { Text(t("backup_notifications_body")) },
+            confirmButton = {
+                Button(onClick = {
+                    showNotificationRationale = false
+                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                }) { Text(t("backup_notifications_allow")) }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showNotificationRationale = false
+                    pendingNotificationAction?.invoke()
+                    pendingNotificationAction = null
+                    if (!backupNotifier.notificationsAvailable()) {
+                        context.startActivity(
+                            Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                                .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName),
+                        )
+                    }
+                }) { Text(t("backup_notifications_settings")) }
             },
         )
     }

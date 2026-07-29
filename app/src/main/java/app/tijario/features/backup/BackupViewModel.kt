@@ -5,6 +5,8 @@ import android.content.Intent
 import android.content.IntentSender
 import android.net.Uri
 import android.util.Log
+import androidx.work.WorkInfo
+import androidx.work.WorkManager
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -24,9 +26,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.util.UUID
 
 data class BackupUiState(
     val isBusy: Boolean = false,
@@ -40,6 +45,7 @@ data class BackupUiState(
     val exportFileName: String? = null,
     val phoneBackup: PhoneBackupFile? = null,
     val phoneBackupDestination: String = "",
+    val phoneBackupDestinationDisplayName: String? = null,
     val shareIntent: Intent? = null,
     val driveAuthorizationIntentSender: IntentSender? = null,
     val messageKey: String? = null,
@@ -59,6 +65,7 @@ class BackupViewModel(
     private val _uiState = MutableStateFlow(BackupUiState())
     val uiState: StateFlow<BackupUiState> = _uiState.asStateFlow()
     private var preparedExport: File? = null
+    private var activeWorkJob: Job? = null
 
     init {
         refreshLatest()
@@ -118,12 +125,14 @@ class BackupViewModel(
                         }
                         BackupTarget.GOOGLE_DRIVE -> record.copy(status = "DRIVE_PENDING", lastError = null).also {
                             database.tijarioDao().upsertBackupRecord(it)
-                            BackupScheduler.enqueueDriveUpload(getApplication(), settings, it.id, userInitiated = true)
                         }
                         BackupTarget.AUTOMATIC -> record
                     }
+                    val uploadWorkId = if (target == BackupTarget.GOOGLE_DRIVE) {
+                        BackupScheduler.enqueueDriveUpload(getApplication(), settings, effectiveRecord.id, userInitiated = true)
+                    } else null
                     _uiState.value = _uiState.value.copy(
-                        isBusy = false,
+                        isBusy = target == BackupTarget.GOOGLE_DRIVE,
                         latestBackup = effectiveRecord,
                         phoneBackup = phoneBackup,
                         phoneBackupDestination = phoneBackup?.destinationKey
@@ -134,9 +143,12 @@ class BackupViewModel(
                             BackupTarget.GOOGLE_DRIVE -> "backup_drive_pending"
                             BackupTarget.AUTOMATIC -> null
                         },
-                        operationStage = if (target == BackupTarget.GOOGLE_DRIVE) "backup_drive_pending" else "backup_completed",
-                        operationPercent = 100,
+                        operationStage = if (target == BackupTarget.GOOGLE_DRIVE) "backup_drive_waiting_start" else "backup_completed",
+                        operationPercent = if (target == BackupTarget.GOOGLE_DRIVE) 0 else 100,
                     )
+                    if (target == BackupTarget.GOOGLE_DRIVE) {
+                        uploadWorkId?.let { observeWork(it, BackupWorkKind.UPLOAD) }
+                    }
                     refreshLatest()
                 }
                 .onFailure { error ->
@@ -183,46 +195,12 @@ class BackupViewModel(
 
     fun restoreFrom(destination: Uri?) {
         if (destination == null || userId.isBlank() || _uiState.value.isBusy) return
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isBusy = true, messageKey = null)
-            runCatching {
-                val staged = withContext(Dispatchers.IO) {
-                    val input = getApplication<Application>().contentResolver.openInputStream(destination)
-                        ?: throw BackupValidationException("Backup file is unavailable")
-                    input.use { BackupArchiveInputStager.copyToPrivateFile(it, getApplication<Application>().filesDir, userId) }
-                }
-                try {
-                    coordinator.restoreLocalBackup(userId, staged.file, allowNetwork = true)
-                } finally {
-                    staged.delete()
-                }
-            }.onSuccess {
-                _uiState.value = _uiState.value.copy(isBusy = false, messageKey = "backup_restored_success")
-                refreshLatest()
-            }.onFailure { error ->
-                _uiState.value = _uiState.value.copy(isBusy = false, messageKey = backupMessageKeyFor(restoreFailureFor(error), "backup_restore_failed"))
-            }
-        }
+        BackupScheduler.enqueueFileRestore(getApplication(), userId, destination.toString())?.let(::observeRestoreWork)
     }
 
     fun restoreLocalRecord(record: BackupRecordEntity) {
         if (record.userId != userId || _uiState.value.isBusy) return
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isBusy = true, messageKey = null)
-            runCatching {
-                val file = resolveBackupArchiveFile(
-                    filesRoot = getApplication<Application>().filesDir,
-                    userId = userId,
-                    storedRelativePath = record.localRelativePath,
-                ) ?: throw BackupValidationException("Backup file is unavailable")
-                coordinator.restoreLocalBackup(userId, file, allowNetwork = true)
-            }.onSuccess {
-                _uiState.value = _uiState.value.copy(isBusy = false, messageKey = "backup_restored_success")
-                refreshLatest()
-            }.onFailure { error ->
-                _uiState.value = _uiState.value.copy(isBusy = false, messageKey = backupMessageKeyFor(restoreFailureFor(error), "backup_restore_failed"))
-            }
-        }
+        BackupScheduler.enqueueLocalRestore(getApplication(), userId, record.id)?.let(::observeRestoreWork)
     }
 
     fun consumeMessage() {
@@ -324,47 +302,7 @@ class BackupViewModel(
 
     fun restoreFromDrive(remote: DriveBackupFile) {
         if (userId.isBlank() || _uiState.value.isBusy) return
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(
-                isBusy = true,
-                messageKey = null,
-                operationTarget = BackupTarget.GOOGLE_DRIVE,
-                operationStage = "backup_downloading",
-                operationPercent = 0,
-            )
-            val temporary = File(getApplication<Application>().cacheDir, "drive-restore-${remote.backupId}.tijario")
-            runCatching {
-                val repository = DriveBackupRepository(
-                    database,
-                    getApplication<Application>().filesDir,
-                    driveClient(),
-                )
-                repository.download(userId, remote, temporary) { transferred, total ->
-                    _uiState.value = _uiState.value.copy(
-                        operationStage = "backup_downloading",
-                        operationPercent = progressPercent(transferred, total),
-                    )
-                }
-                _uiState.value = _uiState.value.copy(operationStage = "backup_restoring", operationPercent = null)
-                coordinator.restoreLocalBackup(userId, temporary, allowNetwork = true)
-            }.onSuccess {
-                _uiState.value = _uiState.value.copy(
-                    isBusy = false,
-                    messageKey = "backup_restored_success",
-                    operationStage = "backup_restored_success",
-                    operationPercent = 100,
-                )
-                refreshLatest()
-            }.onFailure { error ->
-                _uiState.value = _uiState.value.copy(
-                    isBusy = false,
-                    messageKey = backupMessageKeyFor(restoreFailureFor(error), "backup_restore_failed"),
-                    operationStage = "backup_restore_failed",
-                    operationPercent = null,
-                )
-            }
-            temporary.delete()
-        }
+        BackupScheduler.enqueueDriveRestore(getApplication(), userId, remote)?.let(::observeRestoreWork)
     }
 
     fun deleteDriveBackup(remote: DriveBackupFile) {
@@ -406,7 +344,7 @@ class BackupViewModel(
 
     fun retryDriveUpload(backupId: String) {
         val settings = _uiState.value.settings ?: return
-        if (!settings.driveEnabled || backupId.isBlank()) return
+        if (backupId.isBlank()) return
         viewModelScope.launch {
             val record = withContext(Dispatchers.IO) {
                 database.tijarioDao().getBackupRecords(userId).firstOrNull { it.id == backupId }
@@ -414,8 +352,58 @@ class BackupViewModel(
             withContext(Dispatchers.IO) {
                 database.tijarioDao().upsertBackupRecord(record.copy(status = "DRIVE_PENDING", lastError = null))
             }
-            BackupScheduler.enqueueDriveUpload(getApplication(), settings, backupId)
+            BackupScheduler.enqueueDriveUpload(getApplication(), settings, backupId, userInitiated = true)
+                ?.let { observeWork(it, BackupWorkKind.UPLOAD) }
             refreshLatest()
+        }
+    }
+
+    private fun observeRestoreWork(workId: UUID) {
+        _uiState.value = _uiState.value.copy(
+            isBusy = true,
+            messageKey = null,
+            operationTarget = BackupTarget.GOOGLE_DRIVE,
+            operationStage = "backup_waiting_start",
+            operationPercent = 0,
+        )
+        observeWork(workId, BackupWorkKind.RESTORE)
+    }
+
+    /** WorkManager, rather than enqueue time, is the source of truth for long-running backup UI. */
+    private fun observeWork(workId: UUID, kind: BackupWorkKind) {
+        activeWorkJob?.cancel()
+        activeWorkJob = viewModelScope.launch {
+            WorkManager.getInstance(getApplication()).getWorkInfoByIdFlow(workId).collect { info ->
+                if (info == null) return@collect
+                val stage = info.progress.getString(DriveUploadWorker.PROGRESS_STAGE_KEY)
+                    ?: info.progress.getString(BackupRestoreWorker.PROGRESS_STAGE_KEY)
+                    ?: when (info.state) {
+                        WorkInfo.State.ENQUEUED, WorkInfo.State.BLOCKED -> "backup_waiting_start"
+                        WorkInfo.State.RUNNING -> "backup_preparing"
+                        WorkInfo.State.SUCCEEDED -> if (kind == BackupWorkKind.UPLOAD) "backup_drive_uploaded" else "backup_restored_success"
+                        WorkInfo.State.CANCELLED -> "backup_cancelled"
+                        WorkInfo.State.FAILED -> if (kind == BackupWorkKind.UPLOAD) "backup_drive_failed" else "backup_restore_failed"
+                    }
+                val progress = info.progress.getInt(DriveUploadWorker.PROGRESS_PERCENT_KEY, -1)
+                    .takeIf { it >= 0 }
+                    ?: info.progress.getInt(BackupRestoreWorker.PROGRESS_PERCENT_KEY, -1).takeIf { it >= 0 }
+                val message = when (info.state) {
+                    WorkInfo.State.SUCCEEDED -> if (kind == BackupWorkKind.UPLOAD) "backup_drive_uploaded" else "backup_restored_success"
+                    WorkInfo.State.FAILED -> if (kind == BackupWorkKind.UPLOAD) "backup_drive_failed" else "backup_restore_failed"
+                    WorkInfo.State.CANCELLED -> "backup_cancelled"
+                    else -> null
+                }
+                _uiState.value = _uiState.value.copy(
+                    isBusy = !info.state.isFinished,
+                    operationStage = stage,
+                    operationPercent = progress,
+                    messageKey = message ?: _uiState.value.messageKey,
+                )
+                if (info.state.isFinished) {
+                    refreshLatest()
+                    activeWorkJob?.cancel()
+                }
+            }
         }
     }
 
@@ -447,6 +435,7 @@ class BackupViewModel(
                 driveConnectionState = driveState,
                 driveBackups = driveBackups,
                 phoneBackupDestination = PhoneBackupRepository(getApplication()).destinationKey(userId),
+                phoneBackupDestinationDisplayName = PhoneBackupRepository(getApplication()).destinationDisplayName(userId),
             )
             BackupScheduler.apply(getApplication(), settings)
         }
@@ -499,4 +488,6 @@ class BackupViewModel(
         DriveConnectionState.TemporarilyUnavailable -> "backup_drive_temporarily_unavailable"
         else -> null
     }
+
+    private enum class BackupWorkKind { UPLOAD, RESTORE }
 }

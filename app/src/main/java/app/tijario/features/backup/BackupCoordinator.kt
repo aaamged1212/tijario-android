@@ -48,7 +48,9 @@ class BackupCoordinator(
         userId: String,
         archive: ByteArray,
         allowNetwork: Boolean,
+        onStage: suspend (BackupRestoreStage) -> Unit = {},
     ): BackupManifest = BackupOperationGuard.withAccountLock(userId) {
+        onStage(BackupRestoreStage.VALIDATING)
         val installationId = AppPreferences.getInstallationId(appContext)
         val keyVersion = BackupArchiveCodec.peekKeyVersion(archive)
         val restorer = LocalBackupRestorer(database, appContext.filesDir)
@@ -61,13 +63,14 @@ class BackupCoordinator(
             }
         }
         // Preserve a restorable snapshot before replacing any account rows or assets.
+        onStage(BackupRestoreStage.CREATING_SAFETY_BACKUP)
         try {
             createLocalBackupUnlocked(userId, allowNetwork)
         } catch (error: Throwable) {
             throw BackupRestoreException(BackupRestoreException.Code.PRE_RESTORE_SAFETY_BACKUP_FAILED, error)
         }
         try {
-            restorer.restore(decoded, userId)
+            restorer.restore(decoded, userId, onStage)
         } catch (error: BackupValidationException) {
             throw BackupRestoreException(BackupRestoreException.Code.BACKUP_RESTORE_TRANSACTION_FAILED, error)
         }
@@ -77,11 +80,14 @@ class BackupCoordinator(
         userId: String,
         archiveFile: File,
         allowNetwork: Boolean,
+        onStage: suspend (BackupRestoreStage) -> Unit = {},
     ): BackupManifest = BackupOperationGuard.withAccountLock(userId) {
+        onStage(BackupRestoreStage.VALIDATING)
         val installationId = AppPreferences.getInstallationId(appContext)
         val keyVersion = BackupArchiveCodec.peekKeyVersion(archiveFile)
         val restorer = LocalBackupRestorer(database, appContext.filesDir)
         val decoded = keyStore.resolve(userId, installationId, allowNetwork, keyVersion).let { key ->
+            onStage(BackupRestoreStage.CREATING_SAFETY_BACKUP)
             try {
                 if (key.keyVersion != keyVersion) throw BackupValidationException("Backup key version does not match archive")
                 restorer.validate(archiveFile, key.keyBytes, userId, File(appContext.cacheDir, "backup-restore/$userId"))
@@ -96,7 +102,7 @@ class BackupCoordinator(
                 throw BackupRestoreException(BackupRestoreException.Code.PRE_RESTORE_SAFETY_BACKUP_FAILED, error)
             }
             try {
-                restorer.restore(decoded, userId)
+                restorer.restore(decoded, userId, onStage)
             } catch (error: BackupValidationException) {
                 throw BackupRestoreException(BackupRestoreException.Code.BACKUP_RESTORE_TRANSACTION_FAILED, error)
             }

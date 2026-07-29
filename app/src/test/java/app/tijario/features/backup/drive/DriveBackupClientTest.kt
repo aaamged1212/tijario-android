@@ -1,5 +1,7 @@
 package app.tijario.features.backup.drive
 
+import app.tijario.features.backup.BackupArchiveCodec
+import app.tijario.features.backup.BackupManifest
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
@@ -52,6 +54,49 @@ class DriveBackupClientTest {
         val destination = File.createTempFile("drive-download", ".tijario")
         client.downloadBackup(remote.id, destination)
         assertArrayEquals(source.readBytes(), destination.readBytes())
+    }
+
+    @Test
+    fun encryptedDocumentArchiveSurvivesFakeDriveUploadDownloadAndRestoreValidation() = runBlocking {
+        val key = ByteArray(32) { (it + 1).toByte() }
+        val archive = BackupArchiveCodec.create(
+            manifest = BackupManifest(
+                formatVersion = 1,
+                roomDatabaseVersion = 18,
+                applicationVersion = "test",
+                minimumApplicationVersion = "test",
+                accountId = "user-1",
+                installationId = "device-1",
+                backupSequence = 1,
+                createdAtEpochMillis = 1L,
+                encryptionVersion = 1,
+                keyVersion = 1,
+                recordCounts = mapOf("documents" to 1),
+                documentCount = 1,
+                documentCreationEventCount = 1,
+                pdfIncludedCount = 0,
+                pdfMissingCount = 0,
+                pdfFailedGenerationCount = 0,
+            ),
+            logicalEntries = mapOf(
+                "data/documents.json" to "[]".encodeToByteArray(),
+                "data/document-items.json" to "[]".encodeToByteArray(),
+                "data/document-creation-events.json" to "[]".encodeToByteArray(),
+            ),
+            encryptionKey = key,
+        )
+        val client = FakeDriveBackupClient(DriveConnectionState.Connected("user-1"))
+        val folder = DriveFolderRepository(client).resolve().backupsId
+        val source = temporaryArchive("placeholder").apply { writeBytes(archive) }
+        val remote = client.uploadBackup(folder, source, DriveUploadMetadata("user-1", "backup-1", sha256(archive), 1L))
+        val downloaded = File.createTempFile("drive-round-trip", ".tijario")
+
+        client.downloadBackup(remote.id, downloaded)
+        val decoded = BackupArchiveCodec.open(downloaded.readBytes(), key, "user-1")
+
+        assertEquals("user-1", decoded.manifest.accountId)
+        assertTrue(decoded.entries.containsKey("data/documents.json"))
+        assertTrue(decoded.entries.containsKey("data/document-items.json"))
     }
 
     @Test

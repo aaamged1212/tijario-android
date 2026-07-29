@@ -45,13 +45,16 @@ class LocalBackupRestorer(
     suspend fun restore(
         decoded: DecodedBackup,
         expectedUserId: String,
+        onStage: suspend (BackupRestoreStage) -> Unit = {},
     ): BackupManifest = withContext(Dispatchers.IO) {
         if (decoded.manifest.accountId != expectedUserId) {
             throw BackupValidationException("Backup belongs to a different account")
         }
+        onStage(BackupRestoreStage.RESTORING_FILES)
         val assets = BackupAssetRestorer(filesRoot).stage(expectedUserId, decoded.entries, decoded.stagedAssetFiles)
         val appliedAssets = assets.apply()
         try {
+            onStage(BackupRestoreStage.RESTORING_RECORDS)
             RoomLogicalBackupStore(database).restoreAccount(expectedUserId, decoded.entries)
             appliedAssets.complete()
             decoded.manifest

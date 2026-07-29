@@ -41,6 +41,14 @@ class BackupSchedulePolicyTest {
     }
 
     @Test
+    fun manualRetryCanUploadEvenWhenAutomaticDriveUploadIsDisabled() {
+        val scheduler = File("src/main/java/app/tijario/features/backup/BackupScheduler.kt").readText()
+
+        assertTrue(scheduler.contains("(!settings.driveEnabled && !userInitiated)"))
+        assertTrue(scheduler.contains("if (userInitiated) ExistingWorkPolicy.REPLACE else ExistingWorkPolicy.KEEP"))
+    }
+
+    @Test
     fun scheduleUiHasAllLocalizedPolicyOptions() {
         val source = File("src/main/java/app/tijario/ui/screens/BackupSettingsScreen.kt").readText()
 

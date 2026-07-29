@@ -12,6 +12,7 @@ import androidx.work.WorkManager
 import androidx.work.workDataOf
 import app.tijario.data.local.BackupSettingsEntity
 import java.util.concurrent.TimeUnit
+import java.util.UUID
 
 object BackupScheduler {
     fun apply(context: Context, settings: BackupSettingsEntity) {
@@ -42,8 +43,8 @@ object BackupScheduler {
         )
     }
 
-    fun enqueueDriveUpload(context: Context, settings: BackupSettingsEntity, backupId: String, userInitiated: Boolean = false) {
-        if (backupId.isBlank() || (!settings.driveEnabled && !userInitiated)) return
+    fun enqueueDriveUpload(context: Context, settings: BackupSettingsEntity, backupId: String, userInitiated: Boolean = false): UUID? {
+        if (backupId.isBlank() || (!settings.driveEnabled && !userInitiated)) return null
         val networkType = if (settings.wifiOnly) NetworkType.UNMETERED else NetworkType.CONNECTED
         val request = OneTimeWorkRequestBuilder<DriveUploadWorker>()
             .addTag(driveAccountTag(settings.userId))
@@ -66,9 +67,10 @@ object BackupScheduler {
             .build()
         WorkManager.getInstance(context.applicationContext).enqueueUniqueWork(
             driveWorkName(settings.userId, backupId),
-            ExistingWorkPolicy.KEEP,
+            if (userInitiated) ExistingWorkPolicy.REPLACE else ExistingWorkPolicy.KEEP,
             request,
         )
+        return request.id
     }
 
     fun cancelAccountWork(context: Context, userId: String) {
@@ -79,6 +81,58 @@ object BackupScheduler {
 
     fun cancelDriveUploads(context: Context, userId: String) {
         WorkManager.getInstance(context.applicationContext).cancelAllWorkByTag(driveAccountTag(userId))
+    }
+
+    fun enqueueDriveRestore(context: Context, userId: String, remote: app.tijario.features.backup.drive.DriveBackupFile): UUID? =
+        enqueueRestore(
+            context = context,
+            userId = userId,
+            source = BackupRestoreWorker.SOURCE_DRIVE,
+            extras = workDataOf(
+                BackupRestoreWorker.REMOTE_ID_KEY to remote.id,
+                BackupRestoreWorker.REMOTE_NAME_KEY to remote.name,
+                BackupRestoreWorker.REMOTE_SIZE_KEY to remote.sizeBytes,
+                BackupRestoreWorker.REMOTE_CHECKSUM_KEY to remote.checksum,
+                BackupRestoreWorker.REMOTE_ACCOUNT_KEY to remote.accountId,
+                BackupRestoreWorker.REMOTE_BACKUP_ID_KEY to remote.backupId,
+                BackupRestoreWorker.REMOTE_CREATED_AT_KEY to remote.createdAt,
+            ),
+            requiresNetwork = true,
+        )
+
+    fun enqueueFileRestore(context: Context, userId: String, uri: String): UUID? =
+        enqueueRestore(context, userId, BackupRestoreWorker.SOURCE_FILE_URI, workDataOf(BackupRestoreWorker.FILE_URI_KEY to uri), false)
+
+    fun enqueueLocalRestore(context: Context, userId: String, backupId: String): UUID? =
+        enqueueRestore(context, userId, BackupRestoreWorker.SOURCE_LOCAL_RECORD, workDataOf(BackupRestoreWorker.BACKUP_ID_KEY to backupId), false)
+
+    private fun enqueueRestore(
+        context: Context,
+        userId: String,
+        source: String,
+        extras: androidx.work.Data,
+        requiresNetwork: Boolean,
+    ): UUID? {
+        if (userId.isBlank()) return null
+        val request = OneTimeWorkRequestBuilder<BackupRestoreWorker>()
+            .addTag(restoreAccountTag(userId))
+            .setInputData(
+                androidx.work.Data.Builder()
+                    .putAll(extras)
+                    .putString(BackupRestoreWorker.USER_ID_KEY, userId)
+                    .putString(BackupRestoreWorker.SOURCE_KEY, source)
+                    .build(),
+            )
+            .setConstraints(
+                Constraints.Builder()
+                    .setRequiredNetworkType(if (requiresNetwork) NetworkType.CONNECTED else NetworkType.NOT_REQUIRED)
+                    .setRequiresBatteryNotLow(true)
+                    .setRequiresStorageNotLow(true)
+                    .build(),
+            )
+            .build()
+        WorkManager.getInstance(context.applicationContext).enqueue(request)
+        return request.id
     }
 
     internal fun intervalDays(frequency: String): Long? = when (frequency.lowercase()) {
@@ -97,4 +151,5 @@ object BackupScheduler {
 
     internal fun driveWorkName(userId: String, backupId: String) = "TijarioDriveUpload:$userId:$backupId"
     internal fun driveAccountTag(userId: String) = "TijarioDriveAccount:$userId"
+    internal fun restoreAccountTag(userId: String) = "TijarioRestoreAccount:$userId"
 }

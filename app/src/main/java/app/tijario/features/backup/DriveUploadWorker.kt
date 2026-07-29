@@ -3,7 +3,6 @@ package app.tijario.features.backup
 import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import androidx.work.ForegroundInfo
 import androidx.work.workDataOf
 import app.tijario.data.local.TijarioDatabase
 import app.tijario.features.backup.drive.DriveBackupException
@@ -25,29 +24,27 @@ class DriveUploadWorker(
             dao.upsertBackupRecord(record.copy(status = "DRIVE_REAUTH_REQUIRED", lastError = "drive_reauthorization_required"))
             return Result.failure()
         }
-        setForeground(ForegroundInfo(BackupWorkNotifier.NOTIFICATION_ID, BackupWorkNotifier(applicationContext).notification("Uploading to Google Drive", "رفع النسخة الاحتياطية إلى Google Drive", 0)))
+        val notifier = BackupWorkNotifier(applicationContext)
+        setForeground(notifier.foregroundInfo(id, "Uploading to Google Drive", "Uploading backup - 0%", 0))
         dao.upsertBackupRecord(record.copy(status = "DRIVE_UPLOADING", lastError = null))
 
         return try {
             val repository = DriveBackupRepository(database, applicationContext.filesDir, DriveBackupRuntime.client(applicationContext, userId))
             repository.upload(userId, backupId) { transferred, total ->
                 val percent = percent(transferred, total)
-                setProgress(workDataOf(PROGRESS_PERCENT_KEY to percent, PROGRESS_STAGE_KEY to "uploading"))
-                setForegroundAsync(
-                    ForegroundInfo(
-                        BackupWorkNotifier.NOTIFICATION_ID,
-                        BackupWorkNotifier(applicationContext).notification(
-                            "Uploading to Google Drive",
-                            "Uploading backup - $percent%",
-                            percent,
-                        ),
+                setProgress(workDataOf(PROGRESS_PERCENT_KEY to percent, PROGRESS_STAGE_KEY to "backup_drive_uploading"))
+                setForeground(
+                    notifier.foregroundInfo(
+                        id,
+                        "Uploading to Google Drive",
+                        "Uploading backup - $percent%",
+                        percent,
                     ),
                 )
             }
             dao.getBackupSettings(userId)?.let { settings ->
                 repository.prune(userId, BackupScheduler.driveRetentionCount(settings))
             }
-            BackupWorkNotifier(applicationContext).post("Backup uploaded", "تم رفع النسخة الاحتياطية إلى Google Drive")
             Result.success()
         } catch (error: DriveBackupException.Retryable) {
             val terminal = runAttemptCount + 1 >= MAX_ATTEMPTS
@@ -70,6 +67,8 @@ class DriveUploadWorker(
                 ),
             )
             if (terminal) Result.failure() else Result.retry()
+        } finally {
+            notifier.clear(id)
         }
     }
 

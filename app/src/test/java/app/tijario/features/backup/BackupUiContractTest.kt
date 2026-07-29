@@ -40,14 +40,16 @@ class BackupUiContractTest {
     @Test
     fun oversizedArchivesAreRejectedBeforeRestore() {
         val source = File("src/main/java/app/tijario/features/backup/BackupViewModel.kt").readText()
+        val restoreWorker = File("src/main/java/app/tijario/features/backup/BackupRestoreWorker.kt").readText()
         val stager = File("src/main/java/app/tijario/features/backup/BackupArchiveInputStager.kt").readText()
 
-        assertTrue(source.contains("BackupArchiveInputStager.copyToPrivateFile"))
+        assertTrue(restoreWorker.contains("BackupArchiveInputStager.copyToPrivateFile"))
         assertFalse(source.contains("readBytes()"))
         assertTrue(stager.contains("if (total > maxBytes)"))
         assertTrue(source.contains("BackupTarget.PHONE"))
         assertTrue(source.contains("BackupTarget.GOOGLE_DRIVE"))
-        assertTrue(source.contains("BackupScheduler.enqueueDriveUpload(getApplication(), settings, it.id, userInitiated = true)"))
+        assertTrue(source.contains("BackupScheduler.enqueueDriveUpload(getApplication(), settings, effectiveRecord.id, userInitiated = true)"))
+        assertTrue(source.contains("getWorkInfoByIdFlow(workId)"))
         assertFalse(source.contains("error.message"))
     }
 }

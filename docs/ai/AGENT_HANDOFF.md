@@ -1,5 +1,12 @@
 # Agent Handoff (Android & Web Repos)
 
+## 2026-07-29 (Backup progress, restore worker, and notification recovery)
+- **Branch**: `codex/fix-backup-destinations-drive-restore-notifications`.
+- **Completed**: Manual Drive uploads now expose their actual `WorkInfo` state rather than a synthetic 100%. Drive, SAF-file, and local-record restores run through one foreground, cancellable worker with explicit download, validation, safety-snapshot, file, and Room restore stages.
+- **UX**: Manual retry bypasses only the automatic Drive toggle, preserves Wi-Fi policy, and replaces a prior manual request for the same archive. The phone backup destination displays the persisted SAF folder name. Android 13 notification permission has a rationale and settings action; denied notifications do not block the operation.
+- **Validation**: Focused Backup/Drive/Notification/Offline JVM tests, `lintDebug`, and `assemblePlayQa` passed. No device was attached, so real Drive account, cancellation, SAF restore, and notification rendering still need physical QA.
+- **Safety**: No migration, deployment, production write, or Play upload occurred. `.agents` files remain local and excluded.
+
 ## 2026-07-29 (Final release-blocker correction, local uncommitted)
 - **Branch**: `codex/fix-production-release-blockers`.
 - **Lease reconciliation**: Retryable lease errors now clear only the pending event assignment and invalidate the exact local active lease in the same Room transaction. Invalid leases become `INVALID`, expired leases become `EXPIRED`, and exhausted leases become `EXHAUSTED` with `consumed_count = allowed_limit`, so they cannot be selected by the next recovery cycle.

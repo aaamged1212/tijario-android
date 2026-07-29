@@ -1,5 +1,10 @@
 # Active Agent Status
 
+- **Current task**: Backup destination, Drive restore, and notification hardening on `codex/fix-backup-destinations-drive-restore-notifications`.
+- **State**: WorkManager now drives real upload/restore progress and cancellation; manual retries work while auto-upload is off. SAF destination names are persisted for display, and Android 13 notification permission/settings are handled without blocking backups.
+- **Validation**: Focused Backup/Drive/Notification/Offline tests, `lintDebug`, and `assemblePlayQa` passed. Device QA remains pending because no device is attached.
+- **Safety**: No migration, deployment, production write, Play upload, or external configuration change occurred. `.agents` remains local and excluded.
+
 - **Current task**: Final release-blocker correction on `codex/fix-production-release-blockers` (local uncommitted).
 - **Current state**: Retryable rejected leases are invalidated atomically with their pending event assignment being cleared. Pending account-deletion startup cleanup is state-gated and blocks authenticated routing/sync/notifications on a local cleanup failure until the user retries locally.
 - **Validation**: Focused quota/account-deletion JVM tests and `assemblePlayQa` passed. Version remains `15` / `1.1.5`.

@@ -427,3 +427,8 @@
 - Split explicit Phone and Google Drive backup actions. Phone backup honors SAF selection first and otherwise targets only `Downloads/Tijario/Backup`; failures are typed instead of silently falling back.
 - Added restore-picker initial location, transfer progress callbacks, strict Drive metadata verification, and typed restore/safety-snapshot errors. Room backup metadata follows the current database version.
 - Raised the Android release version to `16` / `1.1.6`. No migration, deployment, external configuration change, or Play upload occurred.
+
+# 2026-07-29 - WorkManager backup progress and restoration
+- Replaced the manual Drive upload success shortcut with observed WorkManager state. Manual retries now run even when automatic Drive upload is off, while retaining network and charging policy for automatic work.
+- Drive, SAF-file, and local-record restore paths run in a cancellable foreground worker and report explicit download, validation, safety backup, file restore, and Room restore stages. The selected SAF folder name is persisted and displayed.
+- Focused Backup/Drive/Notification/Offline JVM tests, `lintDebug`, and `assemblePlayQa` passed. Physical Drive, notification, cancel, and SAF restore QA remain pending; no external action occurred.
