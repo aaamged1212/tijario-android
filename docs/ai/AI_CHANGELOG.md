@@ -432,3 +432,8 @@
 - Replaced the manual Drive upload success shortcut with observed WorkManager state. Manual retries now run even when automatic Drive upload is off, while retaining network and charging policy for automatic work.
 - Drive, SAF-file, and local-record restore paths run in a cancellable foreground worker and report explicit download, validation, safety backup, file restore, and Room restore stages. The selected SAF folder name is persisted and displayed.
 - Focused Backup/Drive/Notification/Offline JVM tests, `lintDebug`, and `assemblePlayQa` passed. Physical Drive, notification, cancel, and SAF restore QA remain pending; no external action occurred.
+
+# 2026-07-29 - Restore permission and key-recovery hardening
+- SAF-file restore persists only a temporary read grant through worker staging, reports a typed localized lost-permission error, and releases the grant after the encrypted archive is staged privately.
+- All restore sources can obtain the exact missing backup-key envelope when online, retain fail-closed offline behavior, and use the existing `dataSync` foreground-service type. Restore validates before creating a safety snapshot.
+- Added JVM coverage for typed restore outcomes and an Android Room/assets/FakeDrive round-trip integration test. JVM, Android-test APK assembly, lint, and Play QA assembly passed; integration execution remains device-gated.

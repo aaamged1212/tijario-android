@@ -87,7 +87,6 @@ class BackupCoordinator(
         val keyVersion = BackupArchiveCodec.peekKeyVersion(archiveFile)
         val restorer = LocalBackupRestorer(database, appContext.filesDir)
         val decoded = keyStore.resolve(userId, installationId, allowNetwork, keyVersion).let { key ->
-            onStage(BackupRestoreStage.CREATING_SAFETY_BACKUP)
             try {
                 if (key.keyVersion != keyVersion) throw BackupValidationException("Backup key version does not match archive")
                 restorer.validate(archiveFile, key.keyBytes, userId, File(appContext.cacheDir, "backup-restore/$userId"))
@@ -96,6 +95,8 @@ class BackupCoordinator(
             }
         }
         try {
+            // Do not announce or create a safety snapshot until the archive is validated.
+            onStage(BackupRestoreStage.CREATING_SAFETY_BACKUP)
             try {
                 createLocalBackupUnlocked(userId, allowNetwork)
             } catch (error: Throwable) {

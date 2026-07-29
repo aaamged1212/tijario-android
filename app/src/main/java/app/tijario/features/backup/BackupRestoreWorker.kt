@@ -26,6 +26,7 @@ class BackupRestoreWorker(
         val notifier = BackupWorkNotifier(applicationContext)
         var stagedFile: File? = null
         var stagedInput: BackupArchiveInputStager.StagedArchive? = null
+        var releaseFileUriPermission = false
         return try {
             val archive = when (source) {
                 SOURCE_DRIVE -> {
@@ -42,11 +43,16 @@ class BackupRestoreWorker(
                 SOURCE_FILE_URI -> {
                     val uri = inputData.getString(FILE_URI_KEY)?.let(Uri::parse) ?: return Result.failure()
                     stage(notifier, "backup_validating", "Validating encrypted backup")
-                    applicationContext.contentResolver.openInputStream(uri)?.use { input ->
+                    val input = try {
+                        applicationContext.contentResolver.openInputStream(uri)
+                    } catch (error: SecurityException) {
+                        throw BackupRestoreException(BackupRestoreException.Code.RESTORE_FILE_PERMISSION_LOST, error)
+                    } ?: throw BackupRestoreException(BackupRestoreException.Code.RESTORE_FILE_PERMISSION_LOST)
+                    input.use {
                         BackupArchiveInputStager.copyToPrivateFile(input, applicationContext.filesDir, userId)
                             .also { stagedInput = it }
                             .file
-                    } ?: return Result.failure()
+                    }.also { releaseFileUriPermission = true }
                 }
                 SOURCE_LOCAL_RECORD -> {
                     val backupId = inputData.getString(BACKUP_ID_KEY) ?: return Result.failure()
@@ -61,7 +67,8 @@ class BackupRestoreWorker(
             coordinator.restoreLocalBackup(
                 userId = userId,
                 archiveFile = archive,
-                allowNetwork = source == SOURCE_DRIVE,
+                // A missing exact-version key may be fetched after any trusted restore source.
+                allowNetwork = true,
             ) { restoreStage ->
                 when (restoreStage) {
                     BackupRestoreStage.VALIDATING -> stage(notifier, restoreStage.progressKey, "Validating encrypted backup")
@@ -80,6 +87,16 @@ class BackupRestoreWorker(
             notifier.post("Restore failed", "Backup restore failed")
             Result.failure(workDataOf(ERROR_CODE_KEY to mapped.code.name))
         } finally {
+            if (releaseFileUriPermission && source == SOURCE_FILE_URI) {
+                inputData.getString(FILE_URI_KEY)?.let(Uri::parse)?.let { uri ->
+                    runCatching {
+                        applicationContext.contentResolver.releasePersistableUriPermission(
+                            uri,
+                            android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION,
+                        )
+                    }
+                }
+            }
             if (stagedInput != null) {
                 stagedInput?.delete()
             } else if (source != SOURCE_LOCAL_RECORD) {

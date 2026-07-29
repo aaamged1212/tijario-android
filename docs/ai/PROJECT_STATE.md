@@ -1,6 +1,7 @@
 # Project State (Android & Web Repos)
 
 - **Backup hardening**: On `codex/fix-backup-destinations-drive-restore-notifications`, Drive upload and all restore sources now report real WorkManager progress and provide cancelable foreground work. Phone backup shows the actual selected SAF directory name. Physical Drive/notification/SAF QA is pending; focused JVM tests, lint, and `assemblePlayQa` passed locally.
+- **Restore completion**: SAF restore now holds a persistable read grant only until the archive is privately staged, reports typed localized worker errors, and can resolve a missing exact-version key online for Drive, SAF, or local restore sources. Existing `dataSync` foreground-service declarations are used by all backup workers. A Room/assets/FakeDrive integration test compiles; device execution is pending.
 
 - **Release-blocker local correction**: On `codex/fix-production-release-blockers`, retryable lease reconciliation now atomically invalidates the rejected exact lease while preserving the pending event for reassignment. Startup account-deletion cleanup uses explicit success/failure state and blocks authenticated routing, notifications, and sync after local cleanup failure. Focused tests and `assemblePlayQa` passed; no commit or external action occurred.
 

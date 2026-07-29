@@ -14,5 +14,6 @@ class BackupNotificationContractTest {
         assertTrue(source.contains("Backup and Restore"))
         assertTrue(source.contains("createCancelPendingIntent"))
         assertTrue(source.contains("foregroundInfo"))
+        assertTrue(source.contains("FOREGROUND_SERVICE_TYPE_DATA_SYNC"))
     }
 }

@@ -1,5 +1,7 @@
 package app.tijario.features.backup
 
+import app.tijario.features.backup.drive.DriveBackupException
+
 /** Safe, user-facing restore outcomes. The cause is retained only for local diagnostics. */
 class BackupRestoreException(
     val code: Code,
@@ -22,6 +24,7 @@ class BackupRestoreException(
         PRE_RESTORE_SAFETY_BACKUP_FAILED,
         BACKUP_RESTORE_TRANSACTION_FAILED,
         BACKUP_ASSET_RESTORE_FAILED,
+        RESTORE_FILE_PERMISSION_LOST,
     }
 }
 
@@ -39,6 +42,21 @@ internal fun restoreFailureFor(error: Throwable): BackupRestoreException {
             "BACKUP_DEVICE_KEY_INVALID" -> BackupRestoreException(BackupRestoreException.Code.BACKUP_DEVICE_KEY_INVALID, error)
             else -> BackupRestoreException(BackupRestoreException.Code.BACKUP_KEY_VERSION_UNAVAILABLE, error)
         }
+    }
+    if (error is DriveBackupException) {
+        val code = when (error) {
+            is DriveBackupException.ReauthorizationRequired -> BackupRestoreException.Code.DRIVE_AUTH_REQUIRED
+            is DriveBackupException.AccountMismatch -> BackupRestoreException.Code.BACKUP_ACCOUNT_MISMATCH
+            is DriveBackupException.IntegrityFailure -> BackupRestoreException.Code.BACKUP_HASH_MISMATCH
+            is DriveBackupException.Retryable -> BackupRestoreException.Code.DRIVE_DOWNLOAD_FAILED
+            else -> when {
+                "not found" in error.message.orEmpty().lowercase() -> BackupRestoreException.Code.DRIVE_FILE_NOT_FOUND
+                "empty" in error.message.orEmpty().lowercase() -> BackupRestoreException.Code.DRIVE_FILE_EMPTY
+                "size" in error.message.orEmpty().lowercase() -> BackupRestoreException.Code.DRIVE_FILE_SIZE_MISMATCH
+                else -> BackupRestoreException.Code.DRIVE_DOWNLOAD_FAILED
+            }
+        }
+        return BackupRestoreException(code, error)
     }
     val detail = error.message.orEmpty().lowercase()
     val code = when {

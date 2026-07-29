@@ -3,6 +3,8 @@ package app.tijario.features.backup
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
+import android.content.pm.ServiceInfo
+import android.os.Build
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.NotificationCompat
 import androidx.work.ForegroundInfo
@@ -30,7 +32,16 @@ fun ensureBackupNotificationChannel(context: Context) {
 class BackupWorkNotifier(private val context: Context) {
     fun foregroundInfo(workId: UUID, title: String, detail: String, progress: Int? = null): ForegroundInfo {
         ensureBackupNotificationChannel(context)
-        return ForegroundInfo(notificationId(workId), notification(title, detail, progress, workId))
+        val foregroundNotification = notification(title, detail, progress, workId)
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            ForegroundInfo(
+                notificationId(workId),
+                foregroundNotification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
+            )
+        } else {
+            ForegroundInfo(notificationId(workId), foregroundNotification)
+        }
     }
 
     fun notification(title: String, detail: String, progress: Int? = null, workId: UUID? = null) = NotificationCompat.Builder(context, BACKUP_NOTIFICATION_CHANNEL_ID)

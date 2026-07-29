@@ -64,6 +64,7 @@ internal fun backupMessageKeyFor(error: Throwable, fallback: String = "backup_cr
             BackupRestoreException.Code.BACKUP_DEVICE_KEY_INVALID -> "backup_device_key_invalid"
             BackupRestoreException.Code.BACKUP_KEY_VERSION_UNAVAILABLE -> "backup_key_unavailable"
             BackupRestoreException.Code.DRIVE_AUTH_REQUIRED -> "backup_drive_reauthorization_required"
+            BackupRestoreException.Code.RESTORE_FILE_PERMISSION_LOST -> "backup_restore_file_permission_lost"
             else -> "backup_restore_failed"
         }
         else -> fallback

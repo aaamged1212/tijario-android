@@ -1,5 +1,10 @@
 # Active Agent Status
 
+- **Current task**: Restore permission, key recovery, and foreground `dataSync` hardening on `codex/fix-backup-destinations-drive-restore-notifications`.
+- **State**: Complete locally. SAF read grants are persisted before restore work and released after private staging; all restore sources may resolve a missing exact key online; typed worker failures are localized.
+- **Validation**: `testDebugUnitTest`, `assembleDebugAndroidTest`, `lintDebug`, and `assemblePlayQa` passed. Integration test execution remains blocked by no emulator/device.
+- **Safety**: No migration, deployment, production write, Play upload, final AAB, or external configuration change occurred. `.agents` remains local and excluded.
+
 - **Current task**: Backup destination, Drive restore, and notification hardening on `codex/fix-backup-destinations-drive-restore-notifications`.
 - **State**: WorkManager now drives real upload/restore progress and cancellation; manual retries work while auto-upload is off. SAF destination names are persisted for display, and Android 13 notification permission/settings are handled without blocking backups.
 - **Validation**: Focused Backup/Drive/Notification/Offline tests, `lintDebug`, and `assemblePlayQa` passed. Device QA remains pending because no device is attached.

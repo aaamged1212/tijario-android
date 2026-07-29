@@ -56,6 +56,27 @@ data class BackupUiState(
 
 enum class BackupTarget { PHONE, GOOGLE_DRIVE, AUTOMATIC }
 
+internal fun restoreErrorMessageKeyFor(errorCode: String?): String = when (errorCode) {
+    BackupRestoreException.Code.DRIVE_AUTH_REQUIRED.name -> "backup_drive_reauthorization_required"
+    BackupRestoreException.Code.DRIVE_FILE_NOT_FOUND.name -> "backup_drive_file_not_found"
+    BackupRestoreException.Code.DRIVE_DOWNLOAD_FAILED.name -> "backup_drive_download_failed"
+    BackupRestoreException.Code.DRIVE_FILE_EMPTY.name -> "backup_restore_file_empty"
+    BackupRestoreException.Code.DRIVE_FILE_SIZE_MISMATCH.name -> "backup_restore_file_size_mismatch"
+    BackupRestoreException.Code.BACKUP_HASH_MISMATCH.name -> "backup_hash_mismatch"
+    BackupRestoreException.Code.BACKUP_HEADER_INVALID.name -> "backup_restore_header_invalid"
+    BackupRestoreException.Code.BACKUP_FORMAT_UNSUPPORTED.name -> "backup_restore_format_unsupported"
+    BackupRestoreException.Code.BACKUP_ACCOUNT_MISMATCH.name -> "backup_account_mismatch"
+    BackupRestoreException.Code.BACKUP_KEY_VERSION_UNAVAILABLE.name -> "backup_key_unavailable"
+    BackupRestoreException.Code.BACKUP_DEVICE_KEY_INVALID.name -> "backup_device_key_invalid"
+    BackupRestoreException.Code.BACKUP_DECRYPTION_FAILED.name -> "backup_restore_decryption_failed"
+    BackupRestoreException.Code.BACKUP_CONTENT_INVALID.name -> "backup_restore_content_invalid"
+    BackupRestoreException.Code.PRE_RESTORE_SAFETY_BACKUP_FAILED.name -> "backup_restore_safety_backup_failed"
+    BackupRestoreException.Code.BACKUP_RESTORE_TRANSACTION_FAILED.name -> "backup_restore_transaction_failed"
+    BackupRestoreException.Code.BACKUP_ASSET_RESTORE_FAILED.name -> "backup_restore_assets_failed"
+    BackupRestoreException.Code.RESTORE_FILE_PERMISSION_LOST.name -> "backup_restore_file_permission_lost"
+    else -> "backup_restore_failed"
+}
+
 class BackupViewModel(
     application: Application,
     private val userId: String,
@@ -195,6 +216,15 @@ class BackupViewModel(
 
     fun restoreFrom(destination: Uri?) {
         if (destination == null || userId.isBlank() || _uiState.value.isBusy) return
+        try {
+            getApplication<Application>().contentResolver.takePersistableUriPermission(
+                destination,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION,
+            )
+        } catch (_: SecurityException) {
+            _uiState.value = _uiState.value.copy(messageKey = "backup_restore_file_permission_lost")
+            return
+        }
         BackupScheduler.enqueueFileRestore(getApplication(), userId, destination.toString())?.let(::observeRestoreWork)
     }
 
@@ -382,14 +412,14 @@ class BackupViewModel(
                         WorkInfo.State.RUNNING -> "backup_preparing"
                         WorkInfo.State.SUCCEEDED -> if (kind == BackupWorkKind.UPLOAD) "backup_drive_uploaded" else "backup_restored_success"
                         WorkInfo.State.CANCELLED -> "backup_cancelled"
-                        WorkInfo.State.FAILED -> if (kind == BackupWorkKind.UPLOAD) "backup_drive_failed" else "backup_restore_failed"
+                        WorkInfo.State.FAILED -> if (kind == BackupWorkKind.UPLOAD) "backup_drive_failed" else restoreErrorMessageKeyFor(info.outputData.getString(BackupRestoreWorker.ERROR_CODE_KEY))
                     }
                 val progress = info.progress.getInt(DriveUploadWorker.PROGRESS_PERCENT_KEY, -1)
                     .takeIf { it >= 0 }
                     ?: info.progress.getInt(BackupRestoreWorker.PROGRESS_PERCENT_KEY, -1).takeIf { it >= 0 }
                 val message = when (info.state) {
                     WorkInfo.State.SUCCEEDED -> if (kind == BackupWorkKind.UPLOAD) "backup_drive_uploaded" else "backup_restored_success"
-                    WorkInfo.State.FAILED -> if (kind == BackupWorkKind.UPLOAD) "backup_drive_failed" else "backup_restore_failed"
+                    WorkInfo.State.FAILED -> if (kind == BackupWorkKind.UPLOAD) "backup_drive_failed" else restoreErrorMessageKeyFor(info.outputData.getString(BackupRestoreWorker.ERROR_CODE_KEY))
                     WorkInfo.State.CANCELLED -> "backup_cancelled"
                     else -> null
                 }

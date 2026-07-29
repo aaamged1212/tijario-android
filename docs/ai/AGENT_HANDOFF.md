@@ -1,5 +1,12 @@
 # Agent Handoff (Android & Web Repos)
 
+## 2026-07-29 (Restore permission, key recovery, and foreground service completion)
+- **Branch**: `codex/fix-backup-destinations-drive-restore-notifications`.
+- **Restore safety**: File-picker restores now persist read permission before enqueueing, stage the archive privately, then release the persisted grant only after staging succeeds. Lost permission is typed and localized rather than becoming a generic restore failure.
+- **Key recovery/progress**: Drive, SAF-file, and local-record restores may fetch the exact missing backup-key version when online; offline still fails closed when no key is cached. All backup workers use the existing `dataSync` foreground-service declaration, and safety backup starts only after archive validation.
+- **Validation**: `testDebugUnitTest`, `assembleDebugAndroidTest`, `lintDebug`, and `assemblePlayQa` passed. The Room/assets/FakeDrive round-trip test compiles, but execution requires an emulator or physical device and remains pending.
+- **Safety**: No migration, deployment, production write, external configuration change, Play upload, or final AAB was created. `.agents` remains local and excluded.
+
 ## 2026-07-29 (Backup progress, restore worker, and notification recovery)
 - **Branch**: `codex/fix-backup-destinations-drive-restore-notifications`.
 - **Completed**: Manual Drive uploads now expose their actual `WorkInfo` state rather than a synthetic 100%. Drive, SAF-file, and local-record restores run through one foreground, cancellable worker with explicit download, validation, safety-snapshot, file, and Room restore stages.
