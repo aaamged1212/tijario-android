@@ -38,7 +38,7 @@ class LocalBackupCreator(
         val creationEventCount = snapshots.getValue("data/document-creation-events.json").rows.size
         val manifest = BackupManifest(
             formatVersion = 1,
-            roomDatabaseVersion = 17,
+            roomDatabaseVersion = 18,
             applicationVersion = request.applicationVersion,
             minimumApplicationVersion = request.minimumApplicationVersion,
             accountId = request.userId,

@@ -52,15 +52,16 @@ class PhoneBackupContractTest {
     }
 
     @Test
-    fun androidQAndNewerAlwaysUseTheDefaultDownloadsBackupFolder() {
+    fun selectedSafFolderHasPriorityOverTheDefaultDownloadsBackupFolderOnAndroidQAndNewer() {
         val source = File("src/main/java/app/tijario/features/backup/PhoneBackupRepository.kt").readText()
-        assertTrue(source.contains("Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> saveToMediaStore(source)"))
-        assertTrue(source.contains("backup_phone_folder_downloads_tijario"))
-        assertTrue(source.contains("backup_phone_folder_downloads_root"))
+        assertFalse(source.contains("backup_phone_folder_downloads_tijario"))
+        assertFalse(source.contains("backup_phone_folder_downloads_root"))
         assertTrue(
-            source.indexOf("Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> saveToMediaStore(source)") <
-                source.indexOf("selectedTree != null -> saveToTree(source, selectedTree)"),
+            source.indexOf("selectedTree != null -> saveToTree(source, selectedTree)") <
+                source.indexOf("Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> saveToMediaStore(source)"),
         )
+        assertTrue(source.contains("PhoneBackupDestinationException.Code.DEFAULT_FOLDER_UNAVAILABLE"))
+        assertTrue(source.contains("PhoneBackupDestinationException.Code.PERMISSION_LOST"))
     }
 
     @Test

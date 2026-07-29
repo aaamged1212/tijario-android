@@ -60,9 +60,17 @@ class BackupCoordinator(
                 key.keyBytes.fill(0)
             }
         }
-        // Preserve a restorable snapshot of current data before replacing any account rows or assets.
-        createLocalBackupUnlocked(userId, allowNetwork)
-        restorer.restore(decoded, userId)
+        // Preserve a restorable snapshot before replacing any account rows or assets.
+        try {
+            createLocalBackupUnlocked(userId, allowNetwork)
+        } catch (error: Throwable) {
+            throw BackupRestoreException(BackupRestoreException.Code.PRE_RESTORE_SAFETY_BACKUP_FAILED, error)
+        }
+        try {
+            restorer.restore(decoded, userId)
+        } catch (error: BackupValidationException) {
+            throw BackupRestoreException(BackupRestoreException.Code.BACKUP_RESTORE_TRANSACTION_FAILED, error)
+        }
     }
 
     suspend fun restoreLocalBackup(
@@ -82,8 +90,16 @@ class BackupCoordinator(
             }
         }
         try {
-            createLocalBackupUnlocked(userId, allowNetwork)
-            restorer.restore(decoded, userId)
+            try {
+                createLocalBackupUnlocked(userId, allowNetwork)
+            } catch (error: Throwable) {
+                throw BackupRestoreException(BackupRestoreException.Code.PRE_RESTORE_SAFETY_BACKUP_FAILED, error)
+            }
+            try {
+                restorer.restore(decoded, userId)
+            } catch (error: BackupValidationException) {
+                throw BackupRestoreException(BackupRestoreException.Code.BACKUP_RESTORE_TRANSACTION_FAILED, error)
+            }
         } finally {
             decoded.discardStaging()
         }

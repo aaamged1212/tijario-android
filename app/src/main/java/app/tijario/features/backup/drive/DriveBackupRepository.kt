@@ -32,7 +32,11 @@ class DriveBackupRepository(
 ) {
     suspend fun connectionState(): DriveConnectionState = client.connectionState()
 
-    suspend fun upload(userId: String, backupId: String): BackupRecordEntity = withContext(Dispatchers.IO) {
+    suspend fun upload(
+        userId: String,
+        backupId: String,
+        onProgress: suspend (bytesTransferred: Long, totalBytes: Long) -> Unit = { _, _ -> },
+    ): BackupRecordEntity = withContext(Dispatchers.IO) {
         val record = database.tijarioDao().getBackupRecords(userId).firstOrNull { it.id == backupId }
             ?: throw DriveBackupException.Permanent("Local backup was not found")
         val file = safeLocalFile(record)
@@ -43,8 +47,9 @@ class DriveBackupRepository(
             folders.backupsId,
             file,
             DriveUploadMetadata(userId, record.id, requireNotNull(record.checksum), record.createdAt),
+            onProgress,
         )
-        if (remote.accountId != userId || remote.checksum != record.checksum) {
+        if (remote.accountId != userId || remote.checksum != record.checksum || remote.sizeBytes != file.length()) {
             throw DriveBackupException.IntegrityFailure()
         }
         record.copy(
@@ -60,11 +65,18 @@ class DriveBackupRepository(
         return client.listBackups(folders.backupsId, userId)
     }
 
-    suspend fun download(userId: String, remote: DriveBackupFile, destination: File): File = withContext(Dispatchers.IO) {
+    suspend fun download(
+        userId: String,
+        remote: DriveBackupFile,
+        destination: File,
+        onProgress: suspend (bytesTransferred: Long, totalBytes: Long) -> Unit = { _, _ -> },
+    ): File = withContext(Dispatchers.IO) {
         if (remote.accountId != userId) throw DriveBackupException.AccountMismatch()
         val temporary = File(destination.parentFile, ".${destination.name}.download")
         runCatching {
-            client.downloadBackup(remote.id, temporary)
+            client.downloadBackup(remote.id, temporary, onProgress)
+            if (!temporary.isFile || temporary.length() == 0L) throw DriveBackupException.Permanent("Drive backup is empty")
+            if (temporary.length() != remote.sizeBytes) throw DriveBackupException.IntegrityFailure()
             if (sha256(temporary) != remote.checksum) throw DriveBackupException.IntegrityFailure()
             destination.parentFile?.mkdirs()
             if (destination.exists() && !destination.delete()) error("Could not replace downloaded backup")

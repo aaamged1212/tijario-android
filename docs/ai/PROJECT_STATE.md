@@ -95,3 +95,8 @@
 - The compatible Web migrations/API are not deployed. Device-based multi-installation quota and disposable-account deletion verification remain pending.
 - Local reconciliation now requires an exact lease cycle, consumes a credit only with the first acknowledgement, and retains unassignable legacy events as pending. Account cleanup persists a retry marker after server confirmation. These changes are local only.
 - **2026-07-29**: Retryable lease failures now release only pending lease assignments for later reconciliation. Pending account-deletion cleanup now recovers before authenticated routing using local-only cleanup; no external action occurred.
+
+## 2026-07-29 Backup destination/restore release candidate
+- Android backup hardening is isolated on `codex/fix-backup-destinations-drive-restore-notifications` at version `16` / `1.1.6`.
+- Phone backup no longer falls back to shallower Downloads locations. Google Drive backup is a distinct manual operation, with remote account/size/checksum verification before it is marked uploaded.
+- Device QA is still required for Android storage-provider behavior, Drive upload/restore, cancellation, and notification permission behavior. No production change has been made.

@@ -422,3 +422,8 @@
 - Reconciliation now releases only stale pending lease assignments for the three retryable lease errors; unknown failures remain pending and permanent invalid payload failures reject.
 - Added local-only startup recovery for a pending account-deletion cleanup marker, including a no-network auth-session clear after successful cleanup.
 - Focused quota/account-deletion JVM tests and `assemblePlayQa` passed. No external action occurred.
+
+# 2026-07-29 - Backup destinations and restore integrity
+- Split explicit Phone and Google Drive backup actions. Phone backup honors SAF selection first and otherwise targets only `Downloads/Tijario/Backup`; failures are typed instead of silently falling back.
+- Added restore-picker initial location, transfer progress callbacks, strict Drive metadata verification, and typed restore/safety-snapshot errors. Room backup metadata follows the current database version.
+- Raised the Android release version to `16` / `1.1.6`. No migration, deployment, external configuration change, or Play upload occurred.

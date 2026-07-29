@@ -34,10 +34,16 @@ class FakeDriveBackupClient(
             it.folderId == folderId && it.metadata.accountId == accountId && it.metadata.backupId == backupId
         }?.metadata
 
-    override suspend fun uploadBackup(folderId: String, file: File, metadata: DriveUploadMetadata): DriveBackupFile {
+    override suspend fun uploadBackup(
+        folderId: String,
+        file: File,
+        metadata: DriveUploadMetadata,
+        onProgress: suspend (Long, Long) -> Unit,
+    ): DriveBackupFile {
         requireConnected(metadata.accountId)
         require(folders.containsKey(folderId)) { "Drive folder does not exist" }
         val bytes = file.readBytes()
+        onProgress(0, bytes.size.toLong())
         val checksum = sha256(bytes)
         if (checksum != metadata.checksum) throw DriveBackupException.IntegrityFailure()
         val existing = findBackup(folderId, metadata.accountId, metadata.backupId)
@@ -53,6 +59,7 @@ class FakeDriveBackupClient(
             createdAt = metadata.createdAt,
         )
         files[id] = Stored(result, bytes, folderId)
+        onProgress(bytes.size.toLong(), bytes.size.toLong())
         return result
     }
 
@@ -63,11 +70,13 @@ class FakeDriveBackupClient(
             .sortedByDescending(DriveBackupFile::createdAt)
     }
 
-    override suspend fun downloadBackup(fileId: String, destination: File) {
+    override suspend fun downloadBackup(fileId: String, destination: File, onProgress: suspend (Long, Long) -> Unit) {
         requireConnected()
         val stored = files[fileId] ?: throw DriveBackupException.Permanent("Drive backup was not found")
         destination.parentFile?.mkdirs()
+        onProgress(0, stored.bytes.size.toLong())
         destination.writeBytes(stored.bytes)
+        onProgress(stored.bytes.size.toLong(), stored.bytes.size.toLong())
     }
 
     override suspend fun deleteFile(fileId: String) {

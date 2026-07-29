@@ -649,3 +649,9 @@
 - **Reconciliation**: Invalid, expired, and exhausted leases now clear only a pending event lease and preserve the event for reassignment. Only limit, installation-revocation, and entitlement-version failures block; only permanent invalid event/payload failures reject.
 - **Startup deletion recovery**: A pending local-cleanup marker runs local Room/file cleanup before authenticated routing. It clears the marker and local auth session only after success, and leaves the marker on failure without a server call.
 - **Validation**: Focused quota/account-deletion JVM tests and `assemblePlayQa` passed. Version remains `15` / `1.1.5`; no migration, deploy, commit, push, or Play action occurred.
+
+## 2026-07-29 (Backup destination and restore hardening)
+- **Branch/version**: `codex/fix-backup-destinations-drive-restore-notifications`, versionCode `16`, versionName `1.1.6`.
+- **Backup behavior**: Phone and Google Drive backup actions are separate. Phone backups prefer the user-selected SAF folder; otherwise they use only `Downloads/Tijario/Backup` and report a typed destination error rather than silently writing elsewhere. Manual Drive backup does not create a visible phone copy and ignores charging-only scheduling while retaining Wi-Fi-only policy.
+- **Restore behavior**: The file picker starts from the selected phone-backup folder or the default Documents location. Drive upload/download verify account, size, and checksum. Restore errors are typed and the mandatory local safety snapshot fails closed.
+- **Validation**: Focused Backup/Drive/Notification/Offline JVM suite, `lintDebug`, `assemblePlayQa`, and signed `bundleRelease` passed. The AAB is `app.tijario`, `16` / `1.1.6`, and matches the existing Upload Key SHA-1/SHA-256 fingerprints. No migration, deployment, external configuration change, or Play upload occurred.

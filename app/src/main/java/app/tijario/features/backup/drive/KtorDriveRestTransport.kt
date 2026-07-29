@@ -85,6 +85,7 @@ class KtorDriveRestTransport(
         file: File,
         mimeType: String,
         appProperties: Map<String, String>,
+        onProgress: suspend (Long, Long) -> Unit,
     ): DriveRestFile {
         if (!file.isFile) throw DriveBackupException.Permanent("Encrypted backup file is missing")
         return driveRequest("upload", accountIdResolved = true) {
@@ -108,13 +109,13 @@ class KtorDriveRestTransport(
                 bearerAuth(accessToken)
                 contentType(ContentType.parse(mimeType))
                 header(HttpHeaders.ContentLength, file.length().toString())
-                setBody(FileStreamingContent(file, ContentType.parse(mimeType)))
+                setBody(FileStreamingContent(file, ContentType.parse(mimeType), onProgress))
             }.requireSuccess("upload", accountIdResolved = true)
             driveJson.decodeFromString<DriveFileResponse>(response.bodyAsText()).toRestFile()
         }
     }
 
-    override suspend fun downloadFile(accessToken: String, fileId: String, destination: File) = driveRequest("download", accountIdResolved = true) {
+    override suspend fun downloadFile(accessToken: String, fileId: String, destination: File, onProgress: suspend (Long, Long) -> Unit) = driveRequest("download", accountIdResolved = true) {
         val response = httpClient.get("$DRIVE_API_BASE/files/$fileId") {
             bearerAuth(accessToken)
             url { parameters.append("alt", "media") }
@@ -125,6 +126,7 @@ class KtorDriveRestTransport(
         }
         destination.parentFile?.mkdirs()
         var copied = 0L
+        onProgress(0, advertisedSize ?: 0L)
         try {
             response.bodyAsChannel().let { source ->
                 destination.outputStream().use { output ->
@@ -133,6 +135,7 @@ class KtorDriveRestTransport(
                         val read = source.readAvailable(buffer, 0, buffer.size)
                         if (read < 0) break
                         copied += read
+                        onProgress(copied, advertisedSize ?: 0L)
                         if (copied > MAX_DOWNLOAD_BYTES) {
                             throw DriveBackupException.Permanent("Drive backup exceeds the safe download limit")
                         }
@@ -198,16 +201,21 @@ sealed class DriveHttpException(message: String, val reason: String?) : Exceptio
 private class FileStreamingContent(
     private val file: File,
     override val contentType: ContentType,
+    private val onProgress: suspend (Long, Long) -> Unit,
 ) : OutgoingContent.WriteChannelContent() {
     override val contentLength: Long = file.length()
 
     override suspend fun writeTo(channel: ByteWriteChannel) {
         file.inputStream().use { input ->
             val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+            var copied = 0L
+            onProgress(0, contentLength)
             while (true) {
                 val read = input.read(buffer)
                 if (read < 0) break
                 channel.writeFully(buffer, 0, read)
+                copied += read
+                onProgress(copied, contentLength)
             }
         }
     }

@@ -34,8 +34,9 @@ class PhoneBackupRepository(private val context: Context) {
         Log.i(LOG_TAG, "visible_backup_start")
         val selectedTree = AppPreferences.getPhoneBackupTreeUri(context, userId)
         return when {
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> saveToMediaStore(source)
+            // A user-selected SAF tree is always the explicit destination, including Android 10+.
             selectedTree != null -> saveToTree(source, selectedTree)
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> saveToMediaStore(source)
             else -> {
                 throw BackupValidationException("Phone backup folder selection is required")
             }
@@ -49,27 +50,25 @@ class PhoneBackupRepository(private val context: Context) {
     }
 
     fun destinationKey(userId: String): String =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            "backup_phone_folder_downloads"
-        } else if (AppPreferences.getPhoneBackupTreeUri(context, userId) != null) {
+        if (AppPreferences.getPhoneBackupTreeUri(context, userId) != null) {
             "backup_phone_folder_selected"
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            "backup_phone_folder_downloads"
         } else {
             "backup_phone_folder_required"
         }
+
+    fun restoreInitialUri(userId: String): Uri =
+        AppPreferences.getPhoneBackupTreeUri(context, userId)
+            ?: Uri.parse("content://com.android.externalstorage.documents/document/primary%3ADownload%2FTijario%2FBackup")
 
     @RequiresApi(Build.VERSION_CODES.Q)
     private fun saveToMediaStore(source: File): PhoneBackupFile =
         runCatching {
             saveToMediaStore(source, "${Environment.DIRECTORY_DOWNLOADS}/Tijario/Backup/", "backup_phone_folder_downloads")
-        }.recoverCatching { firstFailure ->
-            Log.w(LOG_TAG, "visible_backup_nested_folder_rejected error=${firstFailure.javaClass.simpleName}")
-            saveToMediaStore(source, "${Environment.DIRECTORY_DOWNLOADS}/Tijario/", "backup_phone_folder_downloads_tijario")
-        }.recoverCatching { secondFailure ->
-            Log.w(LOG_TAG, "visible_backup_tijario_folder_rejected error=${secondFailure.javaClass.simpleName}")
-            saveToMediaStore(source, "${Environment.DIRECTORY_DOWNLOADS}/", "backup_phone_folder_downloads_root")
         }.getOrElse { error ->
-            if (error is BackupValidationException) throw error
-            throw BackupValidationException("Backup could not be saved on the phone", error)
+            Log.w(LOG_TAG, "visible_backup_default_folder_failed error=${error.javaClass.simpleName}")
+            throw PhoneBackupDestinationException(PhoneBackupDestinationException.Code.DEFAULT_FOLDER_UNAVAILABLE, error)
         }
 
     @RequiresApi(Build.VERSION_CODES.Q)
@@ -100,15 +99,19 @@ class PhoneBackupRepository(private val context: Context) {
             )
             uri?.let { resolver.delete(it, null, null) }
             if (error is BackupValidationException) throw error
-            throw BackupValidationException("Backup could not be saved on the phone", error)
+            throw PhoneBackupDestinationException(PhoneBackupDestinationException.Code.DEFAULT_FOLDER_UNAVAILABLE, error)
         }
     }
 
     private fun saveToTree(source: File, treeUri: Uri): PhoneBackupFile {
         val resolver = context.contentResolver
         val root = DocumentsContract.buildDocumentUriUsingTree(treeUri, DocumentsContract.getTreeDocumentId(treeUri))
-        val outputUri = DocumentsContract.createDocument(resolver, root, "application/octet-stream", source.name)
-            ?: throw BackupValidationException("Phone backup destination is unavailable")
+        val outputUri = try {
+            DocumentsContract.createDocument(resolver, root, "application/octet-stream", source.name)
+                ?: throw PhoneBackupDestinationException(PhoneBackupDestinationException.Code.PERMISSION_LOST)
+        } catch (error: SecurityException) {
+            throw PhoneBackupDestinationException(PhoneBackupDestinationException.Code.PERMISSION_LOST, error)
+        }
         try {
             resolver.openOutputStream(outputUri, "w")?.use { output -> source.inputStream().use { it.copyTo(output) } }
                 ?: throw BackupValidationException("Phone backup destination is unavailable")
@@ -116,7 +119,17 @@ class PhoneBackupRepository(private val context: Context) {
         } catch (error: Exception) {
             resolver.delete(outputUri, null, null)
             if (error is BackupValidationException) throw error
-            throw BackupValidationException("Backup could not be saved on the phone", error)
+            throw PhoneBackupDestinationException(PhoneBackupDestinationException.Code.PERMISSION_LOST, error)
         }
+    }
+}
+
+class PhoneBackupDestinationException(
+    val code: Code,
+    cause: Throwable? = null,
+) : BackupValidationException(code.name, cause) {
+    enum class Code {
+        DEFAULT_FOLDER_UNAVAILABLE,
+        PERMISSION_LOST,
     }
 }

@@ -42,8 +42,8 @@ object BackupScheduler {
         )
     }
 
-    fun enqueueDriveUpload(context: Context, settings: BackupSettingsEntity, backupId: String) {
-        if (!settings.driveEnabled || backupId.isBlank()) return
+    fun enqueueDriveUpload(context: Context, settings: BackupSettingsEntity, backupId: String, userInitiated: Boolean = false) {
+        if (backupId.isBlank() || (!settings.driveEnabled && !userInitiated)) return
         val networkType = if (settings.wifiOnly) NetworkType.UNMETERED else NetworkType.CONNECTED
         val request = OneTimeWorkRequestBuilder<DriveUploadWorker>()
             .addTag(driveAccountTag(settings.userId))
@@ -56,7 +56,8 @@ object BackupScheduler {
             .setConstraints(
                 Constraints.Builder()
                     .setRequiredNetworkType(networkType)
-                    .setRequiresCharging(settings.chargingOnly)
+                    // A manual backup must not wait for charging. Wi-Fi-only remains respected.
+                    .setRequiresCharging(!userInitiated && settings.chargingOnly)
                     .setRequiresBatteryNotLow(true)
                     .setRequiresStorageNotLow(true)
                     .build(),

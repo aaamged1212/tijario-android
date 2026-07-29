@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import androidx.work.ForegroundInfo
+import androidx.work.workDataOf
 import app.tijario.data.local.TijarioDatabase
 import app.tijario.features.backup.drive.DriveBackupException
 import app.tijario.features.backup.drive.DriveBackupRepository
@@ -29,7 +30,20 @@ class DriveUploadWorker(
 
         return try {
             val repository = DriveBackupRepository(database, applicationContext.filesDir, DriveBackupRuntime.client(applicationContext, userId))
-            repository.upload(userId, backupId)
+            repository.upload(userId, backupId) { transferred, total ->
+                val percent = percent(transferred, total)
+                setProgress(workDataOf(PROGRESS_PERCENT_KEY to percent, PROGRESS_STAGE_KEY to "uploading"))
+                setForegroundAsync(
+                    ForegroundInfo(
+                        BackupWorkNotifier.NOTIFICATION_ID,
+                        BackupWorkNotifier(applicationContext).notification(
+                            "Uploading to Google Drive",
+                            "Uploading backup - $percent%",
+                            percent,
+                        ),
+                    ),
+                )
+            }
             dao.getBackupSettings(userId)?.let { settings ->
                 repository.prune(userId, BackupScheduler.driveRetentionCount(settings))
             }
@@ -75,5 +89,10 @@ class DriveUploadWorker(
         const val USER_ID_KEY = "userId"
         const val BACKUP_ID_KEY = "backupId"
         const val MAX_ATTEMPTS = 3
+        const val PROGRESS_PERCENT_KEY = "progressPercent"
+        const val PROGRESS_STAGE_KEY = "progressStage"
+
+        internal fun percent(transferred: Long, total: Long): Int =
+            if (total <= 0L) 0 else ((transferred * 100L) / total).toInt().coerceIn(0, 100)
     }
 }

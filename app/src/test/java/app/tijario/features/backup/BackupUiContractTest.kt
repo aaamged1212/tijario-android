@@ -13,7 +13,8 @@ class BackupUiContractTest {
         val keys = listOf(
             "backup_restore",
             "backup_now",
-            "backup_export_to",
+            "backup_save_to_phone",
+            "backup_drive_now",
             "backup_restore_file",
             "backup_restore_confirm_body",
             "backup_restore_failed",
@@ -30,7 +31,7 @@ class BackupUiContractTest {
         val source = File("src/main/java/app/tijario/ui/screens/BackupSettingsScreen.kt").readText()
 
         assertTrue(source.contains("ActivityResultContracts.CreateDocument"))
-        assertTrue(source.contains("ActivityResultContracts.OpenDocument"))
+        assertTrue(source.contains("RestoreBackupDocumentContract"))
         assertTrue(source.contains("backup_restore_confirm_body"))
         assertTrue(source.contains("pendingRestoreUri"))
         assertFalse(source.contains("createLocalBackup(exportAfterCreate = true)"))
@@ -44,7 +45,9 @@ class BackupUiContractTest {
         assertTrue(source.contains("BackupArchiveInputStager.copyToPrivateFile"))
         assertFalse(source.contains("readBytes()"))
         assertTrue(stager.contains("if (total > maxBytes)"))
-        assertTrue(source.contains("visible_backup_copy_failed error=\${error.javaClass.simpleName}"))
+        assertTrue(source.contains("BackupTarget.PHONE"))
+        assertTrue(source.contains("BackupTarget.GOOGLE_DRIVE"))
+        assertTrue(source.contains("BackupScheduler.enqueueDriveUpload(getApplication(), settings, it.id, userInitiated = true)"))
         assertFalse(source.contains("error.message"))
     }
 }

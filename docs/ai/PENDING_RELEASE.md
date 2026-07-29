@@ -70,3 +70,8 @@ The counters migration is required to manage sequential document numbers without
 - Re-run Google Drive, Google native sign-in, and PDF zoom QA separately; they are out of scope for this change.
 - Re-run the same-device acknowledgement/retry path: the first accepted event must consume one lease credit, duplicate acknowledgement must not consume another, and lease-less legacy excess must remain pending until reconciliation can safely assign it.
 - Validate on a device that each retryable lease response clears its pending lease reference, later reassigns a compatible lease, and does not block or reject the event. Also validate startup cleanup after intentionally interrupting local account-deletion cleanup.
+
+## 2026-07-29 Backup destination and restore candidate
+- Before any Play action, use disposable data to test Phone backup to a selected SAF folder, automatic default `Downloads/Tijario/Backup`, denied/lost folder permission, and restore picker starting location.
+- Verify a manual Drive backup creates no phone-visible duplicate, Wi-Fi-only pauses upload, Drive upload verifies metadata, and Drive restore rejects a backup from another Tijario account without altering current local data.
+- Validate foreground progress/notification behavior and cancellation on a real Android 13+ device. No Play upload is authorized by this note.

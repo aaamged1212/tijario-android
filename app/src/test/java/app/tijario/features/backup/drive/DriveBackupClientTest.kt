@@ -5,6 +5,7 @@ import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertSame
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
 import java.security.MessageDigest
@@ -51,6 +52,24 @@ class DriveBackupClientTest {
         val destination = File.createTempFile("drive-download", ".tijario")
         client.downloadBackup(remote.id, destination)
         assertArrayEquals(source.readBytes(), destination.readBytes())
+    }
+
+    @Test
+    fun uploadAndDownloadReportProgressFromZeroToOneHundredPercent() = runBlocking {
+        val client = FakeDriveBackupClient(DriveConnectionState.Connected("user-1"))
+        val folder = DriveFolderRepository(client).resolve().backupsId
+        val source = temporaryArchive("progress archive")
+        val uploadProgress = mutableListOf<Int>()
+        val remote = client.uploadBackup(
+            folder,
+            source,
+            DriveUploadMetadata("user-1", "backup-progress", sha256(source.readBytes()), 42L),
+        ) { transferred, total -> uploadProgress += ((transferred * 100L) / total).toInt() }
+        val downloadProgress = mutableListOf<Int>()
+        val destination = File.createTempFile("drive-progress", ".tijario")
+        client.downloadBackup(remote.id, destination) { transferred, total -> downloadProgress += ((transferred * 100L) / total).toInt() }
+        assertTrue(uploadProgress.first() == 0 && uploadProgress.last() == 100)
+        assertTrue(downloadProgress.first() == 0 && downloadProgress.last() == 100)
     }
 
     @Test(expected = DriveBackupException.AccountMismatch::class)
@@ -110,6 +129,7 @@ class DriveBackupClientTest {
             file: File,
             mimeType: String,
             appProperties: Map<String, String>,
+            onProgress: suspend (Long, Long) -> Unit,
         ) = DriveRestFile(
             id = "remote-1",
             name = file.name,
@@ -118,7 +138,7 @@ class DriveBackupClientTest {
             appProperties = appProperties.also { lastUploadProperties = it },
         )
 
-        override suspend fun downloadFile(accessToken: String, fileId: String, destination: File) = Unit
+        override suspend fun downloadFile(accessToken: String, fileId: String, destination: File, onProgress: suspend (Long, Long) -> Unit) = Unit
         override suspend fun deleteFile(accessToken: String, fileId: String) = Unit
     }
 

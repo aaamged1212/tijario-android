@@ -23,7 +23,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Backup
-import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.CloudDownload
@@ -64,6 +63,7 @@ import app.tijario.config.LocalLanguage
 import app.tijario.config.Localization
 import app.tijario.config.t
 import app.tijario.features.backup.BackupViewModel
+import app.tijario.features.backup.RestoreBackupDocumentContract
 import app.tijario.features.backup.drive.DriveConnectionState
 import app.tijario.features.backup.drive.DriveBackupFile
 import java.text.DateFormat
@@ -94,7 +94,9 @@ fun BackupSettingsScreen(
         ActivityResultContracts.CreateDocument("application/octet-stream"),
         backupViewModel::exportPreparedBackup,
     )
-    val restoreLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+    val restoreLauncher = rememberLauncherForActivityResult(
+        remember(context, userId) { RestoreBackupDocumentContract(context, userId) },
+    ) { uri ->
         pendingRestoreUri = uri
     }
     val folderLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) {
@@ -368,29 +370,27 @@ fun BackupSettingsScreen(
                             }
                         }
                     }
+                    Button(
+                        onClick = backupViewModel::backupNowToGoogleDrive,
+                        enabled = !state.isBusy && state.driveConnectionState is DriveConnectionState.Connected,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Icon(Icons.Filled.Backup, contentDescription = null)
+                        Spacer(Modifier.padding(4.dp))
+                        Text(t("backup_drive_now"), fontWeight = FontWeight.Bold)
+                    }
                 }
             }
 
             Button(
-                onClick = { backupViewModel.createLocalBackup(exportAfterCreate = false) },
+                onClick = { backupViewModel.saveBackupToPhone() },
                 enabled = !state.isBusy && userId.isNotBlank(),
                 modifier = Modifier.fillMaxWidth().height(52.dp),
                 shape = RoundedCornerShape(16.dp),
             ) {
                 Icon(Icons.Filled.Backup, contentDescription = null)
                 Spacer(Modifier.padding(4.dp))
-                Text(t("backup_now"), fontWeight = FontWeight.Bold)
-            }
-
-            OutlinedButton(
-                onClick = { backupViewModel.createLocalBackup(exportAfterCreate = false) },
-                enabled = !state.isBusy && userId.isNotBlank(),
-                modifier = Modifier.fillMaxWidth().height(52.dp),
-                shape = RoundedCornerShape(16.dp),
-            ) {
-                Icon(Icons.Filled.FileUpload, contentDescription = null)
-                Spacer(Modifier.padding(4.dp))
-                Text(t("backup_export_to"), fontWeight = FontWeight.Bold)
+                Text(t("backup_save_to_phone"), fontWeight = FontWeight.Bold)
             }
 
             state.latestBackup?.let {
@@ -454,7 +454,7 @@ fun BackupSettingsScreen(
             }
 
             OutlinedButton(
-                onClick = { restoreLauncher.launch(arrayOf("application/octet-stream", "application/zip", "*/*")) },
+                onClick = { restoreLauncher.launch(arrayOf("application/octet-stream", "application/zip", "application/x-tijario-backup")) },
                 enabled = !state.isBusy && userId.isNotBlank(),
                 modifier = Modifier.fillMaxWidth().height(52.dp),
                 shape = RoundedCornerShape(16.dp),
@@ -471,6 +471,13 @@ fun BackupSettingsScreen(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     CircularProgressIndicator()
+                    state.operationStage?.let { stage ->
+                        Spacer(Modifier.padding(6.dp))
+                        Text(
+                            text = state.operationPercent?.let { "${t(stage)} $it%" } ?: t(stage),
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
                 }
             }
 

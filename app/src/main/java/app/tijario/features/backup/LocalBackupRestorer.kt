@@ -8,7 +8,7 @@ import java.io.File
 class LocalBackupRestorer(
     private val database: TijarioDatabase,
     private val filesRoot: File,
-    private val currentRoomVersion: Int = 17,
+    private val currentRoomVersion: Int = 18,
 ) {
     suspend fun validate(
         archive: ByteArray,

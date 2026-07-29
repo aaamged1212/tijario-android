@@ -52,8 +52,9 @@ class DriveConnectionResolutionTest {
             file: File,
             mimeType: String,
             appProperties: Map<String, String>,
+            onProgress: suspend (Long, Long) -> Unit,
         ) = DriveRestFile("file", file.name, mimeType)
-        override suspend fun downloadFile(accessToken: String, fileId: String, destination: File) = Unit
+        override suspend fun downloadFile(accessToken: String, fileId: String, destination: File, onProgress: suspend (Long, Long) -> Unit) = Unit
         override suspend fun deleteFile(accessToken: String, fileId: String) = Unit
     }
 }

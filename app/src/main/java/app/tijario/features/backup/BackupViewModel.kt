@@ -43,7 +43,12 @@ data class BackupUiState(
     val shareIntent: Intent? = null,
     val driveAuthorizationIntentSender: IntentSender? = null,
     val messageKey: String? = null,
+    val operationTarget: BackupTarget? = null,
+    val operationStage: String? = null,
+    val operationPercent: Int? = null,
 )
+
+enum class BackupTarget { PHONE, GOOGLE_DRIVE, AUTOMATIC }
 
 class BackupViewModel(
     application: Application,
@@ -59,10 +64,31 @@ class BackupViewModel(
         refreshLatest()
     }
 
-    fun createLocalBackup(exportAfterCreate: Boolean) {
+    /** Legacy entry point: explicit UI actions call a target-specific method below. */
+    fun createLocalBackup(exportAfterCreate: Boolean) = saveBackupToPhone(exportAfterCreate)
+
+    fun saveBackupToPhone(exportAfterCreate: Boolean = false) {
+        createBackup(BackupTarget.PHONE, exportAfterCreate)
+    }
+
+    fun backupNowToGoogleDrive() {
+        if (_uiState.value.driveConnectionState !is DriveConnectionState.Connected) {
+            _uiState.value = _uiState.value.copy(messageKey = driveMessage(_uiState.value.driveConnectionState))
+            return
+        }
+        createBackup(BackupTarget.GOOGLE_DRIVE, exportAfterCreate = false)
+    }
+
+    private fun createBackup(target: BackupTarget, exportAfterCreate: Boolean) {
         if (userId.isBlank() || _uiState.value.isBusy) return
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isBusy = true, messageKey = null)
+            _uiState.value = _uiState.value.copy(
+                isBusy = true,
+                messageKey = null,
+                operationTarget = target,
+                operationStage = "backup_preparing",
+                operationPercent = 0,
+            )
             runCatching { coordinator.createLocalBackup(userId, allowNetwork = true) }
                 .onSuccess { record ->
                     preparedExport = resolveBackupArchiveFile(
@@ -70,22 +96,32 @@ class BackupViewModel(
                         userId = userId,
                         storedRelativePath = record.localRelativePath,
                     )
-                    val phoneBackupResult = withContext(Dispatchers.IO) {
-                        runCatching {
-                            PhoneBackupRepository(getApplication()).saveVisibleCopy(userId, record, getApplication<Application>().filesDir)
-                        }
-                    }
-                    phoneBackupResult.exceptionOrNull()?.let { error ->
-                        Log.w(LOG_TAG, "visible_backup_copy_failed error=${error.javaClass.simpleName}")
-                    }
-                    val phoneBackup = phoneBackupResult.getOrNull()
                     val settings = _uiState.value.settings ?: defaultSettings()
-                    val effectiveRecord = if (settings.driveEnabled) {
-                        record.copy(status = "DRIVE_PENDING").also {
-                            database.tijarioDao().upsertBackupRecord(it)
-                            BackupScheduler.enqueueDriveUpload(getApplication(), settings, it.id)
+                    val phoneBackup = if (target == BackupTarget.PHONE) {
+                        runCatching {
+                            withContext(Dispatchers.IO) {
+                                PhoneBackupRepository(getApplication()).saveVisibleCopy(userId, record, getApplication<Application>().filesDir)
+                            }
+                        }.getOrElse { error ->
+                            _uiState.value = _uiState.value.copy(
+                                isBusy = false,
+                                messageKey = backupMessageKeyFor(error),
+                                operationStage = "backup_failed",
+                                operationPercent = null,
+                            )
+                            return@onSuccess
                         }
-                    } else record
+                    } else null
+                    val effectiveRecord = when (target) {
+                        BackupTarget.PHONE -> record.copy(status = "PHONE_SAVED", lastError = null).also {
+                            database.tijarioDao().upsertBackupRecord(it)
+                        }
+                        BackupTarget.GOOGLE_DRIVE -> record.copy(status = "DRIVE_PENDING", lastError = null).also {
+                            database.tijarioDao().upsertBackupRecord(it)
+                            BackupScheduler.enqueueDriveUpload(getApplication(), settings, it.id, userInitiated = true)
+                        }
+                        BackupTarget.AUTOMATIC -> record
+                    }
                     _uiState.value = _uiState.value.copy(
                         isBusy = false,
                         latestBackup = effectiveRecord,
@@ -93,12 +129,23 @@ class BackupViewModel(
                         phoneBackupDestination = phoneBackup?.destinationKey
                             ?: PhoneBackupRepository(getApplication()).destinationKey(userId),
                         exportFileName = if (exportAfterCreate) preparedExport?.name else null,
-                        messageKey = if (exportAfterCreate) null else if (phoneBackup != null) "backup_phone_saved" else "backup_phone_save_failed",
+                        messageKey = if (exportAfterCreate) null else when (target) {
+                            BackupTarget.PHONE -> "backup_phone_saved"
+                            BackupTarget.GOOGLE_DRIVE -> "backup_drive_pending"
+                            BackupTarget.AUTOMATIC -> null
+                        },
+                        operationStage = if (target == BackupTarget.GOOGLE_DRIVE) "backup_drive_pending" else "backup_completed",
+                        operationPercent = 100,
                     )
                     refreshLatest()
                 }
                 .onFailure { error ->
-                    _uiState.value = _uiState.value.copy(isBusy = false, messageKey = backupMessageKeyFor(error))
+                    _uiState.value = _uiState.value.copy(
+                        isBusy = false,
+                        messageKey = backupMessageKeyFor(error),
+                        operationStage = "backup_failed",
+                        operationPercent = null,
+                    )
                 }
         }
     }
@@ -153,7 +200,7 @@ class BackupViewModel(
                 _uiState.value = _uiState.value.copy(isBusy = false, messageKey = "backup_restored_success")
                 refreshLatest()
             }.onFailure { error ->
-                _uiState.value = _uiState.value.copy(isBusy = false, messageKey = backupMessageKeyFor(error, "backup_restore_failed"))
+                _uiState.value = _uiState.value.copy(isBusy = false, messageKey = backupMessageKeyFor(restoreFailureFor(error), "backup_restore_failed"))
             }
         }
     }
@@ -173,7 +220,7 @@ class BackupViewModel(
                 _uiState.value = _uiState.value.copy(isBusy = false, messageKey = "backup_restored_success")
                 refreshLatest()
             }.onFailure { error ->
-                _uiState.value = _uiState.value.copy(isBusy = false, messageKey = backupMessageKeyFor(error, "backup_restore_failed"))
+                _uiState.value = _uiState.value.copy(isBusy = false, messageKey = backupMessageKeyFor(restoreFailureFor(error), "backup_restore_failed"))
             }
         }
     }
@@ -278,7 +325,13 @@ class BackupViewModel(
     fun restoreFromDrive(remote: DriveBackupFile) {
         if (userId.isBlank() || _uiState.value.isBusy) return
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isBusy = true, messageKey = null)
+            _uiState.value = _uiState.value.copy(
+                isBusy = true,
+                messageKey = null,
+                operationTarget = BackupTarget.GOOGLE_DRIVE,
+                operationStage = "backup_downloading",
+                operationPercent = 0,
+            )
             val temporary = File(getApplication<Application>().cacheDir, "drive-restore-${remote.backupId}.tijario")
             runCatching {
                 val repository = DriveBackupRepository(
@@ -286,13 +339,29 @@ class BackupViewModel(
                     getApplication<Application>().filesDir,
                     driveClient(),
                 )
-                repository.download(userId, remote, temporary)
+                repository.download(userId, remote, temporary) { transferred, total ->
+                    _uiState.value = _uiState.value.copy(
+                        operationStage = "backup_downloading",
+                        operationPercent = progressPercent(transferred, total),
+                    )
+                }
+                _uiState.value = _uiState.value.copy(operationStage = "backup_restoring", operationPercent = null)
                 coordinator.restoreLocalBackup(userId, temporary, allowNetwork = true)
             }.onSuccess {
-                _uiState.value = _uiState.value.copy(isBusy = false, messageKey = "backup_restored_success")
+                _uiState.value = _uiState.value.copy(
+                    isBusy = false,
+                    messageKey = "backup_restored_success",
+                    operationStage = "backup_restored_success",
+                    operationPercent = 100,
+                )
                 refreshLatest()
             }.onFailure { error ->
-                _uiState.value = _uiState.value.copy(isBusy = false, messageKey = backupMessageKeyFor(error, "backup_restore_failed"))
+                _uiState.value = _uiState.value.copy(
+                    isBusy = false,
+                    messageKey = backupMessageKeyFor(restoreFailureFor(error), "backup_restore_failed"),
+                    operationStage = "backup_restore_failed",
+                    operationPercent = null,
+                )
             }
             temporary.delete()
         }
@@ -417,6 +486,9 @@ class BackupViewModel(
     }
 
     private fun driveClient() = DriveBackupRuntime.client(getApplication<Application>(), userId)
+
+    private fun progressPercent(transferred: Long, total: Long): Int =
+        if (total <= 0L) 0 else ((transferred * 100L) / total).toInt().coerceIn(0, 100)
 
     private fun driveMessage(state: DriveConnectionState): String? = when (state) {
         is DriveConnectionState.Connected -> "backup_drive_connected"

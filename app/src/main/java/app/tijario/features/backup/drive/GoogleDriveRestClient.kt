@@ -33,8 +33,14 @@ interface DriveRestTransport {
         file: File,
         mimeType: String,
         appProperties: Map<String, String>,
+        onProgress: suspend (bytesTransferred: Long, totalBytes: Long) -> Unit = { _, _ -> },
     ): DriveRestFile
-    suspend fun downloadFile(accessToken: String, fileId: String, destination: File)
+    suspend fun downloadFile(
+        accessToken: String,
+        fileId: String,
+        destination: File,
+        onProgress: suspend (bytesTransferred: Long, totalBytes: Long) -> Unit = { _, _ -> },
+    )
     suspend fun deleteFile(accessToken: String, fileId: String)
 }
 
@@ -70,6 +76,7 @@ class GoogleDriveRestClient(
         folderId: String,
         file: File,
         metadata: DriveUploadMetadata,
+        onProgress: suspend (Long, Long) -> Unit,
     ): DriveBackupFile {
         requireConnectedDriveAccount()
         return request { transport.uploadFile(
@@ -77,6 +84,7 @@ class GoogleDriveRestClient(
             parentId = folderId,
             file = file,
             mimeType = BACKUP_MIME_TYPE,
+            onProgress = onProgress,
             appProperties = mapOf(
                 "tijario_account_id" to metadata.accountId,
                 "tijario_backup_id" to metadata.backupId,
@@ -94,8 +102,8 @@ class GoogleDriveRestClient(
             .sortedByDescending(DriveBackupFile::createdAt)
     }
 
-    override suspend fun downloadBackup(fileId: String, destination: File) = request {
-        transport.downloadFile(token(), fileId, destination)
+    override suspend fun downloadBackup(fileId: String, destination: File, onProgress: suspend (Long, Long) -> Unit) = request {
+        transport.downloadFile(token(), fileId, destination, onProgress)
     }
 
     override suspend fun deleteFile(fileId: String) = request { transport.deleteFile(token(), fileId) }

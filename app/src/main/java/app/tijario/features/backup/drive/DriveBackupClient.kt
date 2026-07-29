@@ -50,9 +50,18 @@ interface DriveBackupClient {
     suspend fun findFolder(name: String, parentId: String?): String?
     suspend fun createFolder(name: String, parentId: String?): String
     suspend fun findBackup(folderId: String, accountId: String, backupId: String): DriveBackupFile?
-    suspend fun uploadBackup(folderId: String, file: File, metadata: DriveUploadMetadata): DriveBackupFile
+    suspend fun uploadBackup(
+        folderId: String,
+        file: File,
+        metadata: DriveUploadMetadata,
+        onProgress: suspend (bytesTransferred: Long, totalBytes: Long) -> Unit = { _, _ -> },
+    ): DriveBackupFile
     suspend fun listBackups(folderId: String, accountId: String): List<DriveBackupFile>
-    suspend fun downloadBackup(fileId: String, destination: File)
+    suspend fun downloadBackup(
+        fileId: String,
+        destination: File,
+        onProgress: suspend (bytesTransferred: Long, totalBytes: Long) -> Unit = { _, _ -> },
+    )
     suspend fun deleteFile(fileId: String)
     fun openFolderUrl(folderId: String): String = "https://drive.google.com/drive/folders/$folderId"
 }
@@ -62,8 +71,8 @@ object UnavailableDriveBackupClient : DriveBackupClient {
     override suspend fun findFolder(name: String, parentId: String?) = throw DriveBackupException.NotConfigured()
     override suspend fun createFolder(name: String, parentId: String?) = throw DriveBackupException.NotConfigured()
     override suspend fun findBackup(folderId: String, accountId: String, backupId: String) = throw DriveBackupException.NotConfigured()
-    override suspend fun uploadBackup(folderId: String, file: File, metadata: DriveUploadMetadata) = throw DriveBackupException.NotConfigured()
+    override suspend fun uploadBackup(folderId: String, file: File, metadata: DriveUploadMetadata, onProgress: suspend (Long, Long) -> Unit) = throw DriveBackupException.NotConfigured()
     override suspend fun listBackups(folderId: String, accountId: String) = throw DriveBackupException.NotConfigured()
-    override suspend fun downloadBackup(fileId: String, destination: File) = throw DriveBackupException.NotConfigured()
+    override suspend fun downloadBackup(fileId: String, destination: File, onProgress: suspend (Long, Long) -> Unit) = throw DriveBackupException.NotConfigured()
     override suspend fun deleteFile(fileId: String) = throw DriveBackupException.NotConfigured()
 }

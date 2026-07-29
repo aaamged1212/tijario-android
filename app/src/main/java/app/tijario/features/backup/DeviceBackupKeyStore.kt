@@ -52,7 +52,22 @@ internal fun backupMessageKeyFor(error: Throwable, fallback: String = "backup_cr
     "SERVER_CONFIGURATION_ERROR" -> "backup_server_configuration_error"
     "UNAUTHENTICATED" -> "error_session_expired"
     "OFFLINE_KEY_UNAVAILABLE" -> "backup_create_failed"
-    else -> fallback
+    else -> when (error) {
+        is PhoneBackupDestinationException -> when (error.code) {
+            PhoneBackupDestinationException.Code.DEFAULT_FOLDER_UNAVAILABLE -> "backup_phone_folder_required"
+            PhoneBackupDestinationException.Code.PERMISSION_LOST -> "backup_phone_folder_permission_lost"
+        }
+        is BackupRestoreException -> when (error.code) {
+            BackupRestoreException.Code.PRE_RESTORE_SAFETY_BACKUP_FAILED -> "backup_restore_safety_backup_failed"
+            BackupRestoreException.Code.BACKUP_ACCOUNT_MISMATCH -> "backup_account_mismatch"
+            BackupRestoreException.Code.BACKUP_HASH_MISMATCH -> "backup_hash_mismatch"
+            BackupRestoreException.Code.BACKUP_DEVICE_KEY_INVALID -> "backup_device_key_invalid"
+            BackupRestoreException.Code.BACKUP_KEY_VERSION_UNAVAILABLE -> "backup_key_unavailable"
+            BackupRestoreException.Code.DRIVE_AUTH_REQUIRED -> "backup_drive_reauthorization_required"
+            else -> "backup_restore_failed"
+        }
+        else -> fallback
+    }
 }
 
 @Serializable

@@ -56,7 +56,7 @@ data class DecodedBackup(
     }
 }
 
-class BackupValidationException(message: String, cause: Throwable? = null) : Exception(message, cause)
+open class BackupValidationException(message: String, cause: Throwable? = null) : Exception(message, cause)
 
 object BackupArchiveCodec {
     internal const val MAX_ARCHIVE_BYTES = 256 * 1024 * 1024
