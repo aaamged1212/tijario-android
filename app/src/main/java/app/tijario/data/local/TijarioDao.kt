@@ -284,6 +284,21 @@ interface TijarioDao {
     @Query("UPDATE document_creation_events SET lease_id = NULL WHERE user_id = :userId AND operation_id = :operationId AND status = 'PENDING'")
     suspend fun clearLeaseFromPendingCreationEvent(userId: String, operationId: String): Int
 
+    @Query(
+        """
+        UPDATE offline_quota_lease
+        SET consumed_count = CASE
+                WHEN :status = 'EXHAUSTED' THEN allowed_limit
+                ELSE consumed_count
+            END,
+            status = :status
+        WHERE id = :leaseId
+          AND user_id = :userId
+          AND status = 'ACTIVE'
+        """
+    )
+    suspend fun invalidateLeaseForReconciliation(userId: String, leaseId: String, status: String): Int
+
     @Query("UPDATE document_creation_events SET status = 'BLOCKED', acknowledged_at_server = :resolvedAt WHERE user_id = :userId AND operation_id = :operationId AND status = 'PENDING'")
     suspend fun blockCreationEvent(userId: String, operationId: String, resolvedAt: Long): Int
 

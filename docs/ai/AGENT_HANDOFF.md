@@ -1,5 +1,12 @@
 # Agent Handoff (Android & Web Repos)
 
+## 2026-07-29 (Final release-blocker correction, local uncommitted)
+- **Branch**: `codex/fix-production-release-blockers`.
+- **Lease reconciliation**: Retryable lease errors now clear only the pending event assignment and invalidate the exact local active lease in the same Room transaction. Invalid leases become `INVALID`, expired leases become `EXPIRED`, and exhausted leases become `EXHAUSTED` with `consumed_count = allowed_limit`, so they cannot be selected by the next recovery cycle.
+- **Deletion recovery**: Startup now uses explicit running/succeeded/failed recovery states. Failed local-only cleanup retains the marker, blocks authenticated routing/sync/notifications, and exposes an explicit local retry; it never calls the deletion endpoint.
+- **Validation**: Focused quota/account-deletion JVM tests and `assemblePlayQa` passed. Version remains `15` / `1.1.5`.
+- **Safety**: No commit, push, deployment, production migration, external-console action, or Play upload occurred.
+
 ## 2026-07-26 (Onboarding backup-key decoupling, local uncommitted)
 - **Branch**: `codex/backup-drive-production-ready`.
 - **Root cause**: A LocalDrive onboarding bootstrap treated optional backup-key envelope preparation as a required account-initialization dependency.

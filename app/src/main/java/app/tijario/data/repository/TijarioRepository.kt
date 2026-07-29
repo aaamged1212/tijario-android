@@ -2825,7 +2825,12 @@ open class TijarioRepository(
             } else if (!result.success) {
                 when {
                     isRetryableLeaseReconciliationFailure(result.errorCode) -> {
-                        dao.clearLeaseFromPendingCreationEvent(userId, event.operationId)
+                        releaseRetryableLeaseForReconciliation(
+                            userId = userId,
+                            operationId = event.operationId,
+                            leaseId = event.leaseId.orEmpty(),
+                            errorCode = result.errorCode,
+                        )
                     }
                     isTerminalDocumentCreationEventFailure(result.errorCode) -> {
                         dao.blockCreationEvent(userId, event.operationId, System.currentTimeMillis())
@@ -2835,6 +2840,23 @@ open class TijarioRepository(
                     }
                 }
             }
+        }
+    }
+
+    /** Keeps the event retryable while ensuring the rejected lease is never selected again. */
+    internal suspend fun releaseRetryableLeaseForReconciliation(
+        userId: String,
+        operationId: String,
+        leaseId: String,
+        errorCode: String?,
+    ): Boolean {
+        val leaseStatus = retryableLeaseInvalidationStatus(errorCode) ?: return false
+        if (leaseId.isBlank()) return false
+        return database.withTransaction {
+            val eventCleared = dao.clearLeaseFromPendingCreationEvent(userId, operationId)
+            if (eventCleared == 0) return@withTransaction false
+            dao.invalidateLeaseForReconciliation(userId, leaseId, leaseStatus)
+            true
         }
     }
 

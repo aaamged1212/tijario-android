@@ -1,5 +1,10 @@
 # AI Changelog
 
+## 2026-07-29 - Lease invalidation and deletion-recovery state gate
+- Retryable rejected leases are invalidated atomically with clearing their pending creation-event assignment, preventing the same lease from being reused during recovery.
+- Pending account-deletion cleanup now has explicit running/succeeded/failed startup states and a local-only retry screen that blocks routing and sync on failure.
+- Focused quota/account-deletion JVM tests and `assemblePlayQa` passed; no external action occurred.
+
 ## 2026-07-24 - Closed Testing 1.1.4 release preparation
 - Prepared version code `14` / version name `1.1.4`, verified dependency-provided AD_ID permissions and disabled Meta advertiser-ID collection, and generated a signed local Release AAB with provenance.
 

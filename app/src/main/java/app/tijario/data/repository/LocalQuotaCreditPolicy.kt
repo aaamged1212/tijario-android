@@ -24,11 +24,15 @@ internal fun isTerminalDocumentCreationEventFailure(errorCode: String?): Boolean
     "ENTITLEMENT_VERSION_MISMATCH",
 )
 
-internal fun isRetryableLeaseReconciliationFailure(errorCode: String?): Boolean = errorCode in setOf(
-    "OFFLINE_LEASE_INVALID",
-    "OFFLINE_LEASE_EXPIRED",
-    "OFFLINE_LEASE_EXHAUSTED",
-)
+internal fun retryableLeaseInvalidationStatus(errorCode: String?): String? = when (errorCode) {
+    "OFFLINE_LEASE_INVALID" -> "INVALID"
+    "OFFLINE_LEASE_EXPIRED" -> "EXPIRED"
+    "OFFLINE_LEASE_EXHAUSTED" -> "EXHAUSTED"
+    else -> null
+}
+
+internal fun isRetryableLeaseReconciliationFailure(errorCode: String?): Boolean =
+    retryableLeaseInvalidationStatus(errorCode) != null
 
 internal fun isPermanentDocumentCreationEventFailure(errorCode: String?): Boolean = errorCode in setOf(
     "INVALID_EVENT_PAYLOAD",

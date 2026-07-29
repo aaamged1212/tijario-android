@@ -130,6 +130,12 @@ private data class RootTab(
     val iconOutlined: ImageVector,
 )
 
+private sealed interface AccountDeletionRecoveryState {
+    data object Running : AccountDeletionRecoveryState
+    data class Succeeded(val recoveredPendingDeletion: Boolean) : AccountDeletionRecoveryState
+    data object Failed : AccountDeletionRecoveryState
+}
+
 private val rootTabs = listOf(
     RootTab("dashboard", "tab_home", Icons.Filled.Home, Icons.Outlined.Home),
     RootTab("documents", "tab_documents", Icons.Filled.Description, Icons.Outlined.Description),
@@ -168,8 +174,9 @@ private fun TijarioAppContent() {
     val dataUiState by dataViewModel.uiState.collectAsStateWithLifecycle()
     val notificationsState by notificationsViewModel.state.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
-    var accountDeletionRecoveryComplete by remember { mutableStateOf(false) }
-    var recoveredPendingAccountDeletion by remember { mutableStateOf(false) }
+    var accountDeletionRecovery by remember {
+        mutableStateOf<AccountDeletionRecoveryState>(AccountDeletionRecoveryState.Running)
+    }
     val showStartupSplash =
         authState is CentralAuthState.Initializing ||
             (authState is CentralAuthState.AuthenticatedReady &&
@@ -182,25 +189,38 @@ private fun TijarioAppContent() {
     var requestedDocumentsType by remember { mutableStateOf<app.tijario.data.model.DocumentType?>(null) }
     var activeSelectedProductRowIndex by remember { mutableStateOf<Int?>(null) }
 
-    LaunchedEffect(Unit) {
+    suspend fun recoverPendingAccountDeletionCleanup() {
         val pendingUserId = AppPreferences.pendingAccountDeletionCleanupUserId(context)
-        if (!pendingUserId.isNullOrBlank()) {
-            if (dataViewModel.deleteAccountLocal(pendingUserId).isSuccess) {
-                try {
-                    authViewModel.clearLocalSession(pendingUserId)
-                    AppPreferences.clearPendingAccountDeletionCleanup(context, pendingUserId)
-                    recoveredPendingAccountDeletion = true
-                } catch (_: Exception) {
-                    // Keep the marker for the next local-only recovery attempt.
-                }
-            }
+        if (pendingUserId.isNullOrBlank()) {
+            accountDeletionRecovery = AccountDeletionRecoveryState.Succeeded(recoveredPendingDeletion = false)
+            return
         }
-        accountDeletionRecoveryComplete = true
+
+        if (dataViewModel.deleteAccountLocal(pendingUserId).isFailure) {
+            accountDeletionRecovery = AccountDeletionRecoveryState.Failed
+            return
+        }
+
+        try {
+            authViewModel.clearLocalSession(pendingUserId)
+            AppPreferences.clearPendingAccountDeletionCleanup(context, pendingUserId)
+            accountDeletionRecovery = AccountDeletionRecoveryState.Succeeded(recoveredPendingDeletion = true)
+        } catch (_: Exception) {
+            // Keep the marker and block authenticated routing until local cleanup can be retried.
+            accountDeletionRecovery = AccountDeletionRecoveryState.Failed
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        recoverPendingAccountDeletionCleanup()
     }
 
     // Start data sync only after a pending account-deletion cleanup has recovered.
-    LaunchedEffect(authState, accountDeletionRecoveryComplete, recoveredPendingAccountDeletion) {
-        if (!accountDeletionRecoveryComplete) return@LaunchedEffect
+    val accountDeletionRecoverySucceeded = accountDeletionRecovery is AccountDeletionRecoveryState.Succeeded
+    val recoveredPendingAccountDeletion =
+        (accountDeletionRecovery as? AccountDeletionRecoveryState.Succeeded)?.recoveredPendingDeletion == true
+    LaunchedEffect(authState, accountDeletionRecoverySucceeded, recoveredPendingAccountDeletion) {
+        if (!accountDeletionRecoverySucceeded) return@LaunchedEffect
         if (authState is CentralAuthState.AuthenticatedReady || authState is CentralAuthState.AuthenticatedNeedsOnboarding) {
             dataViewModel.startForCurrentUser()
         } else if (authState is CentralAuthState.Unauthenticated && !recoveredPendingAccountDeletion) {
@@ -209,11 +229,11 @@ private fun TijarioAppContent() {
     }
 
     val lifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner, authState, accountDeletionRecoveryComplete, recoveredPendingAccountDeletion) {
+    DisposableEffect(lifecycleOwner, authState, accountDeletionRecoverySucceeded, recoveredPendingAccountDeletion) {
         val observer = LifecycleEventObserver { _, event ->
             if (
                 event == Lifecycle.Event.ON_RESUME &&
-                accountDeletionRecoveryComplete &&
+                accountDeletionRecoverySucceeded &&
                 !recoveredPendingAccountDeletion &&
                 (authState is CentralAuthState.AuthenticatedReady ||
                     authState is CentralAuthState.AuthenticatedNeedsOnboarding)
@@ -229,7 +249,26 @@ private fun TijarioAppContent() {
         }
     }
 
-    if (!accountDeletionRecoveryComplete || showStartupSplash) {
+    when (accountDeletionRecovery) {
+        AccountDeletionRecoveryState.Running -> {
+            SplashScreen()
+            return
+        }
+        AccountDeletionRecoveryState.Failed -> {
+            AccountDeletionRecoveryFailedScreen(
+                onRetry = {
+                    scope.launch {
+                        accountDeletionRecovery = AccountDeletionRecoveryState.Running
+                        recoverPendingAccountDeletionCleanup()
+                    }
+                },
+            )
+            return
+        }
+        is AccountDeletionRecoveryState.Succeeded -> Unit
+    }
+
+    if (showStartupSplash) {
         SplashScreen()
         return
     }
@@ -961,6 +1000,31 @@ private fun TijarioAppContent() {
                     Button(onClick = { authViewModel.checkCurrentSession() }) {
                         Text(t("retry"))
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AccountDeletionRecoveryFailedScreen(onRetry: () -> Unit) {
+    Surface(modifier = Modifier.fillMaxSize()) {
+        Box(
+            modifier = Modifier.fillMaxSize().padding(24.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                Text(
+                    text = t("account_delete_failed"),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.error,
+                )
+                Button(onClick = onRetry) {
+                    Text(t("retry"))
                 }
             }
         }

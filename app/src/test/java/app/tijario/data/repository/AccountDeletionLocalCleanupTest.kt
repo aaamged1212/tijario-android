@@ -30,17 +30,26 @@ class AccountDeletionLocalCleanupTest {
     }
 
     @Test
-    fun startupRecoveryUsesThePendingMarkerAndOnlyClearsItAfterLocalCleanup() {
+    fun startupRecoveryBlocksAuthenticatedRoutingUntilLocalCleanupSucceeds() {
         val app = File("src/main/java/app/tijario/ui/TijarioApp.kt").readText()
         val auth = File("src/main/java/app/tijario/ui/state/AuthViewModel.kt").readText()
-        val recovery = app.substringAfter("val pendingUserId = AppPreferences.pendingAccountDeletionCleanupUserId(context)")
-            .substringBefore("accountDeletionRecoveryComplete = true")
+        val recovery = app.substringAfter("suspend fun recoverPendingAccountDeletionCleanup()")
+            .substringBefore("LaunchedEffect(Unit)")
 
+        assertTrue(app.contains("private sealed interface AccountDeletionRecoveryState"))
+        assertTrue(app.contains("data object Running"))
+        assertTrue(app.contains("data class Succeeded"))
+        assertTrue(app.contains("data object Failed"))
         assertTrue(recovery.contains("dataViewModel.deleteAccountLocal(pendingUserId)"))
         assertTrue(recovery.contains("authViewModel.clearLocalSession(pendingUserId)"))
         assertTrue(recovery.indexOf("deleteAccountLocal(pendingUserId)") < recovery.indexOf("clearPendingAccountDeletionCleanup"))
+        assertTrue(recovery.contains("accountDeletionRecovery = AccountDeletionRecoveryState.Failed"))
         assertTrue(!recovery.contains("apiClient.deleteAccount"))
         assertTrue(!recovery.contains("currentUserId()"))
+        assertTrue(app.contains("if (!accountDeletionRecoverySucceeded) return@LaunchedEffect"))
+        assertTrue(app.contains("AccountDeletionRecoveryState.Failed ->"))
+        assertTrue(app.contains("AccountDeletionRecoveryFailedScreen("))
+        assertTrue(app.contains("recoverPendingAccountDeletionCleanup()"))
         assertTrue(auth.contains("suspend fun clearLocalSession"))
         assertTrue(auth.contains("supabaseClient.auth.clearSession()"))
         assertTrue(!auth.substringAfter("suspend fun clearLocalSession").substringBefore("\n    }").contains("signOut()"))

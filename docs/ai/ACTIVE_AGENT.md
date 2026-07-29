@@ -1,5 +1,10 @@
 # Active Agent Status
 
+- **Current task**: Final release-blocker correction on `codex/fix-production-release-blockers` (local uncommitted).
+- **Current state**: Retryable rejected leases are invalidated atomically with their pending event assignment being cleared. Pending account-deletion startup cleanup is state-gated and blocks authenticated routing/sync/notifications on a local cleanup failure until the user retries locally.
+- **Validation**: Focused quota/account-deletion JVM tests and `assemblePlayQa` passed. Version remains `15` / `1.1.5`.
+- **Safety**: No commit, push, deployment, production migration, external-console change, or Play upload occurred. `.agents` remains local and excluded.
+
 - **Current Active Agent**: Codex
 - **Last Agent**: Codex
 - **Last Task**: Fix Google Drive post-consent connection failure without changing OAuth scopes or external Google settings.

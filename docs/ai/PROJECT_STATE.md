@@ -1,5 +1,7 @@
 # Project State (Android & Web Repos)
 
+- **Release-blocker local correction**: On `codex/fix-production-release-blockers`, retryable lease reconciliation now atomically invalidates the rejected exact lease while preserving the pending event for reassignment. Startup account-deletion cleanup uses explicit success/failure state and blocks authenticated routing, notifications, and sync after local cleanup failure. Focused tests and `assemblePlayQa` passed; no commit or external action occurred.
+
 - **Google Drive post-consent fix**: Prepared work on `codex/backup-drive-production-ready` resolves the stable Drive account identity through `about.user.permissionId` rather than optional Google profile data. Version is code `15` / name `1.1.5`; real-device OAuth/Drive validation remains pending.
 
 - **CI status**: The permanent Android API 36 workflow now initializes the Android SDK before installing API 36. Local unit tests, instrumentation APK assembly, lint, debug assembly, and release assembly pass. GitHub Actions run `30048718414` also passed both compile/unit and lint/release jobs.
