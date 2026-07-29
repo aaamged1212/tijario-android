@@ -168,6 +168,8 @@ private fun TijarioAppContent() {
     val dataUiState by dataViewModel.uiState.collectAsStateWithLifecycle()
     val notificationsState by notificationsViewModel.state.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
+    var accountDeletionRecoveryComplete by remember { mutableStateOf(false) }
+    var recoveredPendingAccountDeletion by remember { mutableStateOf(false) }
     val showStartupSplash =
         authState is CentralAuthState.Initializing ||
             (authState is CentralAuthState.AuthenticatedReady &&
@@ -180,20 +182,39 @@ private fun TijarioAppContent() {
     var requestedDocumentsType by remember { mutableStateOf<app.tijario.data.model.DocumentType?>(null) }
     var activeSelectedProductRowIndex by remember { mutableStateOf<Int?>(null) }
 
-    // Start data sync when authenticated
-    LaunchedEffect(authState) {
+    LaunchedEffect(Unit) {
+        val pendingUserId = AppPreferences.pendingAccountDeletionCleanupUserId(context)
+        if (!pendingUserId.isNullOrBlank()) {
+            if (dataViewModel.deleteAccountLocal(pendingUserId).isSuccess) {
+                try {
+                    authViewModel.clearLocalSession(pendingUserId)
+                    AppPreferences.clearPendingAccountDeletionCleanup(context, pendingUserId)
+                    recoveredPendingAccountDeletion = true
+                } catch (_: Exception) {
+                    // Keep the marker for the next local-only recovery attempt.
+                }
+            }
+        }
+        accountDeletionRecoveryComplete = true
+    }
+
+    // Start data sync only after a pending account-deletion cleanup has recovered.
+    LaunchedEffect(authState, accountDeletionRecoveryComplete, recoveredPendingAccountDeletion) {
+        if (!accountDeletionRecoveryComplete) return@LaunchedEffect
         if (authState is CentralAuthState.AuthenticatedReady || authState is CentralAuthState.AuthenticatedNeedsOnboarding) {
             dataViewModel.startForCurrentUser()
-        } else if (authState is CentralAuthState.Unauthenticated) {
+        } else if (authState is CentralAuthState.Unauthenticated && !recoveredPendingAccountDeletion) {
             notificationsViewModel.logout()
         }
     }
 
     val lifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner, authState) {
+    DisposableEffect(lifecycleOwner, authState, accountDeletionRecoveryComplete, recoveredPendingAccountDeletion) {
         val observer = LifecycleEventObserver { _, event ->
             if (
                 event == Lifecycle.Event.ON_RESUME &&
+                accountDeletionRecoveryComplete &&
+                !recoveredPendingAccountDeletion &&
                 (authState is CentralAuthState.AuthenticatedReady ||
                     authState is CentralAuthState.AuthenticatedNeedsOnboarding)
             ) {
@@ -208,7 +229,7 @@ private fun TijarioAppContent() {
         }
     }
 
-    if (showStartupSplash) {
+    if (!accountDeletionRecoveryComplete || showStartupSplash) {
         SplashScreen()
         return
     }

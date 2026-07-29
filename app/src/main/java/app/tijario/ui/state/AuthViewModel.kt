@@ -195,6 +195,13 @@ class AuthViewModel(
             _authState.value = CentralAuthState.Unauthenticated
         }
     }
+
+    suspend fun clearLocalSession(userId: String?) {
+        supabaseClient.auth.clearSession()
+        userId?.let(repository::cancelAccountBackgroundWork)
+        repository.clearTransientSessionState()
+        _authState.value = CentralAuthState.Unauthenticated
+    }
 }
 
 class AuthViewModelFactory(

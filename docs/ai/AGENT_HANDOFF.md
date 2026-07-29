@@ -637,3 +637,8 @@
 - **Legacy events**: Lease-less events are assigned only up to current compatible capacity; unassignable excess stays pending for later reconciliation rather than being incorrectly marked blocked.
 - **Deletion retry**: A successful server deletion records a local pending-cleanup marker. Retrying after a local cleanup failure performs only the local cleanup, and cleanup aborts before job cancellation if a scoped file cannot be deleted.
 - **Validation**: Focused `LocalDocumentSave`, quota, and account-deletion JVM tests plus `assemblePlayQa` passed. Version remains `15` / `1.1.5`; branch publication is authorized, with no migration, deploy, or Play action.
+
+## 2026-07-29 (Lease retry and startup deletion recovery, local only)
+- **Reconciliation**: Invalid, expired, and exhausted leases now clear only a pending event lease and preserve the event for reassignment. Only limit, installation-revocation, and entitlement-version failures block; only permanent invalid event/payload failures reject.
+- **Startup deletion recovery**: A pending local-cleanup marker runs local Room/file cleanup before authenticated routing. It clears the marker and local auth session only after success, and leaves the marker on failure without a server call.
+- **Validation**: Focused quota/account-deletion JVM tests and `assemblePlayQa` passed. Version remains `15` / `1.1.5`; no migration, deploy, commit, push, or Play action occurred.

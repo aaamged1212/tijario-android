@@ -38,3 +38,4 @@
 - **Current task**: Production release blocker hardening on `codex/fix-production-release-blockers`.
 - **State**: Local validation passed; no Production migration, deployment, external configuration, or Play upload occurred. `.agents` remains local and excluded.
 - **Correction**: LocalDrive lease acknowledgement, legacy-event recovery, and post-server-confirmation deletion retry are locally validated. Version remains `15` / `1.1.5`; branch publication is authorized, with no migration, deploy, or Play action.
+- **2026-07-29**: Retryable lease errors now release pending lease assignments, and deletion cleanup recovers locally before routing. Focused JVM tests and `assemblePlayQa` passed; no commit, push, migration, deployment, or Play action occurred.

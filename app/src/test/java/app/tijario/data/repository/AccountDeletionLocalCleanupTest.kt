@@ -28,4 +28,21 @@ class AccountDeletionLocalCleanupTest {
         assertTrue(repository.contains("deleteAccountLocalPath"))
         assertTrue(repository.contains("ACCOUNT_LOCAL_CLEANUP_FAILED"))
     }
+
+    @Test
+    fun startupRecoveryUsesThePendingMarkerAndOnlyClearsItAfterLocalCleanup() {
+        val app = File("src/main/java/app/tijario/ui/TijarioApp.kt").readText()
+        val auth = File("src/main/java/app/tijario/ui/state/AuthViewModel.kt").readText()
+        val recovery = app.substringAfter("val pendingUserId = AppPreferences.pendingAccountDeletionCleanupUserId(context)")
+            .substringBefore("accountDeletionRecoveryComplete = true")
+
+        assertTrue(recovery.contains("dataViewModel.deleteAccountLocal(pendingUserId)"))
+        assertTrue(recovery.contains("authViewModel.clearLocalSession(pendingUserId)"))
+        assertTrue(recovery.indexOf("deleteAccountLocal(pendingUserId)") < recovery.indexOf("clearPendingAccountDeletionCleanup"))
+        assertTrue(!recovery.contains("apiClient.deleteAccount"))
+        assertTrue(!recovery.contains("currentUserId()"))
+        assertTrue(auth.contains("suspend fun clearLocalSession"))
+        assertTrue(auth.contains("supabaseClient.auth.clearSession()"))
+        assertTrue(!auth.substringAfter("suspend fun clearLocalSession").substringBefore("\n    }").contains("signOut()"))
+    }
 }

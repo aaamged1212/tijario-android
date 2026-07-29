@@ -412,3 +412,8 @@
 # 2026-07-29 - Release-blocker contract correction
 - Lease consumption now occurs exactly once with the acknowledgement transaction, legacy lease-less events retain pending state when capacity is unavailable, and failed local account cleanup remains retryable after server confirmation.
 - Focused JVM tests and `assemblePlayQa` passed locally. Version remains `15` / `1.1.5`; branch publication is authorized, with no deploy, migration, or Play action.
+
+# 2026-07-29 - Lease retry and deletion startup recovery
+- Reconciliation now releases only stale pending lease assignments for the three retryable lease errors; unknown failures remain pending and permanent invalid payload failures reject.
+- Added local-only startup recovery for a pending account-deletion cleanup marker, including a no-network auth-session clear after successful cleanup.
+- Focused quota/account-deletion JVM tests and `assemblePlayQa` passed. No external action occurred.

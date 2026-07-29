@@ -92,3 +92,4 @@
 - `codex/fix-production-release-blockers` is locally validated for lease-backed LocalDrive creation-event reconciliation and safe post-confirmation account cleanup.
 - The compatible Web migrations/API are not deployed. Device-based multi-installation quota and disposable-account deletion verification remain pending.
 - Local reconciliation now requires an exact lease cycle, consumes a credit only with the first acknowledgement, and retains unassignable legacy events as pending. Account cleanup persists a retry marker after server confirmation. These changes are local only.
+- **2026-07-29**: Retryable lease failures now release only pending lease assignments for later reconciliation. Pending account-deletion cleanup now recovers before authenticated routing using local-only cleanup; no external action occurred.

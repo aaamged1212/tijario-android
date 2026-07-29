@@ -23,3 +23,15 @@ internal fun isTerminalDocumentCreationEventFailure(errorCode: String?): Boolean
     "INSTALLATION_REVOKED",
     "ENTITLEMENT_VERSION_MISMATCH",
 )
+
+internal fun isRetryableLeaseReconciliationFailure(errorCode: String?): Boolean = errorCode in setOf(
+    "OFFLINE_LEASE_INVALID",
+    "OFFLINE_LEASE_EXPIRED",
+    "OFFLINE_LEASE_EXHAUSTED",
+)
+
+internal fun isPermanentDocumentCreationEventFailure(errorCode: String?): Boolean = errorCode in setOf(
+    "INVALID_EVENT_PAYLOAD",
+    "INVALID_PAYLOAD_HASH",
+    "OPERATION_PAYLOAD_MISMATCH",
+)

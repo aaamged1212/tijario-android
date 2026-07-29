@@ -2823,10 +2823,16 @@ open class TijarioRepository(
             if (result.success && result.eventStatus.equals("acknowledged", ignoreCase = true)) {
                 acknowledgeCreationEventAndConsumeLease(userId, event.documentId, System.currentTimeMillis())
             } else if (!result.success) {
-                if (isTerminalDocumentCreationEventFailure(result.errorCode)) {
-                    dao.blockCreationEvent(userId, event.operationId, System.currentTimeMillis())
-                } else {
-                    dao.rejectCreationEvent(userId, event.operationId, System.currentTimeMillis())
+                when {
+                    isRetryableLeaseReconciliationFailure(result.errorCode) -> {
+                        dao.clearLeaseFromPendingCreationEvent(userId, event.operationId)
+                    }
+                    isTerminalDocumentCreationEventFailure(result.errorCode) -> {
+                        dao.blockCreationEvent(userId, event.operationId, System.currentTimeMillis())
+                    }
+                    isPermanentDocumentCreationEventFailure(result.errorCode) -> {
+                        dao.rejectCreationEvent(userId, event.operationId, System.currentTimeMillis())
+                    }
                 }
             }
         }
