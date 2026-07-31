@@ -67,7 +67,7 @@ class BackupCoordinator(
         // Preserve a restorable snapshot before replacing any account rows or assets.
         onStage(BackupRestoreStage.CREATING_SAFETY_BACKUP)
         try {
-            createLocalBackupUnlocked(userId, allowNetwork)
+            createRestoreSafetyBackup(userId, allowNetwork)
             BackupDiagnostics.stage("restore", "SAFETY_BACKUP_CREATED")
         } catch (error: Throwable) {
             throw BackupRestoreException(BackupRestoreException.Code.PRE_RESTORE_SAFETY_BACKUP_FAILED, error)
@@ -106,7 +106,7 @@ class BackupCoordinator(
             // Do not announce or create a safety snapshot until the archive is validated.
             onStage(BackupRestoreStage.CREATING_SAFETY_BACKUP)
             try {
-                createLocalBackupUnlocked(userId, allowNetwork)
+                createRestoreSafetyBackup(userId, allowNetwork)
                 BackupDiagnostics.stage("restore", "SAFETY_BACKUP_CREATED")
             } catch (error: Throwable) {
                 throw BackupRestoreException(BackupRestoreException.Code.PRE_RESTORE_SAFETY_BACKUP_FAILED, error)
@@ -121,5 +121,14 @@ class BackupCoordinator(
         } finally {
             decoded.discardStaging()
         }
+    }
+
+    private suspend fun createRestoreSafetyBackup(userId: String, allowNetwork: Boolean) {
+        val record = createLocalBackupUnlocked(userId, allowNetwork)
+        database.tijarioDao().upsertBackupRecord(record.copy(status = RESTORE_SAFETY_SNAPSHOT))
+    }
+
+    private companion object {
+        const val RESTORE_SAFETY_SNAPSHOT = "RESTORE_SAFETY_SNAPSHOT"
     }
 }

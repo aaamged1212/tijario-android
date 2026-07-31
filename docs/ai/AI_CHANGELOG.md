@@ -443,3 +443,8 @@
 - SAF-file restore persists only a temporary read grant through worker staging, reports a typed localized lost-permission error, and releases the grant after the encrypted archive is staged privately.
 - All restore sources can obtain the exact missing backup-key envelope when online, retain fail-closed offline behavior, and use the existing `dataSync` foreground-service type. Restore validates before creating a safety snapshot.
 - Added JVM coverage for typed restore outcomes and an Android Room/assets/FakeDrive round-trip integration test. JVM, Android-test APK assembly, lint, and Play QA assembly passed; integration execution remains device-gated.
+
+# 2026-07-31 - Restore validation correction
+- Restores no longer reject immutable creation events, historical customer references, or detached local metadata merely because the original document/customer was deleted; only Room's document-item relationship remains mandatory.
+- Restore safety snapshots remain internal and no longer appear in normal backup history. A genuinely invalid item/document relationship maps to the specific localized foreign-key restore error.
+- Focused JVM tests and `assemblePlayQa` passed; release metadata was raised to `18` / `1.1.8` and physical restore retest is pending.

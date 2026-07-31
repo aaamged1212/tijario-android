@@ -1,5 +1,10 @@
 # Active Agent Status
 
+- **Current task**: Diagnose and correct restore failures on `codex/fix-backup-destinations-drive-restore-notifications`.
+- **State**: The validated correction is ready for a connected-device retest. Header/key/decryption/manifest validation succeeds; only legitimate Room item/document references are enforced. Restore-safety snapshots are internal and hidden from normal history.
+- **Validation**: Focused `LogicalBackupSnapshotTest`, `BackupRestoreBehaviorTest`, and `assemblePlayQa` passed. Release metadata is `18` / `1.1.8`; no APK was installed, so physical restore remains pending.
+- **Safety**: No push, deployment, migration, Production write, Play upload, or external configuration change occurred. `.agents` remains local and excluded.
+
 - **Current task**: Backup and restore hardening on `codex/fix-backup-destinations-drive-restore-notifications`.
 - **State**: Local work is complete pending mandatory device verification. Verified upload success is independent from retention; restore preserves typed safe failure phases; phone backups default to `Downloads/Tijario/Backups`; and tracked operations require both notification permission and an enabled channel unless the user explicitly continues without notifications.
 - **Validation**: `testDebugUnitTest --rerun-tasks`, `assembleDebugAndroidTest`, `lintDebug`, and `assemblePlayQa` passed. `adb devices` had no connected target, so `connectedDebugAndroidTest` and disposable-account Drive/restore/notification QA remain blocked.

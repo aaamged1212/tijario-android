@@ -16,10 +16,9 @@ object LogicalBackupValidator {
         }
 
         val byTable = snapshots.associateBy { it.table }
-        validateReference(byTable, "documents_cache", "customer_id", "customers_cache")
         validateReference(byTable, "document_items_cache", "document_id", "documents_cache")
-        validateReference(byTable, "document_creation_events", "document_id", "documents_cache")
-        validateReference(byTable, "local_document_metadata", "document_id", "documents_cache")
+        // Customers, metadata, and immutable creation events can outlive a deleted document.
+        // Only document items have a Room foreign key that must be restorable with its document.
     }
 
     private fun validateUniqueIds(snapshot: LogicalTableSnapshot) {
@@ -53,6 +52,7 @@ object LogicalBackupValidator {
         source.rows.forEach { row ->
             val reference = row[sourceIndex]
             if (reference.type != "null" && reference.value !in targetIds) {
+                BackupDiagnostics.stage("restore", "RELATION_INVALID", "$sourceTable.$sourceColumn")
                 throw BackupValidationException("Backup contains an invalid record relationship")
             }
         }

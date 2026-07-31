@@ -1,5 +1,7 @@
 # Project State (Android & Web Repos)
 
+- **2026-07-31 restore correction**: Device logcat proved encrypted archive validation succeeds through `MANIFEST_VALIDATED`; the failure is an over-strict logical reference check before Room writes, not Drive or backup-key failure. Local code preserves valid historical references, retains only real Room item/document integrity checks, hides internal restore-safety snapshots from normal history, and maps any true required relationship failure to a specific localized error. Focused JVM tests and `assemblePlayQa` passed; release metadata is `18` / `1.1.8` and physical retest is pending.
+
 - **2026-07-30 backup candidate**: Local uncommitted work on `codex/fix-backup-destinations-drive-restore-notifications` separates verified Drive upload success from bounded retention cleanup, adds typed transactional-restore phases, defaults phone copies to `Downloads/Tijario/Backups`, and correctly gates backup work on both notification permission and channel state. Full JVM tests, Android test APK compilation, lint, and `assemblePlayQa` pass. Device QA is pending because ADB currently has no connected device.
 
 - **Backup hardening**: On `codex/fix-backup-destinations-drive-restore-notifications`, Drive upload and all restore sources now report real WorkManager progress and provide cancelable foreground work. Phone backup shows the actual selected SAF directory name. Physical Drive/notification/SAF QA is pending; focused JVM tests, lint, and `assemblePlayQa` passed locally.

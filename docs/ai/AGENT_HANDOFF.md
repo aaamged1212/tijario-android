@@ -1,5 +1,12 @@
 # Agent Handoff (Android & Web Repos)
 
+## 2026-07-31 (restore validation correction)
+- **Branch**: `codex/fix-backup-destinations-drive-restore-notifications`.
+- **Root cause**: Device logs proved archive header, key resolution, decryption, manifest validation, and the safety snapshot all succeed. Restore then failed before its Room transaction because logical validation incorrectly required deleted-document historical references to remain live document/customer rows.
+- **Fix**: Restore now requires only the actual Room foreign-key relationship (`document_items_cache -> documents_cache`); immutable creation events and detached historical metadata/customer references remain restorable. Safety snapshots are retained internally but excluded from normal backup history.
+- **Validation**: Focused `LogicalBackupSnapshotTest`, `BackupRestoreBehaviorTest`, `assemblePlayQa`, and `git diff --check` passed. Release metadata is `18` / `1.1.8`; physical restore on the connected device still needs the new build to be installed.
+- **Safety**: No push, deployment, migration, Production write, Play upload, or external configuration change occurred. `.agents` remains local and excluded.
+
 ## 2026-07-30 (Drive upload, transactional restore, phone destination, and notification hardening)
 - **Branch**: `codex/fix-backup-destinations-drive-restore-notifications`.
 - **Upload**: A successful verified upload now persists `DRIVE_UPLOADED`, reports 100%, and succeeds before retention runs as separate bounded work. A later retention failure cannot downgrade or clear the verified remote record.

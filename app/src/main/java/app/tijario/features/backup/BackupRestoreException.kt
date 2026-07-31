@@ -75,6 +75,7 @@ internal fun restoreFailureFor(error: Throwable): BackupRestoreException {
         "format" in detail || "version" in detail -> BackupRestoreException.Code.BACKUP_FORMAT_UNSUPPORTED
         "checksum" in detail || "authentication" in detail -> BackupRestoreException.Code.BACKUP_HASH_MISMATCH
         "decrypt" in detail -> BackupRestoreException.Code.BACKUP_DECRYPTION_FAILED
+        "relationship" in detail -> BackupRestoreException.Code.RESTORE_DB_FOREIGN_KEY_FAILED
         "asset" in detail -> BackupRestoreException.Code.BACKUP_ASSET_RESTORE_FAILED
         else -> BackupRestoreException.Code.BACKUP_CONTENT_INVALID
     }

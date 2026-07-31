@@ -76,6 +76,14 @@ class BackupRestoreBehaviorTest {
     }
 
     @Test
+    fun invalidRequiredDocumentItemRelationshipGetsTheSpecificSafeError() {
+        assertEquals(
+            BackupRestoreException.Code.RESTORE_DB_FOREIGN_KEY_FAILED,
+            restoreFailureFor(BackupValidationException("Backup contains an invalid record relationship")).code,
+        )
+    }
+
+    @Test
     fun restoreContractsPersistSafPermissionUseDataSyncAndValidateBeforeSafetyBackup() {
         val notifier = File("src/main/java/app/tijario/features/backup/BackupWorkNotifier.kt").readText()
         val viewModel = File("src/main/java/app/tijario/features/backup/BackupViewModel.kt").readText()

@@ -56,6 +56,8 @@ data class BackupUiState(
 
 enum class BackupTarget { PHONE, GOOGLE_DRIVE, AUTOMATIC }
 
+internal fun isUserVisibleBackupStatus(status: String): Boolean = status != "RESTORE_SAFETY_SNAPSHOT"
+
 internal fun restoreErrorMessageKeyFor(errorCode: String?): String = when (errorCode) {
     BackupRestoreException.Code.DRIVE_AUTH_REQUIRED.name -> "backup_drive_reauthorization_required"
     BackupRestoreException.Code.DRIVE_FILE_NOT_FOUND.name -> "backup_drive_file_not_found"
@@ -473,9 +475,10 @@ class BackupViewModel(
                         .list(userId)
                 }.getOrDefault(emptyList())
             } else emptyList()
+            val visibleRecords = records.filter { isUserVisibleBackupStatus(it.status) }
             _uiState.value = _uiState.value.copy(
-                latestBackup = records.firstOrNull(),
-                history = records,
+                latestBackup = visibleRecords.firstOrNull(),
+                history = visibleRecords,
                 settings = settings,
                 backupPlanPolicy = planPolicy,
                 driveConnectionState = driveState,

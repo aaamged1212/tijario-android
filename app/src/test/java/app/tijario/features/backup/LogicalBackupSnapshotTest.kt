@@ -74,4 +74,51 @@ class LogicalBackupSnapshotTest {
         assertEquals(BackupRestoreMode.PreserveCurrent, byTable.getValue("offline_quota_lease").restoreMode)
         assertEquals(BackupRestoreMode.Replace, byTable.getValue("documents_cache").restoreMode)
     }
+
+    @Test
+    fun restoreAllowsHistoricalReferencesThatCanOutliveDeletedDocuments() {
+        LogicalBackupValidator.validate(
+            listOf(
+                LogicalTableSnapshot(
+                    table = "documents_cache",
+                    columns = listOf("id", "user_id", "customer_id"),
+                    rows = listOf(
+                        listOf(
+                            LogicalBackupValue("text", "document-1"),
+                            LogicalBackupValue("text", "user-1"),
+                            LogicalBackupValue("text", "deleted-customer"),
+                        ),
+                    ),
+                ),
+                LogicalTableSnapshot(
+                    table = "document_creation_events",
+                    columns = listOf("id", "user_id", "document_id"),
+                    rows = listOf(
+                        listOf(
+                            LogicalBackupValue("text", "event-1"),
+                            LogicalBackupValue("text", "user-1"),
+                            LogicalBackupValue("text", "deleted-document"),
+                        ),
+                    ),
+                ),
+                LogicalTableSnapshot(
+                    table = "local_document_metadata",
+                    columns = listOf("id", "user_id", "document_id"),
+                    rows = listOf(
+                        listOf(
+                            LogicalBackupValue("text", "metadata-1"),
+                            LogicalBackupValue("text", "user-1"),
+                            LogicalBackupValue("text", "deleted-document"),
+                        ),
+                    ),
+                ),
+            ),
+        )
+    }
+
+    @Test
+    fun restoreSafetySnapshotsAreHiddenFromUserBackupHistory() {
+        assertEquals(false, isUserVisibleBackupStatus("RESTORE_SAFETY_SNAPSHOT"))
+        assertEquals(true, isUserVisibleBackupStatus("LOCAL_READY"))
+    }
 }
