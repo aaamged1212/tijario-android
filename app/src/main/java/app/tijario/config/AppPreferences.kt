@@ -29,6 +29,7 @@ private const val KEY_SUBSCRIBED_TOPIC = "subscribed_topic"
 private const val KEY_INSTALLATION_ID = "installation_id"
 private const val KEY_PHONE_BACKUP_TREE_URI = "phone_backup_tree_uri"
 private const val KEY_PHONE_BACKUP_TREE_NAME = "phone_backup_tree_name"
+private const val KEY_PHONE_BACKUP_DESTINATION_MODE = "phone_backup_destination_mode"
 private const val KEY_BUSINESS_SETTINGS_MIRROR_FINGERPRINT = "business_settings_mirror_fingerprint"
 private const val KEY_PENDING_ACCOUNT_DELETION_CLEANUP_USER_ID = "pending_account_deletion_cleanup_user_id"
 
@@ -217,6 +218,18 @@ object AppPreferences {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit()
             .putString(planKey(userId, KEY_PHONE_BACKUP_TREE_NAME), name?.trim()?.takeIf(String::isNotEmpty))
+            .apply()
+    }
+
+    fun getPhoneBackupDestinationMode(context: Context, userId: String): String =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(planKey(userId, KEY_PHONE_BACKUP_DESTINATION_MODE), null)
+            ?: if (getPhoneBackupTreeUri(context, userId) != null) "CUSTOM_SAF_TREE" else "DEFAULT_DOWNLOADS"
+
+    fun setPhoneBackupDestinationMode(context: Context, userId: String, mode: String) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(planKey(userId, KEY_PHONE_BACKUP_DESTINATION_MODE), mode)
             .apply()
     }
 

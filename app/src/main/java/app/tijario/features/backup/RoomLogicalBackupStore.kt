@@ -1,6 +1,8 @@
 package app.tijario.features.backup
 
 import android.database.Cursor
+import android.database.sqlite.SQLiteConstraintException
+import android.database.sqlite.SQLiteException
 import app.tijario.data.local.TijarioDatabase
 import java.util.Base64
 
@@ -9,6 +11,22 @@ data class BackupTableSpec(
     val archivePath: String,
     val restoreMode: BackupRestoreMode = BackupRestoreMode.Replace,
 )
+
+internal data class BackupLiveColumn(
+    val name: String,
+    val notNull: Boolean,
+    val defaultValue: String?,
+    val primaryKeyPosition: Int,
+)
+
+internal fun isBackupSchemaCompatible(liveColumns: List<BackupLiveColumn>, snapshotColumns: Collection<String>): Boolean {
+    val snapshotNames = snapshotColumns.toSet()
+    val liveNames = liveColumns.mapTo(mutableSetOf()) { it.name }
+    return liveNames.containsAll(snapshotNames) && liveColumns.none {
+        it.name !in snapshotNames &&
+            ((it.notNull && it.defaultValue == null && it.primaryKeyPosition == 0) || it.primaryKeyPosition != 0)
+    }
+}
 
 enum class BackupRestoreMode {
     Replace,
@@ -34,6 +52,7 @@ class RoomLogicalBackupStore(
     fun restoreAccount(
         userId: String,
         logicalEntries: Map<String, ByteArray>,
+        beforeCommit: () -> Unit = {},
     ) {
         require(userId.isNotBlank()) { "Restore account is required" }
         val sqlite = database.openHelper.writableDatabase
@@ -43,22 +62,53 @@ class RoomLogicalBackupStore(
             LogicalBackupSnapshotCodec.decode(bytes).also { snapshot ->
                 if (snapshot.table != spec.table) throw BackupValidationException("Backup table identity is invalid")
                 LogicalBackupSnapshotCodec.validateAccount(snapshot, userId)
-                validateLiveColumns(sqliteColumns(spec.table), snapshot)
+                validateLiveSchema(spec.table, sqliteColumns(spec.table), snapshot)
             }
         }
         LogicalBackupValidator.validate(staged.values)
 
+        BackupDiagnostics.stage("restore", "DB_TRANSACTION_STARTED")
         sqlite.beginTransaction()
+        var transactionSuccessful = false
         try {
             tableSpecs.asReversed().filter { it.restoreMode == BackupRestoreMode.Replace }.forEach { spec ->
-                sqlite.execSQL("DELETE FROM ${quoted(spec.table)} WHERE user_id = ?", arrayOf(userId))
+                BackupDiagnostics.stage("restore", "DB_DELETE_${spec.table}", spec.table)
+                try {
+                    sqlite.execSQL("DELETE FROM ${quoted(spec.table)} WHERE user_id = ?", arrayOf(userId))
+                } catch (error: SQLiteException) {
+                    throw BackupRestoreException(BackupRestoreException.Code.RESTORE_DB_DELETE_FAILED, error, spec.table)
+                }
             }
             tableSpecs.filter { it.restoreMode != BackupRestoreMode.PreserveCurrent }.forEach { spec ->
-                insertSnapshot(staged.getValue(spec), spec.restoreMode)
+                BackupDiagnostics.stage("restore", "DB_INSERT_${spec.table}", spec.table)
+                try {
+                    insertSnapshot(staged.getValue(spec), spec.restoreMode)
+                } catch (error: SQLiteConstraintException) {
+                    throw BackupRestoreException(BackupRestoreException.Code.RESTORE_DB_CONSTRAINT_FAILED, error, spec.table)
+                } catch (error: SQLiteException) {
+                    throw BackupRestoreException(BackupRestoreException.Code.RESTORE_DB_INSERT_FAILED, error, spec.table)
+                }
             }
+            BackupDiagnostics.stage("restore", "DB_FOREIGN_KEY_CHECK")
+            if (hasForeignKeyViolation(sqlite)) {
+                throw BackupRestoreException(BackupRestoreException.Code.RESTORE_DB_FOREIGN_KEY_FAILED)
+            }
+            beforeCommit()
             sqlite.setTransactionSuccessful()
+            transactionSuccessful = true
         } finally {
-            sqlite.endTransaction()
+            try {
+                sqlite.endTransaction()
+                BackupDiagnostics.stage("restore", if (transactionSuccessful) "DB_TRANSACTION_COMMITTED" else "ROLLBACK_COMPLETED")
+            } catch (error: Exception) {
+                val code = if (transactionSuccessful) {
+                    BackupRestoreException.Code.RESTORE_DB_COMMIT_FAILED
+                } else {
+                    BackupRestoreException.Code.RESTORE_ROLLBACK_FAILED
+                }
+                BackupDiagnostics.stage("restore", if (transactionSuccessful) "DB_TRANSACTION_COMMIT_FAILED" else "ROLLBACK_FAILED", error = error)
+                throw BackupRestoreException(code, error)
+            }
         }
     }
 
@@ -88,19 +138,35 @@ class RoomLogicalBackupStore(
         }
     }
 
-    private fun sqliteColumns(table: String): Set<String> =
+    private fun sqliteColumns(table: String): List<BackupLiveColumn> =
         database.openHelper.writableDatabase.query("PRAGMA table_info(${quoted(table)})").use { cursor ->
             val nameIndex = cursor.getColumnIndexOrThrow("name")
-            buildSet {
-                while (cursor.moveToNext()) add(cursor.getString(nameIndex))
+            val notNullIndex = cursor.getColumnIndexOrThrow("notnull")
+            val defaultIndex = cursor.getColumnIndexOrThrow("dflt_value")
+            val pkIndex = cursor.getColumnIndexOrThrow("pk")
+            buildList {
+                while (cursor.moveToNext()) {
+                    add(
+                        BackupLiveColumn(
+                            name = cursor.getString(nameIndex),
+                            notNull = cursor.getInt(notNullIndex) != 0,
+                            defaultValue = cursor.getString(defaultIndex),
+                            primaryKeyPosition = cursor.getInt(pkIndex),
+                        ),
+                    )
+                }
             }
         }
 
-    private fun validateLiveColumns(liveColumns: Set<String>, snapshot: LogicalTableSnapshot) {
-        if (!liveColumns.containsAll(snapshot.columns)) {
-            throw BackupValidationException("Backup requires unsupported database columns")
+    private fun validateLiveSchema(table: String, liveColumns: List<BackupLiveColumn>, snapshot: LogicalTableSnapshot) {
+        if (!isBackupSchemaCompatible(liveColumns, snapshot.columns)) {
+            BackupDiagnostics.stage("restore", "DB_SCHEMA_INCOMPATIBLE", table)
+            throw BackupRestoreException(BackupRestoreException.Code.RESTORE_DB_SCHEMA_INCOMPATIBLE, table = table)
         }
     }
+
+    private fun hasForeignKeyViolation(sqlite: androidx.sqlite.db.SupportSQLiteDatabase): Boolean =
+        sqlite.query("PRAGMA foreign_key_check").use { cursor -> cursor.moveToFirst() }
 
     private fun Cursor.toSnapshot(table: String): LogicalTableSnapshot {
         val columns = columnNames.toList()

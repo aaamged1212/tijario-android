@@ -6,7 +6,6 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
-import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -51,24 +50,29 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Switch
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.core.content.ContextCompat
 import app.tijario.config.LocalLanguage
 import app.tijario.config.Localization
 import app.tijario.config.t
 import app.tijario.features.backup.BackupViewModel
 import app.tijario.features.backup.BackupWorkNotifier
+import app.tijario.features.backup.PhoneBackupRepository
 import app.tijario.features.backup.RestoreBackupDocumentContract
 import app.tijario.features.backup.drive.DriveConnectionState
 import app.tijario.features.backup.drive.DriveBackupFile
@@ -96,8 +100,12 @@ fun BackupSettingsScreen(
     var pendingDriveRestore by remember { mutableStateOf<DriveBackupFile?>(null) }
     var pendingLocalRestore by remember { mutableStateOf<app.tijario.data.local.BackupRecordEntity?>(null) }
     var pendingNotificationAction by remember { mutableStateOf<(() -> Unit)?>(null) }
+    var pendingLegacyPhoneBackupAction by remember { mutableStateOf<(() -> Unit)?>(null) }
     var showNotificationRationale by remember { mutableStateOf(false) }
+    var showLegacyFolderChoice by remember { mutableStateOf(false) }
     val backupNotifier = remember(context) { BackupWorkNotifier(context) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val latestPendingNotificationAction by rememberUpdatedState(pendingNotificationAction)
 
     val exportLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/octet-stream"),
@@ -111,6 +119,11 @@ fun BackupSettingsScreen(
     val folderLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) {
         backupViewModel.rememberPhoneBackupFolder(it)
     }
+    val legacyStoragePermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        val action = pendingLegacyPhoneBackupAction
+        pendingLegacyPhoneBackupAction = null
+        if (granted) action?.invoke() else showLegacyFolderChoice = true
+    }
     val driveAuthorizationLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartIntentSenderForResult(),
     ) { result ->
@@ -118,19 +131,44 @@ fun BackupSettingsScreen(
     }
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
-    ) {
-        pendingNotificationAction?.invoke()
-        pendingNotificationAction = null
+    ) { granted ->
+        if (granted && backupNotifier.notificationsAvailable()) {
+            pendingNotificationAction?.invoke()
+            pendingNotificationAction = null
+        } else {
+            showNotificationRationale = true
+        }
     }
     val startTrackedOperation: ((() -> Unit) -> Unit) = { action ->
-        val permissionMissing = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
-        if (permissionMissing) {
+        if (!backupNotifier.notificationsAvailable()) {
             pendingNotificationAction = action
             showNotificationRationale = true
         } else {
             action()
         }
+    }
+    val startPhoneBackup: () -> Unit = {
+        val action = { startTrackedOperation { backupViewModel.saveBackupToPhone() } }
+        if (PhoneBackupRepository(context).requiresLegacyWritePermission(userId)) {
+            pendingLegacyPhoneBackupAction = action
+            legacyStoragePermissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+        } else {
+            action()
+        }
+    }
+
+    DisposableEffect(lifecycleOwner, backupNotifier) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME && backupNotifier.notificationsAvailable()) {
+                latestPendingNotificationAction?.let { action ->
+                    pendingNotificationAction = null
+                    showNotificationRationale = false
+                    action()
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     LaunchedEffect(state.exportFileName) {
@@ -225,6 +263,13 @@ fun BackupSettingsScreen(
                         Spacer(Modifier.padding(4.dp))
                         Text(t("backup_phone_folder"))
                     }
+                    if (state.phoneBackupDestination == "backup_phone_folder_selected") {
+                        TextButton(
+                            onClick = backupViewModel::useDefaultPhoneBackupFolder,
+                            enabled = !state.isBusy,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) { Text(t("backup_phone_folder_default")) }
+                    }
                 }
             }
 
@@ -317,10 +362,7 @@ fun BackupSettingsScreen(
                     if (!backupNotifier.notificationsAvailable()) {
                         TextButton(
                             onClick = {
-                                context.startActivity(
-                                    Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-                                        .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName),
-                                )
+                                context.startActivity(backupNotifier.settingsIntent())
                             },
                             enabled = !state.isBusy,
                         ) { Text(t("backup_notifications_settings")) }
@@ -419,7 +461,7 @@ fun BackupSettingsScreen(
             }
 
             Button(
-                onClick = { startTrackedOperation { backupViewModel.saveBackupToPhone() } },
+                onClick = startPhoneBackup,
                 enabled = !state.isBusy && userId.isNotBlank(),
                 modifier = Modifier.fillMaxWidth().height(52.dp),
                 shape = RoundedCornerShape(16.dp),
@@ -580,29 +622,48 @@ fun BackupSettingsScreen(
         AlertDialog(
             onDismissRequest = {
                 showNotificationRationale = false
-                pendingNotificationAction?.invoke()
-                pendingNotificationAction = null
             },
             title = { Text(t("backup_notifications_title"), fontWeight = FontWeight.Bold) },
             text = { Text(t("backup_notifications_body")) },
             confirmButton = {
                 Button(onClick = {
                     showNotificationRationale = false
-                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    } else {
+                        context.startActivity(backupNotifier.settingsIntent())
+                    }
                 }) { Text(t("backup_notifications_allow")) }
             },
             dismissButton = {
-                TextButton(onClick = {
-                    showNotificationRationale = false
-                    pendingNotificationAction?.invoke()
-                    pendingNotificationAction = null
-                    if (!backupNotifier.notificationsAvailable()) {
-                        context.startActivity(
-                            Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-                                .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName),
-                        )
-                    }
-                }) { Text(t("backup_notifications_settings")) }
+                Row {
+                    TextButton(onClick = {
+                        val action = pendingNotificationAction
+                        pendingNotificationAction = null
+                        showNotificationRationale = false
+                        action?.invoke()
+                    }) { Text(t("backup_notifications_continue_without")) }
+                    TextButton(onClick = {
+                        showNotificationRationale = false
+                        context.startActivity(backupNotifier.settingsIntent())
+                    }) { Text(t("backup_notifications_settings")) }
+                }
+            },
+        )
+    }
+    if (showLegacyFolderChoice) {
+        AlertDialog(
+            onDismissRequest = { showLegacyFolderChoice = false },
+            title = { Text(t("backup_phone_folder"), fontWeight = FontWeight.Bold) },
+            text = { Text(t("backup_phone_folder_required")) },
+            confirmButton = {
+                Button(onClick = {
+                    showLegacyFolderChoice = false
+                    folderLauncher.launch(null)
+                }) { Text(t("backup_phone_folder")) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLegacyFolderChoice = false }) { Text(t("cancel")) }
             },
         )
     }

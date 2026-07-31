@@ -73,6 +73,23 @@ object BackupScheduler {
         return request.id
     }
 
+    fun enqueueDriveRetention(context: Context, settings: BackupSettingsEntity): UUID? {
+        if (!settings.driveEnabled) return null
+        val networkType = if (settings.wifiOnly) NetworkType.UNMETERED else NetworkType.CONNECTED
+        val request = OneTimeWorkRequestBuilder<DriveRetentionWorker>()
+            .addTag(driveAccountTag(settings.userId))
+            .setInputData(workDataOf(DriveRetentionWorker.USER_ID_KEY to settings.userId))
+            .setConstraints(Constraints.Builder().setRequiredNetworkType(networkType).setRequiresBatteryNotLow(true).build())
+            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 15, TimeUnit.SECONDS)
+            .build()
+        WorkManager.getInstance(context.applicationContext).enqueueUniqueWork(
+            driveRetentionWorkName(settings.userId),
+            ExistingWorkPolicy.KEEP,
+            request,
+        )
+        return request.id
+    }
+
     fun cancelAccountWork(context: Context, userId: String) {
         val workManager = WorkManager.getInstance(context.applicationContext)
         workManager.cancelUniqueWork(workName(userId))
@@ -150,6 +167,7 @@ object BackupScheduler {
     private fun workName(userId: String): String = "TijarioBackup:$userId"
 
     internal fun driveWorkName(userId: String, backupId: String) = "TijarioDriveUpload:$userId:$backupId"
+    internal fun driveRetentionWorkName(userId: String) = "TijarioDriveRetention:$userId"
     internal fun driveAccountTag(userId: String) = "TijarioDriveAccount:$userId"
     internal fun restoreAccountTag(userId: String) = "TijarioRestoreAccount:$userId"
 }

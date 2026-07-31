@@ -20,6 +20,7 @@ class DriveUploadWorker(
         val database = TijarioDatabase.getInstance(applicationContext)
         val dao = database.tijarioDao()
         val record = dao.getBackupRecords(userId).firstOrNull { it.id == backupId } ?: return Result.failure()
+        BackupDiagnostics.stage("upload", "AUTHORIZATION_CHECK")
         if (BackupDriveContainer.authorizationState(applicationContext, userId) !is app.tijario.features.backup.drive.DriveConnectionState.Connected) {
             dao.upsertBackupRecord(record.copy(status = "DRIVE_REAUTH_REQUIRED", lastError = "drive_reauthorization_required"))
             return Result.failure()
@@ -42,30 +43,28 @@ class DriveUploadWorker(
                     ),
                 )
             }
+            setProgress(workDataOf(PROGRESS_PERCENT_KEY to 100, PROGRESS_STAGE_KEY to "backup_drive_uploaded"))
+            BackupDiagnostics.stage("upload", "REMOTE_UPLOAD_VERIFIED")
             dao.getBackupSettings(userId)?.let { settings ->
-                repository.prune(userId, BackupScheduler.driveRetentionCount(settings))
+                runCatching { BackupScheduler.enqueueDriveRetention(applicationContext, settings) }
+                    .onFailure { BackupDiagnostics.stage("upload", "RETENTION_FAILED", error = it) }
             }
+            notifier.post("Upload completed", "Backup uploaded to Google Drive")
+            BackupDiagnostics.stage("upload", "WORK_SUCCEEDED")
             Result.success()
         } catch (error: DriveBackupException.Retryable) {
             val terminal = runAttemptCount + 1 >= MAX_ATTEMPTS
-            dao.upsertBackupRecord(
-                record.copy(
-                    status = if (terminal) "DRIVE_FAILED" else "DRIVE_PENDING",
-                    lastError = if (terminal) "drive_retry_exhausted" else "drive_retryable",
-                ),
-            )
+            updateFailureRecord(dao, record, if (terminal) "DRIVE_FAILED" else "DRIVE_PENDING", if (terminal) "drive_retry_exhausted" else "drive_retryable")
+            notifier.post("Upload failed", "Could not upload backup")
             if (terminal) Result.failure() else Result.retry()
         } catch (error: DriveBackupException) {
-            dao.upsertBackupRecord(record.copy(status = "DRIVE_FAILED", lastError = safeCode(error)))
+            updateFailureRecord(dao, record, "DRIVE_FAILED", safeCode(error))
+            notifier.post("Upload failed", "Could not upload backup")
             Result.failure()
         } catch (_: Exception) {
             val terminal = runAttemptCount + 1 >= MAX_ATTEMPTS
-            dao.upsertBackupRecord(
-                record.copy(
-                    status = if (terminal) "DRIVE_FAILED" else "DRIVE_PENDING",
-                    lastError = if (terminal) "drive_retry_exhausted" else "drive_retryable",
-                ),
-            )
+            updateFailureRecord(dao, record, if (terminal) "DRIVE_FAILED" else "DRIVE_PENDING", if (terminal) "drive_retry_exhausted" else "drive_retryable")
+            notifier.post("Upload failed", "Could not upload backup")
             if (terminal) Result.failure() else Result.retry()
         } finally {
             notifier.clear(id)
@@ -84,6 +83,22 @@ class DriveUploadWorker(
         is DriveBackupException.Retryable -> "drive_retryable"
     }
 
+    private suspend fun updateFailureRecord(
+        dao: app.tijario.data.local.TijarioDao,
+        initialRecord: app.tijario.data.local.BackupRecordEntity,
+        status: String,
+        errorCode: String,
+    ) {
+        val latest = dao.getBackupRecords(initialRecord.userId).firstOrNull { it.id == initialRecord.id } ?: initialRecord
+        val failure = failureRecord(latest, status, errorCode)
+        if (failure == null) {
+            BackupDiagnostics.stage("upload", "RETENTION_FAILED")
+            return
+        }
+        dao.upsertBackupRecord(failure)
+        BackupDiagnostics.stage("upload", "WORK_FAILED")
+    }
+
     companion object {
         const val USER_ID_KEY = "userId"
         const val BACKUP_ID_KEY = "backupId"
@@ -93,5 +108,15 @@ class DriveUploadWorker(
 
         internal fun percent(transferred: Long, total: Long): Int =
             if (total <= 0L) 0 else ((transferred * 100L) / total).toInt().coerceIn(0, 100)
+
+        internal fun isVerifiedUpload(status: String, driveFileId: String?): Boolean =
+            status == "DRIVE_UPLOADED" && !driveFileId.isNullOrBlank()
+
+        internal fun failureRecord(
+            current: app.tijario.data.local.BackupRecordEntity,
+            failureStatus: String,
+            errorCode: String,
+        ): app.tijario.data.local.BackupRecordEntity? =
+            if (isVerifiedUpload(current.status, current.driveFileId)) null else current.copy(status = failureStatus, lastError = errorCode)
     }
 }

@@ -30,6 +30,15 @@ class BackupRestoreBehaviorTest {
             BackupRestoreException.Code.BACKUP_RESTORE_TRANSACTION_FAILED to "backup_restore_transaction_failed",
             BackupRestoreException.Code.BACKUP_ASSET_RESTORE_FAILED to "backup_restore_assets_failed",
             BackupRestoreException.Code.RESTORE_FILE_PERMISSION_LOST to "backup_restore_file_permission_lost",
+            BackupRestoreException.Code.RESTORE_ASSET_STAGE_FAILED to "backup_restore_asset_stage_failed",
+            BackupRestoreException.Code.RESTORE_ASSET_APPLY_FAILED to "backup_restore_asset_apply_failed",
+            BackupRestoreException.Code.RESTORE_DB_SCHEMA_INCOMPATIBLE to "backup_restore_schema_incompatible",
+            BackupRestoreException.Code.RESTORE_DB_DELETE_FAILED to "backup_restore_db_delete_failed",
+            BackupRestoreException.Code.RESTORE_DB_INSERT_FAILED to "backup_restore_db_insert_failed",
+            BackupRestoreException.Code.RESTORE_DB_CONSTRAINT_FAILED to "backup_restore_db_constraint_failed",
+            BackupRestoreException.Code.RESTORE_DB_FOREIGN_KEY_FAILED to "backup_restore_db_foreign_key_failed",
+            BackupRestoreException.Code.RESTORE_DB_COMMIT_FAILED to "backup_restore_db_commit_failed",
+            BackupRestoreException.Code.RESTORE_ROLLBACK_FAILED to "backup_restore_rollback_failed",
         )
 
         expected.forEach { (code, messageKey) ->
@@ -58,6 +67,12 @@ class BackupRestoreBehaviorTest {
             BackupRestoreException.Code.DRIVE_DOWNLOAD_FAILED,
             restoreFailureFor(DriveBackupException.Retryable("temporary")).code,
         )
+    }
+
+    @Test
+    fun existingTypedRestoreFailureIsNotCollapsedToGenericTransactionFailure() {
+        val typed = BackupRestoreException(BackupRestoreException.Code.RESTORE_DB_CONSTRAINT_FAILED)
+        assertEquals(typed, restoreFailureFor(typed))
     }
 
     @Test

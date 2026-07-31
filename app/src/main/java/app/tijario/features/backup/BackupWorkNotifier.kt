@@ -2,7 +2,9 @@ package app.tijario.features.backup
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.Manifest
 import android.content.Context
+import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
 import androidx.core.app.NotificationManagerCompat
@@ -17,6 +19,9 @@ import java.util.UUID
 const val BACKUP_NOTIFICATION_CHANNEL_ID = "tijario_backup_restore"
 private const val BACKUP_NOTIFICATION_ID = 4101
 
+internal fun backupNotificationsAvailable(appEnabled: Boolean, channelImportance: Int?): Boolean =
+    appEnabled && channelImportance != null && channelImportance != NotificationManager.IMPORTANCE_NONE
+
 fun ensureBackupNotificationChannel(context: Context) {
     val manager = context.getSystemService(NotificationManager::class.java) ?: return
     if (manager.getNotificationChannel(BACKUP_NOTIFICATION_CHANNEL_ID) != null) return
@@ -24,7 +29,7 @@ fun ensureBackupNotificationChannel(context: Context) {
         NotificationChannel(
             BACKUP_NOTIFICATION_CHANNEL_ID,
             "Backup and Restore | النسخ والاستعادة",
-            NotificationManager.IMPORTANCE_LOW,
+            NotificationManager.IMPORTANCE_DEFAULT,
         ),
     )
 }
@@ -64,8 +69,14 @@ class BackupWorkNotifier(private val context: Context) {
 
     fun post(title: String, detail: String) {
         ensureBackupNotificationChannel(context)
-        if (NotificationManagerCompat.from(context).areNotificationsEnabled()) {
-            NotificationManagerCompat.from(context).notify(BACKUP_NOTIFICATION_ID, notification(title, detail))
+        val permissionGranted = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+            context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        if (permissionGranted && notificationsAvailable()) {
+            try {
+                NotificationManagerCompat.from(context).notify(BACKUP_NOTIFICATION_ID, notification(title, detail))
+            } catch (_: SecurityException) {
+                // The user can revoke notification permission between the explicit check and posting.
+            }
         }
     }
 
@@ -74,9 +85,29 @@ class BackupWorkNotifier(private val context: Context) {
     }
 
     fun notificationsAvailable(): Boolean {
-        if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return false
+        ensureBackupNotificationChannel(context)
         val manager = context.getSystemService(NotificationManager::class.java) ?: return false
-        return manager.getNotificationChannel(BACKUP_NOTIFICATION_CHANNEL_ID)?.importance != NotificationManager.IMPORTANCE_NONE
+        return backupNotificationsAvailable(
+            hasNotificationPermission() && NotificationManagerCompat.from(context).areNotificationsEnabled(),
+            manager.getNotificationChannel(BACKUP_NOTIFICATION_CHANNEL_ID)?.importance,
+        )
+    }
+
+    private fun hasNotificationPermission(): Boolean =
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+            context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == android.content.pm.PackageManager.PERMISSION_GRANTED
+
+    fun settingsIntent(): Intent {
+        ensureBackupNotificationChannel(context)
+        val manager = context.getSystemService(NotificationManager::class.java)
+        return if (manager?.getNotificationChannel(BACKUP_NOTIFICATION_CHANNEL_ID)?.importance == NotificationManager.IMPORTANCE_NONE) {
+            Intent(android.provider.Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
+                .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName)
+                .putExtra(android.provider.Settings.EXTRA_CHANNEL_ID, BACKUP_NOTIFICATION_CHANNEL_ID)
+        } else {
+            Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName)
+        }
     }
 
     companion object {

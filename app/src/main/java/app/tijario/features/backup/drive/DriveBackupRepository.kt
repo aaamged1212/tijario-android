@@ -2,6 +2,7 @@ package app.tijario.features.backup.drive
 
 import app.tijario.data.local.BackupRecordEntity
 import app.tijario.data.local.TijarioDatabase
+import app.tijario.features.backup.BackupDiagnostics
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Mutex
@@ -40,24 +41,34 @@ class DriveBackupRepository(
         val record = database.tijarioDao().getBackupRecords(userId).firstOrNull { it.id == backupId }
             ?: throw DriveBackupException.Permanent("Local backup was not found")
         val file = safeLocalFile(record)
+        BackupDiagnostics.stage("upload", "LOCAL_ARCHIVE_FOUND")
         verifyLocalChecksum(file, record.checksum)
+        BackupDiagnostics.stage("upload", "LOCAL_CHECKSUM_VERIFIED")
         val folders = DriveFolderRepository(client).resolve()
+        BackupDiagnostics.stage("upload", "DRIVE_FOLDER_RESOLVED")
         val existing = client.findBackup(folders.backupsId, userId, record.id)
-        val remote = existing ?: client.uploadBackup(
-            folders.backupsId,
-            file,
-            DriveUploadMetadata(userId, record.id, requireNotNull(record.checksum), record.createdAt),
-            onProgress,
-        )
-        if (remote.accountId != userId || remote.checksum != record.checksum || remote.sizeBytes != file.length()) {
+        val remote = existing ?: run {
+            BackupDiagnostics.stage("upload", "REMOTE_UPLOAD_STARTED")
+            client.uploadBackup(
+                folders.backupsId,
+                file,
+                DriveUploadMetadata(userId, record.id, requireNotNull(record.checksum), record.createdAt),
+                onProgress,
+            )
+        }
+        if (remote.accountId != userId || remote.backupId != record.id || remote.checksum != record.checksum || remote.sizeBytes != file.length()) {
             throw DriveBackupException.IntegrityFailure()
         }
+        BackupDiagnostics.stage("upload", "REMOTE_UPLOAD_VERIFIED")
         record.copy(
             status = "DRIVE_UPLOADED",
             uploadedAt = System.currentTimeMillis(),
             driveFileId = remote.id,
             lastError = null,
-        ).also { database.tijarioDao().upsertBackupRecord(it) }
+        ).also {
+            database.tijarioDao().upsertBackupRecord(it)
+            BackupDiagnostics.stage("upload", "REMOTE_RECORD_PERSISTED")
+        }
     }
 
     suspend fun list(userId: String): List<DriveBackupFile> {

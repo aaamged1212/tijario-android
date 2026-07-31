@@ -1,5 +1,7 @@
 # Project State (Android & Web Repos)
 
+- **2026-07-30 backup candidate**: Local uncommitted work on `codex/fix-backup-destinations-drive-restore-notifications` separates verified Drive upload success from bounded retention cleanup, adds typed transactional-restore phases, defaults phone copies to `Downloads/Tijario/Backups`, and correctly gates backup work on both notification permission and channel state. Full JVM tests, Android test APK compilation, lint, and `assemblePlayQa` pass. Device QA is pending because ADB currently has no connected device.
+
 - **Backup hardening**: On `codex/fix-backup-destinations-drive-restore-notifications`, Drive upload and all restore sources now report real WorkManager progress and provide cancelable foreground work. Phone backup shows the actual selected SAF directory name. Physical Drive/notification/SAF QA is pending; focused JVM tests, lint, and `assemblePlayQa` passed locally.
 - **Restore completion**: SAF restore now holds a persistable read grant only until the archive is privately staged, reports typed localized worker errors, and can resolve a missing exact-version key online for Drive, SAF, or local restore sources. Existing `dataSync` foreground-service declarations are used by all backup workers. A Room/assets/FakeDrive integration test compiles; device execution is pending.
 

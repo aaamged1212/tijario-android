@@ -2,6 +2,7 @@ package app.tijario.features.backup
 
 import android.content.ContentValues
 import android.content.Context
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
@@ -12,6 +13,14 @@ import androidx.annotation.RequiresApi
 import app.tijario.config.AppPreferences
 import app.tijario.data.local.BackupRecordEntity
 import java.io.File
+
+enum class PhoneBackupDestinationMode { DEFAULT_DOWNLOADS, CUSTOM_SAF_TREE }
+
+internal val DEFAULT_PHONE_BACKUP_RELATIVE_PATH = "${Environment.DIRECTORY_DOWNLOADS}/Tijario/Backups/"
+
+internal fun resolvePhoneBackupDestinationMode(storedMode: String?, hasCustomTree: Boolean): PhoneBackupDestinationMode =
+    storedMode?.let { runCatching { PhoneBackupDestinationMode.valueOf(it) }.getOrNull() }
+        ?: if (hasCustomTree) PhoneBackupDestinationMode.CUSTOM_SAF_TREE else PhoneBackupDestinationMode.DEFAULT_DOWNLOADS
 
 data class PhoneBackupFile(
     val uri: Uri,
@@ -34,12 +43,9 @@ class PhoneBackupRepository(private val context: Context) {
         Log.i(LOG_TAG, "visible_backup_start")
         val selectedTree = AppPreferences.getPhoneBackupTreeUri(context, userId)
         return when {
-            // A user-selected SAF tree is always the explicit destination, including Android 10+.
-            selectedTree != null -> saveToTree(source, selectedTree)
+            destinationMode(userId) == PhoneBackupDestinationMode.CUSTOM_SAF_TREE && selectedTree != null -> saveToTree(source, selectedTree)
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> saveToMediaStore(source)
-            else -> {
-                throw BackupValidationException("Phone backup folder selection is required")
-            }
+            else -> saveToLegacyDownloads(source)
         }
     }
 
@@ -48,20 +54,44 @@ class PhoneBackupRepository(private val context: Context) {
         context.contentResolver.takePersistableUriPermission(uri, flags)
         AppPreferences.setPhoneBackupTreeUri(context, userId, uri.toString())
         AppPreferences.setPhoneBackupTreeName(context, userId, treeDisplayName(uri))
+        AppPreferences.setPhoneBackupDestinationMode(context, userId, PhoneBackupDestinationMode.CUSTOM_SAF_TREE.name)
     }
 
+    fun useDefaultDestination(userId: String) {
+        AppPreferences.getPhoneBackupTreeUri(context, userId)?.let { tree ->
+            runCatching {
+                context.contentResolver.releasePersistableUriPermission(
+                    tree,
+                    android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+                )
+            }
+        }
+        AppPreferences.setPhoneBackupTreeUri(context, userId, null)
+        AppPreferences.setPhoneBackupTreeName(context, userId, null)
+        AppPreferences.setPhoneBackupDestinationMode(context, userId, PhoneBackupDestinationMode.DEFAULT_DOWNLOADS.name)
+    }
+
+    fun destinationMode(userId: String): PhoneBackupDestinationMode =
+        resolvePhoneBackupDestinationMode(
+            AppPreferences.getPhoneBackupDestinationMode(context, userId),
+            AppPreferences.getPhoneBackupTreeUri(context, userId) != null,
+        )
+
+    fun requiresLegacyWritePermission(userId: String): Boolean =
+        Build.VERSION.SDK_INT <= Build.VERSION_CODES.P &&
+            destinationMode(userId) == PhoneBackupDestinationMode.DEFAULT_DOWNLOADS &&
+            context.checkSelfPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED
+
     fun destinationKey(userId: String): String =
-        if (AppPreferences.getPhoneBackupTreeUri(context, userId) != null) {
+        if (destinationMode(userId) == PhoneBackupDestinationMode.CUSTOM_SAF_TREE && AppPreferences.getPhoneBackupTreeUri(context, userId) != null) {
             "backup_phone_folder_selected"
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             "backup_phone_folder_downloads"
-        } else {
-            "backup_phone_folder_required"
-        }
+        } else "backup_phone_folder_downloads"
 
     fun restoreInitialUri(userId: String): Uri =
         AppPreferences.getPhoneBackupTreeUri(context, userId)
-            ?: Uri.parse("content://com.android.externalstorage.documents/document/primary%3ADownload%2FTijario%2FBackup")
+            ?: Uri.parse("content://com.android.externalstorage.documents/document/primary%3ADownload%2FTijario%2FBackups")
 
     fun destinationDisplayName(userId: String): String? =
         AppPreferences.getPhoneBackupTreeName(context, userId)
@@ -82,7 +112,7 @@ class PhoneBackupRepository(private val context: Context) {
     @RequiresApi(Build.VERSION_CODES.Q)
     private fun saveToMediaStore(source: File): PhoneBackupFile =
         runCatching {
-            saveToMediaStore(source, "${Environment.DIRECTORY_DOWNLOADS}/Tijario/Backup/", "backup_phone_folder_downloads")
+            saveToMediaStore(source, DEFAULT_PHONE_BACKUP_RELATIVE_PATH, "backup_phone_folder_downloads")
         }.getOrElse { error ->
             Log.w(LOG_TAG, "visible_backup_default_folder_failed error=${error.javaClass.simpleName}")
             throw PhoneBackupDestinationException(PhoneBackupDestinationException.Code.DEFAULT_FOLDER_UNAVAILABLE, error)
@@ -139,6 +169,19 @@ class PhoneBackupRepository(private val context: Context) {
             throw PhoneBackupDestinationException(PhoneBackupDestinationException.Code.PERMISSION_LOST, error)
         }
     }
+
+    private fun saveToLegacyDownloads(source: File): PhoneBackupFile {
+        if (context.checkSelfPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+            throw PhoneBackupDestinationException(PhoneBackupDestinationException.Code.PERMISSION_REQUIRED)
+        }
+        val directory = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "Tijario/Backups")
+        if (!directory.exists() && !directory.mkdirs()) {
+            throw PhoneBackupDestinationException(PhoneBackupDestinationException.Code.DEFAULT_FOLDER_UNAVAILABLE)
+        }
+        val destination = File(directory, source.name)
+        source.copyTo(destination, overwrite = false)
+        return PhoneBackupFile(Uri.fromFile(destination), source.name, "backup_phone_folder_downloads")
+    }
 }
 
 class PhoneBackupDestinationException(
@@ -148,5 +191,6 @@ class PhoneBackupDestinationException(
     enum class Code {
         DEFAULT_FOLDER_UNAVAILABLE,
         PERMISSION_LOST,
+        PERMISSION_REQUIRED,
     }
 }

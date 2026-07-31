@@ -14,7 +14,7 @@ class PhoneBackupContractTest {
         val source = File("src/main/java/app/tijario/features/backup/PhoneBackupRepository.kt").readText()
 
         assertTrue(source.contains("MediaStore.Downloads.getContentUri"))
-        assertTrue(source.contains("\${Environment.DIRECTORY_DOWNLOADS}/Tijario/Backup/"))
+        assertTrue(source.contains("\${Environment.DIRECTORY_DOWNLOADS}/Tijario/Backups/"))
         assertTrue(source.contains("DocumentsContract.createDocument"))
         assertTrue(source.contains("takePersistableUriPermission"))
         assertFalse(source.contains("MANAGE_EXTERNAL_STORAGE"))
@@ -42,11 +42,11 @@ class PhoneBackupContractTest {
     @Test
     fun defaultLocalBackupFolderPathUsesEnglishSegmentsInBothLanguages() {
         assertEquals(
-            "Downloads / Tijario / Backup",
+            "Downloads / Tijario / Backups",
             Localization.getString("backup_phone_folder_downloads", AppLanguage.AR),
         )
         assertEquals(
-            "Downloads / Tijario / Backup",
+            "Downloads / Tijario / Backups",
             Localization.getString("backup_phone_folder_downloads", AppLanguage.EN),
         )
     }

@@ -6,6 +6,7 @@ import app.tijario.features.backup.drive.DriveBackupException
 class BackupRestoreException(
     val code: Code,
     cause: Throwable? = null,
+    val table: String? = null,
 ) : Exception(code.name, cause) {
     enum class Code {
         DRIVE_AUTH_REQUIRED,
@@ -25,6 +26,15 @@ class BackupRestoreException(
         BACKUP_RESTORE_TRANSACTION_FAILED,
         BACKUP_ASSET_RESTORE_FAILED,
         RESTORE_FILE_PERMISSION_LOST,
+        RESTORE_ASSET_STAGE_FAILED,
+        RESTORE_ASSET_APPLY_FAILED,
+        RESTORE_DB_SCHEMA_INCOMPATIBLE,
+        RESTORE_DB_DELETE_FAILED,
+        RESTORE_DB_INSERT_FAILED,
+        RESTORE_DB_CONSTRAINT_FAILED,
+        RESTORE_DB_FOREIGN_KEY_FAILED,
+        RESTORE_DB_COMMIT_FAILED,
+        RESTORE_ROLLBACK_FAILED,
     }
 }
 

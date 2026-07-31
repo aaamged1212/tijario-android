@@ -16,6 +16,7 @@ class LocalBackupRestorer(
         expectedUserId: String,
     ): DecodedBackup = withContext(Dispatchers.IO) {
         val decoded = BackupArchiveCodec.open(archive, encryptionKey, expectedUserId)
+        BackupDiagnostics.stage("restore", "ARCHIVE_DECRYPTED")
         if (decoded.manifest.roomDatabaseVersion > currentRoomVersion) {
             throw BackupValidationException("Backup requires a newer application version")
         }
@@ -30,6 +31,7 @@ class LocalBackupRestorer(
         temporaryRoot: File,
     ): DecodedBackup = withContext(Dispatchers.IO) {
         val decoded = BackupArchiveCodec.open(archiveFile, encryptionKey, expectedUserId, temporaryRoot)
+        BackupDiagnostics.stage("restore", "ARCHIVE_DECRYPTED")
         try {
             if (decoded.manifest.roomDatabaseVersion > currentRoomVersion) {
                 throw BackupValidationException("Backup requires a newer application version")
@@ -50,18 +52,41 @@ class LocalBackupRestorer(
         if (decoded.manifest.accountId != expectedUserId) {
             throw BackupValidationException("Backup belongs to a different account")
         }
+        BackupDiagnostics.stage("restore", "ACCOUNT_VALIDATED")
         onStage(BackupRestoreStage.RESTORING_FILES)
-        val assets = BackupAssetRestorer(filesRoot).stage(expectedUserId, decoded.entries, decoded.stagedAssetFiles)
-        val appliedAssets = assets.apply()
+        val assets = try {
+            BackupDiagnostics.stage("restore", "ASSETS_STAGED")
+            BackupAssetRestorer(filesRoot).stage(expectedUserId, decoded.entries, decoded.stagedAssetFiles)
+        } catch (error: Exception) {
+            BackupDiagnostics.stage("restore", "RESTORE_ASSET_STAGE_FAILED", error = error)
+            throw BackupRestoreException(BackupRestoreException.Code.RESTORE_ASSET_STAGE_FAILED, error)
+        }
+        var appliedAssets: AppliedBackupAssets? = null
         try {
             onStage(BackupRestoreStage.RESTORING_RECORDS)
-            RoomLogicalBackupStore(database).restoreAccount(expectedUserId, decoded.entries)
-            appliedAssets.complete()
+            RoomLogicalBackupStore(database).restoreAccount(expectedUserId, decoded.entries) {
+                try {
+                    BackupDiagnostics.stage("restore", "ASSETS_APPLIED")
+                    appliedAssets = assets.apply()
+                } catch (error: Exception) {
+                    BackupDiagnostics.stage("restore", "RESTORE_ASSET_APPLY_FAILED", error = error)
+                    throw BackupRestoreException(BackupRestoreException.Code.RESTORE_ASSET_APPLY_FAILED, error)
+                }
+            }
+            appliedAssets?.complete()
+            BackupDiagnostics.stage("restore", "RESTORE_COMPLETED")
             decoded.manifest
         } catch (error: Exception) {
-            appliedAssets.rollback()
+            if (appliedAssets == null) assets.discard()
+            val rollbackFailure = runCatching { appliedAssets?.rollback() }.exceptionOrNull()
+            if (rollbackFailure != null) {
+                BackupDiagnostics.stage("restore", "ROLLBACK_FAILED", error = rollbackFailure)
+                throw BackupRestoreException(BackupRestoreException.Code.RESTORE_ROLLBACK_FAILED, rollbackFailure)
+            }
+            BackupDiagnostics.stage("restore", "ROLLBACK_COMPLETED", error = error)
+            if (error is BackupRestoreException) throw error
             if (error is BackupValidationException) throw error
-            throw BackupValidationException("Backup restore failed", error)
+            throw BackupRestoreException(BackupRestoreException.Code.BACKUP_RESTORE_TRANSACTION_FAILED, error)
         }
     }
 

@@ -74,6 +74,15 @@ internal fun restoreErrorMessageKeyFor(errorCode: String?): String = when (error
     BackupRestoreException.Code.BACKUP_RESTORE_TRANSACTION_FAILED.name -> "backup_restore_transaction_failed"
     BackupRestoreException.Code.BACKUP_ASSET_RESTORE_FAILED.name -> "backup_restore_assets_failed"
     BackupRestoreException.Code.RESTORE_FILE_PERMISSION_LOST.name -> "backup_restore_file_permission_lost"
+    BackupRestoreException.Code.RESTORE_ASSET_STAGE_FAILED.name -> "backup_restore_asset_stage_failed"
+    BackupRestoreException.Code.RESTORE_ASSET_APPLY_FAILED.name -> "backup_restore_asset_apply_failed"
+    BackupRestoreException.Code.RESTORE_DB_SCHEMA_INCOMPATIBLE.name -> "backup_restore_schema_incompatible"
+    BackupRestoreException.Code.RESTORE_DB_DELETE_FAILED.name -> "backup_restore_db_delete_failed"
+    BackupRestoreException.Code.RESTORE_DB_INSERT_FAILED.name -> "backup_restore_db_insert_failed"
+    BackupRestoreException.Code.RESTORE_DB_CONSTRAINT_FAILED.name -> "backup_restore_db_constraint_failed"
+    BackupRestoreException.Code.RESTORE_DB_FOREIGN_KEY_FAILED.name -> "backup_restore_db_foreign_key_failed"
+    BackupRestoreException.Code.RESTORE_DB_COMMIT_FAILED.name -> "backup_restore_db_commit_failed"
+    BackupRestoreException.Code.RESTORE_ROLLBACK_FAILED.name -> "backup_restore_rollback_failed"
     else -> "backup_restore_failed"
 }
 
@@ -248,6 +257,13 @@ class BackupViewModel(
     fun rememberPhoneBackupFolder(uri: Uri?) {
         if (uri == null || userId.isBlank()) return
         runCatching { PhoneBackupRepository(getApplication()).rememberTree(userId, uri) }
+            .onSuccess { refreshLatest() }
+            .onFailure { _uiState.value = _uiState.value.copy(messageKey = "backup_phone_folder_failed") }
+    }
+
+    fun useDefaultPhoneBackupFolder() {
+        if (userId.isBlank()) return
+        runCatching { PhoneBackupRepository(getApplication()).useDefaultDestination(userId) }
             .onSuccess { refreshLatest() }
             .onFailure { _uiState.value = _uiState.value.copy(messageKey = "backup_phone_folder_failed") }
     }

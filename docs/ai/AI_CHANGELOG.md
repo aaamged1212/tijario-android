@@ -1,5 +1,11 @@
 # AI Changelog
 
+## 2026-07-30 - Backup upload, restore, destination, and notification hardening
+- Separated Drive retention from a verified upload so retention cannot turn `DRIVE_UPLOADED` into `DRIVE_FAILED`.
+- Added safe stage diagnostics and typed restore errors for asset and Room application phases, with schema validation before mutation and asset rollback support.
+- Made the phone default `Downloads/Tijario/Backups`, retained custom SAF selection/reset behavior, and corrected notification permission/channel gating.
+- Local JVM tests, Android test APK assembly, lint, and `playQa` assembly passed. Physical QA remains blocked because no device is attached.
+
 ## 2026-07-29 - Lease invalidation and deletion-recovery state gate
 - Retryable rejected leases are invalidated atomically with clearing their pending creation-event assignment, preventing the same lease from being reused during recovery.
 - Pending account-deletion cleanup now has explicit running/succeeded/failed startup states and a local-only retry screen that blocks routing and sync on failure.

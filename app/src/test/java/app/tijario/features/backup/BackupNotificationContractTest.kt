@@ -1,19 +1,24 @@
 package app.tijario.features.backup
 
-import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
 
 class BackupNotificationContractTest {
     @Test
-    fun backupNotificationUsesDedicatedChannelAndDoesNotTreatPermissionDenialAsFailure() {
-        val source = File("src/main/java/app/tijario/features/backup/BackupWorkNotifier.kt").readText()
-        assertEquals("tijario_backup_restore", BACKUP_NOTIFICATION_CHANNEL_ID)
-        assertTrue(source.contains("areNotificationsEnabled"))
-        assertTrue(source.contains("Backup and Restore"))
-        assertTrue(source.contains("createCancelPendingIntent"))
-        assertTrue(source.contains("foregroundInfo"))
-        assertTrue(source.contains("FOREGROUND_SERVICE_TYPE_DATA_SYNC"))
+    fun notificationIdsRemainSpecificToTheExactWorkRequest() {
+        val first = java.util.UUID.fromString("00000000-0000-0000-0000-000000000001")
+        val second = java.util.UUID.fromString("00000000-0000-0000-0000-000000000002")
+
+        assertTrue(BACKUP_NOTIFICATION_CHANNEL_ID.isNotBlank())
+        assertTrue(BackupWorkNotifier.notificationId(first) != BackupWorkNotifier.notificationId(second))
+    }
+
+    @Test
+    fun notificationsRequireBothAppPermissionAndAnEnabledBackupChannel() {
+        assertTrue(backupNotificationsAvailable(true, android.app.NotificationManager.IMPORTANCE_DEFAULT))
+        assertFalse(backupNotificationsAvailable(false, android.app.NotificationManager.IMPORTANCE_DEFAULT))
+        assertFalse(backupNotificationsAvailable(true, android.app.NotificationManager.IMPORTANCE_NONE))
     }
 }

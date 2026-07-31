@@ -51,13 +51,15 @@ class BackupCoordinator(
         onStage: suspend (BackupRestoreStage) -> Unit = {},
     ): BackupManifest = BackupOperationGuard.withAccountLock(userId) {
         onStage(BackupRestoreStage.VALIDATING)
+        BackupDiagnostics.stage("restore", "ARCHIVE_HEADER_VALIDATED")
         val installationId = AppPreferences.getInstallationId(appContext)
         val keyVersion = BackupArchiveCodec.peekKeyVersion(archive)
         val restorer = LocalBackupRestorer(database, appContext.filesDir)
         val decoded = keyStore.resolve(userId, installationId, allowNetwork, keyVersion).let { key ->
             try {
                 if (key.keyVersion != keyVersion) throw BackupValidationException("Backup key version does not match archive")
-                restorer.validate(archive, key.keyBytes, userId)
+                BackupDiagnostics.stage("restore", "KEY_RESOLVED")
+                restorer.validate(archive, key.keyBytes, userId).also { BackupDiagnostics.stage("restore", "MANIFEST_VALIDATED") }
             } finally {
                 key.keyBytes.fill(0)
             }
@@ -66,13 +68,16 @@ class BackupCoordinator(
         onStage(BackupRestoreStage.CREATING_SAFETY_BACKUP)
         try {
             createLocalBackupUnlocked(userId, allowNetwork)
+            BackupDiagnostics.stage("restore", "SAFETY_BACKUP_CREATED")
         } catch (error: Throwable) {
             throw BackupRestoreException(BackupRestoreException.Code.PRE_RESTORE_SAFETY_BACKUP_FAILED, error)
         }
         try {
             restorer.restore(decoded, userId, onStage)
+        } catch (error: BackupRestoreException) {
+            throw error
         } catch (error: BackupValidationException) {
-            throw BackupRestoreException(BackupRestoreException.Code.BACKUP_RESTORE_TRANSACTION_FAILED, error)
+            throw restoreFailureFor(error)
         }
     }
 
@@ -83,13 +88,16 @@ class BackupCoordinator(
         onStage: suspend (BackupRestoreStage) -> Unit = {},
     ): BackupManifest = BackupOperationGuard.withAccountLock(userId) {
         onStage(BackupRestoreStage.VALIDATING)
+        BackupDiagnostics.stage("restore", "ARCHIVE_HEADER_VALIDATED")
         val installationId = AppPreferences.getInstallationId(appContext)
         val keyVersion = BackupArchiveCodec.peekKeyVersion(archiveFile)
         val restorer = LocalBackupRestorer(database, appContext.filesDir)
         val decoded = keyStore.resolve(userId, installationId, allowNetwork, keyVersion).let { key ->
             try {
                 if (key.keyVersion != keyVersion) throw BackupValidationException("Backup key version does not match archive")
+                BackupDiagnostics.stage("restore", "KEY_RESOLVED")
                 restorer.validate(archiveFile, key.keyBytes, userId, File(appContext.cacheDir, "backup-restore/$userId"))
+                    .also { BackupDiagnostics.stage("restore", "MANIFEST_VALIDATED") }
             } finally {
                 key.keyBytes.fill(0)
             }
@@ -99,13 +107,16 @@ class BackupCoordinator(
             onStage(BackupRestoreStage.CREATING_SAFETY_BACKUP)
             try {
                 createLocalBackupUnlocked(userId, allowNetwork)
+                BackupDiagnostics.stage("restore", "SAFETY_BACKUP_CREATED")
             } catch (error: Throwable) {
                 throw BackupRestoreException(BackupRestoreException.Code.PRE_RESTORE_SAFETY_BACKUP_FAILED, error)
             }
             try {
                 restorer.restore(decoded, userId, onStage)
+            } catch (error: BackupRestoreException) {
+                throw error
             } catch (error: BackupValidationException) {
-                throw BackupRestoreException(BackupRestoreException.Code.BACKUP_RESTORE_TRANSACTION_FAILED, error)
+                throw restoreFailureFor(error)
             }
         } finally {
             decoded.discardStaging()

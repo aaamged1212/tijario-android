@@ -30,6 +30,6 @@ class BackupRestoreWorkerContractTest {
 
         assertTrue(worker.contains("PROGRESS_STAGE_KEY"))
         assertTrue(worker.contains("ERROR_CODE_KEY to mapped.code.name"))
-        assertTrue(worker.contains("restore_failed source=\$source code=\${mapped.code.name}"))
+        assertTrue(worker.contains("WORK_FAILED_\${mapped.code.name}"))
     }
 }

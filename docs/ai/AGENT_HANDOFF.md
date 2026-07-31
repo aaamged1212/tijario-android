@@ -1,5 +1,13 @@
 # Agent Handoff (Android & Web Repos)
 
+## 2026-07-30 (Drive upload, transactional restore, phone destination, and notification hardening)
+- **Branch**: `codex/fix-backup-destinations-drive-restore-notifications`.
+- **Upload**: A successful verified upload now persists `DRIVE_UPLOADED`, reports 100%, and succeeds before retention runs as separate bounded work. A later retention failure cannot downgrade or clear the verified remote record.
+- **Restore**: Asset staging/application and Room schema/delete/insert/constraint/foreign-key/commit failures now retain distinct typed restore outcomes. The logical snapshot schema is validated before any current-account rows are deleted; asset application happens inside the Room transaction and rolls back with it on failure.
+- **Phone and notifications**: A fresh phone destination is `Downloads/Tijario/Backups`; Android 10+ uses MediaStore and Android 8/9 requests legacy write permission only when needed. Backup notification permission and channel availability gate tracked work, return from settings is rechecked, and continuing without notifications is explicit.
+- **Validation**: `testDebugUnitTest --rerun-tasks`, `assembleDebugAndroidTest`, `lintDebug`, `assemblePlayQa`, and `git diff --check` passed. `adb devices` found no connected device, so `connectedDebugAndroidTest` and mandatory disposable-account Drive/SAF/notification physical QA are pending.
+- **Safety**: No commit, push, deployment, migration, Production write, final AAB, Play upload, or external configuration change occurred. `.agents` remains local and excluded.
+
 ## 2026-07-29 (Restore permission, key recovery, and foreground service completion)
 - **Branch**: `codex/fix-backup-destinations-drive-restore-notifications`.
 - **Restore safety**: File-picker restores now persist read permission before enqueueing, stage the archive privately, then release the persisted grant only after staging succeeds. Lost permission is typed and localized rather than becoming a generic restore failure.

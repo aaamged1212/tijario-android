@@ -56,6 +56,7 @@ internal fun backupMessageKeyFor(error: Throwable, fallback: String = "backup_cr
         is PhoneBackupDestinationException -> when (error.code) {
             PhoneBackupDestinationException.Code.DEFAULT_FOLDER_UNAVAILABLE -> "backup_phone_folder_required"
             PhoneBackupDestinationException.Code.PERMISSION_LOST -> "backup_phone_folder_permission_lost"
+            PhoneBackupDestinationException.Code.PERMISSION_REQUIRED -> "backup_phone_folder_required"
         }
         is BackupRestoreException -> when (error.code) {
             BackupRestoreException.Code.PRE_RESTORE_SAFETY_BACKUP_FAILED -> "backup_restore_safety_backup_failed"

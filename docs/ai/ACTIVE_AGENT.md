@@ -1,5 +1,10 @@
 # Active Agent Status
 
+- **Current task**: Backup and restore hardening on `codex/fix-backup-destinations-drive-restore-notifications`.
+- **State**: Local work is complete pending mandatory device verification. Verified upload success is independent from retention; restore preserves typed safe failure phases; phone backups default to `Downloads/Tijario/Backups`; and tracked operations require both notification permission and an enabled channel unless the user explicitly continues without notifications.
+- **Validation**: `testDebugUnitTest --rerun-tasks`, `assembleDebugAndroidTest`, `lintDebug`, and `assemblePlayQa` passed. `adb devices` had no connected target, so `connectedDebugAndroidTest` and disposable-account Drive/restore/notification QA remain blocked.
+- **Safety**: No commit, push, deployment, migration, Production write, final AAB, Play upload, or external configuration change occurred. `.agents` remains local and excluded.
+
 - **Current task**: Restore permission, key recovery, and foreground `dataSync` hardening on `codex/fix-backup-destinations-drive-restore-notifications`.
 - **State**: Complete locally. SAF read grants are persisted before restore work and released after private staging; all restore sources may resolve a missing exact key online; typed worker failures are localized.
 - **Validation**: `testDebugUnitTest`, `assembleDebugAndroidTest`, `lintDebug`, and `assemblePlayQa` passed. Integration test execution remains blocked by no emulator/device.

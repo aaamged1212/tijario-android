@@ -2,7 +2,6 @@ package app.tijario.features.backup
 
 import android.content.Context
 import android.net.Uri
-import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
@@ -64,6 +63,7 @@ class BackupRestoreWorker(
                 else -> return Result.failure()
             }
             stagedFile = archive
+            BackupDiagnostics.stage("restore", "SOURCE_STAGED")
             coordinator.restoreLocalBackup(
                 userId = userId,
                 archiveFile = archive,
@@ -82,7 +82,7 @@ class BackupRestoreWorker(
             Result.success()
         } catch (error: Throwable) {
             val mapped = restoreFailureFor(error)
-            Log.w(LOG_TAG, "restore_failed source=$source code=${mapped.code.name}")
+            BackupDiagnostics.stage("restore", "WORK_FAILED_${mapped.code.name}", error = error)
             setProgress(workDataOf(ERROR_CODE_KEY to mapped.code.name, PROGRESS_STAGE_KEY to "backup_restore_failed"))
             notifier.post("Restore failed", "Backup restore failed")
             Result.failure(workDataOf(ERROR_CODE_KEY to mapped.code.name))
@@ -107,7 +107,7 @@ class BackupRestoreWorker(
     }
 
     private suspend fun stage(notifier: BackupWorkNotifier, key: String, detail: String, percent: Int? = null) {
-        Log.i(LOG_TAG, "restore_stage source=${inputData.getString(SOURCE_KEY).orEmpty()} stage=$key")
+        BackupDiagnostics.stage("restore", key)
         setProgress(
             workDataOf(
                 PROGRESS_STAGE_KEY to key,
@@ -138,7 +138,6 @@ class BackupRestoreWorker(
         if (total <= 0L) 0 else ((transferred * 100L) / total).toInt().coerceIn(0, 100)
 
     companion object {
-        private const val LOG_TAG = "TijarioBackup"
         const val USER_ID_KEY = "userId"
         const val SOURCE_KEY = "source"
         const val SOURCE_DRIVE = "drive"
