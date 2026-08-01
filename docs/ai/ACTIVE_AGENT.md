@@ -1,5 +1,10 @@
 # Active Agent Status
 
+- **Current task**: Verify the optimized Web entitlement response against the production Android serializer.
+- **State**: A shared 12-case fixture and focused JVM contract test are complete; Android production source remains unchanged and existing backup work is preserved.
+- **Validation**: Full JVM tests with `--rerun-tasks`, instrumentation APK compilation, `lintDebug`, `assemblePlayQa`, and `git diff --check` passed. Physical-device QA remains pending.
+- **Safety**: No migration, deployment, Production write, external configuration change, APK/AAB upload, or Play action occurred. `.agents` remains local and excluded.
+
 - **Current task**: Diagnose and correct restore failures on `codex/fix-backup-destinations-drive-restore-notifications`.
 - **State**: The validated correction is ready for a connected-device retest. Header/key/decryption/manifest validation succeeds; only legitimate Room item/document references are enforced. Restore-safety snapshots are internal and hidden from normal history.
 - **Validation**: Focused `LogicalBackupSnapshotTest`, `BackupRestoreBehaviorTest`, and `assemblePlayQa` passed. Release metadata is `18` / `1.1.8`; no APK was installed, so physical restore remains pending.

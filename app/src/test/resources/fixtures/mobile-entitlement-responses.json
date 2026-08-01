@@ -1,0 +1,468 @@
+{
+  "cases": [
+    {
+      "name": "new_free_local_drive",
+      "response": {
+        "ok": true,
+        "data": {
+          "plan_code": "free",
+          "data_mode": "local_drive",
+          "document_limit_scope": "lifetime",
+          "entitlement_version": 1,
+          "monthly_document_limit": 5,
+          "documents_used": 0,
+          "monthly_ai_limit": 10,
+          "ai_used": 0,
+          "customer_limit": 5,
+          "customers_used": 0,
+          "product_limit": 5,
+          "products_used": 0,
+          "reset_at": "2026-09-01T00:00:00.000Z",
+          "allowed_template_ids": [
+            "tijario-classic"
+          ],
+          "template_access": "basic",
+          "remove_tijario_branding": false,
+          "offline_credit_batch_size": 2,
+          "offline_entitlement_days": 7,
+          "backup_frequency": "weekly",
+          "backup_retention_daily": 0,
+          "backup_retention_weekly": 4,
+          "backup_retention_monthly": 0,
+          "signed_entitlement": {
+            "algorithm": "RS256",
+            "key_id": "fixture-key",
+            "payload": "fixture-new-free",
+            "signature": "fixture-signature"
+          }
+        }
+      }
+    },
+    {
+      "name": "existing_free_local_drive",
+      "response": {
+        "ok": true,
+        "data": {
+          "plan_code": "free",
+          "data_mode": "local_drive",
+          "document_limit_scope": "lifetime",
+          "entitlement_version": 3,
+          "monthly_document_limit": 5,
+          "documents_used": 2,
+          "monthly_ai_limit": 10,
+          "ai_used": 1,
+          "customer_limit": 5,
+          "customers_used": 0,
+          "product_limit": 5,
+          "products_used": 0,
+          "reset_at": "2026-09-01T00:00:00.000Z",
+          "allowed_template_ids": [
+            "tijario-classic"
+          ],
+          "template_access": "basic",
+          "remove_tijario_branding": false,
+          "offline_credit_batch_size": 2,
+          "offline_entitlement_days": 7,
+          "backup_frequency": "weekly",
+          "backup_retention_daily": 0,
+          "backup_retention_weekly": 4,
+          "backup_retention_monthly": 0,
+          "signed_entitlement": {
+            "algorithm": "RS256",
+            "key_id": "fixture-key",
+            "payload": "fixture-existing-free",
+            "signature": "fixture-signature"
+          }
+        }
+      }
+    },
+    {
+      "name": "paid_local_drive",
+      "response": {
+        "ok": true,
+        "data": {
+          "plan_code": "pro",
+          "data_mode": "local_drive",
+          "document_limit_scope": "billing_cycle",
+          "entitlement_version": 8,
+          "monthly_document_limit": 200,
+          "documents_used": 17,
+          "monthly_ai_limit": 500,
+          "ai_used": 12,
+          "customer_limit": null,
+          "customers_used": 0,
+          "product_limit": null,
+          "products_used": 0,
+          "reset_at": "2026-09-01T00:00:00.000Z",
+          "allowed_template_ids": [
+            "tijario-classic",
+            "tijario-modern",
+            "tijario-minimal"
+          ],
+          "template_access": "all",
+          "remove_tijario_branding": true,
+          "offline_credit_batch_size": 5,
+          "offline_entitlement_days": 7,
+          "backup_frequency": "daily",
+          "backup_retention_daily": 14,
+          "backup_retention_weekly": 8,
+          "backup_retention_monthly": 3,
+          "signed_entitlement": {
+            "algorithm": "RS256",
+            "key_id": "fixture-key",
+            "payload": "fixture-paid",
+            "signature": "fixture-signature"
+          }
+        }
+      }
+    },
+    {
+      "name": "existing_legacy_cloud",
+      "response": {
+        "ok": true,
+        "data": {
+          "plan_code": "starter",
+          "data_mode": "legacy_cloud",
+          "document_limit_scope": "billing_cycle",
+          "entitlement_version": 5,
+          "monthly_document_limit": 50,
+          "documents_used": 11,
+          "monthly_ai_limit": 150,
+          "ai_used": 4,
+          "customer_limit": 30,
+          "customers_used": 23,
+          "product_limit": 30,
+          "products_used": 31,
+          "reset_at": "2026-09-01T00:00:00.000Z",
+          "allowed_template_ids": [
+            "tijario-classic",
+            "tijario-modern",
+            "tijario-minimal"
+          ],
+          "template_access": "all",
+          "remove_tijario_branding": true,
+          "offline_credit_batch_size": 3,
+          "offline_entitlement_days": 7,
+          "backup_frequency": "daily",
+          "backup_retention_daily": 7,
+          "backup_retention_weekly": 4,
+          "backup_retention_monthly": 3,
+          "signed_entitlement": {
+            "algorithm": "RS256",
+            "key_id": "fixture-key",
+            "payload": "fixture-legacy",
+            "signature": "fixture-signature"
+          }
+        }
+      }
+    },
+    {
+      "name": "missing_usage_row",
+      "response": {
+        "ok": true,
+        "data": {
+          "plan_code": "free",
+          "data_mode": "local_drive",
+          "document_limit_scope": "lifetime",
+          "entitlement_version": 2,
+          "monthly_document_limit": 5,
+          "documents_used": 0,
+          "monthly_ai_limit": 10,
+          "ai_used": 0,
+          "customer_limit": 5,
+          "customers_used": 0,
+          "product_limit": 5,
+          "products_used": 0,
+          "reset_at": "2026-09-01T00:00:00.000Z",
+          "allowed_template_ids": [
+            "tijario-classic"
+          ],
+          "template_access": "basic",
+          "remove_tijario_branding": false,
+          "offline_credit_batch_size": 2,
+          "offline_entitlement_days": 7,
+          "backup_frequency": "weekly",
+          "backup_retention_daily": 0,
+          "backup_retention_weekly": 4,
+          "backup_retention_monthly": 0,
+          "signed_entitlement": {
+            "algorithm": "RS256",
+            "key_id": "fixture-key",
+            "payload": "fixture-missing-usage",
+            "signature": "fixture-signature"
+          }
+        }
+      }
+    },
+    {
+      "name": "missing_account_usage_totals",
+      "response": {
+        "ok": true,
+        "data": {
+          "plan_code": "free",
+          "data_mode": "local_drive",
+          "document_limit_scope": "lifetime",
+          "entitlement_version": 2,
+          "monthly_document_limit": 5,
+          "documents_used": 0,
+          "monthly_ai_limit": 10,
+          "ai_used": 2,
+          "customer_limit": 5,
+          "customers_used": 0,
+          "product_limit": 5,
+          "products_used": 0,
+          "reset_at": "2026-09-01T00:00:00.000Z",
+          "allowed_template_ids": [
+            "tijario-classic"
+          ],
+          "template_access": "basic",
+          "remove_tijario_branding": false,
+          "offline_credit_batch_size": 2,
+          "offline_entitlement_days": 7,
+          "backup_frequency": "weekly",
+          "backup_retention_daily": 0,
+          "backup_retention_weekly": 4,
+          "backup_retention_monthly": 0,
+          "signed_entitlement": {
+            "algorithm": "RS256",
+            "key_id": "fixture-key",
+            "payload": "fixture-missing-totals",
+            "signature": "fixture-signature"
+          }
+        }
+      }
+    },
+    {
+      "name": "missing_device_registration",
+      "response": {
+        "ok": true,
+        "data": {
+          "plan_code": "free",
+          "data_mode": "local_drive",
+          "document_limit_scope": "lifetime",
+          "entitlement_version": 4,
+          "monthly_document_limit": 5,
+          "documents_used": 1,
+          "monthly_ai_limit": 10,
+          "ai_used": 0,
+          "customer_limit": 5,
+          "customers_used": 0,
+          "product_limit": 5,
+          "products_used": 0,
+          "reset_at": "2026-09-01T00:00:00.000Z",
+          "allowed_template_ids": [
+            "tijario-classic"
+          ],
+          "template_access": "basic",
+          "remove_tijario_branding": false,
+          "offline_credit_batch_size": 2,
+          "offline_entitlement_days": 7,
+          "backup_frequency": "weekly",
+          "backup_retention_daily": 0,
+          "backup_retention_weekly": 4,
+          "backup_retention_monthly": 0,
+          "signed_entitlement": {
+            "algorithm": "RS256",
+            "key_id": "fixture-key",
+            "payload": "fixture-device-created",
+            "signature": "fixture-signature"
+          }
+        }
+      }
+    },
+    {
+      "name": "device_seen_under_24h",
+      "response": {
+        "ok": true,
+        "data": {
+          "plan_code": "free",
+          "data_mode": "local_drive",
+          "document_limit_scope": "lifetime",
+          "entitlement_version": 4,
+          "monthly_document_limit": 5,
+          "documents_used": 1,
+          "monthly_ai_limit": 10,
+          "ai_used": 0,
+          "customer_limit": 5,
+          "customers_used": 0,
+          "product_limit": 5,
+          "products_used": 0,
+          "reset_at": "2026-09-01T00:00:00.000Z",
+          "allowed_template_ids": [
+            "tijario-classic"
+          ],
+          "template_access": "basic",
+          "remove_tijario_branding": false,
+          "offline_credit_batch_size": 2,
+          "offline_entitlement_days": 7,
+          "backup_frequency": "weekly",
+          "backup_retention_daily": 0,
+          "backup_retention_weekly": 4,
+          "backup_retention_monthly": 0,
+          "signed_entitlement": {
+            "algorithm": "RS256",
+            "key_id": "fixture-key",
+            "payload": "fixture-device-fresh",
+            "signature": "fixture-signature"
+          }
+        }
+      }
+    },
+    {
+      "name": "device_seen_over_24h",
+      "response": {
+        "ok": true,
+        "data": {
+          "plan_code": "free",
+          "data_mode": "local_drive",
+          "document_limit_scope": "lifetime",
+          "entitlement_version": 4,
+          "monthly_document_limit": 5,
+          "documents_used": 1,
+          "monthly_ai_limit": 10,
+          "ai_used": 0,
+          "customer_limit": 5,
+          "customers_used": 0,
+          "product_limit": 5,
+          "products_used": 0,
+          "reset_at": "2026-09-01T00:00:00.000Z",
+          "allowed_template_ids": [
+            "tijario-classic"
+          ],
+          "template_access": "basic",
+          "remove_tijario_branding": false,
+          "offline_credit_batch_size": 2,
+          "offline_entitlement_days": 7,
+          "backup_frequency": "weekly",
+          "backup_retention_daily": 0,
+          "backup_retention_weekly": 4,
+          "backup_retention_monthly": 0,
+          "signed_entitlement": {
+            "algorithm": "RS256",
+            "key_id": "fixture-key",
+            "payload": "fixture-device-presence-updated",
+            "signature": "fixture-signature"
+          }
+        }
+      }
+    },
+    {
+      "name": "expired_or_invalid_plan",
+      "response": {
+        "ok": true,
+        "data": {
+          "plan_code": "free",
+          "data_mode": "local_drive",
+          "document_limit_scope": "lifetime",
+          "entitlement_version": 9,
+          "monthly_document_limit": 5,
+          "documents_used": 4,
+          "monthly_ai_limit": 10,
+          "ai_used": 0,
+          "customer_limit": 5,
+          "customers_used": 0,
+          "product_limit": 5,
+          "products_used": 0,
+          "reset_at": "2026-09-01T00:00:00.000Z",
+          "allowed_template_ids": [
+            "tijario-classic"
+          ],
+          "template_access": "basic",
+          "remove_tijario_branding": false,
+          "offline_credit_batch_size": 2,
+          "offline_entitlement_days": 7,
+          "backup_frequency": "weekly",
+          "backup_retention_daily": 0,
+          "backup_retention_weekly": 4,
+          "backup_retention_monthly": 0,
+          "signed_entitlement": {
+            "algorithm": "RS256",
+            "key_id": "fixture-key",
+            "payload": "fixture-expired-projected-free",
+            "signature": "fixture-signature"
+          }
+        }
+      }
+    },
+    {
+      "name": "grace_period",
+      "response": {
+        "ok": true,
+        "data": {
+          "plan_code": "pro",
+          "data_mode": "local_drive",
+          "document_limit_scope": "billing_cycle",
+          "entitlement_version": 10,
+          "monthly_document_limit": 200,
+          "documents_used": 44,
+          "monthly_ai_limit": 500,
+          "ai_used": 20,
+          "customer_limit": null,
+          "customers_used": 0,
+          "product_limit": null,
+          "products_used": 0,
+          "reset_at": "2026-09-01T00:00:00.000Z",
+          "allowed_template_ids": [
+            "tijario-classic",
+            "tijario-modern",
+            "tijario-minimal"
+          ],
+          "template_access": "all",
+          "remove_tijario_branding": true,
+          "offline_credit_batch_size": 5,
+          "offline_entitlement_days": 7,
+          "backup_frequency": "daily",
+          "backup_retention_daily": 14,
+          "backup_retention_weekly": 8,
+          "backup_retention_monthly": 3,
+          "signed_entitlement": {
+            "algorithm": "RS256",
+            "key_id": "fixture-key",
+            "payload": "fixture-grace",
+            "signature": "fixture-signature"
+          }
+        }
+      }
+    },
+    {
+      "name": "cancelled_until_period_end",
+      "response": {
+        "ok": true,
+        "data": {
+          "plan_code": "pro",
+          "data_mode": "local_drive",
+          "document_limit_scope": "billing_cycle",
+          "entitlement_version": 11,
+          "monthly_document_limit": 200,
+          "documents_used": 45,
+          "monthly_ai_limit": 500,
+          "ai_used": 21,
+          "customer_limit": null,
+          "customers_used": 0,
+          "product_limit": null,
+          "products_used": 0,
+          "reset_at": "2026-09-01T00:00:00.000Z",
+          "allowed_template_ids": [
+            "tijario-classic",
+            "tijario-modern",
+            "tijario-minimal"
+          ],
+          "template_access": "all",
+          "remove_tijario_branding": true,
+          "offline_credit_batch_size": 5,
+          "offline_entitlement_days": 7,
+          "backup_frequency": "daily",
+          "backup_retention_daily": 14,
+          "backup_retention_weekly": 8,
+          "backup_retention_monthly": 3,
+          "signed_entitlement": {
+            "algorithm": "RS256",
+            "key_id": "fixture-key",
+            "payload": "fixture-cancelled-current",
+            "signature": "fixture-signature"
+          }
+        }
+      }
+    }
+  ]
+}

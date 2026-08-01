@@ -1,5 +1,11 @@
 # Agent Handoff (Android & Web Repos)
 
+## 2026-08-01 (mobile entitlement contract verification)
+- **Branch**: `codex/fix-backup-destinations-drive-restore-notifications`.
+- **Change**: Added the shared 12-case mobile entitlement response fixture and a focused JVM test that deserializes every case with the production `AccountUsageResponse` serializer. No production Android behavior changed.
+- **Validation**: Full `testDebugUnitTest --rerun-tasks`, `assembleDebugAndroidTest`, `lintDebug`, `assemblePlayQa`, and `git diff --check` passed. The first long Gradle attempts hit tool timeouts and were rerun to successful real exit codes.
+- **Safety**: Existing backup/restore work and `.agents` remain preserved and unstaged. Physical-device QA remains pending; no migration, deployment, Production write, external configuration change, AAB/APK upload, or Play action occurred.
+
 ## 2026-07-31 (restore validation correction)
 - **Branch**: `codex/fix-backup-destinations-drive-restore-notifications`.
 - **Root cause**: Device logs proved archive header, key resolution, decryption, manifest validation, and the safety snapshot all succeed. Restore then failed before its Room transaction because logical validation incorrectly required deleted-document historical references to remain live document/customer rows.

@@ -1,5 +1,9 @@
 # AI Changelog
 
+## 2026-08-01 - Mobile entitlement API contract fixture
+- Added a shared 12-case JSON fixture and production-serializer JVM test for Free, paid, legacy, missing-row, installation-presence, grace-period, cancellation, and expired-plan responses.
+- Kept production Android logic unchanged; full JVM/build/lint gates passed and physical-device QA remains pending.
+
 ## 2026-07-30 - Backup upload, restore, destination, and notification hardening
 - Separated Drive retention from a verified upload so retention cannot turn `DRIVE_UPLOADED` into `DRIVE_FAILED`.
 - Added safe stage diagnostics and typed restore errors for asset and Room application phases, with schema validation before mutation and asset rollback support.
