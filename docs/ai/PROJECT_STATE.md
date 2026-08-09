@@ -133,3 +133,8 @@
 - User-visible history contains only completed phone copies, verified Drive uploads, and completed restores. Internal safety snapshots and intermediate/failure states remain hidden.
 - Manual Drive uploads are expedited and do not inherit automatic charging/battery/storage constraints; Wi-Fi-only remains honored.
 - Physical local/Drive restore and first-attempt Drive upload QA remain pending. Android version remains `18` / `1.1.8`.
+
+## 2026-08-09 Android full-hardening branch
+- `main` was reconciled and validated at `36bf6d3`; focused hardening work is local on `fix/android-full-hardening` and has not been pushed or merged.
+- Authentication callbacks now use an allowlisted deep-link policy and the app declares HTTPS App Links for both Tijario hosts. Legacy custom schemes remain supported.
+- The remaining release gate for App Links is external verification of the live `assetlinks.json` certificate relationship and an end-to-end release-device callback test.

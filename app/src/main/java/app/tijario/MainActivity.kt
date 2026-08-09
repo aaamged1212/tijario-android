@@ -9,6 +9,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import app.tijario.config.AuthDeepLinkPolicy
 import app.tijario.config.AppLanguage
 import app.tijario.config.AppRuntimeState
 import app.tijario.config.LocalLanguage
@@ -58,13 +59,6 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handleAuthDeepLink(intent: Intent?) {
-        val uri = intent?.data ?: return
-        val isSupportedScheme = uri.scheme == "tijario" || uri.scheme == "com.tijario.app"
-        val isAuthCallback = uri.host == "auth" && uri.path.orEmpty().startsWith("/callback")
-        if (!isSupportedScheme || !isAuthCallback) return
-
-        AppRuntimeState.updateAuthDeepLinkTarget(
-            uri.getQueryParameter("next")?.takeIf { it.startsWith("/") } ?: "/login",
-        )
+        AuthDeepLinkPolicy.resolveTarget(intent?.data?.toString())?.let(AppRuntimeState::updateAuthDeepLinkTarget)
     }
 }

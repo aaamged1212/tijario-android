@@ -482,3 +482,8 @@
 - Resumable upload creation now requests the complete Drive File response needed for size, checksum, account, and backup identity verification.
 - A partial create response is resolved through the exact remote backup query; delayed metadata visibility remains a bounded automatic retry instead of requiring the user to press Retry.
 - All 112 backup JVM tests and `assemblePlayQa` passed. No external action occurred.
+
+# 2026-08-09 - Authentication deep-link hardening
+- Added a single callback policy for legacy custom schemes and verified HTTPS App Links. It accepts only exact Tijario callback origins and falls back to `/login` for unsafe `next` values, preventing open redirects and arbitrary scheme handling.
+- Declared `https://tijario.site/auth/callback` and `https://www.tijario.site/auth/callback` with Android App Link verification and documented the external certificate/hosting validation required before release.
+- Focused `AuthDeepLinkPolicyTest` passed. No hosting, Play, deployment, migration, or external configuration change occurred.

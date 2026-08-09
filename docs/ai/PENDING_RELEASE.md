@@ -94,3 +94,8 @@ The counters migration is required to manage sequential document numbers without
 - Verify a manual Drive backup creates no phone-visible duplicate, Wi-Fi-only pauses upload, Drive upload verifies metadata, and Drive restore rejects a backup from another Tijario account without altering current local data.
 - Validate foreground progress/notification behavior and cancellation on a real Android 13+ device. No Play upload is authorized by this note.
 - Run the compiled Room/assets/FakeDrive round-trip test on an emulator or device, including delayed SAF restore after process recreation and a missing cached key on a second installation. Confirm file-permission loss shows the specific localized message and that the temporary persisted URI grant is released after private staging.
+
+## 2026-08-09 App Link release gate
+- Before releasing `fix/android-full-hardening`, serve `/.well-known/assetlinks.json` without redirects from both `tijario.site` and `www.tijario.site`.
+- Confirm it lists `app.tijario` and the active Google Play app-signing SHA-256 certificate. A local/upload certificate alone is insufficient.
+- On a release-signed device, verify both hosts through `pm get-app-links` and complete password-reset and OAuth callback flows. Keep the existing custom schemes as fallback until this passes.

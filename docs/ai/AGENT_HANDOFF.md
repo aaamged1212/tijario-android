@@ -726,3 +726,11 @@
 - **Database**: Local Room schema is `19`; migration `18 -> 19` adds nullable `backup_records.restored_at` without changing Android version `18` / `1.1.8`.
 - **Validation**: 110 focused backup JVM tests passed; `assembleDebugAndroidTest` and `assemblePlayQa` passed. Physical restore and first-attempt Drive upload QA were not run because this task was explicitly performed without a phone.
 - **Safety Status**: No commit, push, deployment, Supabase migration, external configuration change, final AAB, or Google Play upload occurred. `.agents` remains local and untouched.
+
+## 2026-08-09 (Authentication deep-link hardening, local)
+- **Branch**: `fix/android-full-hardening`, based on reconciled `main` source `36bf6d3`.
+- **Change**: Callback handling now uses `AuthDeepLinkPolicy`, accepting only exact `tijario://auth/callback`, `com.tijario.app://auth/callback`, and HTTPS `tijario.site` callback origins. Unsafe redirect targets fall back to `/login`.
+- **App Links**: Android declares the two HTTPS callback hosts with `autoVerify`; existing custom schemes remain a backwards-compatible fallback.
+- **Validation**: Focused `AuthDeepLinkPolicyTest` passed. `docs/release/ANDROID_APP_LINKS.md` records the required physical/hosted verification.
+- **Remaining**: Confirm `assetlinks.json` on both live hosts carries the active Play app-signing certificate, then verify the callback flow on a release-signed device.
+- **Safety Status**: No push, deployment, production write, migration, Play upload, or external configuration change occurred. `.agents` remains local and excluded.

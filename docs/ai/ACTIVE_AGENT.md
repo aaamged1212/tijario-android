@@ -101,3 +101,10 @@
 - **State**: Complete locally and uncommitted. The upload response requests complete verification fields, with exact remote metadata recovery and bounded automatic retry for delayed visibility.
 - **Validation**: 112 backup JVM tests and `assemblePlayQa` passed. Physical-device QA was intentionally not run.
 - **Safety**: No commit, push, deploy, migration, Production write, external configuration change, AAB, or Play upload occurred. `.agents` remains local and untouched.
+
+## 2026-08-09
+- **Current task**: Android full hardening on `fix/android-full-hardening` after the reconciled `main` source was validated and pushed.
+- **Current change**: Authentication callbacks are allowlisted, safe internal redirect handling replaces permissive parsing, and HTTPS App Links are declared for the two Tijario hosts while retaining legacy custom schemes.
+- **Validation**: `testDebugUnitTest --tests app.tijario.config.AuthDeepLinkPolicyTest` passed.
+- **Pending**: Verify the hosted asset-links certificate relationship and run the password-reset/OAuth App Link flows on a release-signed device.
+- **Safety**: No hardening commit/push, deployment, migration, Production write, external configuration change, or Play upload has occurred. `.agents` remains local and excluded.
