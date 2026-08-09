@@ -131,6 +131,7 @@
 
 ## 2026-08-09
 - **Current task**: Android full-hardening validation and branch handoff on `fix/android-full-hardening`.
-- **State**: All scoped source commits are complete locally on top of reconciled `main` commit `36bf6d3`. The branch is ready for its first normal push and remains intentionally unmerged from `main`.
+- **State**: All scoped source commits are published at `f6c32b4` on top of reconciled `main` commit `36bf6d3`. The branch remains intentionally unmerged from `main`.
 - **Validation**: Full JVM tests, `lintDebug`, `lintRelease`, Debug/Release/AndroidTest/PlayQa assemblies, and `bundleRelease` passed. No device or emulator is currently connected, so physical QA was not run.
+- **CI**: GitHub Actions Android CI run `31327114193` completed successfully for `f6c32b4`; Source Audit Scan also completed successfully.
 - **Safety**: `.agents` remains local and excluded. No deployment, migration, Production write, external configuration change, or Google Play upload occurred.

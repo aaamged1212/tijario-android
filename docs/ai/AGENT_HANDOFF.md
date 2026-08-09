@@ -796,3 +796,8 @@
 - **Remaining release evidence**: No ADB device/emulator is connected. Before release, validate PDF/share/preview flows, Google Drive/backup flows, and password-reset/OAuth App Links on a release-signed device. Host `/.well-known/assetlinks.json` on both approved domains with the active Play app-signing SHA-256 before relying on verified links.
 - **Audit note**: The merged Release manifest still contains transitive advertising-ID declarations from an existing dependency. This hardening task did not alter Facebook/analytics SDK integration; review the disclosure/SDK requirement separately before release.
 - **Safety Status**: No deployment, migration, Production write, external configuration change, or Google Play upload occurred. `.agents` remains local and excluded.
+
+## 2026-08-09 (Hardening branch publication)
+- **Published**: `fix/android-full-hardening` is available on `origin` at `f6c32b4` and remains unmerged from `main`.
+- **Remote validation**: GitHub Actions Source Audit Scan and Android CI run `31327114193` both completed successfully. Android CI passed its compile/unit-test and lint/release-assembly jobs.
+- **Safety Status**: No deployment, migration, Production write, external configuration change, or Google Play upload occurred.
