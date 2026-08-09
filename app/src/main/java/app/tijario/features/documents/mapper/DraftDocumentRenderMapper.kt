@@ -38,7 +38,7 @@ object DraftDocumentRenderMapper {
         )
         val items = form.items.map { item ->
             val quantity = Validation.parsePositiveInt(item.quantity) ?: 0
-            val unitPrice = BigDecimal.valueOf(Validation.parseNonNegativeMoney(item.unitPrice) ?: 0.0)
+            val unitPrice = Validation.parseNonNegativeMoneyDecimal(item.unitPrice) ?: BigDecimal.ZERO
             DocumentRenderItem(
                 id = item.id,
                 name = item.name.ifBlank { if (language == AppLanguage.AR) "بند غير مسمى" else "Unnamed item" },
@@ -79,11 +79,11 @@ object DraftDocumentRenderMapper {
                 discount = calculation.discount,
                 extraFees = calculation.extraFees,
                 total = calculation.total,
-                amountPaid = Validation.parseNonNegativeMoney(form.amountPaid)?.let(BigDecimal::valueOf) ?: BigDecimal.ZERO,
+                amountPaid = Validation.parseNonNegativeMoneyDecimal(form.amountPaid) ?: BigDecimal.ZERO,
                 amountRemaining = calculation.amountRemaining,
                 currency = form.currency,
                 finalTaxName = form.finalTaxName,
-                finalTaxRate = BigDecimal.valueOf(Validation.parseNonNegativeMoney(form.finalTaxRate) ?: 0.0),
+                finalTaxRate = Validation.parseNonNegativeMoneyDecimal(form.finalTaxRate) ?: BigDecimal.ZERO,
                 finalTaxAmount = calculation.taxAmount,
                 shipping = calculation.shipping
             ),

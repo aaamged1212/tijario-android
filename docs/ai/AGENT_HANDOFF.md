@@ -741,3 +741,9 @@
 - **Diagnostics**: The document API no longer logs server response messages. Updated auth, analytics, export, and Drive logs retain only safe operation/status/error-class fields in debug builds.
 - **Validation**: Focused `NetworkTimeoutProfileTest` and `KtorDriveRestTransportContractTest` passed; source audit found no direct throwable logging, raw message interpolation in logs, `println`, or `printStackTrace` under main sources.
 - **Safety Status**: No push, deployment, production write, migration, Play upload, or external configuration change occurred. `.agents` remains local and excluded.
+
+## 2026-08-09 (Document renderer boundary hardening, local)
+- **HTML safety**: Payment-status CSS classes are allowlisted. Logo data URLs are restricted to base64 raster image types; textual document fields remain escaped.
+- **Money boundary**: Draft preview mapping now keeps item prices, tax rates, and paid amounts in `BigDecimal` before a legacy API/Room boundary requires other representations.
+- **Validation**: Full `DocumentEngineTests` passed, including malicious payment-status/data-URL cases and `0.1`/`0.2` decimal preservation.
+- **Safety Status**: No push, deployment, production write, migration, Play upload, or external configuration change occurred. `.agents` remains local and excluded.

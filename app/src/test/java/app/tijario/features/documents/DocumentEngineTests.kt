@@ -16,6 +16,7 @@ import app.tijario.features.documents.template.FileSystemDocumentTemplateLoader
 import app.tijario.features.documents.template.HtmlEscaper
 import app.tijario.domain.DocumentCalculator
 import java.io.File
+import java.math.BigDecimal
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -74,6 +75,7 @@ class DocumentEngineTests {
         val base = SavedDocumentRenderMapper.map(DocumentFixtures.saved(), DocumentFixtures.business)
         val model = base.copy(
             documentTitle = payload,
+            status = base.status.copy(paymentStatus = payload),
             business = base.business.copy(name = payload, address = payload, email = payload, websiteUrl = payload),
             customer = base.customer.copy(name = payload, contactNumber = payload, city = payload),
             items = base.items.map { it.copy(name = payload, description = payload) },
@@ -91,6 +93,7 @@ class DocumentEngineTests {
         assertFalse(html.contains("<script>alert(1)</script>"))
         assertFalse(html.contains("<style>body{display:none}</style>"))
         assertFalse(html.contains("<img src=\"https://example.invalid/test\">"))
+        assertTrue(html.contains("payment-unknown"))
     }
 
     @Test
@@ -105,6 +108,33 @@ class DocumentEngineTests {
         assertEquals("SAR", model.totals.currency)
         assertEquals(2, model.items.size)
         assertEquals("360.5", model.totals.total.stripTrailingZeros().toPlainString())
+    }
+
+    @Test
+    fun draftMappingKeepsDecimalMoneyExactUntilTheTransportBoundary() {
+        val form = DocumentFixtures.draftForm().copy(
+            items = listOf(
+                app.tijario.ui.state.DocumentItemState(
+                    id = "decimal-item",
+                    name = "Decimal item",
+                    quantity = "3",
+                    unitPrice = "0.1",
+                ),
+            ),
+            amountPaid = "0.2",
+            finalTaxRate = "12.5",
+        )
+
+        val model = DraftDocumentRenderMapper.map(
+            documentType = DocumentType.Invoice,
+            form = form,
+            businessSettings = DocumentFixtures.business,
+            customerCity = DocumentFixtures.customer.city,
+        )
+
+        assertEquals(BigDecimal("0.1"), model.items.single().unitPrice)
+        assertEquals(BigDecimal("0.2"), model.totals.amountPaid)
+        assertEquals(BigDecimal("12.5"), model.totals.finalTaxRate)
     }
 
     @Test
@@ -398,6 +428,20 @@ class DocumentEngineTests {
         )
 
         assertFalse(html.contains("javascript:alert"))
+        assertTrue(html.contains("logo-initials"))
+    }
+
+    @Test
+    fun generatedDocumentRejectsNonImageDataUrls() {
+        val html = renderer.render(
+            SavedDocumentRenderMapper.map(
+                document = DocumentFixtures.saved(),
+                businessSettings = DocumentFixtures.business.copy(logoUrl = "data:image/svg+xml,<svg onload=alert(1) />"),
+                language = AppLanguage.EN,
+            ),
+        )
+
+        assertFalse(html.contains("data:image/svg+xml"))
         assertTrue(html.contains("logo-initials"))
     }
 

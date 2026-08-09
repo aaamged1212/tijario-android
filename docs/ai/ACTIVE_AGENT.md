@@ -111,3 +111,6 @@
 
 - **Follow-up**: Backend API and Drive transfer timeout profiles are separated, and hardened debug diagnostics omit raw response text and stack traces.
 - **Validation**: `NetworkTimeoutProfileTest` and `KtorDriveRestTransportContractTest` passed; no external operation occurred.
+
+- **Follow-up**: Document render HTML now allowlists payment CSS states and inline raster logos; draft preview values preserve exact decimal inputs.
+- **Validation**: Full `DocumentEngineTests` passed; no external operation occurred.

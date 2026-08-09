@@ -6,6 +6,7 @@ import app.tijario.features.documents.model.DocumentPartyInfo
 import app.tijario.features.documents.model.DocumentRenderModel
 import app.tijario.features.documents.model.DocumentTemplateDefinition
 import java.math.BigDecimal
+import java.util.Locale
 
 class DocumentHtmlRenderer(
     private val loader: DocumentTemplateLoader,
@@ -70,7 +71,7 @@ class DocumentHtmlRenderer(
             append(metaCard(labels.documentNumber, model.documentNumber))
             append(metaCard(labels.issueDate, model.issueDate))
             paymentStatus?.let {
-                val cssClass = "payment-${model.status.paymentStatus.orEmpty().lowercase()}"
+                val cssClass = paymentStatusCssClass(model.status.paymentStatus)
                 append("<div class=\"badge $cssClass\">${HtmlEscaper.escape(it)}</div>")
             }
             append("</div></div></section>")
@@ -266,9 +267,15 @@ class DocumentHtmlRenderer(
         if (trimmed.isBlank()) return null
         return when {
             trimmed.startsWith("https://", ignoreCase = true) -> trimmed
-            trimmed.startsWith("data:image/", ignoreCase = true) -> trimmed
+            SAFE_DATA_IMAGE.matches(trimmed) -> trimmed
             else -> null
         }
+    }
+
+    private fun paymentStatusCssClass(value: String?): String = when (value?.lowercase(Locale.US)) {
+        "draft", "sent", "accepted", "rejected", "cancelled", "canceled",
+        "paid", "unpaid", "partial", "partially_paid", "overdue" -> "payment-${value.lowercase(Locale.US)}"
+        else -> "payment-unknown"
     }
 
     private fun partyCard(title: String, party: DocumentPartyInfo, labels: Labels): String =
@@ -370,6 +377,10 @@ class DocumentHtmlRenderer(
         val terms: String,
         val footer: String,
     )
+
+    private companion object {
+        val SAFE_DATA_IMAGE = Regex("^data:image/(?:png|jpeg|jpg|webp);base64,[A-Za-z0-9+/=\\r\\n]+$", RegexOption.IGNORE_CASE)
+    }
 }
 
 enum class DocumentRenderTarget(val cssClass: String) {

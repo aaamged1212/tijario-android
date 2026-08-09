@@ -492,3 +492,8 @@
 - Interactive backend calls retain bounded 15/45-second connect/request/socket limits, while streamed Google Drive transfers use bounded 30-second connect and five-minute request/socket limits.
 - Document API diagnostics now log path, status, code, and document-ID presence only. Auth, analytics, Drive, and export diagnostics avoid raw server messages and throwable stack traces.
 - Focused network-profile and Drive transport tests passed. No endpoint, retry policy, external setting, or production action changed.
+
+# 2026-08-09 - Document render input and decimal-boundary hardening
+- Payment status now maps to a fixed CSS class allowlist, and inline logo data accepts only base64 PNG/JPEG/WebP images. This prevents stored values from influencing generated HTML attributes.
+- Draft render mapping preserves prices, tax rates, and paid amounts as `BigDecimal` through preview calculation instead of converting them through `Double`.
+- Full `DocumentEngineTests` passed after adding injection and exact-decimal regression coverage.
