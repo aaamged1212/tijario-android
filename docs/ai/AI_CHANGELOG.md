@@ -1,5 +1,9 @@
 # AI Changelog
 
+## 2026-08-09 - Analytics event taxonomy correction
+- Added centralized typed analytics event names for customer, product, invoice, quote, AI reply, AI caption, and subscription start.
+- Corrected AI caption generation to record its own event instead of the AI reply event. No content or personal data is attached to these events.
+
 ## 2026-08-09 - Read-only Android CI hardening
 - Broadened primary CI coverage to `main`, `codex/**`, `fix/**`, and `feature/**` with release lint and clean-diff checks.
 - Replaced branch-writing audit/validation workflows with read-only jobs that upload artifacts; removed the obsolete workflow that committed heartbeat logs back to a source branch.

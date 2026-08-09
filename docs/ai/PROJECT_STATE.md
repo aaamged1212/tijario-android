@@ -1,5 +1,8 @@
 # Project State (Android & Web Repos)
 
+## 2026-08-09 - Analytics taxonomy corrected
+- Analytics event names are centralized and typed. AI caption generation is distinct from AI reply generation; operational event calls carry no sensitive content.
+
 ## 2026-08-09 - CI and backup restore hardening
 - Android CI now covers `main`, `codex/**`, `fix/**`, and `feature/**`; audit and full validation jobs use `contents: read` and artifact uploads instead of automated write-back commits.
 - A malformed non-null logical backup value now fails with a typed backup validation error before any Room binding. GitHub workflow execution remains pending until a future authorized branch push.

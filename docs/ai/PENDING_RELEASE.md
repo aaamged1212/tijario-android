@@ -1,5 +1,8 @@
 # Pending Release
 
+## 2026-08-09 analytics verification follow-up
+- Confirm the provider dashboard receives distinct reply and caption event counts only after a future authorized app release; no analytics provider configuration was changed.
+
 ## 2026-08-09 CI validation follow-up
 - The hardened workflows have only been reviewed locally. When the hardening branch is authorized for push, inspect the first GitHub Actions runs for active branch matching, artifact upload, and no write-back commits.
 

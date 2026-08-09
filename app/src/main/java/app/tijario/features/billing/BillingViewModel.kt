@@ -3,6 +3,8 @@ package app.tijario.features.billing
 import android.app.Activity
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.tijario.analytics.TijarioAnalytics
+import app.tijario.analytics.TijarioAnalyticsEvent
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -37,7 +39,7 @@ class BillingViewModel(
 
                         when (event.source) {
                             BillingVerificationSource.PURCHASE -> {
-                                app.tijario.analytics.TijarioAnalytics.logEvent("tijario_subscription_started")
+                                TijarioAnalytics.logEvent(TijarioAnalyticsEvent.SubscriptionStarted)
                                 effectsMutable.emit(
                                     BillingUiEffect.PurchaseVerified(
                                         expectedPlanCode = event.planCode,

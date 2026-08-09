@@ -1,5 +1,9 @@
 # Active Agent Status
 
+- **Current task**: Analytics taxonomy correction on `fix/android-full-hardening`.
+- **State**: Analytics events are typed; AI caption and AI reply success have distinct event names, with no user or generated content attached.
+- **Validation**: Focused analytics JVM test passed. No deployment, migration, external configuration change, or Play upload occurred.
+
 - **Current task**: CI and backup restore hardening on `fix/android-full-hardening`.
 - **State**: CI follows active development branches and is read-only; validation evidence is uploaded as artifacts instead of committed by Actions. Backup restore no longer uses a force unwrap for untrusted logical archive values.
 - **Validation**: Focused backup snapshot test and local static source audit passed. No deployment, migration, external configuration change, or Play upload occurred.

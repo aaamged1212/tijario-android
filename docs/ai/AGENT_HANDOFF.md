@@ -1,5 +1,10 @@
 # Agent Handoff (Android & Web Repos)
 
+## 2026-08-09 (Analytics taxonomy correction, local)
+- **Branch**: `fix/android-full-hardening`.
+- **Implemented**: Centralized typed analytics event identifiers and corrected caption generation from `tijario_ai_reply_generated` to `tijario_ai_caption_generated`. Product creation is now recorded alongside existing customer/document/subscription events.
+- **Validation**: `TijarioAnalyticsEventTest` passed. Events contain names only; no AI content or customer/account payload was added.
+
 ## 2026-08-09 (Read-only CI and restore hardening, local)
 - **Branch**: `fix/android-full-hardening`.
 - **Implemented**: Primary CI now follows active development branches. Source audit and full validation are read-only and upload artifacts rather than resetting, committing, or pushing source branches. The obsolete write-back heartbeat workflow is removed. Backup restore rejects a missing non-null payload with `BackupValidationException` rather than relying on `!!`.

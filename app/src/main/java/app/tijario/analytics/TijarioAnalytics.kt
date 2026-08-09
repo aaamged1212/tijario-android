@@ -6,6 +6,16 @@ import android.util.Log
 import app.tijario.BuildConfig
 import com.facebook.appevents.AppEventsLogger
 
+enum class TijarioAnalyticsEvent(val wireName: String) {
+    CustomerCreated("tijario_customer_created"),
+    ProductCreated("tijario_product_created"),
+    InvoiceCreated("tijario_invoice_created"),
+    QuoteCreated("tijario_quote_created"),
+    AiReplyGenerated("tijario_ai_reply_generated"),
+    AiCaptionGenerated("tijario_ai_caption_generated"),
+    SubscriptionStarted("tijario_subscription_started"),
+}
+
 object TijarioAnalytics {
     @Volatile
     private var enabled: Boolean = false
@@ -31,4 +41,7 @@ object TijarioAnalytics {
             if (BuildConfig.DEBUG) Log.w("TijarioAnalytics", "Analytics event failed: $name", error)
         }
     }
+
+    fun logEvent(event: TijarioAnalyticsEvent, params: Bundle? = null) =
+        logEvent(event.wireName, params)
 }

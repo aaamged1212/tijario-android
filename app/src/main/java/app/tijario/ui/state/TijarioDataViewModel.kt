@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import app.tijario.analytics.TijarioAnalytics
+import app.tijario.analytics.TijarioAnalyticsEvent
 import app.tijario.data.AppContainer
 import app.tijario.data.model.BusinessSettings
 import app.tijario.data.model.Customer
@@ -261,7 +263,7 @@ class TijarioDataViewModel(
     }
     suspend fun createCustomer(customer: Customer): Result<Unit> =
         repository.createCustomer(customer).onSuccess {
-            app.tijario.analytics.TijarioAnalytics.logEvent("tijario_customer_created")
+            TijarioAnalytics.logEvent(TijarioAnalyticsEvent.CustomerCreated)
         }
 
     suspend fun updateCustomer(customer: Customer): Result<Unit> =
@@ -271,7 +273,9 @@ class TijarioDataViewModel(
         repository.deleteCustomer(customerId)
 
     suspend fun createProduct(product: Product): Result<Unit> =
-        repository.createProduct(product)
+        repository.createProduct(product).onSuccess {
+            TijarioAnalytics.logEvent(TijarioAnalyticsEvent.ProductCreated)
+        }
 
     suspend fun updateProduct(product: Product): Result<Unit> =
         repository.updateProduct(product)
@@ -292,12 +296,12 @@ class TijarioDataViewModel(
         val result = repository.createDocument(request)
         if (result.ok) {
             refreshPlanUsage()
-            val eventName = if (request.type == app.tijario.data.model.DocumentType.Invoice) {
-                "tijario_invoice_created"
+            val event = if (request.type == app.tijario.data.model.DocumentType.Invoice) {
+                TijarioAnalyticsEvent.InvoiceCreated
             } else {
-                "tijario_quote_created"
+                TijarioAnalyticsEvent.QuoteCreated
             }
-            app.tijario.analytics.TijarioAnalytics.logEvent(eventName)
+            TijarioAnalytics.logEvent(event)
         }
         return result
     }
@@ -328,7 +332,7 @@ class TijarioDataViewModel(
         val result = aiRepository.generateReply(request)
         if (result.ok) {
             refreshPlanUsage()
-            app.tijario.analytics.TijarioAnalytics.logEvent("tijario_ai_reply_generated")
+            TijarioAnalytics.logEvent(TijarioAnalyticsEvent.AiReplyGenerated)
         }
         return result
     }
@@ -336,7 +340,7 @@ class TijarioDataViewModel(
     suspend fun generateAiReplyV2(request: AiV2ReplyRequest): AiV2Response =
         aiRepository.generateReplyV2(request).also { result ->
             if (result.ok) {
-                app.tijario.analytics.TijarioAnalytics.logEvent("tijario_ai_reply_generated")
+                TijarioAnalytics.logEvent(TijarioAnalyticsEvent.AiReplyGenerated)
             }
         }
 
@@ -344,7 +348,7 @@ class TijarioDataViewModel(
         val result = aiRepository.generateCaption(request)
         if (result.ok) {
             refreshPlanUsage()
-            app.tijario.analytics.TijarioAnalytics.logEvent("tijario_ai_reply_generated")
+            TijarioAnalytics.logEvent(TijarioAnalyticsEvent.AiCaptionGenerated)
         }
         return result
     }
@@ -352,7 +356,7 @@ class TijarioDataViewModel(
     suspend fun generateAiCaptionV2(request: AiV2CaptionRequest): AiV2Response =
         aiRepository.generateCaptionV2(request).also { result ->
             if (result.ok) {
-                app.tijario.analytics.TijarioAnalytics.logEvent("tijario_ai_reply_generated")
+                TijarioAnalytics.logEvent(TijarioAnalyticsEvent.AiCaptionGenerated)
             }
         }
 
