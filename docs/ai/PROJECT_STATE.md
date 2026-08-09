@@ -1,5 +1,9 @@
 # Project State (Android & Web Repos)
 
+## 2026-08-09 - Financial precision boundary reviewed
+- Local money normalization and document totals use `BigDecimal`; focused regression coverage now includes decimal precision, large values, tax, discount, paid amount, and Arabic/comma decimal input.
+- Existing `Double` API/model contracts are intentionally retained as explicit compatibility boundaries and are documented in `docs/ai/MONEY_BOUNDARY_AUDIT.md`.
+
 ## 2026-08-09 - Hardening branch started
 - `main` was reconciled through `36bf6d3` and now contains the validated versionCode `19` / versionName `1.1.9` backup recovery source.
 - `fix/android-full-hardening` starts from that exact main SHA. Its first scoped security change is local only and has focused JVM coverage; no release action occurred.

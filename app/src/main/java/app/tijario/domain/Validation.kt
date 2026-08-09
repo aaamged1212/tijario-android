@@ -1,5 +1,7 @@
 package app.tijario.domain
 
+import java.math.BigDecimal
+
 object Validation {
     fun required(value: String, fieldNameKey: String, lang: app.tijario.config.AppLanguage): String? {
         if (value.trim().isEmpty()) {
@@ -82,13 +84,23 @@ object Validation {
         return number.toInt().takeIf { number >= 0.0 && number % 1.0 == 0.0 }
     }
 
+    /** Keeps decimal money exact until a legacy transport boundary needs a Double. */
+    fun parseNonNegativeMoneyDecimal(value: String): BigDecimal? {
+        val normalized = normalizeNumber(value)
+        if (normalized.isBlank()) return null
+        return runCatching { BigDecimal(normalized) }
+            .getOrNull()
+            ?.takeIf { it >= BigDecimal.ZERO }
+    }
+
     fun parseNonNegativeMoney(value: String): Double? =
-        parseNumber(value)?.takeIf { it >= 0.0 }
+        parseNonNegativeMoneyDecimal(value)?.toDouble()
 
     fun normalizedMoneyString(value: String): String =
-        parseNonNegativeMoney(value)?.let {
-            if (it % 1.0 == 0.0) it.toLong().toString() else it.toString()
-        } ?: value.trim()
+        parseNonNegativeMoneyDecimal(value)
+            ?.stripTrailingZeros()
+            ?.toPlainString()
+            ?: value.trim()
 
     private fun parseNumber(value: String): Double? {
         val normalized = normalizeNumber(value)

@@ -1,5 +1,10 @@
 # AI Changelog
 
+## 2026-08-09 - Financial precision boundary hardening
+- Added a `BigDecimal` money parser and plain-string normalization while retaining the existing `Double` transport compatibility facade.
+- Added regression coverage for decimal precision, large totals, discount, tax, paid amount, Arabic digits, and comma decimal entry.
+- Documented the local calculation, Room, and API money boundaries in `MONEY_BOUNDARY_AUDIT.md`.
+
 ## 2026-08-09 - Android document and sharing security baseline
 - Escaped custom document title and signature values before HTML insertion, and added malicious-content regression coverage.
 - Restricted network logo fetching to bounded HTTPS image downloads for PDF generation; preview uses only the locally cached logo.

@@ -1,5 +1,11 @@
 # Agent Handoff (Android & Web Repos)
 
+## 2026-08-09 (Financial precision boundary hardening, local)
+- **Branch**: `fix/android-full-hardening`.
+- **Implemented**: `Validation` now parses and normalizes money with `BigDecimal`; legacy `Double` return values remain only for current API/model compatibility. The document calculator continues to be the canonical local totals path.
+- **Validation**: Focused `DocumentCalculatorTests` and `ValidationTest` passed.
+- **Remaining**: Do not change remote numeric contracts or database schemas without a coordinated Web/API release. Full hardening and physical-device validation remain pending.
+
 ## 2026-08-09 (Hardening security baseline, local)
 - **Branch**: `fix/android-full-hardening`, created from reconciled `main` SHA `36bf6d3a0c22700da0dbb2dda2d654c52f95f8b1`.
 - **Implemented**: Document HTML now escapes custom title/signature text. Local PDF logo network fallback is HTTPS-only, has timeouts, validates image content, streams with a 5 MiB bound, and preserves local-logo/offline behavior. Preview does not fetch remote logos. FileProvider no longer exposes internal user backup directories; finalized archives are copied into a dedicated cache share directory. Announcement actions accept internal links or HTTPS Tijario hosts only. Cleartext traffic is disabled.

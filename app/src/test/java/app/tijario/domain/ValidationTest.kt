@@ -4,6 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Test
+import java.math.BigDecimal
 
 class ValidationTest {
     @Test
@@ -30,5 +31,13 @@ class ValidationTest {
         assertEquals(2, Validation.parsePositiveInt("٢"))
         assertNull(Validation.parsePositiveInt("0"))
         assertNull(Validation.parsePositiveInt("1.5"))
+    }
+
+    @Test
+    fun moneyParsing_preservesDecimalPrecisionAndProducesPlainText() {
+        assertEquals(BigDecimal("0.1"), Validation.parseNonNegativeMoneyDecimal("0.1"))
+        assertEquals(BigDecimal("0.2"), Validation.parseNonNegativeMoneyDecimal("0.2"))
+        assertEquals("0.1", Validation.normalizedMoneyString("0.10"))
+        assertEquals("1000000000000.01", Validation.normalizedMoneyString("1,000,000,000,000.01"))
     }
 }

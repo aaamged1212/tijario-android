@@ -1,5 +1,8 @@
 # Pending Release
 
+## 2026-08-09 money boundary follow-up
+- The remote numeric API contracts still use `Double`; they are not an authoritative local calculation path. Any migration to decimal strings or minor units requires a coordinated compatible Web/API release and is intentionally deferred.
+
 ## 2026-08-09 hardening follow-up
 - The first local security hardening change is on `fix/android-full-hardening`; it is not a release candidate. Before any release, rerun the full Android verification set and physically verify document sharing, PDF logo fallback, and valid Tijario announcement links. No production/external change is required or has been performed.
 

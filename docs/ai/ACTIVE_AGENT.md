@@ -1,5 +1,9 @@
 # Active Agent Status
 
+- **Current task**: Financial correctness hardening on `fix/android-full-hardening`.
+- **State**: User-entered money now normalizes through `BigDecimal`; document totals already use `BigDecimal`; legacy API/UI `Double` fields are documented compatibility boundaries only.
+- **Validation**: Focused document-calculator and validation JVM tests passed. No deployment, migration, external configuration change, or Play upload occurred.
+
 - **Current task**: Android security hardening on `fix/android-full-hardening` after `main` was reconciled at `36bf6d3`.
 - **State**: Document HTML escapes custom titles and signature payloads; remote PDF logo fetches are HTTPS-only, bounded, and streamed; previews remain local-only; FileProvider shares only a cache copy of finalized backups; announcement links are restricted to HTTPS Tijario hosts; cleartext traffic is disabled.
 - **Validation**: Focused document, notification, and phone-backup JVM tests passed. No deployment, migration, external configuration change, or Play upload occurred.
