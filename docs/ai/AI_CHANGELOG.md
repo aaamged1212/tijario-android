@@ -530,4 +530,4 @@
 
 # 2026-08-09 - CI package verification reliability
 - Android CI now isolates lint, Debug packaging, and Release packaging into sequential non-parallel Gradle invocations and records stack traces on failure. This addresses a transient, non-diagnostic Debug packaging failure without changing application source.
-- Checkout and Java setup actions use supported current major versions. Remote workflow verification remains required for this CI-only adjustment.
+- Checkout and Java setup actions use supported current major versions. GitHub Actions Android CI run `31337272388` passed both jobs for this CI-only adjustment.

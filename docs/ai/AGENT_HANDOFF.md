@@ -805,5 +805,5 @@
 ## 2026-08-09 (CI package verification reliability, local)
 - **Cause**: A documentation-only push reproduced a non-diagnostic `:app:packageDebug` failure in the combined lint/Debug/Release Gradle invocation. Compile/unit tests still passed and the same application source had passed the preceding full CI run.
 - **Correction**: Android CI now runs lint, Debug assembly, and Release assembly as separate non-parallel Gradle invocations with stack traces. Checkout and Java setup use supported action major versions.
-- **Validation status**: Local Gradle gates remain successful for the unchanged application source. The remote CI run for this workflow-only correction is required before treating the branch as green.
+- **Validation status**: Local Gradle gates remain successful for the unchanged application source. GitHub Actions Android CI run `31337272388` passed both jobs after this workflow-only correction.
 - **Safety Status**: No deployment, migration, Production write, external configuration change, or Google Play upload occurred.
