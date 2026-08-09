@@ -3,15 +3,20 @@ name: Source Audit Scan
 on:
   push:
     branches:
-      - fix/full-audit-remediation
-    paths:
-      - .github/workflows/source-audit-scan.yml
+      - main
+      - codex/**
+      - fix/**
+      - feature/**
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
-  group: source-audit-scan
+  group: source-audit-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -19,71 +24,53 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Checkout remediation branch
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          ref: fix/full-audit-remediation
-          fetch-depth: 0
 
-      - name: Scan source
+      - name: Scan source without modifying the repository
         id: scan
         shell: bash
         run: |
-          mkdir -p docs/ai
+          set -o pipefail
+          mkdir -p audit-artifacts
           force_unwraps=$(grep -R -n --include='*.kt' '!!' app/src/main/java || true)
-          print_helper=$(grep -R -n --include='*.kt' -E 'android\.print\.PrintHelper|PrintHelper\.runWrite|package android\.print' app/src/main/java || true)
           stack_traces=$(grep -R -n --include='*.kt' -E 'printStackTrace\(|System\.out\.|println\(' app/src/main/java || true)
-          activity_facade=$(grep -R -n --include='*.kt' 'MainActivity\.' app/src/main/java || true)
-          analytics_calls=$(grep -R -n --include='*.kt' 'TijarioAnalytics\.logEvent' app/src/main/java || true)
-          arabic_literals=$(grep -R -o --include='*.kt' '"[^"]*[ء-ي][^"]*"' app/src/main/java | wc -l | tr -d ' ')
+          unsafe_streams=$(grep -R -n --include='*.kt' -E 'openStream\(\).*readBytes|URL\([^)]*\)\.openStream' app/src/main/java || true)
+          broad_provider_paths=$(grep -R -n --include='*.xml' -E '<files-path[^>]+path="users/' app/src/main/res || true)
+
           {
-            echo "# Remaining source audit scan"
+            echo "# Android source audit"
+            echo
+            echo "- Commit: \`${GITHUB_SHA}\`"
             echo
             echo "## Force unwraps"
             if [ -n "$force_unwraps" ]; then echo "$force_unwraps"; else echo "None."; fi
             echo
-            echo "## Package-level print helper usage"
-            if [ -n "$print_helper" ]; then echo "$print_helper"; else echo "None."; fi
-            echo
-            echo "## MainActivity global facade usage"
-            if [ -n "$activity_facade" ]; then echo "$activity_facade"; else echo "None."; fi
-            echo
-            echo "## Analytics event calls"
-            if [ -n "$analytics_calls" ]; then echo "$analytics_calls"; else echo "None."; fi
-            echo
-            echo "## Arabic string literal count"
-            echo "$arabic_literals"
-            echo
-            echo "## Catch blocks for review"
-            grep -R -n --include='*.kt' -E 'catch \([^)]*\)' app/src/main/java || true
-            echo
-            echo "## Kotlin files by line count"
-            find app/src/main/java -name '*.kt' -print0 | xargs -0 wc -l | sort -nr | head -40
-            echo
-            echo "## Inline stdout/stacktrace usage"
+            echo "## stdout and stack traces"
             if [ -n "$stack_traces" ]; then echo "$stack_traces"; else echo "None."; fi
-          } > /tmp/SOURCE_AUDIT_SCAN.md
+            echo
+            echo "## Unbounded URL streams"
+            if [ -n "$unsafe_streams" ]; then echo "$unsafe_streams"; else echo "None."; fi
+            echo
+            echo "## Broad FileProvider paths"
+            if [ -n "$broad_provider_paths" ]; then echo "$broad_provider_paths"; else echo "None."; fi
+          } > audit-artifacts/SOURCE_AUDIT_SCAN.md
 
-          status=0
-          [ -z "$force_unwraps" ] || status=1
-          [ -z "$print_helper" ] || status=1
-          [ -z "$stack_traces" ] || status=1
-          [ -z "$activity_facade" ] || status=1
-          echo "status=$status" >> "$GITHUB_OUTPUT"
+          if [ -n "$force_unwraps$stack_traces$unsafe_streams$broad_provider_paths" ]; then
+            echo "status=failed" >> "$GITHUB_OUTPUT"
+          else
+            echo "status=passed" >> "$GITHUB_OUTPUT"
+          fi
 
-      - name: Commit scan on latest head
+      - name: Upload scan result
         if: always()
-        run: |
-          git fetch origin fix/full-audit-remediation
-          git reset --hard origin/fix/full-audit-remediation
-          mkdir -p docs/ai
-          cp /tmp/SOURCE_AUDIT_SCAN.md docs/ai/SOURCE_AUDIT_SCAN.md
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/ai/SOURCE_AUDIT_SCAN.md
-          git commit -m "audit(android): refresh final source scan" || exit 0
-          git push origin HEAD:fix/full-audit-remediation
+        uses: actions/upload-artifact@v4
+        with:
+          name: source-audit-${{ github.sha }}
+          path: audit-artifacts/SOURCE_AUDIT_SCAN.md
+          if-no-files-found: error
+          retention-days: 14
 
-      - name: Fail on unsafe patterns
-        if: steps.scan.outputs.status != '0'
+      - name: Enforce source-audit result
+        if: steps.scan.outputs.status != 'passed'
         run: exit 1

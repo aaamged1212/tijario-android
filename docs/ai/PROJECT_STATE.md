@@ -1,5 +1,9 @@
 # Project State (Android & Web Repos)
 
+## 2026-08-09 - CI and backup restore hardening
+- Android CI now covers `main`, `codex/**`, `fix/**`, and `feature/**`; audit and full validation jobs use `contents: read` and artifact uploads instead of automated write-back commits.
+- A malformed non-null logical backup value now fails with a typed backup validation error before any Room binding. GitHub workflow execution remains pending until a future authorized branch push.
+
 ## 2026-08-09 - Financial precision boundary reviewed
 - Local money normalization and document totals use `BigDecimal`; focused regression coverage now includes decimal precision, large values, tax, discount, paid amount, and Arabic/comma decimal input.
 - Existing `Double` API/model contracts are intentionally retained as explicit compatibility boundaries and are documented in `docs/ai/MONEY_BOUNDARY_AUDIT.md`.

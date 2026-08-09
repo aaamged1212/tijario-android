@@ -54,6 +54,15 @@ class LogicalBackupSnapshotTest {
     }
 
     @Test
+    fun nonNullValuesWithoutPayloadFailBeforeRoomBinding() {
+        val invalid = """{"table":"documents_cache","columns":["id","user_id"],"rows":[[{"type":"text"},{"type":"text","value":"user-1"}]]}"""
+
+        assertThrows(BackupValidationException::class.java) {
+            LogicalBackupSnapshotCodec.decode(invalid.encodeToByteArray())
+        }
+    }
+
+    @Test
     fun archiveInventoryIncludesEditableDocumentsAndQuotaEvents() {
         val paths = RoomLogicalBackupStore.tableSpecs.map { it.archivePath }
 

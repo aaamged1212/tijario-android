@@ -1,5 +1,9 @@
 # Active Agent Status
 
+- **Current task**: CI and backup restore hardening on `fix/android-full-hardening`.
+- **State**: CI follows active development branches and is read-only; validation evidence is uploaded as artifacts instead of committed by Actions. Backup restore no longer uses a force unwrap for untrusted logical archive values.
+- **Validation**: Focused backup snapshot test and local static source audit passed. No deployment, migration, external configuration change, or Play upload occurred.
+
 - **Current task**: Financial correctness hardening on `fix/android-full-hardening`.
 - **State**: User-entered money now normalizes through `BigDecimal`; document totals already use `BigDecimal`; legacy API/UI `Double` fields are documented compatibility boundaries only.
 - **Validation**: Focused document-calculator and validation JVM tests passed. No deployment, migration, external configuration change, or Play upload occurred.

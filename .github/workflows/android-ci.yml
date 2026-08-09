@@ -3,7 +3,9 @@ name: Android CI
 on:
   push:
     branches:
-      - codex/backup-drive-production-ready
+      - main
+      - codex/**
+      - fix/**
       - feature/**
   pull_request:
     branches:
@@ -58,6 +60,7 @@ jobs:
             compileDebugKotlin \
             testDebugUnitTest \
             assembleDebugAndroidTest 2>&1 | tee gradle-fast-verify.log
+          git diff --check
 
       - name: Extract focused failure diagnostics
         if: failure()
@@ -133,8 +136,10 @@ jobs:
           set -o pipefail
           ./gradlew --no-daemon --console=plain \
             lintDebug \
+            lintRelease \
             assembleDebug \
             assembleRelease 2>&1 | tee gradle-release-verify.log
+          git diff --check
 
       - name: Extract focused failure diagnostics
         if: failure()

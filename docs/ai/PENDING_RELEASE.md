@@ -1,5 +1,8 @@
 # Pending Release
 
+## 2026-08-09 CI validation follow-up
+- The hardened workflows have only been reviewed locally. When the hardening branch is authorized for push, inspect the first GitHub Actions runs for active branch matching, artifact upload, and no write-back commits.
+
 ## 2026-08-09 money boundary follow-up
 - The remote numeric API contracts still use `Double`; they are not an authoritative local calculation path. Any migration to decimal strings or minor units requires a coordinated compatible Web/API release and is intentionally deferred.
 

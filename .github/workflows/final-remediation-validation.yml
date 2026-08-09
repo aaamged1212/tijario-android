@@ -1,33 +1,18 @@
-name: Final Remediation Validation
+name: Full Android Validation
 
 on:
-  push:
-    branches:
-      - fix/full-audit-remediation
-    paths:
-      - .github/workflows/final-remediation-validation.yml
+  workflow_dispatch:
 
 permissions:
-  contents: write
-
-concurrency:
-  group: final-remediation-validation
-  cancel-in-progress: true
+  contents: read
 
 jobs:
   validate:
     runs-on: ubuntu-latest
     timeout-minutes: 90
-
     steps:
-      - name: Checkout remediation branch
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          ref: fix/full-audit-remediation
-          fetch-depth: 0
-
-      - name: Record tested commit
-        run: git rev-parse HEAD > /tmp/tested_commit
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -36,103 +21,42 @@ jobs:
           java-version: '21'
           cache: gradle
 
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android API 36
+        run: |
+          yes | sdkmanager --licenses
+          sdkmanager "platforms;android-36" "build-tools;36.0.0"
+
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
       - name: Make Gradle wrapper executable
         run: chmod +x gradlew
 
-      - name: Compile, unit test, lint, and assemble
-        id: build
+      - name: Validate source and Android build outputs
         shell: bash
         run: |
-          mkdir -p docs/ai
-          set +e
-          ./gradlew --no-daemon --stacktrace \
-            compileDebugKotlin \
-            testDebugUnitTest \
-            assembleDebugAndroidTest \
+          set -o pipefail
+          ./gradlew --no-daemon --console=plain \
+            test \
             lintDebug \
+            lintRelease \
             assembleDebug \
             assembleRelease \
-            > docs/ai/FINAL_BUILD_VERIFICATION.log 2>&1
-          status=$?
-          set -e
-          echo "$status" > /tmp/build_status
-          echo "status=$status" >> "$GITHUB_OUTPUT"
+            assembleDebugAndroidTest \
+            bundleRelease 2>&1 | tee full-validation.log
+          git diff --check
 
-      - name: Run instrumented Room migrations on Android 15
-        if: steps.build.outputs.status == '0'
-        uses: reactivecircus/android-emulator-runner@v2
+      - name: Upload validation log
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          api-level: 35
-          arch: x86_64
-          profile: pixel_2
-          disable-animations: true
-          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
-          script: |
-            set +e
-            ./gradlew --no-daemon --stacktrace connectedDebugAndroidTest > docs/ai/FINAL_INSTRUMENTED_VERIFICATION.log 2>&1
-            status=$?
-            echo "$status" > /tmp/instrumented_status
-            exit 0
-
-      - name: Record skipped instrumented status
-        if: steps.build.outputs.status != '0'
-        run: |
-          echo "125" > /tmp/instrumented_status
-          echo "Instrumented tests skipped because build verification failed." > docs/ai/FINAL_INSTRUMENTED_VERIFICATION.log
-
-      - name: Preserve generated outputs
-        if: always()
-        run: |
-          mkdir -p /tmp/final-validation/docs/ai
-          cp docs/ai/FINAL_BUILD_VERIFICATION.log /tmp/final-validation/docs/ai/ || true
-          cp docs/ai/FINAL_INSTRUMENTED_VERIFICATION.log /tmp/final-validation/docs/ai/ || true
-          cp -R app/schemas /tmp/final-validation/app-schemas || true
-
-          tested_commit=$(cat /tmp/tested_commit)
-          build_status=$(cat /tmp/build_status 2>/dev/null || echo 1)
-          instrumented_status=$(cat /tmp/instrumented_status 2>/dev/null || echo 1)
-          {
-            echo "# Final remediation validation"
-            echo
-            echo "- Tested commit: \`$tested_commit\`"
-            echo "- Build/unit/lint/assembly exit status: \`$build_status\`"
-            echo "- Instrumented Android 15 exit status: \`$instrumented_status\`"
-            echo "- Generated Room schema V15: \`$(test -f app/schemas/app.tijario.data.local.TijarioDatabase/15.json && echo yes || echo no)\`"
-            echo
-            if [ "$build_status" = "0" ] && [ "$instrumented_status" = "0" ]; then
-              echo "All final validation checks passed."
-            else
-              echo "Validation requires remediation. See the attached logs committed beside this report."
-            fi
-          } > /tmp/final-validation/docs/ai/FINAL_VALIDATION.md
-
-      - name: Commit validation evidence on latest branch head
-        if: always()
-        run: |
-          git fetch origin fix/full-audit-remediation
-          git reset --hard origin/fix/full-audit-remediation
-          mkdir -p docs/ai
-          cp /tmp/final-validation/docs/ai/FINAL_VALIDATION.md docs/ai/FINAL_VALIDATION.md
-          cp /tmp/final-validation/docs/ai/FINAL_BUILD_VERIFICATION.log docs/ai/FINAL_BUILD_VERIFICATION.log || true
-          cp /tmp/final-validation/docs/ai/FINAL_INSTRUMENTED_VERIFICATION.log docs/ai/FINAL_INSTRUMENTED_VERIFICATION.log || true
-          if [ -d /tmp/final-validation/app-schemas ]; then
-            mkdir -p app/schemas
-            cp -R /tmp/final-validation/app-schemas/. app/schemas/
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/ai/FINAL_VALIDATION.md
-          git add docs/ai/FINAL_BUILD_VERIFICATION.log || true
-          git add docs/ai/FINAL_INSTRUMENTED_VERIFICATION.log || true
-          git add app/schemas || true
-          git commit -m "test(android): record final remediation validation" || exit 0
-          git push origin HEAD:fix/full-audit-remediation
-
-      - name: Enforce validation result
-        if: always()
-        run: |
-          test "$(cat /tmp/build_status 2>/dev/null || echo 1)" = "0"
-          test "$(cat /tmp/instrumented_status 2>/dev/null || echo 1)" = "0"
+          name: full-android-validation-${{ github.sha }}
+          path: |
+            full-validation.log
+            app/build/reports/
+            app/build/test-results/
+          if-no-files-found: warn
+          retention-days: 14

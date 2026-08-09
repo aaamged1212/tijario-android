@@ -1,5 +1,10 @@
 # AI Changelog
 
+## 2026-08-09 - Read-only Android CI hardening
+- Broadened primary CI coverage to `main`, `codex/**`, `fix/**`, and `feature/**` with release lint and clean-diff checks.
+- Replaced branch-writing audit/validation workflows with read-only jobs that upload artifacts; removed the obsolete workflow that committed heartbeat logs back to a source branch.
+- Replaced the remaining backup restore force unwrap with a typed validation failure and added malformed-value coverage.
+
 ## 2026-08-09 - Financial precision boundary hardening
 - Added a `BigDecimal` money parser and plain-string normalization while retaining the existing `Double` transport compatibility facade.
 - Added regression coverage for decimal precision, large totals, discount, tax, paid amount, Arabic digits, and comma decimal entry.

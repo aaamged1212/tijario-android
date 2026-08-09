@@ -134,16 +134,19 @@ class RoomLogicalBackupStore(
                 val parameter = index + 1
                 when (value.type) {
                     "null" -> statement.bindNull(parameter)
-                    "integer" -> statement.bindLong(parameter, value.value!!.toLong())
-                    "real" -> statement.bindDouble(parameter, value.value!!.toDouble())
-                    "text" -> statement.bindString(parameter, value.value!!)
-                    "blob" -> statement.bindBlob(parameter, Base64.getDecoder().decode(value.value!!))
+                    "integer" -> statement.bindLong(parameter, value.requirePayload().toLong())
+                    "real" -> statement.bindDouble(parameter, value.requirePayload().toDouble())
+                    "text" -> statement.bindString(parameter, value.requirePayload())
+                    "blob" -> statement.bindBlob(parameter, Base64.getDecoder().decode(value.requirePayload()))
                     else -> throw BackupValidationException("Backup value type is unsupported")
                 }
             }
             statement.executeInsert()
         }
     }
+
+    private fun LogicalBackupValue.requirePayload(): String =
+        value ?: throw BackupValidationException("Backup value is missing")
 
     private fun sqliteColumns(table: String): List<BackupLiveColumn> =
         database.openHelper.writableDatabase.query("PRAGMA table_info(${quoted(table)})").use { cursor ->
