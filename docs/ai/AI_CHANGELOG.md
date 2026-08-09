@@ -505,3 +505,7 @@
 # 2026-08-09 - Safe refresh-error localization
 - Repository refresh failures no longer place raw exception messages into the UI state. Known backend codes remain mapped through `LocalizedErrorMapper`; unknown text becomes the localized safe fallback.
 - Added Arabic and English regression coverage for unknown technical text and `DOCUMENT_LIMIT_REACHED`.
+
+# 2026-08-09 - Closed analytics event surface
+- `TijarioAnalytics` now accepts only `TijarioAnalyticsEvent`; arbitrary event-name strings and optional Bundles are no longer public API.
+- The central enum retains the existing operational events without collecting user, document, or purchase content. Focused JVM coverage verifies the closed typed interface and safe wire-name format.

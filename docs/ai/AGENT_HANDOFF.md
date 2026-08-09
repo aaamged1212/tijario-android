@@ -758,3 +758,9 @@
 - **Behavior**: Error-code-like messages are treated as codes first; known values retain their specific translation, while unknown technical text becomes the generic localized fallback.
 - **Validation**: `RefreshErrorLocalizationTest` and `LocalizedErrorMapperTests` passed.
 - **Safety Status**: No API contract, deployment, migration, production write, Play upload, or external configuration change occurred.
+
+## 2026-08-09 (Closed analytics event surface, local)
+- **Change**: Analytics accepts only the centralized `TijarioAnalyticsEvent` enum. The previous arbitrary string and optional Bundle entry point was removed because no production caller required it.
+- **Behavior**: Existing operational events remain unchanged; callers cannot attach customer, document, purchase, or other free-form content through this API.
+- **Validation**: `TijarioAnalyticsEventTest` passed.
+- **Safety Status**: No analytics provider configuration, backend contract, deployment, migration, production write, Play upload, or external configuration changed.

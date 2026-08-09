@@ -118,3 +118,5 @@
 - **Billing audit**: Server verification remains authoritative before Google Play acknowledgement; focused regression coverage passed with no billing or external change.
 
 - **Follow-up**: Repository refresh errors now use the centralized localized mapper; focused Arabic/English error tests passed with no external operation.
+
+- **Follow-up**: Analytics now accepts only centralized typed events with no arbitrary names or Bundle payloads. `TijarioAnalyticsEventTest` passed; no external operation occurred.

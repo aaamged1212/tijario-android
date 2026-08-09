@@ -1,7 +1,6 @@
 package app.tijario.analytics
 
 import android.content.Context
-import android.os.Bundle
 import android.util.Log
 import app.tijario.BuildConfig
 import com.facebook.appevents.AppEventsLogger
@@ -33,15 +32,12 @@ object TijarioAnalytics {
         enabled = value
     }
 
-    fun logEvent(name: String, params: Bundle? = null) {
+    fun logEvent(event: TijarioAnalyticsEvent) {
         if (!enabled) return
         runCatching {
-            logger?.logEvent(name, params)
+            logger?.logEvent(event.wireName)
         }.onFailure { error ->
-            if (BuildConfig.DEBUG) Log.w("TijarioAnalytics", "operation=analytics_event result=failed event=$name error=${error.javaClass.simpleName}")
+            if (BuildConfig.DEBUG) Log.w("TijarioAnalytics", "operation=analytics_event result=failed event=${event.wireName} error=${error.javaClass.simpleName}")
         }
     }
-
-    fun logEvent(event: TijarioAnalyticsEvent, params: Bundle? = null) =
-        logEvent(event.wireName, params)
 }
