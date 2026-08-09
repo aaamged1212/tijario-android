@@ -6,6 +6,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
 
 class BillingFoundationTests {
     @Test
@@ -53,5 +54,22 @@ class BillingFoundationTests {
         val obfuscated = BillingCatalog.obfuscatedAccountId(userId)
         assertEquals(64, obfuscated.length)
         assertFalse(obfuscated.contains(userId))
+    }
+
+    @Test
+    fun purchaseVerificationRemainsServerAuthoritativeAndDoesNotLogTokens() {
+        val source = File(
+            "src/main/java/app/tijario/features/billing/GooglePlayBillingRepository.kt",
+        ).readText()
+
+        val verification = source.indexOf("backendApiClient.verifyGooglePlayPurchase")
+        val acknowledgement = source.indexOf("acknowledgePurchase(purchase.purchaseToken)")
+        val verifiedEvent = source.indexOf("BillingPurchaseEvent.Verified")
+
+        assertTrue(verification >= 0)
+        assertTrue(acknowledgement > verification)
+        assertTrue(verifiedEvent > acknowledgement)
+        assertFalse(source.contains("Log."))
+        assertFalse(source.contains("purchaseToken="))
     }
 }

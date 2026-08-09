@@ -747,3 +747,8 @@
 - **Money boundary**: Draft preview mapping now keeps item prices, tax rates, and paid amounts in `BigDecimal` before a legacy API/Room boundary requires other representations.
 - **Validation**: Full `DocumentEngineTests` passed, including malicious payment-status/data-URL cases and `0.1`/`0.2` decimal preservation.
 - **Safety Status**: No push, deployment, production write, migration, Play upload, or external configuration change occurred. `.agents` remains local and excluded.
+
+## 2026-08-09 (Billing authority audit, local)
+- **Result**: Google Play's local purchase state remains non-authoritative. Backend verification precedes acknowledgement, and the verified event is emitted only after that path.
+- **Guard**: `BillingFoundationTests` now protects this ordering and asserts the Play repository does not log purchase tokens.
+- **Safety Status**: No billing behavior, backend contract, deployment, migration, Play upload, or external configuration changed.

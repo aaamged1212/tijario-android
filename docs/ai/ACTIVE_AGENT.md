@@ -114,3 +114,5 @@
 
 - **Follow-up**: Document render HTML now allowlists payment CSS states and inline raster logos; draft preview values preserve exact decimal inputs.
 - **Validation**: Full `DocumentEngineTests` passed; no external operation occurred.
+
+- **Billing audit**: Server verification remains authoritative before Google Play acknowledgement; focused regression coverage passed with no billing or external change.

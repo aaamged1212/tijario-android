@@ -497,3 +497,7 @@
 - Payment status now maps to a fixed CSS class allowlist, and inline logo data accepts only base64 PNG/JPEG/WebP images. This prevents stored values from influencing generated HTML attributes.
 - Draft render mapping preserves prices, tax rates, and paid amounts as `BigDecimal` through preview calculation instead of converting them through `Double`.
 - Full `DocumentEngineTests` passed after adding injection and exact-decimal regression coverage.
+
+# 2026-08-09 - Billing authority regression guard
+- Added coverage verifying that Google Play purchase acknowledgement occurs only after the backend verification response succeeds and before a verified purchase event is emitted.
+- The same guard asserts the Android billing repository contains no logging call or token-bearing diagnostic. No billing behavior or external configuration changed.
