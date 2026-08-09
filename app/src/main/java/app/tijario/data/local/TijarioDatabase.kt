@@ -9,6 +9,8 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import java.math.BigDecimal
 
+const val TIJARIO_DATABASE_VERSION = 19
+
 @Database(
     entities = [
         BusinessSettingsEntity::class,
@@ -34,7 +36,7 @@ import java.math.BigDecimal
         AnnouncementEntity::class,
         AnnouncementReceiptOutboxEntity::class,
     ],
-    version = 18,
+    version = TIJARIO_DATABASE_VERSION,
     exportSchema = true,
 )
 @TypeConverters(BigDecimalConverter::class)
@@ -106,7 +108,7 @@ abstract class TijarioDatabase : RoomDatabase() {
 
                         db.execSQL(
                             "INSERT INTO products_cache_new (id, user_id, kind, name, description, price, currency, stock_quantity, synced_at, sync_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'SYNCED')",
-                            arrayOf(id, userId, kind, name, description, priceStr, currency, stockQuantity, syncedAt)
+                            arrayOf<Any?>(id, userId, kind, name, description, priceStr, currency, stockQuantity, syncedAt)
                         )
                     }
                 } finally {
@@ -172,7 +174,7 @@ abstract class TijarioDatabase : RoomDatabase() {
 
                         db.execSQL(
                             "INSERT INTO documents_cache_new (id, user_id, customer_id, type, document_number, status, payment_status, amount_paid, issue_date, total, currency, synced_at, sync_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'SYNCED')",
-                            arrayOf(id, userId, customerId, type, documentNumber, status, paymentStatus, amountPaidStr, issueDate, totalStr, currency, syncedAt)
+                            arrayOf<Any?>(id, userId, customerId, type, documentNumber, status, paymentStatus, amountPaidStr, issueDate, totalStr, currency, syncedAt)
                         )
                     }
                 } finally {
@@ -566,6 +568,12 @@ abstract class TijarioDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_18_19 = object : Migration(18, 19) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE backup_records ADD COLUMN restored_at INTEGER")
+            }
+        }
+
         fun getInstance(context: Context): TijarioDatabase =
             instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
@@ -573,7 +581,7 @@ abstract class TijarioDatabase : RoomDatabase() {
                     TijarioDatabase::class.java,
                     "tijario-local-cache.db",
                 )
-                    .addMigrations(MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18)
+                    .addMigrations(MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19)
                     .build()
                     .also { instance = it }
             }

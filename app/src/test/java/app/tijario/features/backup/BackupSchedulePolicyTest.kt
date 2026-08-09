@@ -43,9 +43,13 @@ class BackupSchedulePolicyTest {
     @Test
     fun manualRetryCanUploadEvenWhenAutomaticDriveUploadIsDisabled() {
         val scheduler = File("src/main/java/app/tijario/features/backup/BackupScheduler.kt").readText()
+        val driveUpload = scheduler.substringAfter("fun enqueueDriveUpload").substringBefore("fun enqueueDriveRetention")
 
         assertTrue(scheduler.contains("(!settings.driveEnabled && !userInitiated)"))
         assertTrue(scheduler.contains("if (userInitiated) ExistingWorkPolicy.REPLACE else ExistingWorkPolicy.KEEP"))
+        assertTrue(driveUpload.contains("if (!userInitiated)"))
+        assertTrue(driveUpload.contains("setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)"))
+        assertFalse(driveUpload.contains("setRequiresCharging(!userInitiated"))
     }
 
     @Test
@@ -86,5 +90,17 @@ class BackupSchedulePolicyTest {
         val worker = File("src/main/java/app/tijario/features/backup/BackupWorker.kt").readText()
         assertTrue(worker.contains("PhoneBackupRepository"))
         assertTrue(worker.contains("allowNetwork = false"))
+    }
+
+    @Test
+    fun logicalBackupExportUsesOneReadTransactionAndValidatesBeforePublishing() {
+        val store = File("src/main/java/app/tijario/features/backup/RoomLogicalBackupStore.kt").readText()
+        val creator = File("src/main/java/app/tijario/features/backup/LocalBackupCreator.kt").readText()
+
+        val export = store.substringAfter("fun exportAccount").substringBefore("fun restoreAccount")
+        assertTrue(export.contains("beginTransaction()"))
+        assertTrue(export.contains("setTransactionSuccessful()"))
+        assertTrue(export.contains("endTransaction()"))
+        assertTrue(creator.contains("LogicalBackupValidator.validate(snapshots.values)"))
     }
 }

@@ -452,3 +452,13 @@
 - Restores no longer reject immutable creation events, historical customer references, or detached local metadata merely because the original document/customer was deleted; only Room's document-item relationship remains mandatory.
 - Restore safety snapshots remain internal and no longer appear in normal backup history. A genuinely invalid item/document relationship maps to the specific localized foreign-key restore error.
 - Focused JVM tests and `assemblePlayQa` passed; release metadata was raised to `18` / `1.1.8` and physical restore retest is pending.
+
+# 2026-07-31 - Atomic backup snapshots and accurate operation history
+- Backup creation now reads all Room tables in one transaction and validates bounded structure before publishing an archive; foreign-key integrity remains enforced inside the atomic Room restore.
+- Added Room schema 19 with `backup_records.restored_at`. Successful restores update the source archive by ID/checksum, while history hides local preparation, pending/uploading/failure, and internal safety states.
+- Restore safety snapshots are hidden from their initial insert and removed after success. User-initiated Drive uploads are expedited without background battery/storage gates. Backup JVM tests, Android-test assembly, and `playQa` assembly passed; no device or external action was used.
+
+# 2026-08-01 - First-attempt Google Drive upload verification
+- Resumable upload creation now requests the complete Drive File response needed for size, checksum, account, and backup identity verification.
+- A partial create response is resolved through the exact remote backup query; delayed metadata visibility remains a bounded automatic retry instead of requiring the user to press Retry.
+- All 112 backup JVM tests and `assemblePlayQa` passed. No external action occurred.

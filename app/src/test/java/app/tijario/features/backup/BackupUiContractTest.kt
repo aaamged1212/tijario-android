@@ -18,6 +18,8 @@ class BackupUiContractTest {
             "backup_restore_file",
             "backup_restore_confirm_body",
             "backup_restore_failed",
+            "backup_last_restored",
+            "backup_status_restore_completed",
         )
 
         keys.forEach { key ->

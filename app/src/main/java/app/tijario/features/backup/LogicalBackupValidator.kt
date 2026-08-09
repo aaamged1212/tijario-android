@@ -14,11 +14,6 @@ object LogicalBackupValidator {
             }
             validateUniqueIds(snapshot)
         }
-
-        val byTable = snapshots.associateBy { it.table }
-        validateReference(byTable, "document_items_cache", "document_id", "documents_cache")
-        // Customers, metadata, and immutable creation events can outlive a deleted document.
-        // Only document items have a Room foreign key that must be restorable with its document.
     }
 
     private fun validateUniqueIds(snapshot: LogicalTableSnapshot) {
@@ -31,30 +26,4 @@ object LogicalBackupValidator {
         }
     }
 
-    private fun validateReference(
-        snapshots: Map<String, LogicalTableSnapshot>,
-        sourceTable: String,
-        sourceColumn: String,
-        targetTable: String,
-    ) {
-        val source = snapshots[sourceTable] ?: return
-        val target = snapshots[targetTable]
-            ?: throw BackupValidationException("Backup relationship target is missing: $targetTable")
-        val sourceIndex = source.columns.indexOf(sourceColumn)
-        val targetIdIndex = target.columns.indexOf("id")
-        if (sourceIndex < 0) {
-            throw BackupValidationException("Backup relationship column is missing: $sourceTable.$sourceColumn")
-        }
-        if (targetIdIndex < 0) {
-            throw BackupValidationException("Backup relationship identity is missing: $targetTable.id")
-        }
-        val targetIds = target.rows.mapNotNull { it[targetIdIndex].value }.toSet()
-        source.rows.forEach { row ->
-            val reference = row[sourceIndex]
-            if (reference.type != "null" && reference.value !in targetIds) {
-                BackupDiagnostics.stage("restore", "RELATION_INVALID", "$sourceTable.$sourceColumn")
-                throw BackupValidationException("Backup contains an invalid record relationship")
-            }
-        }
-    }
 }

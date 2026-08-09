@@ -14,13 +14,11 @@ class LogicalBackupValidatorTest {
     }
 
     @Test
-    fun missingDocumentRelationshipIsRejectedBeforeRestore() {
+    fun relationshipsAreLeftToTheTransactionalRoomForeignKeyCheck() {
         val documents = snapshot("documents_cache", listOf("id", "user_id"), listOf("doc-1", "user-1"))
         val items = snapshot("document_items_cache", listOf("id", "user_id", "document_id"), listOf("item-1", "user-1", "missing"))
 
-        assertThrows(BackupValidationException::class.java) {
-            LogicalBackupValidator.validate(listOf(documents, items))
-        }
+        LogicalBackupValidator.validate(listOf(documents, items))
     }
 
     @Test
@@ -37,23 +35,19 @@ class LogicalBackupValidatorTest {
     }
 
     @Test
-    fun requiredRelationshipColumnsAreNotSilentlySkipped() {
+    fun historicalSnapshotsMayOmitRelationshipsThatRoomDoesNotRequire() {
         val documents = snapshot("documents_cache", listOf("id", "user_id"), listOf("doc-1", "user-1"))
         val customers = snapshot("customers_cache", listOf("id", "user_id"), listOf("customer-1", "user-1"))
 
-        assertThrows(BackupValidationException::class.java) {
-            LogicalBackupValidator.validate(listOf(customers, documents))
-        }
+        LogicalBackupValidator.validate(listOf(customers, documents))
     }
 
     @Test
-    fun documentMetadataRequiresAValidDocumentRelationship() {
+    fun historicalDocumentMetadataMayOutliveItsDocument() {
         val documents = snapshot("documents_cache", listOf("id", "user_id"), listOf("doc-1", "user-1"))
         val metadata = snapshot("local_document_metadata", listOf("id", "user_id"), listOf("meta-1", "user-1"))
 
-        assertThrows(BackupValidationException::class.java) {
-            LogicalBackupValidator.validate(listOf(documents, metadata))
-        }
+        LogicalBackupValidator.validate(listOf(documents, metadata))
     }
 
     private fun snapshot(table: String, columns: List<String>, vararg values: List<String>) = LogicalTableSnapshot(

@@ -2,7 +2,9 @@ package app.tijario.features.backup
 
 import app.tijario.data.local.BackupFileEntryEntity
 import app.tijario.data.local.BackupRecordEntity
+import app.tijario.data.local.TIJARIO_DATABASE_VERSION
 import app.tijario.data.local.TijarioDatabase
+import androidx.room.withTransaction
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -21,6 +23,7 @@ data class LocalBackupRequest(
     val keyVersion: Int,
     val encryptionKey: ByteArray,
     val createdAtEpochMillis: Long = System.currentTimeMillis(),
+    val initialStatus: String = "LOCAL_READY",
 )
 
 class LocalBackupCreator(
@@ -34,11 +37,12 @@ class LocalBackupCreator(
         val assets = BackupAssetCollector(filesRoot).collect(request.userId, logicalEntries)
         val allEntries = logicalEntries + assets.entries
         val snapshots = logicalEntries.mapValues { LogicalBackupSnapshotCodec.decode(it.value) }
+        LogicalBackupValidator.validate(snapshots.values)
         val documentCount = snapshots.getValue("data/documents.json").rows.size
         val creationEventCount = snapshots.getValue("data/document-creation-events.json").rows.size
         val manifest = BackupManifest(
             formatVersion = 1,
-            roomDatabaseVersion = 18,
+            roomDatabaseVersion = TIJARIO_DATABASE_VERSION,
             applicationVersion = request.applicationVersion,
             minimumApplicationVersion = request.minimumApplicationVersion,
             accountId = request.userId,
@@ -70,27 +74,30 @@ class LocalBackupCreator(
             userId = request.userId,
             localRelativePath = relativePath,
             formatVersion = 1,
-            status = "LOCAL_READY",
+            status = request.initialStatus,
             sizeBytes = stored.sizeBytes,
             checksum = stored.checksum,
             createdAt = request.createdAtEpochMillis,
             uploadedAt = null,
             driveFileId = null,
             lastError = null,
+            restoredAt = null,
         )
-        database.tijarioDao().upsertBackupRecord(record)
-        database.tijarioDao().upsertBackupFileEntries(
-            allEntries.toSortedMap().map { (path, bytes) ->
-                BackupFileEntryEntity(
-                    id = "$backupId:$path",
-                    backupId = backupId,
-                    relativePath = path,
-                    sizeBytes = bytes.size.toLong(),
-                    checksum = sha256(bytes),
-                    status = "INCLUDED",
-                )
-            },
-        )
+        database.withTransaction {
+            database.tijarioDao().upsertBackupRecord(record)
+            database.tijarioDao().upsertBackupFileEntries(
+                allEntries.toSortedMap().map { (path, bytes) ->
+                    BackupFileEntryEntity(
+                        id = "$backupId:$path",
+                        backupId = backupId,
+                        relativePath = path,
+                        sizeBytes = bytes.size.toLong(),
+                        checksum = sha256(bytes),
+                        status = "INCLUDED",
+                    )
+                },
+            )
+        }
         record
     }
 

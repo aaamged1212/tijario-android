@@ -1,6 +1,7 @@
 package app.tijario.features.backup
 
 import app.tijario.data.local.TijarioDatabase
+import app.tijario.data.local.TIJARIO_DATABASE_VERSION
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -8,7 +9,7 @@ import java.io.File
 class LocalBackupRestorer(
     private val database: TijarioDatabase,
     private val filesRoot: File,
-    private val currentRoomVersion: Int = 18,
+    private val currentRoomVersion: Int = TIJARIO_DATABASE_VERSION,
 ) {
     suspend fun validate(
         archive: ByteArray,

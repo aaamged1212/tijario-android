@@ -89,6 +89,7 @@ class BackupRestoreBehaviorTest {
         val viewModel = File("src/main/java/app/tijario/features/backup/BackupViewModel.kt").readText()
         val worker = File("src/main/java/app/tijario/features/backup/BackupRestoreWorker.kt").readText()
         val coordinator = File("src/main/java/app/tijario/features/backup/BackupCoordinator.kt").readText()
+        val creator = File("src/main/java/app/tijario/features/backup/LocalBackupCreator.kt").readText()
 
         assertTrue(notifier.contains("FOREGROUND_SERVICE_TYPE_DATA_SYNC"))
         assertTrue(viewModel.contains("takePersistableUriPermission"))
@@ -101,5 +102,8 @@ class BackupRestoreBehaviorTest {
         val safety = coordinator.indexOf("onStage(BackupRestoreStage.CREATING_SAFETY_BACKUP)", validation)
         assertTrue(validation >= 0)
         assertTrue(safety > validation)
+        assertTrue(creator.contains("initialStatus: String = \"LOCAL_READY\""))
+        assertTrue(coordinator.contains("createLocalBackupUnlocked(userId, allowNetwork, RESTORE_SAFETY_SNAPSHOT_STATUS)"))
+        assertFalse(coordinator.contains("record.copy(status = RESTORE_SAFETY_SNAPSHOT"))
     }
 }

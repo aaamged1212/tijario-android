@@ -73,3 +73,15 @@
 ## 2026-07-29
 - **Current task**: Backup destinations and restore hardening on `codex/fix-backup-destinations-drive-restore-notifications`.
 - **State**: Source review and focused JVM/lint/playQa/signed-AAB validation are complete. `.agents` and generated local directories remain excluded; physical device QA remains pending.
+
+## 2026-07-31
+- **Current task**: Final local archive restore, Drive first-upload, and backup-history correction on `codex/fix-backup-destinations-drive-restore-notifications`.
+- **State**: Complete locally and uncommitted. Room schema 19 records successful restore time on the exact archive; archive snapshots are transactionally consistent; history hides intermediate/safety/failure rows; manual Drive uploads are expedited.
+- **Validation**: 110 backup JVM tests, `assembleDebugAndroidTest`, and `assemblePlayQa` passed. Physical-device QA was not run.
+- **Safety**: No commit, push, deploy, Supabase migration, Production write, external configuration change, final AAB, or Play upload occurred. `.agents` remains local and untouched.
+
+## 2026-08-01
+- **Current task**: First-attempt Google Drive upload correction on `codex/fix-backup-destinations-drive-restore-notifications`.
+- **State**: Complete locally and uncommitted. The upload response requests complete verification fields, with exact remote metadata recovery and bounded automatic retry for delayed visibility.
+- **Validation**: 112 backup JVM tests and `assemblePlayQa` passed. Physical-device QA was intentionally not run.
+- **Safety**: No commit, push, deploy, migration, Production write, external configuration change, AAB, or Play upload occurred. `.agents` remains local and untouched.

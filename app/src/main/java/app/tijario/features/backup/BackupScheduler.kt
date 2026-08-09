@@ -7,6 +7,7 @@ import androidx.work.ExistingWorkPolicy
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.OutOfQuotaPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.workDataOf
@@ -46,6 +47,16 @@ object BackupScheduler {
     fun enqueueDriveUpload(context: Context, settings: BackupSettingsEntity, backupId: String, userInitiated: Boolean = false): UUID? {
         if (backupId.isBlank() || (!settings.driveEnabled && !userInitiated)) return null
         val networkType = if (settings.wifiOnly) NetworkType.UNMETERED else NetworkType.CONNECTED
+        val constraints = Constraints.Builder()
+            .setRequiredNetworkType(networkType)
+            .apply {
+                if (!userInitiated) {
+                    setRequiresCharging(settings.chargingOnly)
+                    setRequiresBatteryNotLow(true)
+                    setRequiresStorageNotLow(true)
+                }
+            }
+            .build()
         val request = OneTimeWorkRequestBuilder<DriveUploadWorker>()
             .addTag(driveAccountTag(settings.userId))
             .setInputData(
@@ -54,16 +65,13 @@ object BackupScheduler {
                     DriveUploadWorker.BACKUP_ID_KEY to backupId,
                 ),
             )
-            .setConstraints(
-                Constraints.Builder()
-                    .setRequiredNetworkType(networkType)
-                    // A manual backup must not wait for charging. Wi-Fi-only remains respected.
-                    .setRequiresCharging(!userInitiated && settings.chargingOnly)
-                    .setRequiresBatteryNotLow(true)
-                    .setRequiresStorageNotLow(true)
-                    .build(),
-            )
+            .setConstraints(constraints)
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 15, TimeUnit.SECONDS)
+            .apply {
+                if (userInitiated) {
+                    setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
+                }
+            }
             .build()
         WorkManager.getInstance(context.applicationContext).enqueueUniqueWork(
             driveWorkName(settings.userId, backupId),

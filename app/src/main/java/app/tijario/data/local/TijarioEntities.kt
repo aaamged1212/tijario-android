@@ -431,6 +431,7 @@ data class BackupRecordEntity(
     @ColumnInfo(name = "uploaded_at") val uploadedAt: Long?,
     @ColumnInfo(name = "drive_file_id") val driveFileId: String?,
     @ColumnInfo(name = "last_error") val lastError: String?,
+    @ColumnInfo(name = "restored_at") val restoredAt: Long? = null,
 )
 
 @Entity(

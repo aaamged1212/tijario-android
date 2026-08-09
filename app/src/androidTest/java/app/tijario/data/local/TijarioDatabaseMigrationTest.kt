@@ -4,6 +4,7 @@ import androidx.room.testing.MigrationTestHelper
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertNull
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -57,7 +58,38 @@ class TijarioDatabaseMigrationTest {
         database.close()
     }
 
+    @Test
+    fun migrate18To19_addsNullableRestoreCompletionTime() {
+        migrationHelper.createDatabase(TEST_DATABASE_V19, 18).use { legacy ->
+            legacy.execSQL(
+                """
+                INSERT INTO backup_records (
+                    id, user_id, local_relative_path, format_version, status,
+                    size_bytes, checksum, created_at
+                ) VALUES (
+                    'backup-1', 'user-1', 'users/user-1/backups/backup.tijario', 1,
+                    'PHONE_SAVED', 100, 'checksum', 10
+                )
+                """.trimIndent(),
+            )
+        }
+
+        val database = migrationHelper.runMigrationsAndValidate(
+            TEST_DATABASE_V19,
+            19,
+            true,
+            TijarioDatabase.MIGRATION_18_19,
+        )
+
+        database.query("SELECT restored_at FROM backup_records WHERE id = 'backup-1'").use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertNull(cursor.getString(cursor.getColumnIndexOrThrow("restored_at")))
+        }
+        database.close()
+    }
+
     private companion object {
         const val TEST_DATABASE = "tijario-migration-test"
+        const val TEST_DATABASE_V19 = "tijario-backup-history-migration-test"
     }
 }

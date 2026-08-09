@@ -161,10 +161,73 @@ class DriveBackupClientTest {
         assertEquals("backup-1", transport.lastUploadProperties["tijario_backup_id"])
     }
 
-    private class RecordingDriveTransport : DriveRestTransport {
+    @Test
+    fun firstUploadResolvesPartialCreateResponseWithoutManualRetry() = runBlocking {
+        val transport = RecordingDriveTransport(partialUploadResponse = true)
+        val client = GoogleDriveRestClient(
+            tokenProvider = { "oauth-token" },
+            driveAccountIdProvider = { "google-account-123" },
+            transport = transport,
+        )
+        val file = temporaryArchive("first upload")
+        val checksum = sha256(file.readBytes())
+
+        val remote = client.uploadBackup(
+            folderId = "backups-folder",
+            file = file,
+            metadata = DriveUploadMetadata("user-1", "backup-1", checksum, 42L),
+        )
+
+        assertEquals(1, transport.uploadCalls)
+        assertEquals(1, transport.listCalls)
+        assertEquals(file.length(), remote.sizeBytes)
+        assertEquals(checksum, remote.checksum)
+        assertEquals("user-1", remote.accountId)
+        assertEquals("backup-1", remote.backupId)
+    }
+
+    @Test
+    fun partialCreateResponseRetriesAutomaticallyUntilDriveListsTheFile() = runBlocking {
+        val transport = RecordingDriveTransport(
+            partialUploadResponse = true,
+            exposePersistedOnList = false,
+        )
+        val client = GoogleDriveRestClient(
+            tokenProvider = { "oauth-token" },
+            driveAccountIdProvider = { "google-account-123" },
+            transport = transport,
+        )
+        val file = temporaryArchive("delayed metadata")
+
+        val error = runCatching {
+            client.uploadBackup(
+                folderId = "backups-folder",
+                file = file,
+                metadata = DriveUploadMetadata("user-1", "backup-2", sha256(file.readBytes()), 43L),
+            )
+        }.exceptionOrNull()
+
+        assertTrue(error is DriveBackupException.Retryable)
+        assertEquals(1, transport.uploadCalls)
+        assertEquals(1, transport.listCalls)
+    }
+
+    private class RecordingDriveTransport(
+        private val partialUploadResponse: Boolean = false,
+        private val exposePersistedOnList: Boolean = true,
+    ) : DriveRestTransport {
         var lastUploadProperties: Map<String, String> = emptyMap()
+        var uploadCalls = 0
+        var listCalls = 0
+        private var persisted: DriveRestFile? = null
+
         override suspend fun getCurrentUser(accessToken: String) = DriveCurrentUser("google-account-123", null)
-        override suspend fun list(accessToken: String, query: String): List<DriveRestFile> = emptyList()
+
+        override suspend fun list(accessToken: String, query: String): List<DriveRestFile> {
+            listCalls += 1
+            return if (exposePersistedOnList) listOfNotNull(persisted) else emptyList()
+        }
+
         override suspend fun createFolder(accessToken: String, name: String, parentId: String?) =
             DriveRestFile(id = "folder", name = name, mimeType = GoogleDriveRestClient.FOLDER_MIME_TYPE)
 
@@ -175,13 +238,22 @@ class DriveBackupClientTest {
             mimeType: String,
             appProperties: Map<String, String>,
             onProgress: suspend (Long, Long) -> Unit,
-        ) = DriveRestFile(
-            id = "remote-1",
-            name = file.name,
-            mimeType = mimeType,
-            sizeBytes = file.length(),
-            appProperties = appProperties.also { lastUploadProperties = it },
-        )
+        ): DriveRestFile {
+            uploadCalls += 1
+            lastUploadProperties = appProperties
+            persisted = DriveRestFile(
+                id = "remote-1",
+                name = file.name,
+                mimeType = mimeType,
+                sizeBytes = file.length(),
+                appProperties = appProperties,
+            )
+            return if (partialUploadResponse) {
+                requireNotNull(persisted).copy(sizeBytes = 0L, appProperties = emptyMap())
+            } else {
+                requireNotNull(persisted)
+            }
+        }
 
         override suspend fun downloadFile(accessToken: String, fileId: String, destination: File, onProgress: suspend (Long, Long) -> Unit) = Unit
         override suspend fun deleteFile(accessToken: String, fileId: String) = Unit

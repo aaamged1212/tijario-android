@@ -22,6 +22,8 @@ class BackupRestoreWorkerContractTest {
         assertTrue(worker.contains("BackupRestoreStage.RESTORING_RECORDS"))
         assertTrue(worker.contains("allowNetwork = true"))
         assertTrue(worker.contains("releasePersistableUriPermission"))
+        assertTrue(worker.contains("buildRestoreCompletionRecord"))
+        assertTrue(worker.contains("HISTORY_RECORDED"))
     }
 
     @Test

@@ -13,6 +13,9 @@ class KtorDriveRestTransportContractTest {
 
         assertTrue(source.contains("parameters.append(\"q\", query)"))
         assertTrue(source.contains("parameters.append(\"fields\", DRIVE_LIST_FIELDS)"))
+        val uploadSession = source.substringAfter("val session = httpClient.post").substringBefore("val uploadUrl")
+        assertTrue(uploadSession.contains("parameters.append(\"uploadType\", \"resumable\")"))
+        assertTrue(uploadSession.contains("parameters.append(\"fields\", DRIVE_FILE_FIELDS)"))
         assertTrue(source.contains("FileStreamingContent"))
         assertTrue(source.contains("bodyAsChannel"))
         assertTrue(source.contains("MAX_DOWNLOAD_BYTES"))

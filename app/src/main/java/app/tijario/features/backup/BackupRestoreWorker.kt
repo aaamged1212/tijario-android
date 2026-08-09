@@ -11,6 +11,7 @@ import app.tijario.features.backup.drive.DriveBackupFile
 import app.tijario.features.backup.drive.DriveBackupRepository
 import app.tijario.features.backup.drive.DriveBackupRuntime
 import java.io.File
+import java.security.MessageDigest
 
 /** Runs all destructive restore work off the UI thread and exposes one cancellable WorkInfo. */
 class BackupRestoreWorker(
@@ -26,10 +27,14 @@ class BackupRestoreWorker(
         var stagedFile: File? = null
         var stagedInput: BackupArchiveInputStager.StagedArchive? = null
         var releaseFileUriPermission = false
+        var sourceBackupId: String? = null
+        var sourceDriveFileId: String? = null
         return try {
             val archive = when (source) {
                 SOURCE_DRIVE -> {
                     val remote = remoteFromInput() ?: return Result.failure()
+                    sourceBackupId = remote.backupId
+                    sourceDriveFileId = remote.id
                     stage(notifier, "backup_downloading", "Downloading from Google Drive", 0)
                     File(applicationContext.cacheDir, "backup-restore/${id}.tijario").also { destination ->
                         stagedFile = destination
@@ -55,6 +60,7 @@ class BackupRestoreWorker(
                 }
                 SOURCE_LOCAL_RECORD -> {
                     val backupId = inputData.getString(BACKUP_ID_KEY) ?: return Result.failure()
+                    sourceBackupId = backupId
                     val record = database.tijarioDao().getBackupRecords(userId).firstOrNull { it.id == backupId }
                         ?: return Result.failure()
                     resolveBackupArchiveFile(applicationContext.filesDir, userId, record.localRelativePath)
@@ -64,7 +70,7 @@ class BackupRestoreWorker(
             }
             stagedFile = archive
             BackupDiagnostics.stage("restore", "SOURCE_STAGED")
-            coordinator.restoreLocalBackup(
+            val manifest = coordinator.restoreLocalBackup(
                 userId = userId,
                 archiveFile = archive,
                 // A missing exact-version key may be fetched after any trusted restore source.
@@ -76,6 +82,23 @@ class BackupRestoreWorker(
                     BackupRestoreStage.RESTORING_RECORDS -> stage(notifier, restoreStage.progressKey, "Restoring customers and documents")
                     BackupRestoreStage.RESTORING_FILES -> stage(notifier, restoreStage.progressKey, "Restoring files and images")
                 }
+            }
+            try {
+                val record = buildRestoreCompletionRecord(
+                    records = database.tijarioDao().getBackupRecords(userId),
+                    userId = userId,
+                    sourceBackupId = sourceBackupId,
+                    archiveChecksum = sha256(archive),
+                    archiveSize = archive.length(),
+                    manifest = manifest,
+                    driveFileId = sourceDriveFileId,
+                    completedAt = System.currentTimeMillis(),
+                )
+                database.tijarioDao().upsertBackupRecord(record)
+                BackupDiagnostics.stage("restore", "HISTORY_RECORDED")
+            } catch (error: Exception) {
+                // Restored business data is already committed; history failure must not trigger a second restore.
+                BackupDiagnostics.stage("restore", "HISTORY_RECORD_FAILED", error = error)
             }
             setProgress(workDataOf(PROGRESS_STAGE_KEY to "backup_restored_success", PROGRESS_PERCENT_KEY to 100))
             notifier.post("Restore completed", "Backup restore completed")
@@ -136,6 +159,19 @@ class BackupRestoreWorker(
 
     private fun percent(transferred: Long, total: Long): Int =
         if (total <= 0L) 0 else ((transferred * 100L) / total).toInt().coerceIn(0, 100)
+
+    private fun sha256(file: File): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        file.inputStream().use { input ->
+            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+            while (true) {
+                val count = input.read(buffer)
+                if (count < 0) break
+                digest.update(buffer, 0, count)
+            }
+        }
+        return digest.digest().joinToString("") { "%02x".format(it) }
+    }
 
     companion object {
         const val USER_ID_KEY = "userId"

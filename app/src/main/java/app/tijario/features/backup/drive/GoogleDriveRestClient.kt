@@ -79,7 +79,7 @@ class GoogleDriveRestClient(
         onProgress: suspend (Long, Long) -> Unit,
     ): DriveBackupFile {
         requireConnectedDriveAccount()
-        return request { transport.uploadFile(
+        val uploaded = request { transport.uploadFile(
             accessToken = token(),
             parentId = folderId,
             file = file,
@@ -92,7 +92,15 @@ class GoogleDriveRestClient(
                 "created_at" to metadata.createdAt.toString(),
                 "format_version" to "1",
             ),
-        ).toBackupFile() }
+        ) }
+        if (uploaded.hasVerifiableBackupMetadata()) return uploaded.toBackupFile()
+
+        // Resumable uploads can return a partial File resource after creating the remote file.
+        val resolved = request { transport.list(token(), backupQuery(folderId, metadata.accountId, metadata.backupId)) }
+            .firstOrNull()
+            ?.takeIf { it.hasVerifiableBackupMetadata() }
+            ?: throw DriveBackupException.Retryable("Uploaded backup metadata is not available yet")
+        return resolved.toBackupFile()
     }
 
     override suspend fun listBackups(folderId: String, accountId: String): List<DriveBackupFile> {
@@ -131,6 +139,12 @@ class GoogleDriveRestClient(
             createdAt = appProperties["created_at"]?.toLongOrNull() ?: createdAt,
         )
     }
+
+    private fun DriveRestFile.hasVerifiableBackupMetadata(): Boolean =
+        sizeBytes > 0L &&
+            !appProperties["tijario_account_id"].isNullOrBlank() &&
+            !appProperties["tijario_backup_id"].isNullOrBlank() &&
+            !(appProperties["checksum_sha256"] ?: checksum).isNullOrBlank()
 
     private fun folderQuery(name: String, parentId: String?): String = buildList {
         add("trashed = false")

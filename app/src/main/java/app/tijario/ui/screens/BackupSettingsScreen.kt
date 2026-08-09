@@ -74,6 +74,7 @@ import app.tijario.features.backup.BackupViewModel
 import app.tijario.features.backup.BackupWorkNotifier
 import app.tijario.features.backup.PhoneBackupRepository
 import app.tijario.features.backup.RestoreBackupDocumentContract
+import app.tijario.features.backup.backupCompletedAt
 import app.tijario.features.backup.drive.DriveConnectionState
 import app.tijario.features.backup.drive.DriveBackupFile
 import java.text.DateFormat
@@ -512,17 +513,30 @@ fun BackupSettingsScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
-                                    Text(formatBackupTime(record.createdAt, language.name), style = MaterialTheme.typography.bodySmall)
+                                    backupCompletedAt(record)?.let { completedAt ->
+                                        Text(formatBackupTime(completedAt, language.name), style = MaterialTheme.typography.bodySmall)
+                                    }
                                     Text(
                                         Localization.getString("backup_status_${record.status.lowercase()}", language),
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         style = MaterialTheme.typography.bodySmall,
                                     )
+                                    record.restoredAt?.let { restoredAt ->
+                                        Text(
+                                            "${t("backup_last_restored")}: ${formatBackupTime(restoredAt, language.name)}",
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            style = MaterialTheme.typography.bodySmall,
+                                        )
+                                    }
                                 }
-                                IconButton(onClick = { pendingLocalRestore = record }, enabled = !state.isBusy) {
+                                val hasLocalArchive = record.localRelativePath.isNotBlank()
+                                IconButton(onClick = { pendingLocalRestore = record }, enabled = !state.isBusy && hasLocalArchive) {
                                     Icon(Icons.Filled.Restore, contentDescription = t("backup_restore_confirm"))
                                 }
-                                IconButton(onClick = { backupViewModel.requestShareBackup(record, preferTelegram = false) }, enabled = !state.isBusy) {
+                                IconButton(
+                                    onClick = { backupViewModel.requestShareBackup(record, preferTelegram = false) },
+                                    enabled = !state.isBusy && hasLocalArchive,
+                                ) {
                                     Icon(Icons.Filled.Share, contentDescription = t("backup_share"))
                                 }
                             }

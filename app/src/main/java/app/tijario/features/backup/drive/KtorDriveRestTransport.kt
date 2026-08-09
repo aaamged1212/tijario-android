@@ -100,7 +100,10 @@ class KtorDriveRestTransport(
                 contentType(ContentType.Application.Json)
                 header("X-Upload-Content-Type", mimeType)
                 header("X-Upload-Content-Length", file.length().toString())
-                url { parameters.append("uploadType", "resumable") }
+                url {
+                    parameters.append("uploadType", "resumable")
+                    parameters.append("fields", DRIVE_FILE_FIELDS)
+                }
                 setBody(driveJson.encodeToString(metadata))
             }.requireSuccess("upload", accountIdResolved = true)
             val uploadUrl = session.headers[HttpHeaders.Location]

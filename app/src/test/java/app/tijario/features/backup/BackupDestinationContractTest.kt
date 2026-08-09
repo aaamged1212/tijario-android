@@ -30,7 +30,8 @@ class BackupDestinationContractTest {
         )
         assertFalse(driveBranch.contains("saveVisibleCopy"))
         assertTrue(scheduler.contains("(!settings.driveEnabled && !userInitiated)"))
-        assertTrue(scheduler.contains(".setRequiresCharging(!userInitiated && settings.chargingOnly)"))
+        assertTrue(scheduler.contains("if (!userInitiated)"))
+        assertTrue(scheduler.contains("setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)"))
     }
 
     @Test

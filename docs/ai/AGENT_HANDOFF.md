@@ -6,6 +6,12 @@
 - **Validation**: Full `testDebugUnitTest --rerun-tasks`, `assembleDebugAndroidTest`, `lintDebug`, `assemblePlayQa`, and `git diff --check` passed. The first long Gradle attempts hit tool timeouts and were rerun to successful real exit codes.
 - **Safety**: Existing backup/restore work and `.agents` remain preserved and unstaged. Physical-device QA remains pending; no migration, deployment, Production write, external configuration change, AAB/APK upload, or Play action occurred.
 
+## 2026-08-01 (first-attempt Drive upload correction, local uncommitted)
+- **Root cause**: The resumable Drive create request omitted the `fields` response selector. Google could create the remote archive but return a partial File resource without `size` or `appProperties`, so Android marked the first upload failed; Retry then found the already-created file through a full metadata list response and succeeded.
+- **Fix**: The upload session now requests the complete verification fields. If Drive still returns a partial create response, Android resolves the exact account/backup object before verification; temporary list visibility is handled as bounded WorkManager retry instead of a manual failure.
+- **Validation**: 112 backup JVM tests passed with no failures or skips, including partial-create and delayed-metadata behavior. `assemblePlayQa` and `git diff --check` passed. Physical Drive QA was intentionally not used.
+- **Safety**: No commit, push, deployment, migration, Production write, external configuration change, AAB, or Google Play upload occurred. Version remains `18` / `1.1.8` and `.agents` remains untouched.
+
 ## 2026-07-31 (restore validation correction)
 - **Branch**: `codex/fix-backup-destinations-drive-restore-notifications`.
 - **Root cause**: Device logs proved archive header, key resolution, decryption, manifest validation, and the safety snapshot all succeed. Restore then failed before its Room transaction because logical validation incorrectly required deleted-document historical references to remain live document/customer rows.
@@ -690,3 +696,10 @@
 - **Backup behavior**: Phone and Google Drive backup actions are separate. Phone backups prefer the user-selected SAF folder; otherwise they use only `Downloads/Tijario/Backup` and report a typed destination error rather than silently writing elsewhere. Manual Drive backup does not create a visible phone copy and ignores charging-only scheduling while retaining Wi-Fi-only policy.
 - **Restore behavior**: The file picker starts from the selected phone-backup folder or the default Documents location. Drive upload/download verify account, size, and checksum. Restore errors are typed and the mandatory local safety snapshot fails closed.
 - **Validation**: Focused Backup/Drive/Notification/Offline JVM suite, `lintDebug`, `assemblePlayQa`, and signed `bundleRelease` passed. The AAB is `app.tijario`, `16` / `1.1.6`, and matches the existing Upload Key SHA-1/SHA-256 fingerprints. No migration, deployment, external configuration change, or Play upload occurred.
+
+## 2026-07-31 (Backup archive restore and history correction, uncommitted)
+- **Root causes**: Logical backup tables were exported by independent reads, while a duplicate relationship validator could reject the resulting archive before Room's transactional constraints. Restore safety snapshots were first persisted as `LOCAL_READY`, and manual Drive uploads inherited battery/storage background constraints.
+- **Fix**: Backup tables now export from one SQLite read transaction and are structurally validated before publication. Room remains the transactional authority for foreign keys. Safety snapshots are hidden from their first write and removed after successful restore. Completed restores update the exact archive record by ID/checksum with `restored_at`; history excludes intermediate, failed, and safety states. Manual Drive work is expedited and retains only its selected network constraint.
+- **Database**: Local Room schema is `19`; migration `18 -> 19` adds nullable `backup_records.restored_at` without changing Android version `18` / `1.1.8`.
+- **Validation**: 110 focused backup JVM tests passed; `assembleDebugAndroidTest` and `assemblePlayQa` passed. Physical restore and first-attempt Drive upload QA were not run because this task was explicitly performed without a phone.
+- **Safety Status**: No commit, push, deployment, Supabase migration, external configuration change, final AAB, or Google Play upload occurred. `.agents` remains local and untouched.

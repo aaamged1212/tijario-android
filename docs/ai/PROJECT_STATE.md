@@ -1,6 +1,9 @@
 # Project State (Android & Web Repos)
 
 - **2026-08-01 entitlement contract verification**: Production Android source is unchanged. A shared 12-case API fixture is parsed with the real `AccountUsageResponse` serializer, and full JVM, instrumentation compilation, lint, and `playQa` assembly gates pass. Compatible Web migrations/API remain unapplied and undeployed; physical-device QA remains pending.
+
+- **2026-08-01 Drive first-upload correction**: Resumable uploads now request complete verification metadata and recover a partial create response by resolving the exact remote backup before validation. Missing immediate list visibility is a bounded automatic retry, not a user-visible failure requiring Retry. Backup JVM tests and `assemblePlayQa` pass; physical Drive verification remains pending by request.
+
 - **2026-07-31 restore correction**: Device logcat proved encrypted archive validation succeeds through `MANIFEST_VALIDATED`; the failure is an over-strict logical reference check before Room writes, not Drive or backup-key failure. Local code preserves valid historical references, retains only real Room item/document integrity checks, hides internal restore-safety snapshots from normal history, and maps any true required relationship failure to a specific localized error. Focused JVM tests and `assemblePlayQa` passed; release metadata is `18` / `1.1.8` and physical retest is pending.
 
 - **2026-07-30 backup candidate**: Local uncommitted work on `codex/fix-backup-destinations-drive-restore-notifications` separates verified Drive upload success from bounded retention cleanup, adds typed transactional-restore phases, defaults phone copies to `Downloads/Tijario/Backups`, and correctly gates backup work on both notification permission and channel state. Full JVM tests, Android test APK compilation, lint, and `assemblePlayQa` pass. Device QA is pending because ADB currently has no connected device.
@@ -108,3 +111,10 @@
 - Android backup hardening is isolated on `codex/fix-backup-destinations-drive-restore-notifications` at version `16` / `1.1.6`.
 - Phone backup no longer falls back to shallower Downloads locations. Google Drive backup is a distinct manual operation, with remote account/size/checksum verification before it is marked uploaded.
 - Device QA is still required for Android storage-provider behavior, Drive upload/restore, cancellation, and notification permission behavior. No production change has been made.
+
+## 2026-07-31 Backup restore/history follow-up
+- The local Room schema is now 19. `backup_records.restored_at` ties a successful restore to the exact archive record without presenting restore preparation as a completed backup.
+- Logical archive creation uses one SQLite read transaction. Restore relationship enforcement occurs in Room's atomic insert/foreign-key-check transaction rather than a duplicated pre-validator.
+- User-visible history contains only completed phone copies, verified Drive uploads, and completed restores. Internal safety snapshots and intermediate/failure states remain hidden.
+- Manual Drive uploads are expedited and do not inherit automatic charging/battery/storage constraints; Wi-Fi-only remains honored.
+- Physical local/Drive restore and first-attempt Drive upload QA remain pending. Android version remains `18` / `1.1.8`.

@@ -40,12 +40,19 @@ class RoomLogicalBackupStore(
     fun exportAccount(userId: String): Map<String, ByteArray> {
         require(userId.isNotBlank()) { "Backup account is required" }
         val sqlite = database.openHelper.writableDatabase
-        return tableSpecs.associate { spec ->
-            val snapshot = sqlite.query(
-                "SELECT * FROM ${quoted(spec.table)} WHERE user_id = ?",
-                arrayOf(userId),
-            ).use { cursor -> cursor.toSnapshot(spec.table) }
-            spec.archivePath to LogicalBackupSnapshotCodec.encode(snapshot)
+        sqlite.beginTransaction()
+        return try {
+            tableSpecs.associate { spec ->
+                val snapshot = sqlite.query(
+                    "SELECT * FROM ${quoted(spec.table)} WHERE user_id = ?",
+                    arrayOf(userId),
+                ).use { cursor -> cursor.toSnapshot(spec.table) }
+                spec.archivePath to LogicalBackupSnapshotCodec.encode(snapshot)
+            }.also {
+                sqlite.setTransactionSuccessful()
+            }
+        } finally {
+            sqlite.endTransaction()
         }
     }
 
