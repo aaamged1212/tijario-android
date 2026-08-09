@@ -20,6 +20,7 @@
         android:label="Tijario | تجاريو"
         android:supportsRtl="true"
         android:theme="@style/Theme.Tijario.Splash"
+        android:enableOnBackInvokedCallback="true"
         android:usesCleartextTraffic="false">
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"

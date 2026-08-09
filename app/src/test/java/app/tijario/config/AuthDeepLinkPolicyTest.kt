@@ -31,4 +31,11 @@ class AuthDeepLinkPolicyTest {
         assertEquals(true, manifest.contains("android:host=\"www.tijario.site\""))
         assertEquals(true, manifest.contains("android:pathPrefix=\"/auth/callback\""))
     }
+
+    @Test
+    fun manifestEnablesPredictiveBackForModernAndroid() {
+        val manifest = File("src/main/AndroidManifest.xml").readText()
+
+        assertEquals(true, manifest.contains("android:enableOnBackInvokedCallback=\"true\""))
+    }
 }

@@ -516,3 +516,6 @@
 
 # 2026-08-09 - Localized document-preview controls
 - Full-screen preview controls now use the localization facade for their accessibility labels. Arabic and English labels are both defined and tested, avoiding hard-coded Arabic-only descriptions.
+
+# 2026-08-09 - Modern Android back-navigation compatibility
+- The manifest explicitly enables `OnBackInvokedCallback` on Android 13+ while retaining the existing Compose `BackHandler` behavior. This removes the platform warning without changing navigation routes.

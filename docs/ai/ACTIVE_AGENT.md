@@ -124,3 +124,5 @@
 - **Follow-up**: The app root now observes a small distinct shell state rather than full cache lists. `AppShellDataStateTest` passed; no external operation occurred.
 
 - **Follow-up**: Document-preview accessibility labels now resolve in Arabic and English. `UiRecoveryLocalizationTests` passed; no external operation occurred.
+
+- **Follow-up**: Android 13+ back-callback compatibility is explicitly enabled in the manifest. `AuthDeepLinkPolicyTest` passed; no external operation occurred.

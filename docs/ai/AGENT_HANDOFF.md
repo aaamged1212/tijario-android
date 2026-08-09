@@ -776,3 +776,9 @@
 - **Behavior**: The visual preview and PDF content are unchanged. Arabic labels remain Arabic; English users receive English labels.
 - **Validation**: `UiRecoveryLocalizationTests` passed.
 - **Safety Status**: No document content, backend contract, deployment, migration, production write, Play upload, or external configuration changed.
+
+## 2026-08-09 (Modern Android back-navigation compatibility, local)
+- **Change**: The application manifest now explicitly enables `OnBackInvokedCallback`.
+- **Behavior**: Existing Compose back handling remains in place; Android 13+ can invoke the platform back callback without the prior compatibility warning.
+- **Validation**: `AuthDeepLinkPolicyTest` passed and processed the Debug manifest.
+- **Safety Status**: No route, API, deployment, migration, production write, Play upload, or external configuration changed.
