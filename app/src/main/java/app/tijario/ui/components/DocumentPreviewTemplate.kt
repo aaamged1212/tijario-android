@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import app.tijario.config.AppLanguage
+import app.tijario.config.t
 import app.tijario.data.model.BusinessSettings
 import app.tijario.data.model.DocumentType
 import app.tijario.features.documents.mapper.TijarioDocumentMapper
@@ -67,7 +68,7 @@ fun ModernDocumentPreview(
                 .clip(CircleShape)
                 .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)),
         ) {
-            Icon(Icons.Filled.Fullscreen, contentDescription = "تكبير المعاينة")
+            Icon(Icons.Filled.Fullscreen, contentDescription = t("preview_expand"))
         }
     }
 
@@ -96,7 +97,7 @@ fun ModernDocumentPreview(
                         .clip(CircleShape)
                         .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)),
                 ) {
-                    Icon(Icons.Filled.Close, contentDescription = "إغلاق")
+                    Icon(Icons.Filled.Close, contentDescription = t("btn_close"))
                 }
             }
         }

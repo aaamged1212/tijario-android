@@ -498,6 +498,7 @@ object Localization {
         "total_label" to mapOf(AppLanguage.AR to "الإجمالي: %s %s", AppLanguage.EN to "Total: %s %s"),
         "payment_status_label" to mapOf(AppLanguage.AR to "حالة الدفع: %s", AppLanguage.EN to "Payment Status: %s"),
         "document_preview" to mapOf(AppLanguage.AR to "معاينة أولية", AppLanguage.EN to "Preview"),
+        "preview_expand" to mapOf(AppLanguage.AR to "تكبير المعاينة", AppLanguage.EN to "Expand preview"),
         "edit_invoice_title" to mapOf(AppLanguage.AR to "تعديل الفاتورة", AppLanguage.EN to "Edit Invoice"),
         "edit_quote_title" to mapOf(AppLanguage.AR to "تعديل عرض السعر", AppLanguage.EN to "Edit Quote"),
         "share_document" to mapOf(AppLanguage.AR to "مشاركة المستند", AppLanguage.EN to "Share Document"),

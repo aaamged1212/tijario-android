@@ -13,6 +13,8 @@ class UiRecoveryLocalizationTests {
             "call",
             "whatsapp",
             "cant_open_phone",
+            "preview_expand",
+            "btn_close",
         ).forEach { key ->
             assertFalse(Localization.getString(key, AppLanguage.AR) == key)
             assertFalse(Localization.getString(key, AppLanguage.EN) == key)

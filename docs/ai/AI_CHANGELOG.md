@@ -513,3 +513,6 @@
 # 2026-08-09 - App-root state isolation
 - The app root now observes a small, distinct state containing only user identity and startup-cache signals. Customer, product, document, and sync-detail updates stay within their owning screens.
 - Focused JVM coverage proves non-shell sync changes do not alter the root state while routing and startup signals remain intact.
+
+# 2026-08-09 - Localized document-preview controls
+- Full-screen preview controls now use the localization facade for their accessibility labels. Arabic and English labels are both defined and tested, avoiding hard-coded Arabic-only descriptions.

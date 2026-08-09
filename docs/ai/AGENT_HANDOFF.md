@@ -770,3 +770,9 @@
 - **Behavior**: Routing, startup splash, and notification start behavior remain unchanged. Customer, product, document, plan, and transient sync-detail updates no longer invalidate the app root when the shell signals are unchanged.
 - **Validation**: `AppShellDataStateTest` passed.
 - **Safety Status**: No API, sync, lifecycle, deployment, migration, production write, Play upload, or external configuration changed.
+
+## 2026-08-09 (Localized document-preview controls, local)
+- **Change**: The expand and close controls in the shared document-preview component now use localized accessibility labels instead of Arabic literals.
+- **Behavior**: The visual preview and PDF content are unchanged. Arabic labels remain Arabic; English users receive English labels.
+- **Validation**: `UiRecoveryLocalizationTests` passed.
+- **Safety Status**: No document content, backend contract, deployment, migration, production write, Play upload, or external configuration changed.

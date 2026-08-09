@@ -122,3 +122,5 @@
 - **Follow-up**: Analytics now accepts only centralized typed events with no arbitrary names or Bundle payloads. `TijarioAnalyticsEventTest` passed; no external operation occurred.
 
 - **Follow-up**: The app root now observes a small distinct shell state rather than full cache lists. `AppShellDataStateTest` passed; no external operation occurred.
+
+- **Follow-up**: Document-preview accessibility labels now resolve in Arabic and English. `UiRecoveryLocalizationTests` passed; no external operation occurred.
