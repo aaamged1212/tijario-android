@@ -788,3 +788,11 @@
 - **Change**: Callback decoding now uses the compatible UTF-8 name overload. The manifest's API-33 back-callback attribute is explicitly scoped for lint.
 - **Validation**: `AuthDeepLinkPolicyTest` and full `lintDebug` passed with no errors.
 - **Safety Status**: No authentication policy, route, backend contract, deployment, migration, production write, Play upload, or external configuration changed.
+
+## 2026-08-09 (Full hardening validation and handoff, local)
+- **Branch lineage**: `fix/android-full-hardening` is based on reconciled `main` commit `36bf6d3` and contains 14 focused hardening commits. It is intentionally not merged to `main`.
+- **Validated gates**: `clean`, full JVM `test`, `lintDebug`, `lintRelease`, `assembleDebug`, `assembleRelease`, `assembleAndroidTest`, `assemblePlayQa`, and `bundleRelease` all completed successfully. `git diff --check` is clean.
+- **Manifest/Room review**: Release manifest retains cleartext disabled, narrow exported components/FileProvider scope, verified HTTPS App Link declarations, and modern back support. Room migrations through the current schema are registered; no destructive fallback was introduced.
+- **Remaining release evidence**: No ADB device/emulator is connected. Before release, validate PDF/share/preview flows, Google Drive/backup flows, and password-reset/OAuth App Links on a release-signed device. Host `/.well-known/assetlinks.json` on both approved domains with the active Play app-signing SHA-256 before relying on verified links.
+- **Audit note**: The merged Release manifest still contains transitive advertising-ID declarations from an existing dependency. This hardening task did not alter Facebook/analytics SDK integration; review the disclosure/SDK requirement separately before release.
+- **Safety Status**: No deployment, migration, Production write, external configuration change, or Google Play upload occurred. `.agents` remains local and excluded.

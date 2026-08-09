@@ -146,3 +146,5 @@
 - Document-preview expand/close accessibility labels now resolve through Arabic/English localization instead of an Arabic-only literal.
 - The app manifest explicitly enables Android's modern back callback while preserving existing Compose back handling.
 - Auth callback decoding now remains compatible with minSdk 26, and `lintDebug` passes without errors after the full hardening changes.
+- Full local verification now passes: `clean`, full JVM tests, `lintDebug`, `lintRelease`, Debug/Release/AndroidTest/PlayQa assembly, and `bundleRelease`. The hardening branch is ready for normal publication only and is not merged to `main`.
+- No physical device/emulator is connected. Release QA remains required for documents/PDF/share, backup/Google Drive, notifications, and verified App Links. The current Release manifest has transitive advertising-ID declarations from an existing dependency; no analytics/Facebook SDK configuration was changed by this work.

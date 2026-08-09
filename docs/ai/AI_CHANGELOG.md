@@ -523,3 +523,7 @@
 # 2026-08-09 - Minimum-SDK-safe auth callback decoding
 - Auth callback query decoding now uses the `URLDecoder` overload available from the app's minimum API 26 rather than the API-33-only charset overload.
 - The manifest marks the Android 13 back-callback attribute at its intended API level for lint. Full `lintDebug` passes with no errors.
+
+# 2026-08-09 - Full Android hardening validation
+- The full hardening branch completed JVM, lint, Debug/Release/AndroidTest/PlayQa assembly, and release bundle validation on top of reconciled Android `main` source version `1.1.9` / code `19`.
+- No device or emulator was connected, so physical document, backup/Drive, and App Link verification remain explicit release gates. No external system or Production configuration changed.
