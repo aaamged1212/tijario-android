@@ -34,8 +34,6 @@ import app.tijario.features.documents.template.DocumentRenderTarget
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
-import java.net.URL
-import java.security.MessageDigest
 
 private const val A4_WIDTH_TO_HEIGHT = 210f / 297f
 // Render at the actual CSS A4 size, not a density-expanded dp size.
@@ -159,21 +157,7 @@ private suspend fun getCachedLogoBase64(context: Context, logoUrl: String): Stri
                 logoFile = app.tijario.features.business.logo.LogoAssetManager(context).getLocalLogoFile(userId)
             }
 
-            if (logoFile == null || !logoFile.exists()) {
-                val cacheDir = File(context.filesDir, "business-logo-cache").apply { mkdirs() }
-                val cacheFile = File(cacheDir, "${logoUrl.sha256()}.img")
-                if (!cacheFile.exists() || cacheFile.length() == 0L) {
-                    val bytes = URL(logoUrl).openStream().use { it.readBytes() }
-                    if (bytes.isNotEmpty()) {
-                        cacheFile.writeBytes(bytes)
-                    }
-                }
-                if (cacheFile.exists() && cacheFile.length() > 0L) {
-                    logoFile = cacheFile
-                }
-            }
-
-            if (logoFile != null && logoFile.exists() && logoFile.length() > 0L) {
+            if (logoFile != null && logoFile.exists() && logoFile.length() in 1..MAX_LOGO_BYTES) {
                 val bytes = logoFile.readBytes()
                 val base64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
                 val mimeType = when {
@@ -188,8 +172,5 @@ private suspend fun getCachedLogoBase64(context: Context, logoUrl: String): Stri
         }.getOrNull()
     }
 
-private fun String.sha256(): String =
-    MessageDigest.getInstance("SHA-256")
-        .digest(toByteArray())
-        .joinToString("") { "%02x".format(it) }
+private const val MAX_LOGO_BYTES = 5L * 1024L * 1024L
 

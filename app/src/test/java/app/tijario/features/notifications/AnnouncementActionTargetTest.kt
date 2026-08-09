@@ -36,17 +36,25 @@ class AnnouncementActionTargetTest {
     }
 
     @Test
-    fun externalHttpsLink_isAllowed() {
+    fun tijarioHttpsLink_isAllowed() {
         val announcement = announcement(
             actionLabelAr = "افتح الرابط",
             actionLabelEn = "Open link",
-            deepLink = "https://example.com/deal",
+            deepLink = "https://tijario.site/offers/abc12345",
         )
 
         val action = announcement.actionUiState(AppLanguage.EN)
 
         assertEquals("Open link", action?.label)
-        assertEquals("https://example.com/deal", action?.target)
+        assertEquals("https://tijario.site/offers/abc12345", action?.target)
+    }
+
+    @Test
+    fun untrustedOrCleartextExternalLinks_areRejected() {
+        assertNull(normalizeAnnouncementActionTarget("https://example.invalid/deal"))
+        assertNull(normalizeAnnouncementActionTarget("http://tijario.site/deal"))
+        assertNull(normalizeAnnouncementActionTarget("https://user@tijario.site/deal"))
+        assertNull(normalizeAnnouncementActionTarget("https://tijario.site:8443/deal"))
     }
 
     @Test

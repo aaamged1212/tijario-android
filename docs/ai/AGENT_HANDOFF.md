@@ -1,5 +1,11 @@
 # Agent Handoff (Android & Web Repos)
 
+## 2026-08-09 (Hardening security baseline, local)
+- **Branch**: `fix/android-full-hardening`, created from reconciled `main` SHA `36bf6d3a0c22700da0dbb2dda2d654c52f95f8b1`.
+- **Implemented**: Document HTML now escapes custom title/signature text. Local PDF logo network fallback is HTTPS-only, has timeouts, validates image content, streams with a 5 MiB bound, and preserves local-logo/offline behavior. Preview does not fetch remote logos. FileProvider no longer exposes internal user backup directories; finalized archives are copied into a dedicated cache share directory. Announcement actions accept internal links or HTTPS Tijario hosts only. Cleartext traffic is disabled.
+- **Validation**: Focused `DocumentEngineTests`, `AnnouncementActionTargetTest`, and `PhoneBackupContractTest` passed.
+- **Remaining**: Full hardening audit and physical-device validation remain pending. No migration, deployment, external configuration change, or Play upload occurred.
+
 ## 2026-08-01 (mobile entitlement contract verification)
 - **Branch**: `codex/fix-backup-destinations-drive-restore-notifications`.
 - **Change**: Added the shared 12-case mobile entitlement response fixture and a focused JVM test that deserializes every case with the production `AccountUsageResponse` serializer. No production Android behavior changed.

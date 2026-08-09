@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths>
     <cache-path name="cached_documents" path="documents/" />
+    <cache-path name="shared_backups" path="shared-backups/" />
     <external-files-path name="exported_documents" path="Download/" />
-    <files-path name="encrypted_backups" path="users/" />
 </paths>

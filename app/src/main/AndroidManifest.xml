@@ -16,9 +16,11 @@
     <application
         android:allowBackup="false"
         android:icon="@drawable/logo_app"
+        android:networkSecurityConfig="@xml/network_security_config"
         android:label="Tijario | تجاريو"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Tijario.Splash">
+        android:theme="@style/Theme.Tijario.Splash"
+        android:usesCleartextTraffic="false">
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"
             android:resource="@drawable/ic_stat_tijario" />

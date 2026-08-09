@@ -33,7 +33,7 @@ class DocumentHtmlRenderer(
         return base
             .replace("{{LANG}}", if (model.language == AppLanguage.AR) "ar" else "en")
             .replace("{{DIR}}", if (model.isRtl) "rtl" else "ltr")
-            .replace("{{TITLE}}", title(model))
+            .replace("{{TITLE}}", HtmlEscaper.escape(title(model)))
             .replace("{{CSS}}", css)
             .replace("{{PAGE_CLASS}}", pageClass(template, target))
             .replace("{{PAGE_STYLE}}", templateStyleVars(template))
@@ -65,7 +65,7 @@ class DocumentHtmlRenderer(
                 append("<div class=\"party-lines\">${labels.website}: ${HtmlEscaper.escape(it)}</div>")
             }
             append("</div></div>")
-            append("<div class=\"title-block\"><h2 class=\"document-title\">${title(model)}</h2>")
+            append("<div class=\"title-block\"><h2 class=\"document-title\">${HtmlEscaper.escape(title(model))}</h2>")
             append("<div class=\"meta-grid\">")
             append(metaCard(labels.documentNumber, model.documentNumber))
             append(metaCard(labels.issueDate, model.issueDate))
@@ -93,7 +93,7 @@ class DocumentHtmlRenderer(
                 val signatureLabel = if (model.language == AppLanguage.AR) "التوقيع" else "Signature"
                 append("<div class=\"signature-block\" style=\"float: $align; text-align: center; margin: 20px 40px;\">")
                 append("<div style=\"font-size: 11px; font-weight: bold; color: #64748B; margin-bottom: 4px;\">$signatureLabel</div>")
-                append("<img src=\"data:image/png;base64,${model.signatureData}\" style=\"max-height: 60px; max-width: 150px; display: block;\" />")
+                append("<img src=\"data:image/png;base64,${HtmlEscaper.escape(model.signatureData)}\" style=\"max-height: 60px; max-width: 150px; display: block;\" />")
                 append("</div>")
                 append("<div style=\"clear: both;\"></div>")
             }

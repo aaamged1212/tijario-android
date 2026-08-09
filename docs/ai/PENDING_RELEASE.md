@@ -1,5 +1,8 @@
 # Pending Release
 
+## 2026-08-09 hardening follow-up
+- The first local security hardening change is on `fix/android-full-hardening`; it is not a release candidate. Before any release, rerun the full Android verification set and physically verify document sharing, PDF logo fallback, and valid Tijario announcement links. No production/external change is required or has been performed.
+
 ## Unapplied Web-Repo Migrations
 - `supabase/migrations/20260708184437_allow_duplicate_customer_whatsapp.sql`
 - `supabase/migrations/20260709000137_qa_business_stock_document_language.sql`

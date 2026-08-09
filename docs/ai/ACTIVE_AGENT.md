@@ -1,5 +1,9 @@
 # Active Agent Status
 
+- **Current task**: Android security hardening on `fix/android-full-hardening` after `main` was reconciled at `36bf6d3`.
+- **State**: Document HTML escapes custom titles and signature payloads; remote PDF logo fetches are HTTPS-only, bounded, and streamed; previews remain local-only; FileProvider shares only a cache copy of finalized backups; announcement links are restricted to HTTPS Tijario hosts; cleartext traffic is disabled.
+- **Validation**: Focused document, notification, and phone-backup JVM tests passed. No deployment, migration, external configuration change, or Play upload occurred.
+
 - **Current task**: Verify the optimized Web entitlement response against the production Android serializer.
 - **State**: A shared 12-case fixture and focused JVM contract test are complete; Android production source remains unchanged and existing backup work is preserved.
 - **Validation**: Full JVM tests with `--rerun-tasks`, instrumentation APK compilation, `lintDebug`, `assemblePlayQa`, and `git diff --check` passed. Physical-device QA remains pending.

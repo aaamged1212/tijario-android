@@ -37,8 +37,15 @@ import app.tijario.data.remote.UploadLogoRequest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.FileOutputStream
+import java.io.IOException
+import java.net.HttpURLConnection
 import java.security.MessageDigest
 import java.net.URL
+
+private const val MAX_LOGO_DOWNLOAD_BYTES = 5L * 1024L * 1024L
+private const val LOGO_CONNECT_TIMEOUT_MS = 10_000
+private const val LOGO_READ_TIMEOUT_MS = 15_000
 
 @Composable
 fun StoreLogoPicker(
@@ -127,23 +134,57 @@ suspend fun loadCachedLogoBitmap(
     logoUrl: String,
 ): Bitmap? = withContext(Dispatchers.IO) {
     runCatching {
+        if (!logoUrl.startsWith("https://", ignoreCase = true)) return@withContext null
         val cacheDir = File(context.filesDir, "business-logo-cache").apply { mkdirs() }
         val cacheFile = File(cacheDir, "${logoUrl.sha256()}.img")
 
-        if (cacheFile.exists() && cacheFile.length() > 0) {
+        if (cacheFile.isUsableLogoFile()) {
             BitmapFactory.decodeFile(cacheFile.absolutePath)?.let { return@withContext it }
         }
 
-        val bytes = URL(logoUrl).openStream().use { stream ->
-            stream.readBytes()
-        }
-
-        if (bytes.isNotEmpty()) {
-            cacheFile.writeBytes(bytes)
-        }
-
-        BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+        downloadLogo(logoUrl, cacheFile)
+        cacheFile.takeIf(File::isUsableLogoFile)?.let { BitmapFactory.decodeFile(it.absolutePath) }
     }.getOrNull()
+}
+
+private fun File.isUsableLogoFile(): Boolean = isFile && length() in 1..MAX_LOGO_DOWNLOAD_BYTES
+
+private fun downloadLogo(logoUrl: String, destination: File) {
+    val connection = (URL(logoUrl).openConnection() as? HttpURLConnection)
+        ?: throw IOException("Unsupported logo connection")
+    val temporary = File(destination.parentFile, "${destination.name}.download")
+    try {
+        connection.instanceFollowRedirects = false
+        connection.connectTimeout = LOGO_CONNECT_TIMEOUT_MS
+        connection.readTimeout = LOGO_READ_TIMEOUT_MS
+        connection.requestMethod = "GET"
+        connection.connect()
+        if (connection.responseCode !in 200..299) throw IOException("Logo request failed")
+        if (connection.contentType?.lowercase()?.startsWith("image/") != true) {
+            throw IOException("Logo response was not an image")
+        }
+        if (connection.contentLengthLong > MAX_LOGO_DOWNLOAD_BYTES) throw IOException("Logo response too large")
+
+        var written = 0L
+        connection.inputStream.use { input ->
+            FileOutputStream(temporary).use { output ->
+                val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                while (true) {
+                    val read = input.read(buffer)
+                    if (read == -1) break
+                    written += read
+                    if (written > MAX_LOGO_DOWNLOAD_BYTES) throw IOException("Logo response too large")
+                    output.write(buffer, 0, read)
+                }
+            }
+        }
+        if (written == 0L) throw IOException("Empty logo response")
+        if (destination.exists()) destination.delete()
+        if (!temporary.renameTo(destination)) throw IOException("Unable to cache logo")
+    } finally {
+        temporary.delete()
+        connection.disconnect()
+    }
 }
 
 suspend fun clearBusinessLogoCache(

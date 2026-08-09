@@ -8,10 +8,12 @@ import java.io.File
 
 object BackupShareIntents {
     private const val TELEGRAM_PACKAGE = "org.telegram.messenger"
+    private const val SHARE_DIRECTORY = "shared-backups"
 
     fun create(context: Context, archive: File, preferTelegram: Boolean): Intent {
         require(archive.isFile && archive.name.endsWith(".tijario")) { "Only finalized encrypted backups are shareable" }
-        val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", archive)
+        val shareableArchive = copyForShare(context, archive)
+        val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", shareableArchive)
         val send = Intent(Intent.ACTION_SEND).apply {
             type = "application/octet-stream"
             putExtra(Intent.EXTRA_STREAM, uri)
@@ -23,5 +25,14 @@ object BackupShareIntents {
         }
         send.setPackage(null)
         return Intent.createChooser(send, null)
+    }
+
+    private fun copyForShare(context: Context, archive: File): File {
+        val directory = File(context.cacheDir, SHARE_DIRECTORY).apply { mkdirs() }
+        val destination = File(directory, archive.name)
+        archive.inputStream().use { input ->
+            destination.outputStream().use { output -> input.copyTo(output) }
+        }
+        return destination
     }
 }

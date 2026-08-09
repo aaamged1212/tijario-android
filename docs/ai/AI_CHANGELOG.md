@@ -1,5 +1,11 @@
 # AI Changelog
 
+## 2026-08-09 - Android document and sharing security baseline
+- Escaped custom document title and signature values before HTML insertion, and added malicious-content regression coverage.
+- Restricted network logo fetching to bounded HTTPS image downloads for PDF generation; preview uses only the locally cached logo.
+- Disabled cleartext traffic, narrowed FileProvider backup sharing to a cache copy, and limited announcement links to HTTPS Tijario hosts.
+- Focused JVM tests passed. No production or external action occurred.
+
 ## 2026-08-01 - Mobile entitlement API contract fixture
 - Added a shared 12-case JSON fixture and production-serializer JVM test for Free, paid, legacy, missing-row, installation-presence, grace-period, cancellation, and expired-plan responses.
 - Kept production Android logic unchanged; full JVM/build/lint gates passed and physical-device QA remains pending.

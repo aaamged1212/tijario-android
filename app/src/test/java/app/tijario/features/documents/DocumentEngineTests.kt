@@ -69,6 +69,31 @@ class DocumentEngineTests {
     }
 
     @Test
+    fun generatedDocumentEscapesAllUserControlledTextFields() {
+        val payload = "<script>alert(1)</script><img src=\"https://example.invalid/test\"><style>body{display:none}</style><>&\"'"
+        val base = SavedDocumentRenderMapper.map(DocumentFixtures.saved(), DocumentFixtures.business)
+        val model = base.copy(
+            documentTitle = payload,
+            business = base.business.copy(name = payload, address = payload, email = payload, websiteUrl = payload),
+            customer = base.customer.copy(name = payload, contactNumber = payload, city = payload),
+            items = base.items.map { it.copy(name = payload, description = payload) },
+            documentNote = payload,
+            termsAndConditions = payload,
+            paymentMethod = payload,
+            discountLabel = payload,
+            extraFeesLabel = payload,
+            signatureData = payload,
+        )
+
+        val html = renderer.render(model)
+
+        assertTrue(html.contains("&lt;script&gt;alert(1)&lt;/script&gt;"))
+        assertFalse(html.contains("<script>alert(1)</script>"))
+        assertFalse(html.contains("<style>body{display:none}</style>"))
+        assertFalse(html.contains("<img src=\"https://example.invalid/test\">"))
+    }
+
+    @Test
     fun draftMappingCalculatesLocalPreviewValues() {
         val model = DraftDocumentRenderMapper.map(
             documentType = DocumentType.Invoice,
@@ -405,6 +430,29 @@ class DocumentEngineTests {
         assertFalse(source.contains("webView.draw(canvas)"))
         assertTrue(printHelper.contains("adapter.onLayout("))
         assertTrue(printHelper.contains("adapter.onWrite("))
+    }
+
+    @Test
+    fun localPdfNetworkLogoFetchIsBoundedAndPreviewStaysLocalOnly() {
+        val pdfSource = File(
+            "src/main/java/app/tijario/features/documents/pdf/LocalPdfGenerator.kt",
+        ).readText()
+        val previewSource = File(
+            "src/main/java/app/tijario/features/documents/preview/DocumentPreviewWebView.kt",
+        ).readText()
+        val storeLogoSource = File(
+            "src/main/java/app/tijario/ui/components/StoreLogoSupport.kt",
+        ).readText()
+
+        assertTrue(pdfSource.contains("startsWith(\"https://\""))
+        assertTrue(pdfSource.contains("MAX_LOGO_BYTES"))
+        assertTrue(pdfSource.contains("LOGO_CONNECT_TIMEOUT_MS"))
+        assertTrue(pdfSource.contains("LOGO_READ_TIMEOUT_MS"))
+        assertTrue(pdfSource.contains("contentType?.lowercase()?.startsWith(\"image/\")"))
+        assertFalse(pdfSource.contains("openStream()"))
+        assertFalse(previewSource.contains("openStream()"))
+        assertTrue(storeLogoSource.contains("MAX_LOGO_DOWNLOAD_BYTES"))
+        assertFalse(storeLogoSource.contains("openStream()"))
     }
 
     @Test

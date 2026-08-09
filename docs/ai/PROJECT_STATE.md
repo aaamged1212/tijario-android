@@ -1,5 +1,9 @@
 # Project State (Android & Web Repos)
 
+## 2026-08-09 - Hardening branch started
+- `main` was reconciled through `36bf6d3` and now contains the validated versionCode `19` / versionName `1.1.9` backup recovery source.
+- `fix/android-full-hardening` starts from that exact main SHA. Its first scoped security change is local only and has focused JVM coverage; no release action occurred.
+
 - **2026-08-01 entitlement contract verification**: Production Android source is unchanged. A shared 12-case API fixture is parsed with the real `AccountUsageResponse` serializer, and full JVM, instrumentation compilation, lint, and `playQa` assembly gates pass. Compatible Web migrations/API remain unapplied and undeployed; physical-device QA remains pending.
 
 - **2026-08-01 Drive first-upload correction**: Resumable uploads now request complete verification metadata and recover a partial create response by resolving the exact remote backup before validation. Missing immediate list visibility is a bounded automatic retry, not a user-visible failure requiring Retry. Backup JVM tests and `assemblePlayQa` pass; physical Drive verification remains pending by request.

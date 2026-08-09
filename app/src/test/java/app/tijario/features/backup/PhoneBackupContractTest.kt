@@ -24,10 +24,15 @@ class PhoneBackupContractTest {
     @Test
     fun sharingUsesContentUriAndReadPermissionOnlyForEncryptedArchives() {
         val source = File("src/main/java/app/tijario/features/backup/BackupShareIntents.kt").readText()
+        val paths = File("src/main/res/xml/file_paths.xml").readText()
 
         assertTrue(source.contains("FileProvider.getUriForFile"))
         assertTrue(source.contains("FLAG_GRANT_READ_URI_PERMISSION"))
         assertTrue(source.contains("archive.name.endsWith(\".tijario\")"))
+        assertTrue(source.contains("SHARE_DIRECTORY = \"shared-backups\""))
+        assertTrue(source.contains("copyForShare"))
+        assertTrue(paths.contains("shared_backups"))
+        assertFalse(paths.contains("path=\"users/\""))
         assertFalse(source.contains("file://"))
     }
 
