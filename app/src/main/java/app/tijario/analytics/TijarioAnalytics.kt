@@ -25,7 +25,7 @@ object TijarioAnalytics {
         runCatching {
             logger = AppEventsLogger.newLogger(context.applicationContext)
         }.onFailure { error ->
-            if (BuildConfig.DEBUG) Log.w("TijarioAnalytics", "Meta logger initialization failed", error)
+            if (BuildConfig.DEBUG) Log.w("TijarioAnalytics", "operation=meta_logger_initialize result=failed error=${error.javaClass.simpleName}")
         }
     }
 
@@ -38,7 +38,7 @@ object TijarioAnalytics {
         runCatching {
             logger?.logEvent(name, params)
         }.onFailure { error ->
-            if (BuildConfig.DEBUG) Log.w("TijarioAnalytics", "Analytics event failed: $name", error)
+            if (BuildConfig.DEBUG) Log.w("TijarioAnalytics", "operation=analytics_event result=failed event=$name error=${error.javaClass.simpleName}")
         }
     }
 

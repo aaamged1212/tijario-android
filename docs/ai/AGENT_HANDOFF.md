@@ -734,3 +734,10 @@
 - **Validation**: Focused `AuthDeepLinkPolicyTest` passed. `docs/release/ANDROID_APP_LINKS.md` records the required physical/hosted verification.
 - **Remaining**: Confirm `assetlinks.json` on both live hosts carries the active Play app-signing certificate, then verify the callback flow on a release-signed device.
 - **Safety Status**: No push, deployment, production write, migration, Play upload, or external configuration change occurred. `.agents` remains local and excluded.
+
+## 2026-08-09 (Network and diagnostic hardening, local)
+- **Branch**: `fix/android-full-hardening`.
+- **Transport**: API requests keep bounded interactive timeouts; Drive transfers use a separate bounded long-transfer profile while preserving file streaming and cancellation.
+- **Diagnostics**: The document API no longer logs server response messages. Updated auth, analytics, export, and Drive logs retain only safe operation/status/error-class fields in debug builds.
+- **Validation**: Focused `NetworkTimeoutProfileTest` and `KtorDriveRestTransportContractTest` passed; source audit found no direct throwable logging, raw message interpolation in logs, `println`, or `printStackTrace` under main sources.
+- **Safety Status**: No push, deployment, production write, migration, Play upload, or external configuration change occurred. `.agents` remains local and excluded.

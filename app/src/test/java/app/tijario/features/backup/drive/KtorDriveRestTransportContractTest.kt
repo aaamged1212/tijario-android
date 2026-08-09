@@ -29,6 +29,8 @@ class KtorDriveRestTransportContractTest {
         assertTrue(source.contains("/about"))
         assertTrue(source.contains("user(permissionId,emailAddress)"))
         assertTrue(source.contains("safeDriveLog"))
+        assertTrue(source.contains("defaultDriveHttpClient"))
+        assertTrue(source.contains("if (BuildConfig.DEBUG)"))
         assertFalse(source.contains("println("))
         assertFalse(source.contains("accessToken="))
         assertTrue(driveFailureFor(401, "authError") is DriveHttpException.Unauthorized)

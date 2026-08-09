@@ -487,3 +487,8 @@
 - Added a single callback policy for legacy custom schemes and verified HTTPS App Links. It accepts only exact Tijario callback origins and falls back to `/login` for unsafe `next` values, preventing open redirects and arbitrary scheme handling.
 - Declared `https://tijario.site/auth/callback` and `https://www.tijario.site/auth/callback` with Android App Link verification and documented the external certificate/hosting validation required before release.
 - Focused `AuthDeepLinkPolicyTest` passed. No hosting, Play, deployment, migration, or external configuration change occurred.
+
+# 2026-08-09 - Network timeout and safe diagnostic hardening
+- Interactive backend calls retain bounded 15/45-second connect/request/socket limits, while streamed Google Drive transfers use bounded 30-second connect and five-minute request/socket limits.
+- Document API diagnostics now log path, status, code, and document-ID presence only. Auth, analytics, Drive, and export diagnostics avoid raw server messages and throwable stack traces.
+- Focused network-profile and Drive transport tests passed. No endpoint, retry policy, external setting, or production action changed.

@@ -1,6 +1,7 @@
 package app.tijario.features.backup.drive
 
-import app.tijario.data.remote.defaultHttpClient
+import app.tijario.BuildConfig
+import app.tijario.data.remote.defaultDriveHttpClient
 import android.util.Log
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -36,7 +37,7 @@ private const val DRIVE_ABOUT_FIELDS = "user(permissionId,emailAddress)"
 
 /** Ktor-only Drive v3 transport. Archive bytes are copied from/to files, never materialized as a ByteArray. */
 class KtorDriveRestTransport(
-    private val httpClient: HttpClient = defaultHttpClient(),
+    private val httpClient: HttpClient = defaultDriveHttpClient(),
 ) : DriveRestTransport {
     override suspend fun getCurrentUser(accessToken: String): DriveCurrentUser = driveRequest("about", accountIdResolved = false) {
         val response = httpClient.get("$DRIVE_API_BASE/about") {
@@ -290,5 +291,7 @@ private fun String?.isDriveApiDisabled(): Boolean = this.equals("accessNotConfig
     this.equals("serviceDisabled", ignoreCase = true)
 
 private fun safeDriveLog(operation: String, status: Int?, reason: String, accountIdResolved: Boolean) {
-    Log.d("TijarioDrive", "operation=$operation status=${status ?: "network"} reason=$reason accountIdResolved=$accountIdResolved")
+    if (BuildConfig.DEBUG) {
+        Log.d("TijarioDrive", "operation=$operation status=${status ?: "network"} reason=$reason accountIdResolved=$accountIdResolved")
+    }
 }

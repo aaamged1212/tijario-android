@@ -697,7 +697,7 @@ fun VerifyEmailScreen(
         val bootstrapResult = authViewModel.bootstrapUserAfterVerification(currentUser.id, resolvedName)
         if (bootstrapResult.isFailure) {
             if (app.tijario.BuildConfig.DEBUG) {
-                Log.e("VerifyEmailScreen", "Bootstrap failed", bootstrapResult.exceptionOrNull())
+                Log.e("VerifyEmailScreen", "operation=verification_bootstrap result=failed error=${bootstrapResult.exceptionOrNull()?.javaClass?.simpleName ?: "unknown"}")
             }
             errorMessage = if (language == AppLanguage.AR) "نجح التحقق ولكن فشل إعداد الحساب، يرجى المحاولة لاحقًا" else "Verification succeeded but account setup failed"
             awaitingBootstrapRetry = true
@@ -822,7 +822,7 @@ fun VerifyEmailScreen(
                                             )
                                         } catch (otpEx: Exception) {
                                             if (app.tijario.BuildConfig.DEBUG) {
-                                                Log.e("VerifyEmailScreen", "OTP verification failed", otpEx)
+                                                Log.e("VerifyEmailScreen", "operation=otp_verify result=failed error=${otpEx.javaClass.simpleName}")
                                             }
                                             errorMessage = app.tijario.domain.ErrorMapper.map(otpEx, language)
                                             return@launch
@@ -870,7 +870,7 @@ fun VerifyEmailScreen(
                                         errorMessage = Localization.getString("verification_code_resent", language)
                                     } catch (e: Exception) {
                                         if (app.tijario.BuildConfig.DEBUG) {
-                                            Log.e("VerifyEmailScreen", "Resend failed", e)
+                                            Log.e("VerifyEmailScreen", "operation=otp_resend result=failed error=${e.javaClass.simpleName}")
                                         }
                                         errorMessage = app.tijario.domain.ErrorMapper.map(e, language)
                                     } finally {

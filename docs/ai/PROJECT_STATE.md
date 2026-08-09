@@ -138,3 +138,4 @@
 - `main` was reconciled and validated at `36bf6d3`; focused hardening work is local on `fix/android-full-hardening` and has not been pushed or merged.
 - Authentication callbacks now use an allowlisted deep-link policy and the app declares HTTPS App Links for both Tijario hosts. Legacy custom schemes remain supported.
 - The remaining release gate for App Links is external verification of the live `assetlinks.json` certificate relationship and an end-to-end release-device callback test.
+- Backend API and Drive now use distinct bounded timeout profiles. Diagnostics in the hardened paths omit response text, tokens, and throwable stack traces.

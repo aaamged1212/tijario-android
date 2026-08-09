@@ -48,7 +48,7 @@ class AuthViewModel(
                     runCatching { repository.syncCurrentProfileFullNameFromMetadata() }
                         .onFailure {
                             if (BuildConfig.DEBUG) {
-                                android.util.Log.w("AuthViewModel", "Profile name sync skipped", it)
+                                android.util.Log.w("AuthViewModel", "operation=profile_name_sync result=skipped error=${it.javaClass.simpleName}")
                             }
                         }
                     val isEmailVerified = session.user?.emailConfirmedAt != null
@@ -106,7 +106,7 @@ class AuthViewModel(
                 }
                 is io.github.jan.supabase.compose.auth.composable.NativeSignInResult.Error -> {
                     if (app.tijario.BuildConfig.DEBUG) {
-                        android.util.Log.d("AuthViewModel", "Google Sign-In Error: ${result.message}")
+                        android.util.Log.d("AuthViewModel", "operation=google_sign_in result=error")
                     }
                     _authState.value = CentralAuthState.Error(
                         Localization.getString("google_login_error", AppRuntimeState.currentLanguage)
@@ -148,7 +148,7 @@ class AuthViewModel(
                     runCatching { repository.syncCurrentProfileFullNameFromMetadata() }
                         .onFailure {
                             if (BuildConfig.DEBUG) {
-                                android.util.Log.w("AuthViewModel", "Profile name sync skipped after verification", it)
+                                android.util.Log.w("AuthViewModel", "operation=profile_name_sync_after_verification result=skipped error=${it.javaClass.simpleName}")
                             }
                         }
                     val hasSettings = userId?.let { resolveBusinessSettingsPresence(it).getOrThrow() } ?: false

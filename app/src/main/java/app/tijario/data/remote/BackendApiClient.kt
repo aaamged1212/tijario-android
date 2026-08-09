@@ -243,7 +243,7 @@ class BackendApiClient(
             if (BuildConfig.DEBUG) {
                 Log.d(
                     "TijarioApi",
-                    "path=$path status=$statusCode ok=${fallback.ok} code=${fallback.code} message=${fallback.message} documentIdExists=false",
+                    "path=$path status=$statusCode ok=${fallback.ok} code=${fallback.code} documentIdExists=false",
                 )
             }
             return fallback
@@ -253,7 +253,7 @@ class BackendApiClient(
             val documentIdExists = (result.data as? CreateDocumentResponse)?.documentId?.isNotBlank() == true
             Log.d(
                 "TijarioApi",
-                "path=$path status=$statusCode ok=${result.ok} code=${result.code} message=${result.message} documentIdExists=$documentIdExists",
+                "path=$path status=$statusCode ok=${result.ok} code=${result.code} documentIdExists=$documentIdExists",
             )
         }
 
@@ -433,12 +433,34 @@ private val apiJson = Json {
 }
 
 @OptIn(ExperimentalSerializationApi::class)
-fun defaultHttpClient(): HttpClient =
+fun defaultHttpClient(): HttpClient = createHttpClient(NetworkTimeoutProfile.Api)
+
+internal fun defaultDriveHttpClient(): HttpClient = createHttpClient(NetworkTimeoutProfile.DriveTransfer)
+
+internal enum class NetworkTimeoutProfile(
+    val requestTimeoutMillis: Long,
+    val connectTimeoutMillis: Long,
+    val socketTimeoutMillis: Long,
+) {
+    Api(
+        requestTimeoutMillis = 45_000,
+        connectTimeoutMillis = 15_000,
+        socketTimeoutMillis = 45_000,
+    ),
+    DriveTransfer(
+        requestTimeoutMillis = 5 * 60_000,
+        connectTimeoutMillis = 30_000,
+        socketTimeoutMillis = 5 * 60_000,
+    ),
+}
+
+@OptIn(ExperimentalSerializationApi::class)
+private fun createHttpClient(timeoutProfile: NetworkTimeoutProfile): HttpClient =
     HttpClient(Android) {
         install(HttpTimeout) {
-            requestTimeoutMillis = 45_000
-            connectTimeoutMillis = 15_000
-            socketTimeoutMillis = 45_000
+            requestTimeoutMillis = timeoutProfile.requestTimeoutMillis
+            connectTimeoutMillis = timeoutProfile.connectTimeoutMillis
+            socketTimeoutMillis = timeoutProfile.socketTimeoutMillis
         }
         install(ContentNegotiation) {
             json(apiJson)

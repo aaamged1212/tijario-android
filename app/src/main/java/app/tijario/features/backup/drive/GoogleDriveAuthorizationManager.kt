@@ -1,5 +1,6 @@
 package app.tijario.features.backup.drive
 
+import app.tijario.BuildConfig
 import android.content.Context
 import android.content.Intent
 import android.content.IntentSender
@@ -155,5 +156,7 @@ private fun logAuthorizationFailure(operation: String, error: Exception) {
     val status = (error as? ApiException)?.statusCode
         ?.let(CommonStatusCodes::getStatusCodeString)
         ?: "identity"
-    Log.w("TijarioDrive", "operation=$operation status=$status reason=${error.javaClass.simpleName} accountIdResolved=false")
+    if (BuildConfig.DEBUG) {
+        Log.w("TijarioDrive", "operation=$operation status=$status reason=${error.javaClass.simpleName} accountIdResolved=false")
+    }
 }

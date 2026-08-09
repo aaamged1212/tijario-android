@@ -108,3 +108,6 @@
 - **Validation**: `testDebugUnitTest --tests app.tijario.config.AuthDeepLinkPolicyTest` passed.
 - **Pending**: Verify the hosted asset-links certificate relationship and run the password-reset/OAuth App Link flows on a release-signed device.
 - **Safety**: No hardening commit/push, deployment, migration, Production write, external configuration change, or Play upload has occurred. `.agents` remains local and excluded.
+
+- **Follow-up**: Backend API and Drive transfer timeout profiles are separated, and hardened debug diagnostics omit raw response text and stack traces.
+- **Validation**: `NetworkTimeoutProfileTest` and `KtorDriveRestTransportContractTest` passed; no external operation occurred.

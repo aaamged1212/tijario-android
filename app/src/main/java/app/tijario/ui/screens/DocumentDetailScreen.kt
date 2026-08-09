@@ -215,7 +215,9 @@ fun DocumentDetailScreen(
                                 exportManager.saveToDownloads(renderModel)
                                 Toast.makeText(context, Localization.getString("export_saved_downloads", language), Toast.LENGTH_LONG).show()
                             } catch (e: Exception) {
-                                android.util.Log.e("TijarioExport", "Error saving document PDF", e)
+                                if (app.tijario.BuildConfig.DEBUG) {
+                                    android.util.Log.e("TijarioExport", "operation=save_pdf result=failed error=${e.javaClass.simpleName}")
+                                }
                                 Toast.makeText(context, Localization.getString("export_download_failed", language), Toast.LENGTH_LONG).show()
                             } finally {
                                 isBusy = false
@@ -368,7 +370,9 @@ fun DocumentDetailScreen(
                                     } catch (_: ActivityNotFoundException) {
                                         Toast.makeText(context, Localization.getString("export_no_app_found", language), Toast.LENGTH_LONG).show()
                                     } catch (e: Exception) {
-                                        android.util.Log.e("TijarioExport", "Error executing export action: ${action.name}", e)
+                                        if (app.tijario.BuildConfig.DEBUG) {
+                                            android.util.Log.e("TijarioExport", "operation=export result=failed action=${action.name} error=${e.javaClass.simpleName}")
+                                        }
                                         val message = if (action == DocumentExportAction.SaveToDevice) {
                                             Localization.getString("export_download_failed", language)
                                         } else {
