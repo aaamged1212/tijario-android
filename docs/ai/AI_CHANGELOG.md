@@ -519,3 +519,7 @@
 
 # 2026-08-09 - Modern Android back-navigation compatibility
 - The manifest explicitly enables `OnBackInvokedCallback` on Android 13+ while retaining the existing Compose `BackHandler` behavior. This removes the platform warning without changing navigation routes.
+
+# 2026-08-09 - Minimum-SDK-safe auth callback decoding
+- Auth callback query decoding now uses the `URLDecoder` overload available from the app's minimum API 26 rather than the API-33-only charset overload.
+- The manifest marks the Android 13 back-callback attribute at its intended API level for lint. Full `lintDebug` passes with no errors.

@@ -126,3 +126,5 @@
 - **Follow-up**: Document-preview accessibility labels now resolve in Arabic and English. `UiRecoveryLocalizationTests` passed; no external operation occurred.
 
 - **Follow-up**: Android 13+ back-callback compatibility is explicitly enabled in the manifest. `AuthDeepLinkPolicyTest` passed; no external operation occurred.
+
+- **Follow-up**: Auth callback decoding now uses a minSdk-26-compatible UTF-8 overload; `AuthDeepLinkPolicyTest` and full `lintDebug` passed. No external operation occurred.

@@ -145,3 +145,4 @@
 - The application root now observes only a distinct shell projection instead of full lists and transient cache details, reducing unrelated recomposition pressure without changing screen-level data observation.
 - Document-preview expand/close accessibility labels now resolve through Arabic/English localization instead of an Arabic-only literal.
 - The app manifest explicitly enables Android's modern back callback while preserving existing Compose back handling.
+- Auth callback decoding now remains compatible with minSdk 26, and `lintDebug` passes without errors after the full hardening changes.

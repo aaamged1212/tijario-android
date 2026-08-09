@@ -2,7 +2,6 @@ package app.tijario.config
 
 import java.net.URI
 import java.net.URLDecoder
-import java.nio.charset.StandardCharsets
 
 internal object AuthDeepLinkPolicy {
     private const val DEFAULT_TARGET = "/login"
@@ -29,7 +28,7 @@ internal object AuthDeepLinkPolicy {
         ?.split('&')
         ?.firstOrNull { it.substringBefore('=') == "next" }
         ?.substringAfter('=', missingDelimiterValue = "")
-        ?.let { encoded -> runCatching { URLDecoder.decode(encoded, StandardCharsets.UTF_8) }.getOrNull() }
+        ?.let { encoded -> runCatching { URLDecoder.decode(encoded, "UTF-8") }.getOrNull() }
         ?.takeIf { it.isNotBlank() }
 
     private fun isSafeInAppPath(value: String): Boolean {

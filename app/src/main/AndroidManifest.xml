@@ -21,6 +21,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Tijario.Splash"
         android:enableOnBackInvokedCallback="true"
+        tools:targetApi="33"
         android:usesCleartextTraffic="false">
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"

@@ -782,3 +782,9 @@
 - **Behavior**: Existing Compose back handling remains in place; Android 13+ can invoke the platform back callback without the prior compatibility warning.
 - **Validation**: `AuthDeepLinkPolicyTest` passed and processed the Debug manifest.
 - **Safety Status**: No route, API, deployment, migration, production write, Play upload, or external configuration changed.
+
+## 2026-08-09 (Minimum-SDK-safe auth callback decoding, local)
+- **Cause**: `lintDebug` found that the charset overload of `URLDecoder.decode` requires API 33 while the app supports API 26.
+- **Change**: Callback decoding now uses the compatible UTF-8 name overload. The manifest's API-33 back-callback attribute is explicitly scoped for lint.
+- **Validation**: `AuthDeepLinkPolicyTest` and full `lintDebug` passed with no errors.
+- **Safety Status**: No authentication policy, route, backend contract, deployment, migration, production write, Play upload, or external configuration changed.

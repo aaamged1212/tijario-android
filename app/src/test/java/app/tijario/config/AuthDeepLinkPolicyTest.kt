@@ -9,6 +9,10 @@ class AuthDeepLinkPolicyTest {
     @Test
     fun acceptsOnlyKnownCallbackOriginsAndInternalTargets() {
         assertEquals("/app/dashboard", AuthDeepLinkPolicy.resolveTarget("tijario://auth/callback?next=/app/dashboard"))
+        assertEquals(
+            "/app/documents?type=quote",
+            AuthDeepLinkPolicy.resolveTarget("tijario://auth/callback?next=%2Fapp%2Fdocuments%3Ftype%3Dquote"),
+        )
         assertEquals("/login", AuthDeepLinkPolicy.resolveTarget("com.tijario.app://auth/callback"))
         assertEquals("/login", AuthDeepLinkPolicy.resolveTarget("https://tijario.site/auth/callback?next=//example.invalid"))
         assertEquals("/login", AuthDeepLinkPolicy.resolveTarget("https://www.tijario.site/auth/callback?next=%2Flogin"))
