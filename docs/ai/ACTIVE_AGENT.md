@@ -116,3 +116,5 @@
 - **Validation**: Full `DocumentEngineTests` passed; no external operation occurred.
 
 - **Billing audit**: Server verification remains authoritative before Google Play acknowledgement; focused regression coverage passed with no billing or external change.
+
+- **Follow-up**: Repository refresh errors now use the centralized localized mapper; focused Arabic/English error tests passed with no external operation.

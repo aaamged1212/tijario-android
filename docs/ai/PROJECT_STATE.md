@@ -140,3 +140,4 @@
 - The remaining release gate for App Links is external verification of the live `assetlinks.json` certificate relationship and an end-to-end release-device callback test.
 - Backend API and Drive now use distinct bounded timeout profiles. Diagnostics in the hardened paths omit response text, tokens, and throwable stack traces.
 - Document HTML now constrains payment-status classes and embedded image data; draft preview calculations preserve decimal input as `BigDecimal` until a compatibility boundary.
+- Cache refresh failures now publish only localized safe messages. Backend error codes remain mapped specifically; raw technical text is not user-visible.

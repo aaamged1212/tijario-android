@@ -8,6 +8,8 @@ import app.tijario.features.backup.BackupKeyException
 import app.tijario.features.backup.DeviceBackupKeyStore
 import androidx.room.withTransaction
 import app.tijario.config.AppPreferences
+import app.tijario.config.AppLanguage
+import app.tijario.config.AppRuntimeState
 import app.tijario.data.local.TijarioDatabase
 import app.tijario.data.local.toEntity
 import app.tijario.data.local.toModel
@@ -21,6 +23,7 @@ import app.tijario.domain.DocumentNumbering
 import app.tijario.domain.DocumentCalculator
 import app.tijario.domain.EntitlementVerifier
 import app.tijario.domain.ProductionEntitlementKeyRegistry
+import app.tijario.domain.LocalizedErrorMapper
 import app.tijario.data.remote.ApiResult
 import app.tijario.data.remote.NextNumberResponse
 import app.tijario.data.remote.BackendApiClient
@@ -89,6 +92,9 @@ internal fun localDocumentFailureCode(error: Throwable): String = when (error.me
     "QUOTA_LIMIT_EXCEEDED" -> "DOCUMENT_LIMIT_REACHED"
     else -> "LOCAL_DOCUMENT_SAVE_FAILED"
 }
+
+internal fun localizedRefreshError(error: Throwable, language: AppLanguage): String =
+    LocalizedErrorMapper.map(code = error.message, message = error.message, language = language)
 
 open class TijarioRepository(
     protected val context: Context,
@@ -588,7 +594,7 @@ open class TijarioRepository(
                 SyncScheduler(context).triggerSync(userId)
             }
         }.onFailure { error ->
-            setRefreshing(false, error.message ?: "تعذر تحديث البيانات الآن.")
+            setRefreshing(false, localizedRefreshError(error, AppRuntimeState.currentLanguage))
         }
 
     suspend fun refreshBusinessSettings(force: Boolean = true): Result<Unit> =
@@ -613,7 +619,7 @@ open class TijarioRepository(
             }
             syncStateMutable.value = CacheSyncState(isRefreshing = false, lastSyncedAt = syncedAt)
         }.onFailure { error ->
-            setRefreshing(false, error.message ?: "تعذر تحديث إعدادات المتجر الآن.")
+            setRefreshing(false, localizedRefreshError(error, AppRuntimeState.currentLanguage))
         }
 
     suspend fun refreshCustomers(): Result<Unit> =
@@ -630,7 +636,7 @@ open class TijarioRepository(
             }
             syncStateMutable.value = CacheSyncState(isRefreshing = false, lastSyncedAt = syncedAt)
         }.onFailure { error ->
-            setRefreshing(false, error.message ?: "تعذر تحديث العملاء الآن.")
+            setRefreshing(false, localizedRefreshError(error, AppRuntimeState.currentLanguage))
         }
 
     suspend fun refreshProducts(): Result<Unit> =
@@ -647,7 +653,7 @@ open class TijarioRepository(
             }
             syncStateMutable.value = CacheSyncState(isRefreshing = false, lastSyncedAt = syncedAt)
         }.onFailure { error ->
-            setRefreshing(false, error.message ?: "تعذر تحديث المنتجات الآن.")
+            setRefreshing(false, localizedRefreshError(error, AppRuntimeState.currentLanguage))
         }
 
     suspend fun refreshDocuments(): Result<Unit> =
@@ -664,7 +670,7 @@ open class TijarioRepository(
             }
             syncStateMutable.value = CacheSyncState(isRefreshing = false, lastSyncedAt = syncedAt)
         }.onFailure { error ->
-            setRefreshing(false, error.message ?: "تعذر تحديث المستندات الآن.")
+            setRefreshing(false, localizedRefreshError(error, AppRuntimeState.currentLanguage))
         }
 
     // Local Customer CRUD

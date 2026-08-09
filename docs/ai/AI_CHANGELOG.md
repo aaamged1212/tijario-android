@@ -501,3 +501,7 @@
 # 2026-08-09 - Billing authority regression guard
 - Added coverage verifying that Google Play purchase acknowledgement occurs only after the backend verification response succeeds and before a verified purchase event is emitted.
 - The same guard asserts the Android billing repository contains no logging call or token-bearing diagnostic. No billing behavior or external configuration changed.
+
+# 2026-08-09 - Safe refresh-error localization
+- Repository refresh failures no longer place raw exception messages into the UI state. Known backend codes remain mapped through `LocalizedErrorMapper`; unknown text becomes the localized safe fallback.
+- Added Arabic and English regression coverage for unknown technical text and `DOCUMENT_LIMIT_REACHED`.

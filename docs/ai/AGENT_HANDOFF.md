@@ -752,3 +752,9 @@
 - **Result**: Google Play's local purchase state remains non-authoritative. Backend verification precedes acknowledgement, and the verified event is emitted only after that path.
 - **Guard**: `BillingFoundationTests` now protects this ordering and asserts the Play repository does not log purchase tokens.
 - **Safety Status**: No billing behavior, backend contract, deployment, migration, Play upload, or external configuration changed.
+
+## 2026-08-09 (Refresh-error localization, local)
+- **Change**: All repository refresh paths now use the centralized mapper rather than publishing raw exception messages through `CacheSyncState`.
+- **Behavior**: Error-code-like messages are treated as codes first; known values retain their specific translation, while unknown technical text becomes the generic localized fallback.
+- **Validation**: `RefreshErrorLocalizationTest` and `LocalizedErrorMapperTests` passed.
+- **Safety Status**: No API contract, deployment, migration, production write, Play upload, or external configuration change occurred.
