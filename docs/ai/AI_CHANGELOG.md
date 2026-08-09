@@ -527,3 +527,7 @@
 # 2026-08-09 - Full Android hardening validation
 - The full hardening branch completed JVM, lint, Debug/Release/AndroidTest/PlayQa assembly, and release bundle validation on top of reconciled Android `main` source version `1.1.9` / code `19`.
 - No device or emulator was connected, so physical document, backup/Drive, and App Link verification remain explicit release gates. No external system or Production configuration changed.
+
+# 2026-08-09 - CI package verification reliability
+- Android CI now isolates lint, Debug packaging, and Release packaging into sequential non-parallel Gradle invocations and records stack traces on failure. This addresses a transient, non-diagnostic Debug packaging failure without changing application source.
+- Checkout and Java setup actions use supported current major versions. Remote workflow verification remains required for this CI-only adjustment.

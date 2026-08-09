@@ -801,3 +801,9 @@
 - **Published**: `fix/android-full-hardening` is available on `origin` at `f6c32b4` and remains unmerged from `main`.
 - **Remote validation**: GitHub Actions Source Audit Scan and Android CI run `31327114193` both completed successfully. Android CI passed its compile/unit-test and lint/release-assembly jobs.
 - **Safety Status**: No deployment, migration, Production write, external configuration change, or Google Play upload occurred.
+
+## 2026-08-09 (CI package verification reliability, local)
+- **Cause**: A documentation-only push reproduced a non-diagnostic `:app:packageDebug` failure in the combined lint/Debug/Release Gradle invocation. Compile/unit tests still passed and the same application source had passed the preceding full CI run.
+- **Correction**: Android CI now runs lint, Debug assembly, and Release assembly as separate non-parallel Gradle invocations with stack traces. Checkout and Java setup use supported action major versions.
+- **Validation status**: Local Gradle gates remain successful for the unchanged application source. The remote CI run for this workflow-only correction is required before treating the branch as green.
+- **Safety Status**: No deployment, migration, Production write, external configuration change, or Google Play upload occurred.
