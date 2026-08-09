@@ -26,9 +26,13 @@ import app.tijario.config.Localization
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -47,6 +51,20 @@ data class TijarioDataUiState(
     val hasCachedData: Boolean
         get() = businessSettings != null || customers.isNotEmpty() || products.isNotEmpty() || documents.isNotEmpty()
 }
+
+/** State consumed by the app root; list content belongs to individual screens. */
+data class AppShellDataState(
+    val userId: String? = null,
+    val isInitialLoading: Boolean = false,
+    val hasCachedData: Boolean = false,
+)
+
+internal fun TijarioDataUiState.toAppShellDataState(): AppShellDataState =
+    AppShellDataState(
+        userId = userId,
+        isInitialLoading = isInitialLoading,
+        hasCachedData = hasCachedData,
+    )
 
 sealed interface PlanUsageState {
     data object Idle : PlanUsageState
@@ -80,6 +98,14 @@ class TijarioDataViewModel(
     private var refreshJob: Job? = null
 
     val uiState: StateFlow<TijarioDataUiState> = uiStateMutable.asStateFlow()
+    val appShellState: StateFlow<AppShellDataState> = uiState
+        .map(TijarioDataUiState::toAppShellDataState)
+        .distinctUntilChanged()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(stopTimeoutMillis = 5_000),
+            initialValue = TijarioDataUiState().toAppShellDataState(),
+        )
     val planUsageState: StateFlow<PlanUsageState> = planUsageStateMutable.asStateFlow()
     val accountInitializationState: StateFlow<AccountInitializationState> = accountInitializationStateMutable.asStateFlow()
 

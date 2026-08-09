@@ -171,7 +171,7 @@ private fun TijarioAppContent() {
     )
 
     val authState by authViewModel.authState.collectAsStateWithLifecycle()
-    val dataUiState by dataViewModel.uiState.collectAsStateWithLifecycle()
+    val appShellState by dataViewModel.appShellState.collectAsStateWithLifecycle()
     val notificationsState by notificationsViewModel.state.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     var accountDeletionRecovery by remember {
@@ -180,8 +180,8 @@ private fun TijarioAppContent() {
     val showStartupSplash =
         authState is CentralAuthState.Initializing ||
             (authState is CentralAuthState.AuthenticatedReady &&
-                dataUiState.isInitialLoading &&
-                !dataUiState.hasCachedData)
+                appShellState.isInitialLoading &&
+                !appShellState.hasCachedData)
 
     // Shared states for selection
     var activeSelectedCustomer by remember { mutableStateOf<app.tijario.data.model.Customer?>(null) }
@@ -382,11 +382,11 @@ private fun TijarioAppContent() {
                 mutableStateOf(!AppPreferences.wasNotificationExplained(context))
             }
 
-            LaunchedEffect(dataUiState.userId) {
-                dataUiState.userId?.let { notificationsViewModel.start(it) }
+            LaunchedEffect(appShellState.userId) {
+                appShellState.userId?.let { notificationsViewModel.start(it) }
             }
 
-            LaunchedEffect(dataUiState.userId, AppRuntimeState.currentLanguage) {
+            LaunchedEffect(appShellState.userId, AppRuntimeState.currentLanguage) {
                 notificationsViewModel.syncTopic(AppRuntimeState.currentLanguage)
             }
 

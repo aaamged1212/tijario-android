@@ -142,3 +142,4 @@
 - Document HTML now constrains payment-status classes and embedded image data; draft preview calculations preserve decimal input as `BigDecimal` until a compatibility boundary.
 - Cache refresh failures now publish only localized safe messages. Backend error codes remain mapped specifically; raw technical text is not user-visible.
 - Analytics now accepts only typed central events and no free-form Bundle payload. Existing event wire names remain unchanged and carry no user-generated content.
+- The application root now observes only a distinct shell projection instead of full lists and transient cache details, reducing unrelated recomposition pressure without changing screen-level data observation.

@@ -764,3 +764,9 @@
 - **Behavior**: Existing operational events remain unchanged; callers cannot attach customer, document, purchase, or other free-form content through this API.
 - **Validation**: `TijarioAnalyticsEventTest` passed.
 - **Safety Status**: No analytics provider configuration, backend contract, deployment, migration, production write, Play upload, or external configuration changed.
+
+## 2026-08-09 (App-root state isolation, local)
+- **Change**: `TijarioApp` now observes a dedicated `AppShellDataState` rather than the complete cache state. It contains only `userId`, initial-loading, and cached-data signals.
+- **Behavior**: Routing, startup splash, and notification start behavior remain unchanged. Customer, product, document, plan, and transient sync-detail updates no longer invalidate the app root when the shell signals are unchanged.
+- **Validation**: `AppShellDataStateTest` passed.
+- **Safety Status**: No API, sync, lifecycle, deployment, migration, production write, Play upload, or external configuration changed.
