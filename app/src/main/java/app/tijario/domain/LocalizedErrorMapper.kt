@@ -36,6 +36,8 @@ object LocalizedErrorMapper {
         "document_items_invalid" to "doc_error_invalid_input",
         "document_template_invalid" to "doc_error_template_not_allowed",
         "document_number_collision" to "doc_error_save_failed",
+        "DOCUMENT_NUMBER_INVALID" to "doc_error_number_invalid",
+        "DOCUMENT_NUMBER_DUPLICATE" to "doc_error_number_duplicate",
         "document_create_failed" to "doc_error_save_failed",
         "document_update_failed" to "doc_error_update_failed",
         "out_of_stock" to "out_of_stock",

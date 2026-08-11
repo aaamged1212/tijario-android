@@ -652,6 +652,8 @@ object Localization {
         "error_invalid_flow_state" to mapOf(AppLanguage.AR to "رمز التحقق غير صحيح أو انتهت صلاحيته.", AppLanguage.EN to "Verification code is invalid or expired."),
         "error_limit_exceeded" to mapOf(AppLanguage.AR to "لقد تجاوزت الحد الشهري المسموح به للعمليات.", AppLanguage.EN to "You have exceeded the monthly limit for operations."),
         "doc_error_invalid_input" to mapOf(AppLanguage.AR to "أدخل بيانات المستند بشكل صحيح.", AppLanguage.EN to "Enter the document details correctly."),
+        "doc_error_number_invalid" to mapOf(AppLanguage.AR to "رقم المستند غير صالح. تحقق من الرقم وحاول مرة أخرى.", AppLanguage.EN to "The document number is invalid. Check the number and try again."),
+        "doc_error_number_duplicate" to mapOf(AppLanguage.AR to "رقم المستند مستخدم مسبقاً. اختر رقماً آخر.", AppLanguage.EN to "This document number is already in use. Choose another number."),
         "doc_error_plan_required" to mapOf(AppLanguage.AR to "تعذر التحقق من حدود الخطة الحالية.", AppLanguage.EN to "Could not verify your current plan."),
         "doc_error_template_not_allowed" to mapOf(AppLanguage.AR to "هذا القالب غير متاح في خطتك الحالية.", AppLanguage.EN to "This template is not available on your current plan."),
         "doc_error_customer_load_failed" to mapOf(AppLanguage.AR to "تعذر تحميل بيانات العملاء.", AppLanguage.EN to "Could not load customers."),

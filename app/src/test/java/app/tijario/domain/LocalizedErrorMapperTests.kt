@@ -51,6 +51,17 @@ class LocalizedErrorMapperTests {
     }
 
     @Test
+    fun documentNumberValidationCodesUseLocalizedMessages() {
+        val invalidArabic = LocalizedErrorMapper.map("DOCUMENT_NUMBER_INVALID", null, AppLanguage.AR)
+        val duplicateArabic = LocalizedErrorMapper.map("DOCUMENT_NUMBER_DUPLICATE", null, AppLanguage.AR)
+
+        assertEquals("The document number is invalid. Check the number and try again.", LocalizedErrorMapper.map("DOCUMENT_NUMBER_INVALID", null, AppLanguage.EN))
+        assertEquals("This document number is already in use. Choose another number.", LocalizedErrorMapper.map("DOCUMENT_NUMBER_DUPLICATE", null, AppLanguage.EN))
+        assertFalse(invalidArabic.contains("DOCUMENT_NUMBER_INVALID"))
+        assertFalse(duplicateArabic.contains("DOCUMENT_NUMBER_DUPLICATE"))
+    }
+
+    @Test
     fun newDocumentSyncCodesResolveToLocalizedStrings() {
         assertEquals(
             "تعذر تحميل بنود المستند. حاول المزامنة مرة أخرى.",
