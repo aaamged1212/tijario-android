@@ -6,6 +6,7 @@
 - **Compatibility gate**: The matching Web/API contract is on `fix/mobile-runtime-critical-backend`; Android must not be published ahead of that compatible API deployment and its unapplied document-number migration.
 - **Validation**: Focused snapshot tests, full JVM tests, `lintDebug`, `lintRelease`, Debug/Release/AndroidTest/PlayQa assembly, and `bundleRelease` passed locally. No device or emulator was connected for physical AI verification.
 - **Safety**: No production write, migration application, deployment, Play upload, external configuration change, commit, or push occurred during this local validation step.
+- **Publication**: Committed and pushed as `08b0d85cf38202a03585b70490b4e0d21dbd8f01`. No merge, deployment, migration application, or Play upload occurred.
 
 ## 2026-08-09 (Analytics taxonomy correction, local)
 - **Branch**: `fix/android-full-hardening`.

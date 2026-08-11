@@ -4,6 +4,7 @@
 - Android on `fix/android-runtime-critical-fixes` now submits the selected local customer/product IDs with a bounded context snapshot rather than converting the selection to unstructured prompt text. The snapshot contains no contact fields, entitlement information, or secrets.
 - The compatible Web/API work and document-number preservation migration are isolated on `fix/mobile-runtime-critical-backend`. The Android change is not production-ready independently: apply the migration and deploy the compatible API before releasing an Android build that relies on this contract.
 - Local validation passed: focused snapshot tests, full JVM tests, `lintDebug`, `lintRelease`, Debug/Release/AndroidTest/PlayQa assembly, and `bundleRelease`. Physical device AI validation remains pending because no device/emulator was connected.
+- The branch is published at `08b0d85cf38202a03585b70490b4e0d21dbd8f01`, unmerged and without a Play upload.
 
 ## 2026-08-09 - Analytics taxonomy corrected
 - Analytics event names are centralized and typed. AI caption generation is distinct from AI reply generation; operational event calls carry no sensitive content.

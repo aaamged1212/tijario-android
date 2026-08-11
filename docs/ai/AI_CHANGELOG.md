@@ -4,6 +4,7 @@
 - AI reply and caption requests now carry the selected entity IDs together with a strict, bounded local context snapshot. Local customer/product selection can therefore survive a cloud-cache miss once the matching API is deployed.
 - The Android snapshot sends only business name/country/currency, customer name/city, and product name/description/price/currency/stock. It excludes contact data, plan/quota information, tokens, and local identifiers beyond the selected request IDs.
 - Added localized mappings for `provider_timeout` and `invalid_context_snapshot`. No provider, backend, or production configuration was changed from Android.
+- Published this local source change on `fix/android-runtime-critical-fixes` at `08b0d85cf38202a03585b70490b4e0d21dbd8f01`; physical-device AI QA remains pending.
 
 ## 2026-08-09 - Analytics event taxonomy correction
 - Added centralized typed analytics event names for customer, product, invoice, quote, AI reply, AI caption, and subscription start.

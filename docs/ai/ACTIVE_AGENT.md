@@ -3,6 +3,7 @@
 - **Current task**: Runtime-critical AI context and document-number parity on `fix/android-runtime-critical-fixes`.
 - **State**: Android now sends a bounded, non-sensitive local context snapshot with selected customer/product IDs. The compatible Web/API work is isolated on `fix/mobile-runtime-critical-backend`; do not release this Android branch until that API and its pending migration are applied and deployed together.
 - **Validation**: Focused AI contract tests, full JVM tests, both lint variants, Debug/Release/AndroidTest/PlayQa assembly, and `bundleRelease` passed locally. No ADB device/emulator was connected.
+- **Publication**: Branch was committed and pushed as `08b0d85cf38202a03585b70490b4e0d21dbd8f01`; it remains unmerged and has no Play upload.
 
 - **Current task**: Analytics taxonomy correction on `fix/android-full-hardening`.
 - **State**: Analytics events are typed; AI caption and AI reply success have distinct event names, with no user or generated content attached.
