@@ -99,7 +99,11 @@ import app.tijario.ui.components.buildLogoUploadRequest
 import app.tijario.ui.components.clearBusinessLogoCache
 import app.tijario.ui.components.loadStoreLogoBitmap
 import app.tijario.domain.DocumentCalculator
+import app.tijario.domain.DocumentNumbering
+import app.tijario.domain.CreationTarget
 import app.tijario.domain.Validation
+import app.tijario.domain.creationTargetForErrorCode
+import app.tijario.domain.limitErrorCode
 import app.tijario.domain.splitPhoneNumber
 import app.tijario.data.model.DocumentType
 import app.tijario.data.model.DocumentSummary
@@ -157,6 +161,35 @@ private fun formatLocalMoney(value: java.math.BigDecimal, currency: String): Str
 private fun selectedLinesCount(value: String): Int =
     value.split('\n').map { it.trim() }.filter { it.isNotEmpty() }.size
 
+/** Keeps a save-time quota race from degrading into a generic form error. */
+@Composable
+private fun CreationLimitDialog(
+    target: CreationTarget,
+    language: AppLanguage,
+    onDismiss: () -> Unit,
+    onUpgrade: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(Localization.getString("limit_reached_title", language)) },
+        text = {
+            Text(
+                LocalizedErrorMapper.map(target.limitErrorCode(), null, language),
+            )
+        },
+        confirmButton = {
+            Button(onClick = onUpgrade) {
+                Text(Localization.getString("upgrade_plan", language))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(Localization.getString("btn_cancel", language))
+            }
+        },
+    )
+}
+
 @Composable
 private fun DocumentOptionRow(
     icon: ImageVector,
@@ -211,29 +244,22 @@ private val QuantityKeyboardOptions = KeyboardOptions(
 private fun todayDocumentDate(): String = LocalDate.now().toString()
 
 internal fun documentNumberPrefix(type: DocumentType): String =
-    if (type == DocumentType.Invoice) "INV-" else "Q-"
+    DocumentNumbering.canonicalPrefix(type)
 
 internal fun documentNumberEditablePart(number: String, type: DocumentType): String =
-    number.removePrefix(documentNumberPrefix(type)).substringAfter("-", number.removePrefix(documentNumberPrefix(type)))
+    DocumentNumbering.editableDigits(number, type)
 
 internal fun displayDraftDocumentNumber(number: String, type: DocumentType): String =
     number.ifBlank { documentNumberPrefix(type) + "..." }
 
 internal fun nextLocalDocumentNumber(documents: List<DocumentSummary>, type: DocumentType): String {
-    val prefix = documentNumberPrefix(type)
-    val nextNumber = documents.asSequence()
-        .filter { it.type == type }
-        .mapNotNull { document ->
-            Regex("""(\d+)$""")
-                .find(document.documentNumber)
-                ?.groupValues
-                ?.getOrNull(1)
-                ?.toIntOrNull()
-        }
-        .maxOrNull()
-        ?.plus(1)
-        ?: 1
-    return prefix + nextNumber.toString().padStart(5, '0')
+    return DocumentNumbering.nextDocumentNumber(
+        documents.asSequence()
+            .filter { it.type == type }
+            .map(DocumentSummary::documentNumber)
+            .asIterable(),
+        type,
+    )
 }
 
 internal fun isDocumentIdentityEditable(isEditMode: Boolean): Boolean = !isEditMode
@@ -425,6 +451,7 @@ fun CustomerFormScreen(
     dataViewModel: TijarioDataViewModel,
     customerId: String? = null,
     onBack: () -> Unit,
+    onUpgrade: () -> Unit = {},
 ) {
     val language = LocalLanguage.current
     val uiState by dataViewModel.uiState.collectAsStateWithLifecycle()
@@ -434,6 +461,7 @@ fun CustomerFormScreen(
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var deleteErrorMsg by remember { mutableStateOf<String?>(null) }
     var isDeletingCustomer by remember { mutableStateOf(false) }
+    var limitReachedTarget by remember { mutableStateOf<CreationTarget?>(null) }
     val scope = rememberCoroutineScope()
     val isEditMode = customerId != null
     val defaultCustomerDialCode = remember(uiState.businessSettings?.whatsappNumber, uiState.businessSettings?.country, language) {
@@ -548,8 +576,13 @@ fun CustomerFormScreen(
                                     if (result.isSuccess) {
                                         onBack()
                                     } else {
-                                        errorMessage = LocalizedErrorMapper.map(null, result.exceptionOrNull()?.message, language)
-                                            ?: Localization.getString("save_customer_error", language)
+                                        val target = creationTargetForErrorCode(result.exceptionOrNull()?.message)
+                                        if (!isEditMode && target != null) {
+                                            limitReachedTarget = target
+                                        } else {
+                                            errorMessage = LocalizedErrorMapper.map(null, result.exceptionOrNull()?.message, language)
+                                                ?: Localization.getString("save_customer_error", language)
+                                        }
                                     }
                                 } catch (e: Exception) {
                                     errorMessage = Localization.getString("save_customer_error", language)
@@ -582,6 +615,18 @@ fun CustomerFormScreen(
                 }
             }
         }
+    }
+
+    limitReachedTarget?.let { target ->
+        CreationLimitDialog(
+            target = target,
+            language = language,
+            onDismiss = { limitReachedTarget = null },
+            onUpgrade = {
+                limitReachedTarget = null
+                onUpgrade()
+            },
+        )
     }
 
     if (showDeleteConfirm) {
@@ -761,13 +806,23 @@ fun ProductFormScreen(
     dataViewModel: TijarioDataViewModel,
     productId: String? = null,
     onBack: () -> Unit,
+    onUpgrade: () -> Unit = {},
 ) {
     val language = LocalLanguage.current
+    val uiState by dataViewModel.uiState.collectAsStateWithLifecycle()
     var form by remember(language) { mutableStateOf(app.tijario.ui.state.ProductFormState(lang = language)) }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    var limitReachedTarget by remember { mutableStateOf<CreationTarget?>(null) }
     val scope = rememberCoroutineScope()
     val isEditMode = productId != null
+
+    LaunchedEffect(isEditMode, uiState.businessSettings?.currency) {
+        val businessCurrency = uiState.businessSettings?.currency?.takeIf { it.isNotBlank() }
+        if (!isEditMode && businessCurrency != null) {
+            form = form.copy(currency = businessCurrency)
+        }
+    }
 
     val context = LocalContext.current
     var selectedImageUri by remember { mutableStateOf<android.net.Uri?>(null) }
@@ -1050,8 +1105,13 @@ fun ProductFormScreen(
                                         }
                                         onBack()
                                     } else {
-                                        errorMessage = LocalizedErrorMapper.map(null, result.exceptionOrNull()?.message, language)
-                                            ?: Localization.getString("save_product_error", language)
+                                        val target = creationTargetForErrorCode(result.exceptionOrNull()?.message)
+                                        if (!isEditMode && target != null) {
+                                            limitReachedTarget = target
+                                        } else {
+                                            errorMessage = LocalizedErrorMapper.map(null, result.exceptionOrNull()?.message, language)
+                                                ?: Localization.getString("save_product_error", language)
+                                        }
                                     }
                                 } catch (e: Exception) {
                                     errorMessage = Localization.getString("save_product_error", language)
@@ -1070,6 +1130,18 @@ fun ProductFormScreen(
                 }
             }
         }
+    }
+
+    limitReachedTarget?.let { target ->
+        CreationLimitDialog(
+            target = target,
+            language = language,
+            onDismiss = { limitReachedTarget = null },
+            onUpgrade = {
+                limitReachedTarget = null
+                onUpgrade()
+            },
+        )
     }
 }
 
@@ -2380,6 +2452,7 @@ fun DocumentFormScreen(
     selectedProductRowIndex: Int? = null,
     onSelectedProductConsumed: () -> Unit = {},
     onNavigateToBusinessSettings: () -> Unit = {},
+    onUpgrade: () -> Unit = {},
 ) {
     val language = LocalLanguage.current
     var form by rememberSaveable(stateSaver = DocumentFormStateSaver) {
@@ -2419,6 +2492,7 @@ fun DocumentFormScreen(
     var showInvoiceInfoDialog by remember { mutableStateOf(false) }
     var showTemplatePickerDialog by remember { mutableStateOf(false) }
     var showCurrencyDialog by remember { mutableStateOf(false) }
+    var currencyEditedByUser by rememberSaveable { mutableStateOf(false) }
     var showLocalTaxesDialog by remember { mutableStateOf(false) }
     var showLocalPaymentDialog by remember { mutableStateOf(false) }
     var showLocalSignaturesDialog by remember { mutableStateOf(false) }
@@ -2429,6 +2503,7 @@ fun DocumentFormScreen(
     var showLanguageSheet by remember { mutableStateOf(false) }
     var showCustomerPickerSheet by remember { mutableStateOf(false) }
     var showProductPickerRowIndex by rememberSaveable { mutableStateOf<Int?>(null) }
+    var limitReachedTarget by remember { mutableStateOf<CreationTarget?>(null) }
     var customerPickerQuery by rememberSaveable { mutableStateOf("") }
     var productPickerQuery by rememberSaveable { mutableStateOf("") }
 
@@ -2632,10 +2707,20 @@ fun DocumentFormScreen(
                     } else {
                         result.localizedDisplayMessage(language)
                     }
-                    showDocumentError(message)
+                    val target = creationTargetForErrorCode(result.code)
+                    if (!isEditMode && target != null) {
+                        limitReachedTarget = target
+                    } else {
+                        showDocumentError(message)
+                    }
                 }
             } catch (e: Exception) {
-                showDocumentError(LocalizedErrorMapper.map(null, e.message, language))
+                val target = creationTargetForErrorCode(e.message)
+                if (!isEditMode && target != null) {
+                    limitReachedTarget = target
+                } else {
+                    showDocumentError(LocalizedErrorMapper.map(null, e.message, language))
+                }
             } finally {
                 isLoading = false
             }
@@ -2706,6 +2791,9 @@ fun DocumentFormScreen(
         if (!isEditMode) {
             val defaults = invoiceOptionPreferences.getDefaults()
             form = form.copy(
+                currency = if (currencyEditedByUser) form.currency else businessSettings?.currency
+                    ?.takeIf { it.isNotBlank() }
+                    ?: form.currency,
                 paymentMethod = form.paymentMethod.ifBlank { defaults.paymentMethod },
                 terms = form.terms.ifBlank { defaults.termsContent.ifBlank { businessSettings?.termsText.orEmpty() } },
                 signatureData = form.signatureData.ifBlank { defaults.signatureData },
@@ -3859,6 +3947,7 @@ fun DocumentFormScreen(
             currentCurrency = form.currency,
             onDismiss = { showCurrencyDialog = false },
             onSelect = {
+                currencyEditedByUser = true
                 form = form.copy(currency = it)
                 showCurrencyDialog = false
             }
@@ -4064,6 +4153,27 @@ fun DocumentFormScreen(
                 }
             }
         }
+    }
+
+    // A store setting may arrive after the draft route. It owns the initial currency,
+    // until the seller explicitly chooses a different per-document value.
+    LaunchedEffect(isEditMode, businessSettings?.currency, currencyEditedByUser) {
+        val businessCurrency = businessSettings?.currency?.takeIf { it.isNotBlank() }
+        if (!isEditMode && !currencyEditedByUser && businessCurrency != null) {
+            form = form.copy(currency = businessCurrency)
+        }
+    }
+
+    limitReachedTarget?.let { target ->
+        CreationLimitDialog(
+            target = target,
+            language = language,
+            onDismiss = { limitReachedTarget = null },
+            onUpgrade = {
+                limitReachedTarget = null
+                onUpgrade()
+            },
+        )
     }
 }
 

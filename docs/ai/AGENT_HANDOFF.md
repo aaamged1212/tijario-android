@@ -1,5 +1,12 @@
 # Agent Handoff (Android & Web Repos)
 
+## 2026-08-11 (Runtime-critical AI context and document-number parity, local)
+- **Android branch**: `fix/android-runtime-critical-fixes` at base `31ede1df9230c3bb19431b90659afbf2d683f237`.
+- **Implemented**: AI reply/caption requests preserve the selected local IDs and add a strict, bounded context snapshot containing only generation-relevant business/customer/product fields. The snapshot deliberately excludes WhatsApp, email, plan, quota, and tokens. New localized mappings handle provider timeout and invalid snapshot responses.
+- **Compatibility gate**: The matching Web/API contract is on `fix/mobile-runtime-critical-backend`; Android must not be published ahead of that compatible API deployment and its unapplied document-number migration.
+- **Validation**: Focused snapshot tests, full JVM tests, `lintDebug`, `lintRelease`, Debug/Release/AndroidTest/PlayQa assembly, and `bundleRelease` passed locally. No device or emulator was connected for physical AI verification.
+- **Safety**: No production write, migration application, deployment, Play upload, external configuration change, commit, or push occurred during this local validation step.
+
 ## 2026-08-09 (Analytics taxonomy correction, local)
 - **Branch**: `fix/android-full-hardening`.
 - **Implemented**: Centralized typed analytics event identifiers and corrected caption generation from `tijario_ai_reply_generated` to `tijario_ai_caption_generated`. Product creation is now recorded alongside existing customer/document/subscription events.
@@ -801,6 +808,14 @@
 - **Published**: `fix/android-full-hardening` is available on `origin` at `f6c32b4` and remains unmerged from `main`.
 - **Remote validation**: GitHub Actions Source Audit Scan and Android CI run `31327114193` both completed successfully. Android CI passed its compile/unit-test and lint/release-assembly jobs.
 - **Safety Status**: No deployment, migration, Production write, external configuration change, or Google Play upload occurred.
+
+## 2026-08-10 (Runtime-critical Android remediation, local and uncommitted)
+- **Navigation and plan guards**: Settings and child-route back actions now recover to the main route if the navigation stack has no valid predecessor. All invoice, quote, customer, and product creation entries use one creation-limit policy before navigation, while forms preserve a localized save-time limit dialog if a stale state is rejected.
+- **Local data behavior**: LocalDrive usage overlays use Room counts for customers/products and pending creation events for documents without changing entitlement limits. New forms inherit the saved business currency unless manually changed. Local document numbers are deterministic per type, preserve valid custom suffixes and leading zeroes, reject local duplicates before writing, and remain stable on edit.
+- **AI boundary**: Android no longer sends local-only selected entity IDs to the existing AI API. It sends a bounded non-sensitive fallback prompt context; the API does not yet accept `context_snapshot`, so backend work is still required before local-only business settings can become authoritative AI context.
+- **Validation**: 343 JVM tests passed with zero failures/errors. `lintDebug`, `lintRelease`, `assembleDebug`, `assembleRelease`, `assembleAndroidTest`, `assemblePlayQa`, and `bundleRelease` passed. The first full run exceeded the command wrapper timeout while Gradle continued; the same fully up-to-date gate then completed with exit code 0.
+- **Physical QA still required**: no ADB device/emulator was connected. Verify the Settings back loop, creation-limit sheet, YER defaults and manual override, invoice/quote numbering edge cases, AI customer/product reply/caption, and the status-bar icon on a real device.
+- **Safety Status**: No commit, push, deployment, migration, Production write, external configuration change, or Google Play upload occurred. `.agents` remains local and excluded.
 
 ## 2026-08-09 (CI package verification reliability, local)
 - **Cause**: A documentation-only push reproduced a non-diagnostic `:app:packageDebug` failure in the combined lint/Debug/Release Gradle invocation. Compile/unit tests still passed and the same application source had passed the preceding full CI run.

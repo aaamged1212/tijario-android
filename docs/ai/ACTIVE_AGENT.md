@@ -1,5 +1,9 @@
 # Active Agent Status
 
+- **Current task**: Runtime-critical AI context and document-number parity on `fix/android-runtime-critical-fixes`.
+- **State**: Android now sends a bounded, non-sensitive local context snapshot with selected customer/product IDs. The compatible Web/API work is isolated on `fix/mobile-runtime-critical-backend`; do not release this Android branch until that API and its pending migration are applied and deployed together.
+- **Validation**: Focused AI contract tests, full JVM tests, both lint variants, Debug/Release/AndroidTest/PlayQa assembly, and `bundleRelease` passed locally. No ADB device/emulator was connected.
+
 - **Current task**: Analytics taxonomy correction on `fix/android-full-hardening`.
 - **State**: Analytics events are typed; AI caption and AI reply success have distinct event names, with no user or generated content attached.
 - **Validation**: Focused analytics JVM test passed. No deployment, migration, external configuration change, or Play upload occurred.
@@ -136,3 +140,10 @@
 - **CI**: GitHub Actions Android CI run `31327114193` completed successfully for `f6c32b4`; Source Audit Scan also completed successfully.
 - **CI follow-up**: A later documentation-only push exposed a non-diagnostic transient `:app:packageDebug` failure in the combined release job. CI now runs lint, Debug packaging, and Release packaging sequentially with stack traces, while checkout and Java actions use supported major versions. GitHub Actions run `31337272388` passed both CI jobs after this correction.
 - **Safety**: `.agents` remains local and excluded. No deployment, migration, Production write, external configuration change, or Google Play upload occurred.
+
+## 2026-08-10
+- **Current task**: Local Android runtime-critical remediation on `fix/android-runtime-critical-fixes`.
+- **State**: Uncommitted local source changes add safe route fallback, centralized creation limits, reactive LocalDrive usage overlays, store-currency defaults, deterministic local document numbering, safer AI local-context fallback, and the monochrome notification icon.
+- **Validation**: Full JVM tests, `lintDebug`, `lintRelease`, Debug/Release/AndroidTest/PlayQa assembly, and `bundleRelease` passed locally. No ADB device or emulator is connected.
+- **Boundary**: The Android app avoids sending local-only customer/product IDs to the current AI API. Full server-side support for a bounded local context snapshot remains a separate backend contract change.
+- **Safety**: No commit, push, deployment, migration, Production write, external configuration change, or Google Play upload occurred. `.agents` remains local and excluded.

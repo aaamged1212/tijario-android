@@ -156,6 +156,21 @@ class TijarioRepositoryOfflineTests {
     @Test
     fun createDocumentLocal_doesNotMergeCustomerByWhatsapp() = runBlocking {
         every { dao.observeDocuments(userId) } returns flowOf(emptyList())
+        coEvery { dao.getBusinessSettings(userId) } returns BusinessSettingsEntity(
+            userId = userId,
+            remoteId = null,
+            businessName = "Store",
+            whatsappNumber = "555",
+            country = "SA",
+            city = null,
+            currency = "YER",
+            logoUrl = null,
+            instagramUrl = null,
+            invoiceNote = null,
+            termsText = null,
+            syncedAt = 0L,
+            syncStatus = "LOCAL_ONLY",
+        )
         coEvery { dao.getPendingOutbox(userId) } returns emptyList()
         coEvery { dao.upsertOutbox(any()) } returns Unit
         coEvery { dao.insertDocumentItems(any()) } returns Unit
@@ -175,6 +190,7 @@ class TijarioRepositoryOfflineTests {
         val result = repository.createDocumentLocal(
             CreateDocumentRequest(
                 type = DocumentType.Invoice,
+                documentNumber = "INV-00101",
                 customer = DocumentCustomerInput("New recipient", "1234567"),
                 items = listOf(DocumentItemInput(name = "Service", quantity = 1, unitPrice = 10.0)),
                 currency = "SAR",
@@ -182,8 +198,70 @@ class TijarioRepositoryOfflineTests {
         )
 
         assertTrue(result.ok)
+        assertEquals("INV-00101", result.data?.documentNumber)
+        assertEquals("INV-00101", documentSlot.captured.documentNumber)
+        assertEquals("YER", documentSlot.captured.currency)
         assertEquals("1234567", customerSlot.captured.whatsappNumber)
         assertEquals(customerSlot.captured.id, documentSlot.captured.customerId)
+    }
+
+    @Test
+    fun createDocumentLocal_rejectsDuplicateCustomNumberBeforeWritingRoomRows() = runBlocking {
+        every { dao.observeDocuments(userId) } returns flowOf(
+            listOf(
+                DocumentEntity(
+                    id = "existing-invoice",
+                    userId = userId,
+                    customerId = "existing-customer",
+                    type = "invoice",
+                    documentNumber = "INV-00101",
+                    status = "draft",
+                    paymentStatus = "unpaid",
+                    amountPaid = null,
+                    issueDate = "2026-08-01",
+                    total = BigDecimal("10.00"),
+                    currency = "SAR",
+                    syncedAt = 0L,
+                ),
+            ),
+        )
+
+        val result = repository.createDocumentLocal(
+            CreateDocumentRequest(
+                type = DocumentType.Invoice,
+                documentNumber = "INV-00101",
+                customer = DocumentCustomerInput("Recipient", "1234567"),
+                items = listOf(DocumentItemInput(name = "Service", quantity = 1, unitPrice = 10.0)),
+                currency = "SAR",
+            ),
+        )
+
+        assertTrue(!result.ok)
+        assertEquals("document_number_collision", result.code)
+        coVerify(exactly = 0) { dao.upsertDocument(any()) }
+        coVerify(exactly = 0) { dao.insertDocumentItems(any()) }
+    }
+
+    @Test
+    fun saveBusinessSettings_persistsLocallyWhenEntitlementHasNotBootstrapped() = runBlocking {
+        coEvery { dao.getAccountEntitlement(userId) } returns null
+        coEvery { dao.getBusinessSettings(userId) } returns null
+        val settingsSlot = slot<BusinessSettingsEntity>()
+        coEvery { dao.upsertBusinessSettings(capture(settingsSlot)) } returns Unit
+
+        val result = repository.saveBusinessSettings(
+            BusinessSettings(
+                businessName = "Offline store",
+                whatsappNumber = "555",
+                country = "SA",
+                currency = "YER",
+            ),
+        )
+
+        assertTrue(result.isSuccess)
+        assertEquals("YER", settingsSlot.captured.currency)
+        assertEquals("LOCAL_ONLY", settingsSlot.captured.syncStatus)
+        coVerify(exactly = 0) { dao.upsertOutbox(any()) }
     }
 
     @Test

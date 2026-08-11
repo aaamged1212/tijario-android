@@ -47,6 +47,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.Button
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -72,6 +74,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.NavType
+import androidx.navigation.NavHostController
 import androidx.navigation.navArgument
 import android.net.Uri
 import app.tijario.config.AppRuntimeState
@@ -115,6 +118,8 @@ import app.tijario.features.notifications.NotificationsViewModelFactory
 import app.tijario.features.notifications.StartupAnnouncementDialog
 import app.tijario.config.AppPreferences
 import app.tijario.domain.LocalizedErrorMapper
+import app.tijario.domain.CreationAllowance
+import app.tijario.domain.CreationTarget
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -134,6 +139,54 @@ private sealed interface AccountDeletionRecoveryState {
     data object Running : AccountDeletionRecoveryState
     data class Succeeded(val recoveredPendingDeletion: Boolean) : AccountDeletionRecoveryState
     data object Failed : AccountDeletionRecoveryState
+}
+
+internal fun shouldFallbackToMainAfterBack(popSucceeded: Boolean): Boolean = !popSucceeded
+
+private fun NavHostController.safePopBackToMain() {
+    if (shouldFallbackToMainAfterBack(popBackStack())) {
+        navigate("main") { launchSingleTop = true }
+    }
+}
+
+private fun NavHostController.navigateSingleTop(route: String) {
+    navigate(route) { launchSingleTop = true }
+}
+
+private fun creationAllowanceMessage(
+    allowance: CreationAllowance,
+    language: app.tijario.config.AppLanguage,
+): String = when (allowance) {
+    is CreationAllowance.LimitReached -> when (allowance.target) {
+        CreationTarget.Customer -> if (language == app.tijario.config.AppLanguage.AR) {
+            "استخدمت ${allowance.used} من ${allowance.limit} عملاء في خطتك الحالية. رقِّ خطتك لإضافة المزيد من العملاء."
+        } else {
+            "You have used ${allowance.used} of ${allowance.limit} customers on your current plan. Upgrade to add more customers."
+        }
+        CreationTarget.Product -> if (language == app.tijario.config.AppLanguage.AR) {
+            "استخدمت ${allowance.used} من ${allowance.limit} منتجات في خطتك الحالية. رقِّ خطتك لإضافة المزيد من المنتجات."
+        } else {
+            "You have used ${allowance.used} of ${allowance.limit} products on your current plan. Upgrade to add more products."
+        }
+        CreationTarget.Invoice,
+        CreationTarget.Quote,
+        -> if (language == app.tijario.config.AppLanguage.AR) {
+            "وصلت إلى حد المستندات في خطتك الحالية. رقِّ خطتك لإنشاء المزيد من الفواتير وعروض الأسعار."
+        } else {
+            "You have reached the document limit on your current plan. Upgrade to create more invoices and quotes."
+        }
+    }
+    CreationAllowance.PlanUnavailable -> if (language == app.tijario.config.AppLanguage.AR) {
+        "تعذر تحميل بيانات خطتك الآن. تحقق من الاتصال ثم حاول مجددًا."
+    } else {
+        "Your plan details are not available yet. Check your connection and try again."
+    }
+    CreationAllowance.Retryable -> if (language == app.tijario.config.AppLanguage.AR) {
+        "تعذر التحقق من الحد الآن. حاول مرة أخرى."
+    } else {
+        "We could not check this limit right now. Please try again."
+    }
+    CreationAllowance.Allowed -> ""
 }
 
 private val rootTabs = listOf(
@@ -378,8 +431,48 @@ private fun TijarioAppContent() {
             val navController = rememberNavController()
             val pagerState = rememberPagerState(pageCount = { 5 })
             val pagerScope = rememberCoroutineScope()
+            var creationAllowance by remember { mutableStateOf<CreationAllowance?>(null) }
             var showNotificationPrompt by remember {
                 mutableStateOf(!AppPreferences.wasNotificationExplained(context))
+            }
+
+            fun requestCreation(target: CreationTarget, route: String) {
+                scope.launch {
+                    when (val allowance = dataViewModel.creationAllowance(target)) {
+                        CreationAllowance.Allowed -> navController.navigateSingleTop(route)
+                        else -> creationAllowance = allowance
+                    }
+                }
+            }
+
+            creationAllowance?.let { allowance ->
+                AlertDialog(
+                    onDismissRequest = { creationAllowance = null },
+                    title = {
+                        Text(
+                            if (allowance is CreationAllowance.LimitReached) t("limit_reached_title")
+                            else t("billing_plan_refresh_failed"),
+                        )
+                    },
+                    text = { Text(creationAllowanceMessage(allowance, AppRuntimeState.currentLanguage)) },
+                    confirmButton = {
+                        if (allowance is CreationAllowance.LimitReached) {
+                            Button(
+                                onClick = {
+                                    creationAllowance = null
+                                    navController.navigateSingleTop("upgrade-plan")
+                                },
+                            ) { Text(t("upgrade_plan")) }
+                        } else {
+                            Button(onClick = { creationAllowance = null }) { Text(t("btn_ok")) }
+                        }
+                    },
+                    dismissButton = {
+                        if (allowance is CreationAllowance.LimitReached) {
+                            TextButton(onClick = { creationAllowance = null }) { Text(t("btn_cancel")) }
+                        }
+                    },
+                )
             }
 
             LaunchedEffect(appShellState.userId) {
@@ -493,7 +586,7 @@ private fun TijarioAppContent() {
                                             onClick = { navController.navigate("notifications") },
                                         )
                                         IconButton(
-                                            onClick = { navController.navigate("settings") },
+                                            onClick = { navController.navigateSingleTop("settings") },
                                             modifier = Modifier
                                                 .size(if (adaptive.isExtraCompact) 40.dp else 44.dp)
                                                 .clip(CircleShape)
@@ -585,6 +678,7 @@ private fun TijarioAppContent() {
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
+                                .background(MaterialTheme.colorScheme.background)
                                 .padding(
                                     start = paddingValues.calculateStartPadding(layoutDirection),
                                     top = paddingValues.calculateTopPadding(),
@@ -603,14 +697,14 @@ private fun TijarioAppContent() {
                                         onNewQuote = {
                                             activeSelectedCustomer = null
                                             activeSelectedProduct = null
-                                            navController.navigate("new-quote")
+                                            requestCreation(CreationTarget.Quote, "new-quote")
                                         },
                                         onNewInvoice = {
                                             activeSelectedCustomer = null
                                             activeSelectedProduct = null
-                                            navController.navigate("new-invoice")
+                                            requestCreation(CreationTarget.Invoice, "new-invoice")
                                         },
-                                        onAddProduct = { pagerScope.launch { pagerState.scrollToPage(3) } },
+                                        onAddProduct = { requestCreation(CreationTarget.Product, "product-form") },
                                         onCustomers = { pagerScope.launch { pagerState.scrollToPage(4) } },
                                         onAiTools = { pagerScope.launch { pagerState.scrollToPage(2) } },
                                         onBusinessSettings = { navController.navigate("business-settings") },
@@ -628,12 +722,12 @@ private fun TijarioAppContent() {
                                         onNewQuote = {
                                             activeSelectedCustomer = null
                                             activeSelectedProduct = null
-                                            navController.navigate("new-quote")
+                                            requestCreation(CreationTarget.Quote, "new-quote")
                                         },
                                         onNewInvoice = {
                                             activeSelectedCustomer = null
                                             activeSelectedProduct = null
-                                            navController.navigate("new-invoice")
+                                            requestCreation(CreationTarget.Invoice, "new-invoice")
                                         },
                                         onDocumentClick = { documentId ->
                                             navController.navigate("document-detail?documentId=$documentId")
@@ -650,13 +744,13 @@ private fun TijarioAppContent() {
                                     2 -> AiToolsScreen(dataViewModel = dataViewModel, hideHeader = true)
                                     3 -> ProductsScreen(
                                         dataViewModel = dataViewModel,
-                                        onCreateProduct = { navController.navigate("product-form") },
+                                        onCreateProduct = { requestCreation(CreationTarget.Product, "product-form") },
                                         onEditProduct = { id -> navController.navigate("product-form?productId=$id") },
                                         hideHeader = true
                                     )
                                     4 -> CustomersScreen(
                                         dataViewModel = dataViewModel,
-                                        onCreateCustomer = { navController.navigate("customer-form") },
+                                        onCreateCustomer = { requestCreation(CreationTarget.Customer, "customer-form") },
                                         onEditCustomer = { id -> navController.navigate("customer-form?customerId=$id") },
                                         hideHeader = true
                                     )
@@ -669,7 +763,7 @@ private fun TijarioAppContent() {
                 composable("customers") {
                     CustomersScreen(
                         dataViewModel = dataViewModel,
-                        onCreateCustomer = { navController.navigate("customer-form") },
+                        onCreateCustomer = { requestCreation(CreationTarget.Customer, "customer-form") },
                         onCustomerSelected = { customer ->
                             activeSelectedCustomer = customer
                             navController.popBackStack()
@@ -690,19 +784,21 @@ private fun TijarioAppContent() {
                     CustomerFormScreen(
                         dataViewModel = dataViewModel,
                         customerId = customerId,
-                        onBack = { navController.popBackStack() }
+                        onBack = { navController.safePopBackToMain() },
+                        onUpgrade = { navController.navigateSingleTop("upgrade-plan") },
                     )
                 }
                 composable("customer-form") {
                     CustomerFormScreen(
                         dataViewModel = dataViewModel,
-                        onBack = { navController.popBackStack() }
+                        onBack = { navController.safePopBackToMain() },
+                        onUpgrade = { navController.navigateSingleTop("upgrade-plan") },
                     )
                 }
                 composable("products") {
                     ProductsScreen(
                         dataViewModel = dataViewModel,
-                        onCreateProduct = { navController.navigate("product-form") },
+                        onCreateProduct = { requestCreation(CreationTarget.Product, "product-form") },
                         onProductSelected = { product ->
                             activeSelectedProduct = product
                             navController.popBackStack()
@@ -723,26 +819,28 @@ private fun TijarioAppContent() {
                     ProductFormScreen(
                         dataViewModel = dataViewModel,
                         productId = productId,
-                        onBack = { navController.popBackStack() }
+                        onBack = { navController.safePopBackToMain() },
+                        onUpgrade = { navController.navigateSingleTop("upgrade-plan") },
                     )
                 }
                 composable("product-form") {
                     ProductFormScreen(
                         dataViewModel = dataViewModel,
-                        onBack = { navController.popBackStack() }
+                        onBack = { navController.safePopBackToMain() },
+                        onUpgrade = { navController.navigateSingleTop("upgrade-plan") },
                     )
                 }
                 composable("business-settings") {
                     BusinessSettingsScreen(
                         dataViewModel = dataViewModel,
-                        onBack = { navController.popBackStack() }
+                        onBack = { navController.safePopBackToMain() }
                     )
                 }
                 composable("new-quote") {
                     DocumentFormScreen(
                         dataViewModel = dataViewModel,
                         type = app.tijario.data.model.DocumentType.Quote,
-                        onBack = { navController.popBackStack() },
+                        onBack = { navController.safePopBackToMain() },
                         onDocumentSaved = { documentId ->
                             navController.navigate("document-detail?documentId=$documentId") {
                                 popUpTo("new-quote") { inclusive = true }
@@ -753,8 +851,8 @@ private fun TijarioAppContent() {
                             activeSelectedProductRowIndex = rowIndex
                             navController.navigate("products")
                         },
-                        onNavigateToCreateCustomer = { navController.navigate("customer-form") },
-                        onNavigateToCreateProduct = { navController.navigate("product-form") },
+                        onNavigateToCreateCustomer = { requestCreation(CreationTarget.Customer, "customer-form") },
+                        onNavigateToCreateProduct = { requestCreation(CreationTarget.Product, "product-form") },
                         selectedCustomer = activeSelectedCustomer,
                         selectedProduct = activeSelectedProduct,
                         selectedProductRowIndex = activeSelectedProductRowIndex,
@@ -762,14 +860,15 @@ private fun TijarioAppContent() {
                             activeSelectedProduct = null
                             activeSelectedProductRowIndex = null
                         },
-                        onNavigateToBusinessSettings = { navController.navigate("business-settings") }
+                        onNavigateToBusinessSettings = { navController.navigate("business-settings") },
+                        onUpgrade = { navController.navigateSingleTop("upgrade-plan") },
                     )
                 }
                 composable("new-invoice") {
                     DocumentFormScreen(
                         dataViewModel = dataViewModel,
                         type = app.tijario.data.model.DocumentType.Invoice,
-                        onBack = { navController.popBackStack() },
+                        onBack = { navController.safePopBackToMain() },
                         onDocumentSaved = { documentId ->
                             navController.navigate("document-detail?documentId=$documentId") {
                                 popUpTo("new-invoice") { inclusive = true }
@@ -780,8 +879,8 @@ private fun TijarioAppContent() {
                             activeSelectedProductRowIndex = rowIndex
                             navController.navigate("products")
                         },
-                        onNavigateToCreateCustomer = { navController.navigate("customer-form") },
-                        onNavigateToCreateProduct = { navController.navigate("product-form") },
+                        onNavigateToCreateCustomer = { requestCreation(CreationTarget.Customer, "customer-form") },
+                        onNavigateToCreateProduct = { requestCreation(CreationTarget.Product, "product-form") },
                         selectedCustomer = activeSelectedCustomer,
                         selectedProduct = activeSelectedProduct,
                         selectedProductRowIndex = activeSelectedProductRowIndex,
@@ -789,7 +888,8 @@ private fun TijarioAppContent() {
                             activeSelectedProduct = null
                             activeSelectedProductRowIndex = null
                         },
-                        onNavigateToBusinessSettings = { navController.navigate("business-settings") }
+                        onNavigateToBusinessSettings = { navController.navigate("business-settings") },
+                        onUpgrade = { navController.navigateSingleTop("upgrade-plan") },
                     )
                 }
                 composable(
@@ -806,7 +906,7 @@ private fun TijarioAppContent() {
                         dataViewModel = dataViewModel,
                         type = app.tijario.data.model.DocumentType.Quote,
                         documentId = documentId,
-                        onBack = { navController.popBackStack() },
+                        onBack = { navController.safePopBackToMain() },
                         onDocumentSaved = { savedDocumentId ->
                             navController.navigate("document-detail?documentId=$savedDocumentId") {
                                 launchSingleTop = true
@@ -817,8 +917,8 @@ private fun TijarioAppContent() {
                             activeSelectedProductRowIndex = rowIndex
                             navController.navigate("products")
                         },
-                        onNavigateToCreateCustomer = { navController.navigate("customer-form") },
-                        onNavigateToCreateProduct = { navController.navigate("product-form") },
+                        onNavigateToCreateCustomer = { requestCreation(CreationTarget.Customer, "customer-form") },
+                        onNavigateToCreateProduct = { requestCreation(CreationTarget.Product, "product-form") },
                         selectedCustomer = activeSelectedCustomer,
                         selectedProduct = activeSelectedProduct,
                         selectedProductRowIndex = activeSelectedProductRowIndex,
@@ -826,7 +926,8 @@ private fun TijarioAppContent() {
                             activeSelectedProduct = null
                             activeSelectedProductRowIndex = null
                         },
-                        onNavigateToBusinessSettings = { navController.navigate("business-settings") }
+                        onNavigateToBusinessSettings = { navController.navigate("business-settings") },
+                        onUpgrade = { navController.navigateSingleTop("upgrade-plan") },
                     )
                 }
                 composable(
@@ -843,7 +944,7 @@ private fun TijarioAppContent() {
                         dataViewModel = dataViewModel,
                         type = app.tijario.data.model.DocumentType.Invoice,
                         documentId = documentId,
-                        onBack = { navController.popBackStack() },
+                        onBack = { navController.safePopBackToMain() },
                         onDocumentSaved = { savedDocumentId ->
                             navController.navigate("document-detail?documentId=$savedDocumentId") {
                                 launchSingleTop = true
@@ -854,8 +955,8 @@ private fun TijarioAppContent() {
                             activeSelectedProductRowIndex = rowIndex
                             navController.navigate("products")
                         },
-                        onNavigateToCreateCustomer = { navController.navigate("customer-form") },
-                        onNavigateToCreateProduct = { navController.navigate("product-form") },
+                        onNavigateToCreateCustomer = { requestCreation(CreationTarget.Customer, "customer-form") },
+                        onNavigateToCreateProduct = { requestCreation(CreationTarget.Product, "product-form") },
                         selectedCustomer = activeSelectedCustomer,
                         selectedProduct = activeSelectedProduct,
                         selectedProductRowIndex = activeSelectedProductRowIndex,
@@ -863,7 +964,8 @@ private fun TijarioAppContent() {
                             activeSelectedProduct = null
                             activeSelectedProductRowIndex = null
                         },
-                        onNavigateToBusinessSettings = { navController.navigate("business-settings") }
+                        onNavigateToBusinessSettings = { navController.navigate("business-settings") },
+                        onUpgrade = { navController.navigateSingleTop("upgrade-plan") },
                     )
                 }
                 composable(
@@ -879,7 +981,7 @@ private fun TijarioAppContent() {
                     DocumentDetailScreen(
                         dataViewModel = dataViewModel,
                         documentId = documentId,
-                        onBack = { navController.popBackStack() },
+                        onBack = { navController.safePopBackToMain() },
                         onEditClick = { id, type ->
                             val route = if (type == app.tijario.data.model.DocumentType.Invoice) "edit-invoice?documentId=$id" else "edit-quote?documentId=$id"
                             navController.navigate(route)
@@ -893,21 +995,19 @@ private fun TijarioAppContent() {
                             notificationsViewModel.logout()
                             authViewModel.logout()
                         },
-                        onBack = {
-                            navController.popBackStack()
-                        },
+                        onBack = { navController.safePopBackToMain() },
                         onChangePassword = { navController.navigate("change-password") },
                     )
                 }
                 composable("settings") {
                     SettingsHomeScreen(
                         dataViewModel = dataViewModel,
-                        onBack = { navController.popBackStack() },
-                        onStoreSettings = { navController.navigate("business-settings") },
-                        onAccountSettings = { navController.navigate("account-settings") },
-                        onAppSettings = { navController.navigate("app-settings") },
-                        onBackupSettings = { navController.navigate("backup-settings") },
-                        onUpgrade = { navController.navigate("upgrade-plan") },
+                        onBack = { navController.safePopBackToMain() },
+                        onStoreSettings = { navController.navigateSingleTop("business-settings") },
+                        onAccountSettings = { navController.navigateSingleTop("account-settings") },
+                        onAppSettings = { navController.navigateSingleTop("app-settings") },
+                        onBackupSettings = { navController.navigateSingleTop("backup-settings") },
+                        onUpgrade = { navController.navigateSingleTop("upgrade-plan") },
                         onLogout = {
                             notificationsViewModel.logout()
                             authViewModel.logout()
@@ -927,13 +1027,13 @@ private fun TijarioAppContent() {
                     NotificationsScreen(
                         viewModel = notificationsViewModel,
                         initialAnnouncementId = backStackEntry.arguments?.getString("announcementId"),
-                        onBack = { navController.popBackStack() },
+                        onBack = { navController.safePopBackToMain() },
                     )
                 }
                 composable("account-settings") {
                     AccountSettingsScreen(
                         dataViewModel = dataViewModel,
-                        onBack = { navController.popBackStack() },
+                        onBack = { navController.safePopBackToMain() },
                         onChangePassword = { navController.navigate("change-password") },
                         onLogout = { authViewModel.logout() },
                         onDeleteAccount = {
@@ -965,22 +1065,22 @@ private fun TijarioAppContent() {
                 }
                 composable("change-password") {
                     ChangePasswordScreen(
-                        onBack = { navController.popBackStack() },
+                        onBack = { navController.safePopBackToMain() },
                     )
                 }
                 composable("app-settings") {
-                    AppSettingsScreen(onBack = { navController.popBackStack() })
+                    AppSettingsScreen(onBack = { navController.safePopBackToMain() })
                 }
                 composable("backup-settings") {
                     BackupSettingsScreen(
                         userId = app.tijario.config.Supabase.client.auth.currentUserOrNull()?.id.orEmpty(),
-                        onBack = { navController.popBackStack() },
+                        onBack = { navController.safePopBackToMain() },
                     )
                 }
                 composable("upgrade-plan") {
                     UpgradePlanScreen(
                         dataViewModel = dataViewModel,
-                        onBack = { navController.popBackStack() }
+                        onBack = { navController.safePopBackToMain() }
                     )
                 }
             }

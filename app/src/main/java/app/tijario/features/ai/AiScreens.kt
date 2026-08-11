@@ -75,8 +75,13 @@ import app.tijario.config.LocalLanguage
 import app.tijario.config.Supabase
 import app.tijario.config.t
 import app.tijario.data.model.Customer
+import app.tijario.data.model.BusinessSettings
 import app.tijario.data.model.Product
 import app.tijario.data.remote.AiV3CaptionRequest
+import app.tijario.data.remote.AiV3BusinessContextSnapshot
+import app.tijario.data.remote.AiV3ContextSnapshot
+import app.tijario.data.remote.AiV3CustomerContextSnapshot
+import app.tijario.data.remote.AiV3ProductContextSnapshot
 import app.tijario.data.remote.AiV3ReplyRequest
 import app.tijario.data.remote.AiV3ResponseData
 import app.tijario.data.remote.AiV3Variant
@@ -251,6 +256,7 @@ fun AiToolsScreen(
         state is AiV3ScreenState.Refining ||
         state is AiV3ScreenState.Reporting
     val limitReachedByCache = uiState.planUsage?.let { it.aiLimit > 0 && it.aiUsed >= it.aiLimit } == true
+    val businessCurrency = uiState.businessSettings?.currency?.takeIf { it.isNotBlank() } ?: "SAR"
 
     Scaffold(
         containerColor = saaSColors.background,
@@ -319,6 +325,8 @@ fun AiToolsScreen(
                             return@ReplyFormBlock
                         }
                         localError = null
+                        val selectedCustomer = uiState.customers.firstOrNull { it.id == replyCustomerId }
+                        val selectedProduct = uiState.products.firstOrNull { it.id == replyProductId }
                         aiViewModel.generateReply(
                             AiV3ReplyRequest(
                                 clientRequestId = UUID.randomUUID().toString(),
@@ -331,6 +339,12 @@ fun AiToolsScreen(
                                 tone = replyTone,
                                 length = replyLength,
                                 extraContext = replyExtra.ifBlank { null },
+                                contextSnapshot = buildAiContextSnapshot(
+                                    businessSettings = uiState.businessSettings,
+                                    customer = selectedCustomer,
+                                    product = selectedProduct,
+                                    currency = businessCurrency,
+                                ),
                                 language = language.code,
                             ),
                             onSuccess = { dataViewModel.refreshPlanUsage() },
@@ -377,11 +391,14 @@ fun AiToolsScreen(
                             return@CaptionFormBlock
                         }
                         localError = null
+                        val selectedProduct = uiState.products.firstOrNull { it.id == captionProductId }
                         aiViewModel.generateCaption(
                             AiV3CaptionRequest(
                                 clientRequestId = UUID.randomUUID().toString(),
                                 productId = captionProductId,
-                                productOrService = if (captionProductId == null) productOrService.ifBlank { null } else null,
+                                productOrService = productOrService.ifBlank {
+                                    selectedProduct?.name.orEmpty()
+                                }.ifBlank { null },
                                 primaryBenefit = primaryBenefit.ifBlank { null },
                                 offer = offer.ifBlank { null },
                                 platform = platform,
@@ -389,6 +406,11 @@ fun AiToolsScreen(
                                 dialect = captionDialect,
                                 length = captionLength,
                                 style = captionStyle,
+                                contextSnapshot = buildAiContextSnapshot(
+                                    businessSettings = uiState.businessSettings,
+                                    product = selectedProduct,
+                                    currency = businessCurrency,
+                                ),
                                 language = language.code,
                             ),
                             onSuccess = { dataViewModel.refreshPlanUsage() },
@@ -1470,6 +1492,40 @@ private val AppLanguage.code: String
 
 private fun localized(language: AppLanguage, ar: String, en: String): String =
     if (language == AppLanguage.AR) ar else en
+
+/** The backend may use this only as generation context for local-first records. */
+internal fun buildAiContextSnapshot(
+    businessSettings: BusinessSettings?,
+    customer: Customer? = null,
+    product: Product? = null,
+    currency: String,
+): AiV3ContextSnapshot = AiV3ContextSnapshot(
+    business = AiV3BusinessContextSnapshot(
+        name = businessSettings?.businessName?.snapshotValue(160),
+        country = businessSettings?.country?.snapshotValue(80),
+        currency = currency.take(8),
+    ),
+    customer = customer?.let {
+        AiV3CustomerContextSnapshot(
+            localId = it.id,
+            name = it.name.snapshotValue(160),
+            city = it.city.snapshotValue(80),
+        )
+    },
+    product = product?.let {
+        AiV3ProductContextSnapshot(
+            localId = it.id,
+            name = it.name.snapshotValue(160),
+            description = it.description.snapshotValue(500),
+            price = it.price,
+            currency = currency.take(8),
+            stockQuantity = it.stockQuantity,
+        )
+    },
+)
+
+private fun String?.snapshotValue(maxLength: Int): String? =
+    this?.trim()?.take(maxLength)?.takeIf { it.isNotBlank() }
 
 private fun replyCaseOptions(language: AppLanguage) = listOf(
     "price_request" to localized(language, "طلب سعر", "Price request"),

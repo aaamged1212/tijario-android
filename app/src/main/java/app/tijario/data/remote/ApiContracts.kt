@@ -264,6 +264,37 @@ data class AccountUsageResponse(
 )
 
 @Serializable
+data class AiV3BusinessContextSnapshot(
+    val name: String? = null,
+    val country: String? = null,
+    val currency: String,
+)
+
+@Serializable
+data class AiV3CustomerContextSnapshot(
+    @SerialName("local_id") val localId: String? = null,
+    val name: String? = null,
+    val city: String? = null,
+)
+
+@Serializable
+data class AiV3ProductContextSnapshot(
+    @SerialName("local_id") val localId: String? = null,
+    val name: String? = null,
+    val description: String? = null,
+    val price: Double? = null,
+    val currency: String,
+    @SerialName("stock_quantity") val stockQuantity: Int? = null,
+)
+
+@Serializable
+data class AiV3ContextSnapshot(
+    val business: AiV3BusinessContextSnapshot,
+    val customer: AiV3CustomerContextSnapshot? = null,
+    val product: AiV3ProductContextSnapshot? = null,
+)
+
+@Serializable
 data class AiV3ReplyRequest(
     @SerialName("schema_version") val schemaVersion: Int = 3,
     @SerialName("client_request_id") val clientRequestId: String,
@@ -276,6 +307,7 @@ data class AiV3ReplyRequest(
     val tone: String = "auto",
     val length: String = "short",
     @SerialName("extra_context") val extraContext: String? = null,
+    @SerialName("context_snapshot") val contextSnapshot: AiV3ContextSnapshot? = null,
     val language: String = "ar",
 )
 
@@ -292,6 +324,7 @@ data class AiV3CaptionRequest(
     val dialect: String = "auto",
     val length: String = "short",
     val style: String = "sales",
+    @SerialName("context_snapshot") val contextSnapshot: AiV3ContextSnapshot? = null,
     val language: String = "ar",
 )
 

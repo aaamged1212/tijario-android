@@ -1,5 +1,10 @@
 # Project State (Android & Web Repos)
 
+## 2026-08-11 - Runtime-critical Local-First AI contract ready locally
+- Android on `fix/android-runtime-critical-fixes` now submits the selected local customer/product IDs with a bounded context snapshot rather than converting the selection to unstructured prompt text. The snapshot contains no contact fields, entitlement information, or secrets.
+- The compatible Web/API work and document-number preservation migration are isolated on `fix/mobile-runtime-critical-backend`. The Android change is not production-ready independently: apply the migration and deploy the compatible API before releasing an Android build that relies on this contract.
+- Local validation passed: focused snapshot tests, full JVM tests, `lintDebug`, `lintRelease`, Debug/Release/AndroidTest/PlayQa assembly, and `bundleRelease`. Physical device AI validation remains pending because no device/emulator was connected.
+
 ## 2026-08-09 - Analytics taxonomy corrected
 - Analytics event names are centralized and typed. AI caption generation is distinct from AI reply generation; operational event calls carry no sensitive content.
 
@@ -149,3 +154,10 @@
 - Full local verification now passes: `clean`, full JVM tests, `lintDebug`, `lintRelease`, Debug/Release/AndroidTest/PlayQa assembly, and `bundleRelease`. The hardening branch is published at `f6c32b4` and is not merged to `main`; GitHub Actions Source Audit Scan and Android CI run `31327114193` both passed.
 - No physical device/emulator is connected. Release QA remains required for documents/PDF/share, backup/Google Drive, notifications, and verified App Links. The current Release manifest has transitive advertising-ID declarations from an existing dependency; no analytics/Facebook SDK configuration was changed by this work.
 - Android CI has a completed reliability follow-up after a documentation-only push hit a non-diagnostic `:app:packageDebug` failure despite the preceding green source run. The workflow now separates lint, Debug, and Release Gradle gates with non-parallel execution and stack traces; GitHub Actions run `31337272388` passed both jobs.
+
+## 2026-08-10 Runtime-critical local remediation
+- Uncommitted work on `fix/android-runtime-critical-fixes` makes Settings/child-route back navigation fall back safely to the main screen, centralizes creation-plan checks before navigation and at save time, and derives LocalDrive usage from Room without changing signed limits.
+- New documents default to the saved business currency until the user overrides it. Local invoice and quote numbers are type-specific, preserve valid user-entered suffixes and leading zeroes, reject exact local duplicates before Room writes, and never change on edit.
+- AI reply/caption flows stop submitting local-only customer/product identifiers that the current backend cannot resolve. They send a bounded generation-only fallback context without WhatsApp, email, or local IDs. Full snapshot acceptance still requires a future backend contract change.
+- The build remains version `1.1.9` / code `19`. Full JVM tests, both lint variants, Debug/Release/AndroidTest/PlayQa assembly, and `bundleRelease` completed successfully locally. No connected ADB device is available for physical QA.
+- No commit, push, deployment, migration, Production write, external configuration change, or Play upload occurred. `.agents` remains untracked and excluded.

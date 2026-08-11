@@ -21,6 +21,9 @@ import app.tijario.data.model.Product
 import app.tijario.data.model.ProfileFullNameUpdateDto
 import app.tijario.domain.DocumentNumbering
 import app.tijario.domain.DocumentCalculator
+import app.tijario.domain.CreationAllowance
+import app.tijario.domain.CreationTarget
+import app.tijario.domain.effectivePlanUsage
 import app.tijario.domain.EntitlementVerifier
 import app.tijario.domain.ProductionEntitlementKeyRegistry
 import app.tijario.domain.LocalizedErrorMapper
@@ -364,6 +367,27 @@ open class TijarioRepository(
             else -> error("Unsupported limited entity type: $entityType")
         }
         if (limit != null && activeCount >= limit) error(errorCode)
+    }
+
+    /**
+     * Checks the same effective usage shown to the user before opening a create form.
+     * Save-time enforcement remains the authoritative defense against races.
+     */
+    suspend fun creationAllowance(target: CreationTarget): CreationAllowance {
+        val userId = currentUserId() ?: return CreationAllowance.PlanUnavailable
+        val usage = getCachedPlanUsage(userId) ?: return CreationAllowance.PlanUnavailable
+        val (used, limit) = when (target) {
+            CreationTarget.Customer -> usage.customersUsed to usage.customersLimit
+            CreationTarget.Product -> usage.productsUsed to usage.productsLimit
+            CreationTarget.Invoice,
+            CreationTarget.Quote,
+            -> usage.documentsUsed to usage.documentsLimit
+        }
+        return if (limit != null && limit > 0 && used >= limit) {
+            CreationAllowance.LimitReached(target = target, used = used, limit = limit)
+        } else {
+            CreationAllowance.Allowed
+        }
     }
 
     private suspend fun recordLocalDeletion(
@@ -795,7 +819,12 @@ open class TijarioRepository(
         requireOperationalDataMode(userId)
         enforceActiveEntityLimit(userId, "product")
         val generatedId = product.id ?: java.util.UUID.randomUUID().toString()
-        val localProduct = product.copy(id = generatedId, userId = userId)
+        val storeCurrency = dao.getBusinessSettings(userId)?.currency?.takeIf { it.isNotBlank() }
+        val localProduct = product.copy(
+            id = generatedId,
+            userId = userId,
+            currency = storeCurrency ?: product.currency,
+        )
         val entity = app.tijario.data.local.ProductEntity(
             id = generatedId,
             userId = userId,
@@ -1000,10 +1029,22 @@ open class TijarioRepository(
                 return ApiResult(ok = false, code = "invalid_document_total", message = "Invalid document totals.")
             }
 
-            val docNum = DocumentNumbering.nextDocumentNumber(
-                existingDocs.map { it.documentNumber },
-                request.type
+            val docNum = DocumentNumbering.resolveForCreate(
+                requestedNumber = request.documentNumber,
+                existingNumbers = existingDocs.map { it.documentNumber },
+                type = request.type,
             )
+            val requestedType = if (request.type == DocumentType.Invoice) "invoice" else "quote"
+            if (existingDocs.any { it.type == requestedType && it.documentNumber.equals(docNum, ignoreCase = true) }) {
+                return ApiResult(
+                    ok = false,
+                    code = "document_number_collision",
+                    message = "Document number already exists.",
+                )
+            }
+            val businessCurrency = dao.getBusinessSettings(userId)
+                ?.currency
+                ?.takeIf { it.isNotBlank() }
 
             val docEntity = app.tijario.data.local.DocumentEntity(
                 id = docId,
@@ -1028,7 +1069,8 @@ open class TijarioRepository(
                 taxRate = BigDecimal.valueOf(request.taxRate),
                 taxAmount = calculations.taxAmount,
                 total = calculations.total,
-                currency = request.currency ?: "SAR",
+                // New documents inherit the store currency; historical documents keep their snapshot on update.
+                currency = businessCurrency ?: request.currency?.takeIf { it.isNotBlank() } ?: "SAR",
                 syncedAt = 0L,
                 subtotal = calculations.subtotal,
                 discount = calculations.discount,
@@ -1254,7 +1296,7 @@ open class TijarioRepository(
     // Local Business Settings update
     suspend fun updateBusinessSettingsLocal(settings: BusinessSettings): Result<Unit> = runCatching {
         val userId = requireUserId()
-        val dataMode = requireOperationalDataMode(userId)
+        val dataMode = accountDataMode(userId)
         persistBusinessSettingsLocal(userId, settings, dataMode)
         mirrorLocalDriveBusinessSettings(userId, settings, dataMode)
     }
@@ -1278,7 +1320,11 @@ open class TijarioRepository(
                 database.withTransaction {
                     val existing = dao.getBusinessSettings(userId)
                     val nextRev = (existing?.localRevision ?: 0) + 1
-                    val nextStatus = if (dataMode == AccountDataMode.LocalDrive) "LOCAL_ONLY" else "PENDING_SYNC"
+                    val nextStatus = if (dataMode == AccountDataMode.LegacyCloud || dataMode == AccountDataMode.CloudSyncFuture) {
+                        "PENDING_SYNC"
+                    } else {
+                        "LOCAL_ONLY"
+                    }
                     val entity = app.tijario.data.local.BusinessSettingsEntity(
                         userId = userId,
                         remoteId = existing?.remoteId ?: settings.id,
@@ -1307,7 +1353,7 @@ open class TijarioRepository(
         } catch (error: Throwable) {
             throw AccountInitializationException("LOCAL_DATABASE_WRITE_FAILED", error)
         }
-        if (dataMode != AccountDataMode.LocalDrive) {
+        if (dataMode == AccountDataMode.LegacyCloud || dataMode == AccountDataMode.CloudSyncFuture) {
             enqueueOperationalOutbox(userId, "business_settings", userId, "UPDATE", baseServerRevision)
             sync(userId).onFailure {
                 SyncScheduler(context).triggerSync(userId)
@@ -1323,7 +1369,7 @@ open class TijarioRepository(
         settings: BusinessSettings,
         dataMode: AccountDataMode,
     ) {
-        if (dataMode != AccountDataMode.LocalDrive) return
+        if (dataMode != AccountDataMode.LocalDrive && dataMode != AccountDataMode.Uninitialized) return
 
         val remoteSettings = settings.copy(userId = userId)
         val fingerprint = businessSettingsMirrorFingerprint(remoteSettings)
@@ -1457,7 +1503,8 @@ open class TijarioRepository(
             return@runCatching
         }
         val generatedId = product.id ?: java.util.UUID.randomUUID().toString()
-        val remoteProduct = product.copy(id = generatedId, userId = userId)
+        val storeCurrency = dao.getBusinessSettings(userId)?.currency?.takeIf { it.isNotBlank() }
+        val remoteProduct = product.copy(id = generatedId, userId = userId, currency = storeCurrency ?: product.currency)
         withContext(Dispatchers.IO) {
             supabaseClient.from("products").insert(remoteProduct)
             val entity = app.tijario.data.local.ProductEntity(
@@ -1550,8 +1597,8 @@ open class TijarioRepository(
 
     suspend fun saveBusinessSettings(settings: BusinessSettings): Result<Unit> = runCatching {
         val userId = requireUserId()
-        val dataMode = requireOperationalDataMode(userId)
-        if (dataMode == AccountDataMode.LocalDrive) {
+        val dataMode = accountDataMode(userId)
+        if (dataMode == AccountDataMode.LocalDrive || dataMode == AccountDataMode.Uninitialized) {
             persistBusinessSettingsLocal(userId, settings, dataMode)
             mirrorLocalDriveBusinessSettings(userId, settings, dataMode)
             return@runCatching
@@ -1612,9 +1659,14 @@ open class TijarioRepository(
     suspend fun createDocument(request: CreateDocumentRequest): ApiResult<CreateDocumentResponse> {
         val userId = requireUserId()
         requireOperationalDataMode(userId)
-        if (accountDataMode(userId) == AccountDataMode.LocalDrive) return createDocumentLocal(request)
+        val storeCurrency = dao.getBusinessSettings(userId)
+            ?.currency
+            ?.takeIf { it.isNotBlank() }
+        // New documents use the store currency in every data mode. Existing documents retain their snapshot on update.
+        val effectiveRequest = request.copy(currency = storeCurrency ?: request.currency)
+        if (accountDataMode(userId) == AccountDataMode.LocalDrive) return createDocumentLocal(effectiveRequest)
         return withContext(Dispatchers.IO) {
-            val result = backendApiClient.createDocument(request)
+            val result = backendApiClient.createDocument(effectiveRequest)
             if (!result.ok) return@withContext result
 
             val documentId = result.data?.documentId?.takeIf { it.isNotBlank() }
@@ -1628,9 +1680,9 @@ open class TijarioRepository(
                 backendApiClient.fetchCompleteDocument(documentId).data?.let { remote ->
                     cacheCompleteDocumentSnapshot(
                         remote.copy(
-                            documentNumber = resolveCachedDocumentNumber(remote.documentNumber, request.documentNumber),
-                            documentTitle = request.documentTitle ?: remote.documentTitle,
-                            documentLanguage = request.documentLanguage,
+                            documentNumber = resolveCachedDocumentNumber(remote.documentNumber, effectiveRequest.documentNumber),
+                            documentTitle = effectiveRequest.documentTitle ?: remote.documentTitle,
+                            documentLanguage = effectiveRequest.documentLanguage,
                         )
                     )
                 }
@@ -3043,8 +3095,14 @@ open class TijarioRepository(
         usage: app.tijario.data.model.UserPlanUsage,
     ): app.tijario.data.model.UserPlanUsage {
         val pendingDocs = dao.getPendingCreationEvents(userId).size
-        if (pendingDocs <= 0) return usage
-        return usage.copy(documentsUsed = usage.documentsUsed + pendingDocs)
+        val isLocalDrive = accountDataMode(userId) == AccountDataMode.LocalDrive
+        return effectivePlanUsage(
+            usage = usage,
+            isLocalDrive = isLocalDrive,
+            activeCustomers = if (isLocalDrive) dao.countActiveCustomers(userId) else usage.customersUsed,
+            activeProducts = if (isLocalDrive) dao.countActiveProducts(userId) else usage.productsUsed,
+            pendingDocumentEvents = pendingDocs,
+        )
     }
 }
 

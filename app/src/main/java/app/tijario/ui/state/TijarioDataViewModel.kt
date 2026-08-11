@@ -21,6 +21,8 @@ import app.tijario.data.remote.AiV2ReportRequest
 import app.tijario.data.remote.AiV2Response
 import app.tijario.data.repository.TijarioRepository
 import app.tijario.data.repository.AccountInitializationException
+import app.tijario.domain.CreationAllowance
+import app.tijario.domain.CreationTarget
 import app.tijario.config.AppRuntimeState
 import app.tijario.config.Localization
 import kotlinx.coroutines.Job
@@ -287,8 +289,12 @@ class TijarioDataViewModel(
             )
         )
     }
+    suspend fun creationAllowance(target: CreationTarget): CreationAllowance =
+        repository.creationAllowance(target)
+
     suspend fun createCustomer(customer: Customer): Result<Unit> =
         repository.createCustomer(customer).onSuccess {
+            refreshPlanUsage(force = false)
             TijarioAnalytics.logEvent(TijarioAnalyticsEvent.CustomerCreated)
         }
 
@@ -296,10 +302,11 @@ class TijarioDataViewModel(
         repository.updateCustomer(customer)
 
     suspend fun deleteCustomer(customerId: String): Result<Unit> =
-        repository.deleteCustomer(customerId)
+        repository.deleteCustomer(customerId).onSuccess { refreshPlanUsage(force = false) }
 
     suspend fun createProduct(product: Product): Result<Unit> =
         repository.createProduct(product).onSuccess {
+            refreshPlanUsage(force = false)
             TijarioAnalytics.logEvent(TijarioAnalyticsEvent.ProductCreated)
         }
 
@@ -307,7 +314,7 @@ class TijarioDataViewModel(
         repository.updateProduct(product)
 
     suspend fun deleteProduct(productId: String): Result<Unit> =
-        repository.deleteProduct(productId)
+        repository.deleteProduct(productId).onSuccess { refreshPlanUsage(force = false) }
 
     suspend fun saveBusinessSettings(settings: BusinessSettings): Result<Unit> =
         repository.saveBusinessSettings(settings)
@@ -417,6 +424,10 @@ class TijarioDataViewModel(
                         lastSyncedAt = syncState.lastSyncedAt,
                         errorMessage = syncState.errorMessage,
                     )
+                }
+                repository.getCachedPlanUsage(userId)?.let { effectiveUsage ->
+                    planUsageStateMutable.value = PlanUsageState.Success(effectiveUsage)
+                    uiStateMutable.update { current -> current.copy(planUsage = effectiveUsage) }
                 }
             }.collect {}
         }

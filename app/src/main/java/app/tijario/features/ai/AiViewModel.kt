@@ -60,11 +60,11 @@ class AiViewModel(
                             onSuccess()
                         }
 
-                        response.code == "ai_limit_reached" -> {
+                        response.code.equals("ai_limit_reached", ignoreCase = true) -> {
                             stateMutable.value = AiV3ScreenState.LimitReached(localizedAiLimitReached())
                         }
 
-                        else -> stateMutable.value = AiV3ScreenState.Error(localizedReplyError())
+                        else -> stateMutable.value = AiV3ScreenState.Error(responseFailureMessage(response.code, response.message, response.retryable, localizedReplyError()))
                     }
                 }
                 .onFailure { error ->
@@ -85,11 +85,11 @@ class AiViewModel(
                             onSuccess()
                         }
 
-                        response.code == "ai_limit_reached" -> {
+                        response.code.equals("ai_limit_reached", ignoreCase = true) -> {
                             stateMutable.value = AiV3ScreenState.LimitReached(localizedAiLimitReached())
                         }
 
-                        else -> stateMutable.value = AiV3ScreenState.Error(localizedCaptionError())
+                        else -> stateMutable.value = AiV3ScreenState.Error(responseFailureMessage(response.code, response.message, response.retryable, localizedCaptionError()))
                     }
                 }
                 .onFailure { error ->
@@ -125,11 +125,11 @@ class AiViewModel(
                             onSuccess()
                         }
 
-                        response.code == "ai_limit_reached" -> {
+                        response.code.equals("ai_limit_reached", ignoreCase = true) -> {
                             stateMutable.value = AiV3ScreenState.LimitReached(localizedAiLimitReached())
                         }
 
-                        else -> stateMutable.value = previous.copy(notice = localizedRefineError())
+                        else -> stateMutable.value = previous.copy(notice = responseFailureMessage(response.code, response.message, response.retryable, localizedRefineError()))
                     }
                 }
                 .onFailure { error ->
@@ -178,6 +178,20 @@ class AiViewModel(
     private fun failureMessage(error: Throwable, fallback: String): String {
         val mapped = LocalizedErrorMapper.map(null, error.message, AppRuntimeState.currentLanguage)
         return mapped.takeIf { it.isNotBlank() } ?: fallback
+    }
+
+    private fun responseFailureMessage(
+        code: String?,
+        message: String?,
+        retryable: Boolean?,
+        fallback: String,
+    ): String {
+        if (retryable == true) {
+            return Localization.getString("ai_error_provider_unavailable", AppRuntimeState.currentLanguage)
+        }
+        return LocalizedErrorMapper.map(code, message, AppRuntimeState.currentLanguage)
+            .takeIf { it.isNotBlank() }
+            ?: fallback
     }
 
     private fun localizedAiLimitReached(): String =

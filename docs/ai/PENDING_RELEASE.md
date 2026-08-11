@@ -1,5 +1,9 @@
 # Pending Release
 
+## 2026-08-11 AI context and document-number compatibility gate
+- Do not publish `fix/android-runtime-critical-fixes` until the compatible Web/API branch `fix/mobile-runtime-critical-backend` is deployed with `20260811123000_preserve_requested_document_numbers.sql` applied in the approved release sequence.
+- Before release, test on a physical device with LocalDrive-only customer/product records: reply and caption generation must retain the selected values, malformed snapshots must show the localized validation message, and provider timeout must show the localized retryable message without technical provider text.
+
 ## 2026-08-09 analytics verification follow-up
 - Confirm the provider dashboard receives distinct reply and caption event counts only after a future authorized app release; no analytics provider configuration was changed.
 

@@ -1,5 +1,10 @@
 # AI Changelog
 
+## 2026-08-11 - Local-first AI context contract
+- AI reply and caption requests now carry the selected entity IDs together with a strict, bounded local context snapshot. Local customer/product selection can therefore survive a cloud-cache miss once the matching API is deployed.
+- The Android snapshot sends only business name/country/currency, customer name/city, and product name/description/price/currency/stock. It excludes contact data, plan/quota information, tokens, and local identifiers beyond the selected request IDs.
+- Added localized mappings for `provider_timeout` and `invalid_context_snapshot`. No provider, backend, or production configuration was changed from Android.
+
 ## 2026-08-09 - Analytics event taxonomy correction
 - Added centralized typed analytics event names for customer, product, invoice, quote, AI reply, AI caption, and subscription start.
 - Corrected AI caption generation to record its own event instead of the AI reply event. No content or personal data is attached to these events.
@@ -531,3 +536,9 @@
 # 2026-08-09 - CI package verification reliability
 - Android CI now isolates lint, Debug packaging, and Release packaging into sequential non-parallel Gradle invocations and records stack traces on failure. This addresses a transient, non-diagnostic Debug packaging failure without changing application source.
 - Checkout and Java setup actions use supported current major versions. GitHub Actions Android CI run `31337272388` passed both jobs for this CI-only adjustment.
+
+# 2026-08-10 - Runtime-critical Android remediation
+- Added route-stack recovery for Settings navigation, centralized plan-limit creation guards, and reactive LocalDrive usage overlays that keep signed entitlement limits unchanged.
+- New document/product defaults now use the saved business currency; local numbering is per document type, preserves valid custom suffixes, rejects exact local duplicates, and remains immutable on update.
+- AI reply/caption requests no longer send local-only customer/product IDs that the current server cannot resolve. A bounded fallback context excludes identifiers and contact details while a future backend snapshot contract remains pending.
+- Replaced the textual notification glyph with the monochrome Tijario mark. Full JVM, lint, Debug/Release/AndroidTest/PlayQa, and release-bundle validation passed locally; device QA remains pending.
