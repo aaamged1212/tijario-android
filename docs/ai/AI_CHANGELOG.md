@@ -1,5 +1,9 @@
 # AI Changelog
 
+## 2026-08-12 - Document-number validation messages
+- Added localized Arabic and English mappings for the backend's stable `DOCUMENT_NUMBER_INVALID` and `DOCUMENT_NUMBER_DUPLICATE` codes.
+- Added JVM coverage that verifies both codes resolve to safe user-visible text and never expose the raw backend code. Version and all unrelated Android flows remain unchanged.
+
 ## 2026-08-11 - Local-first AI context contract
 - AI reply and caption requests now carry the selected entity IDs together with a strict, bounded local context snapshot. Local customer/product selection can therefore survive a cloud-cache miss once the matching API is deployed.
 - The Android snapshot sends only business name/country/currency, customer name/city, and product name/description/price/currency/stock. It excludes contact data, plan/quota information, tokens, and local identifiers beyond the selected request IDs.

@@ -1,5 +1,10 @@
 # Project State (Android & Web Repos)
 
+## 2026-08-12 - Android document-number contract mapping ready locally
+- Android now maps the compatible backend's `DOCUMENT_NUMBER_INVALID` and `DOCUMENT_NUMBER_DUPLICATE` save responses to localized Arabic/English messages.
+- Full JVM tests, both lint variants, Debug assembly, and Release assembly passed. Version remains `1.1.9` / code `19`; `.agents` remains local and excluded.
+- The matching Web migration/API remains a separate release gate. No migration, deployment, push, merge, or Google Play upload occurred.
+
 ## 2026-08-11 - Runtime-critical Local-First AI contract ready locally
 - Android on `fix/android-runtime-critical-fixes` now submits the selected local customer/product IDs with a bounded context snapshot rather than converting the selection to unstructured prompt text. The snapshot contains no contact fields, entitlement information, or secrets.
 - The compatible Web/API work and document-number preservation migration are isolated on `fix/mobile-runtime-critical-backend`. The Android change is not production-ready independently: apply the migration and deploy the compatible API before releasing an Android build that relies on this contract.

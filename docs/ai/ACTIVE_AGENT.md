@@ -1,9 +1,9 @@
 # Active Agent Status
 
-- **Current task**: Runtime-critical AI context and document-number parity on `fix/android-runtime-critical-fixes`.
-- **State**: Android now sends a bounded, non-sensitive local context snapshot with selected customer/product IDs. The compatible Web/API work is isolated on `fix/mobile-runtime-critical-backend`; do not release this Android branch until that API and its pending migration are applied and deployed together.
-- **Validation**: Focused AI contract tests, full JVM tests, both lint variants, Debug/Release/AndroidTest/PlayQa assembly, and `bundleRelease` passed locally. No ADB device/emulator was connected.
-- **Publication**: Branch was committed and pushed as `08b0d85cf38202a03585b70490b4e0d21dbd8f01`; it remains unmerged and has no Play upload.
+- **Current task**: Local mapping correction for backend document-number validation on `fix/android-runtime-critical-fixes`.
+- **State**: The app maps `DOCUMENT_NUMBER_INVALID` and `DOCUMENT_NUMBER_DUPLICATE` to safe localized Arabic/English messages. The compatible API and unapplied migration remain on `fix/mobile-runtime-critical-backend`; do not release independently.
+- **Validation**: Full JVM tests, `lintDebug`, `lintRelease`, `assembleDebug`, and `assembleRelease` passed locally. No ADB device/emulator was connected. Version remains `19` / `1.1.9`.
+- **Publication**: Local commit only is pending; no push, merge, or Play upload occurred.
 
 - **Current task**: Analytics taxonomy correction on `fix/android-full-hardening`.
 - **State**: Analytics events are typed; AI caption and AI reply success have distinct event names, with no user or generated content attached.

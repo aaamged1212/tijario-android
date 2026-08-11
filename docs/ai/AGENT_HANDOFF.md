@@ -1,5 +1,11 @@
 # Agent Handoff (Android & Web Repos)
 
+## 2026-08-12 (Document-number error contract, local)
+- **Branch**: `fix/android-runtime-critical-fixes` from `6f048a4c5217d8ac3409058bb1ca85141cdf72b1`.
+- **Compatibility**: Added localized handling for backend `DOCUMENT_NUMBER_INVALID` and `DOCUMENT_NUMBER_DUPLICATE` responses. Arabic and English users receive a specific safe message instead of a generic document-save failure.
+- **Validation**: Full JVM tests, `lintDebug`, `lintRelease`, `assembleDebug`, and `assembleRelease` passed locally. Version remains code `19` / name `1.1.9`.
+- **Safety**: No backend, migration, deployment, external configuration change, Google Play upload, push, or merge occurred. Existing untracked `.agents` directories remain untouched and excluded.
+
 ## 2026-08-11 (Runtime-critical AI context and document-number parity, local)
 - **Android branch**: `fix/android-runtime-critical-fixes` at base `31ede1df9230c3bb19431b90659afbf2d683f237`.
 - **Implemented**: AI reply/caption requests preserve the selected local IDs and add a strict, bounded context snapshot containing only generation-relevant business/customer/product fields. The snapshot deliberately excludes WhatsApp, email, plan, quota, and tokens. New localized mappings handle provider timeout and invalid snapshot responses.
