@@ -547,3 +547,7 @@
 - New document/product defaults now use the saved business currency; local numbering is per document type, preserves valid custom suffixes, rejects exact local duplicates, and remains immutable on update.
 - AI reply/caption requests no longer send local-only customer/product IDs that the current server cannot resolve. A bounded fallback context excludes identifiers and contact details while a future backend snapshot contract remains pending.
 - Replaced the textual notification glyph with the monochrome Tijario mark. Full JVM, lint, Debug/Release/AndroidTest/PlayQa, and release-bundle validation passed locally; device QA remains pending.
+
+# 2026-08-13 - LocalDrive offline CRUD recovery
+- Local invoice and quote saves no longer request a server lease in the critical Room transaction path. A valid cached entitlement and locally tracked pending documents enforce the quota offline; a compatible cached lease is attached only when one exists.
+- Local customer, product/service, and document create/update routing is covered by focused repository tests that assert `LOCAL_ONLY` writes and no operational outbox or document API call. Expired or missing cached entitlements remain typed rejections, and offline plan limits remain enforced.

@@ -816,6 +816,12 @@
 - **Remote validation**: GitHub Actions Source Audit Scan and Android CI run `31327114193` both completed successfully. Android CI passed its compile/unit-test and lint/release-assembly jobs.
 - **Safety Status**: No deployment, migration, Production write, external configuration change, or Google Play upload occurred.
 
+## 2026-08-13 (LocalDrive offline CRUD recovery, local)
+- **Cause and correction**: Local invoice and quote creation required a newly refreshed server lease when no active lease was cached. That made a Room-first save fail offline before its transaction began. LocalDrive now validates the signed cached entitlement and local pending-event count, attaches a valid cached lease only when present, and records a lease-less pending creation event otherwise for later reconciliation.
+- **Operational behavior**: Customer, product/service, and document create/update routes enter their LocalDrive Room path before the legacy-cloud gate. Local document save does not call the document API, request a lease, or queue operational sync. The post-save plan refresh uses the cached LocalDrive state.
+- **Validation**: `TijarioRepositoryOfflineTests`, `LocalDocumentSavePolicyTest`, and `QuotaReconciliationPolicyTest` passed: 47 tests, zero failures/errors. `assembleDebug` passed. Physical offline QA remains required.
+- **Safety Status**: No push, deployment, migration, Production write, backend/Web change, external configuration change, or Google Play upload occurred. `.agents` remains local and excluded.
+
 ## 2026-08-10 (Runtime-critical Android remediation, local and uncommitted)
 - **Navigation and plan guards**: Settings and child-route back actions now recover to the main route if the navigation stack has no valid predecessor. All invoice, quote, customer, and product creation entries use one creation-limit policy before navigation, while forms preserve a localized save-time limit dialog if a stale state is rejected.
 - **Local data behavior**: LocalDrive usage overlays use Room counts for customers/products and pending creation events for documents without changing entitlement limits. New forms inherit the saved business currency unless manually changed. Local document numbers are deterministic per type, preserve valid custom suffixes and leading zeroes, reject local duplicates before writing, and remain stable on edit.

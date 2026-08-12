@@ -108,3 +108,8 @@ The counters migration is required to manage sequential document numbers without
 - Before releasing `fix/android-full-hardening`, serve `/.well-known/assetlinks.json` without redirects from both `tijario.site` and `www.tijario.site`.
 - Confirm it lists `app.tijario` and the active Google Play app-signing SHA-256 certificate. A local/upload certificate alone is insufficient.
 - On a release-signed device, verify both hosts through `pm get-app-links` and complete password-reset and OAuth callback flows. Keep the existing custom schemes as fallback until this passes.
+
+## 2026-08-13 LocalDrive offline CRUD QA gate
+- Install the local Debug APK and verify customer create/edit, product/service create/edit, invoice/quote create, and document edit while airplane mode is enabled after one successful online account initialization.
+- Verify the stored plan limits still reject the next customer, product, or document offline. A missing or expired cached entitlement is expected to show its typed setup/entitlement error rather than a generic failure.
+- No migration, backend deployment, or Google Play upload is authorized by this local source correction.

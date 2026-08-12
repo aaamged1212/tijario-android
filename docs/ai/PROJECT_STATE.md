@@ -167,3 +167,8 @@
 - AI reply/caption flows stop submitting local-only customer/product identifiers that the current backend cannot resolve. They send a bounded generation-only fallback context without WhatsApp, email, or local IDs. Full snapshot acceptance still requires a future backend contract change.
 - The build remains version `1.1.9` / code `19`. Full JVM tests, both lint variants, Debug/Release/AndroidTest/PlayQa assembly, and `bundleRelease` completed successfully locally. No connected ADB device is available for physical QA.
 - No commit, push, deployment, migration, Production write, external configuration change, or Play upload occurred. `.agents` remains untracked and excluded.
+
+## 2026-08-13 LocalDrive offline CRUD recovery
+- Local invoice/quote creation no longer requires a network lease refresh. With a valid cached signed entitlement, Room validates the local document count and writes the document, items, customer snapshot, and pending creation event atomically; it attaches an active compatible lease only when one is already cached.
+- Customer, product/service, and document create/update remain `LOCAL_ONLY` in LocalDrive and do not enqueue operational cloud sync. Missing or expired entitlements remain blocked with typed errors; plan limits remain locally enforced.
+- Focused JVM coverage (47 tests) and Debug assembly passed. Physical offline QA is still required before any release action. No backend, migration, deployment, or external change occurred.

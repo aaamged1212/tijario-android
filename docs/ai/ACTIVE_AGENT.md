@@ -147,4 +147,10 @@
 - **State**: Uncommitted local source changes add safe route fallback, centralized creation limits, reactive LocalDrive usage overlays, store-currency defaults, deterministic local document numbering, safer AI local-context fallback, and the monochrome notification icon.
 - **Validation**: Full JVM tests, `lintDebug`, `lintRelease`, Debug/Release/AndroidTest/PlayQa assembly, and `bundleRelease` passed locally. No ADB device or emulator is connected.
 - **Boundary**: The Android app avoids sending local-only customer/product IDs to the current AI API. Full server-side support for a bounded local context snapshot remains a separate backend contract change.
-- **Safety**: No commit, push, deployment, migration, Production write, external configuration change, or Google Play upload occurred. `.agents` remains local and excluded.
+- **Safety**: No push, deployment, migration, Production write, external configuration change, or Google Play upload occurred. `.agents` remains local and excluded.
+
+## 2026-08-13
+- **Current task**: LocalDrive offline CRUD recovery on `fix/android-runtime-critical-fixes`.
+- **State**: Local document creation uses cached entitlement/local quota validation and does not request a lease from the network. Customer, product/service, and document create/update route directly to Room in LocalDrive without operational outbox writes.
+- **Validation**: 47 focused JVM tests and `assembleDebug` passed. Physical offline QA remains pending.
+- **Safety**: No push, deployment, migration, Production write, external configuration change, or Google Play upload occurred. `.agents` remains local and excluded.

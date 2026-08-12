@@ -1090,7 +1090,7 @@ open class TijarioRepository(
             )
 
             withContext(Dispatchers.IO) {
-                withQuotaCreditReservation(userId, isLocalDrive) { quotaCredit ->
+                withLocalQuotaReservation(userId, isLocalDrive) { localQuotaLease ->
                     database.withTransaction {
                     logLocalDocumentSave("create", userId, isLocalDrive, "transaction_started")
                     dao.upsertCustomer(customerEntityToUpsert)
@@ -1105,7 +1105,7 @@ open class TijarioRepository(
                     }
                     dao.upsertDocument(docEntity)
                     dao.insertDocumentItems(itemsEntities)
-                    reserveDocumentQuotaLedger(userId, docId, quotaCredit)
+                    reserveDocumentQuotaLedger(userId, docId, localQuotaLease)
                     if (!isLocalDrive) {
                         enqueueOperationalOutbox(userId, "document", docId, "CREATE")
                     }
@@ -1410,11 +1410,11 @@ open class TijarioRepository(
     // Legacy Save / Cache adapters for backward compatibility
     suspend fun createCustomer(customer: Customer): Result<Unit> = runCatching {
         val userId = requireUserId()
-        requireOperationalDataMode(userId)
         if (accountDataMode(userId) == AccountDataMode.LocalDrive) {
             createCustomerLocal(customer).getOrThrow()
             return@runCatching
         }
+        requireOperationalDataMode(userId)
         val generatedId = customer.id ?: java.util.UUID.randomUUID().toString()
         val remoteCustomer = customer.copy(id = generatedId, userId = userId)
         withContext(Dispatchers.IO) {
@@ -1441,11 +1441,11 @@ open class TijarioRepository(
 
     suspend fun updateCustomer(customer: Customer): Result<Unit> = runCatching {
         val userId = requireUserId()
-        requireOperationalDataMode(userId)
         if (accountDataMode(userId) == AccountDataMode.LocalDrive) {
             updateCustomerLocal(customer).getOrThrow()
             return@runCatching
         }
+        requireOperationalDataMode(userId)
         val customerId = customer.id ?: error("Customer ID required for update")
         withContext(Dispatchers.IO) {
             supabaseClient.from("customers").update(customer) {
@@ -1497,11 +1497,11 @@ open class TijarioRepository(
 
     suspend fun createProduct(product: Product): Result<Unit> = runCatching {
         val userId = requireUserId()
-        requireOperationalDataMode(userId)
         if (accountDataMode(userId) == AccountDataMode.LocalDrive) {
             createProductLocal(product).getOrThrow()
             return@runCatching
         }
+        requireOperationalDataMode(userId)
         val generatedId = product.id ?: java.util.UUID.randomUUID().toString()
         val storeCurrency = dao.getBusinessSettings(userId)?.currency?.takeIf { it.isNotBlank() }
         val remoteProduct = product.copy(id = generatedId, userId = userId, currency = storeCurrency ?: product.currency)
@@ -1535,11 +1535,11 @@ open class TijarioRepository(
 
     suspend fun updateProduct(product: Product): Result<Unit> = runCatching {
         val userId = requireUserId()
-        requireOperationalDataMode(userId)
         if (accountDataMode(userId) == AccountDataMode.LocalDrive) {
             updateProductLocal(product).getOrThrow()
             return@runCatching
         }
+        requireOperationalDataMode(userId)
         val productId = product.id ?: error("Product ID required for update")
         withContext(Dispatchers.IO) {
             supabaseClient.from("products").update(product) {
@@ -1658,13 +1658,13 @@ open class TijarioRepository(
     // Legacy Document Remote Bridges
     suspend fun createDocument(request: CreateDocumentRequest): ApiResult<CreateDocumentResponse> {
         val userId = requireUserId()
-        requireOperationalDataMode(userId)
         val storeCurrency = dao.getBusinessSettings(userId)
             ?.currency
             ?.takeIf { it.isNotBlank() }
         // New documents use the store currency in every data mode. Existing documents retain their snapshot on update.
         val effectiveRequest = request.copy(currency = storeCurrency ?: request.currency)
         if (accountDataMode(userId) == AccountDataMode.LocalDrive) return createDocumentLocal(effectiveRequest)
+        requireOperationalDataMode(userId)
         return withContext(Dispatchers.IO) {
             val result = backendApiClient.createDocument(effectiveRequest)
             if (!result.ok) return@withContext result
@@ -1721,8 +1721,8 @@ open class TijarioRepository(
 
     suspend fun updateDocument(documentId: String, request: CreateDocumentRequest): ApiResult<CreateDocumentResponse> {
         val userId = requireUserId()
-        requireOperationalDataMode(userId)
         if (accountDataMode(userId) == AccountDataMode.LocalDrive) return updateDocumentLocal(documentId, request)
+        requireOperationalDataMode(userId)
         return withContext(Dispatchers.IO) {
             val result = backendApiClient.updateDocument(documentId, request)
             if (!result.ok) return@withContext result
@@ -2925,15 +2925,59 @@ open class TijarioRepository(
         const val LEASE_REFRESH_MARGIN_MS = 60 * 60 * 1000L
     }
 
-    private suspend fun withQuotaCreditReservation(
+    private suspend fun withLocalQuotaReservation(
         userId: String,
         isLocalDrive: Boolean,
         block: suspend (app.tijario.data.local.OfflineQuotaLeaseEntity?) -> Unit,
     ) {
         if (!isLocalDrive) return block(null)
         quotaReservationMutex.withLock {
-            block(ensureQuotaCreditForDocumentCreation(userId))
+            ensureLocalDocumentQuotaAvailable(userId)
+            // A valid cached entitlement remains the local authorization source. A lease
+            // is attached when available, but refreshing it is reconciliation work, not
+            // a prerequisite for an offline Room save.
+            block(findUsableLocalQuotaLease(userId))
         }
+    }
+
+    private suspend fun ensureLocalDocumentQuotaAvailable(userId: String) {
+        val entitlement = dao.getAccountEntitlement(userId)
+            ?: throw IllegalStateException("ENTITLEMENT_INITIALIZATION_REQUIRED")
+        if (!hasValidOperationalEntitlement(entitlement)) {
+            throw IllegalStateException("ENTITLEMENT_INITIALIZATION_REQUIRED")
+        }
+        val periodKey = if (entitlement.documentLimitScope == "lifetime") "lifetime" else currentUtcPeriodMonth()
+        val pendingEvents = dao.getPendingCreationEvents(userId).count {
+            entitlement.documentLimitScope == "lifetime" || it.periodKey == periodKey
+        }
+        if (entitlement.documentLimit != null && entitlement.documentsUsed + pendingEvents >= entitlement.documentLimit) {
+            throw IllegalStateException("QUOTA_LIMIT_EXCEEDED")
+        }
+    }
+
+    private suspend fun findUsableLocalQuotaLease(
+        userId: String,
+    ): app.tijario.data.local.OfflineQuotaLeaseEntity? {
+        val entitlement = dao.getAccountEntitlement(userId)
+            ?: throw IllegalStateException("ENTITLEMENT_INITIALIZATION_REQUIRED")
+        if (!hasValidOperationalEntitlement(entitlement)) {
+            throw IllegalStateException("ENTITLEMENT_INITIALIZATION_REQUIRED")
+        }
+        val installationId = AppPreferences.getInstallationId(context)
+        val periodKey = if (entitlement.documentLimitScope == "lifetime") "lifetime" else currentUtcPeriodMonth()
+        val candidate = dao.getActiveLease(userId, installationId, System.currentTimeMillis())
+            ?.takeIf {
+                it.userId == userId &&
+                    it.deviceId == installationId &&
+                    it.status == "ACTIVE" &&
+                    it.expiresAt > System.currentTimeMillis() &&
+                    it.planCode == entitlement.planCode &&
+                    it.entitlementVersion == entitlement.entitlementVersion &&
+                    leaseMatchesPeriod(it.periodMonth, periodKey)
+            }
+            ?: return null
+        val reservations = dao.getPendingCreationEvents(userId).count { it.leaseId == candidate.id }
+        return candidate.takeIf { hasLeaseCredit(it.allowedLimit, it.consumedCount, reservations) }
     }
 
     /** Refreshes once, then returns a locally reservable server-issued lease credit. */
@@ -2946,26 +2990,11 @@ open class TijarioRepository(
             throw IllegalStateException("ENTITLEMENT_INITIALIZATION_REQUIRED")
         }
         val installationId = AppPreferences.getInstallationId(context)
-        val periodKey = if (entitlement.documentLimitScope == "lifetime") "lifetime" else currentUtcPeriodMonth()
-        suspend fun available(lease: app.tijario.data.local.OfflineQuotaLeaseEntity?): app.tijario.data.local.OfflineQuotaLeaseEntity? {
-            val candidate = lease?.takeIf {
-                it.userId == userId &&
-                    it.deviceId == installationId &&
-                    it.status == "ACTIVE" &&
-                    it.expiresAt > System.currentTimeMillis() &&
-                    it.planCode == entitlement.planCode &&
-                    it.entitlementVersion == entitlement.entitlementVersion &&
-                    leaseMatchesPeriod(it.periodMonth, periodKey)
-            } ?: return null
-            val reservations = dao.getPendingCreationEvents(userId).count { it.leaseId == candidate.id }
-            return candidate.takeIf { hasLeaseCredit(it.allowedLimit, it.consumedCount, reservations) }
-        }
-
-        available(dao.getActiveLease(userId, installationId, System.currentTimeMillis()))?.let { return it }
-        // One bounded refresh prepares a reconciliable credit. A failed/offline call
-        // never permits a lease-less document event.
+        findUsableLocalQuotaLease(userId)?.let { return it }
+        // Reconciliation can prepare a lease when the network is available. Document
+        // creation itself deliberately never calls this path.
         val refreshFailureCode = refreshOfflineLease(userId, installationId)
-        return available(dao.getActiveLease(userId, installationId, System.currentTimeMillis()))
+        return findUsableLocalQuotaLease(userId)
             ?: throw IllegalStateException(
                 if (isTerminalDocumentCreationEventFailure(refreshFailureCode)) "QUOTA_LIMIT_EXCEEDED"
                 else "OFFLINE_QUOTA_UNAVAILABLE",
@@ -3031,17 +3060,17 @@ open class TijarioRepository(
             if (limit != null && entitlement.documentsUsed + pendingEvents >= limit) {
                 throw IllegalStateException("QUOTA_LIMIT_EXCEEDED")
             }
-            val lease = preparedLocalDriveLease
-                ?: throw IllegalStateException("OFFLINE_QUOTA_UNAVAILABLE")
-            val leasePending = dao.getPendingCreationEvents(userId).count { it.leaseId == lease.id }
-            if (
-                lease.userId != userId || lease.deviceId != deviceId ||
-                lease.planCode != entitlement.planCode ||
-                lease.entitlementVersion != entitlement.entitlementVersion ||
-                !leaseMatchesPeriod(lease.periodMonth, periodKey) ||
-                lease.status != "ACTIVE" || lease.expiresAt <= System.currentTimeMillis() ||
-                !hasLeaseCredit(lease.allowedLimit, lease.consumedCount, leasePending)
-            ) throw IllegalStateException("OFFLINE_QUOTA_UNAVAILABLE")
+            val lease = preparedLocalDriveLease?.also {
+                val leasePending = dao.getPendingCreationEvents(userId).count { event -> event.leaseId == it.id }
+                if (
+                    it.userId != userId || it.deviceId != deviceId ||
+                    it.planCode != entitlement.planCode ||
+                    it.entitlementVersion != entitlement.entitlementVersion ||
+                    !leaseMatchesPeriod(it.periodMonth, periodKey) ||
+                    it.status != "ACTIVE" || it.expiresAt <= System.currentTimeMillis() ||
+                    !hasLeaseCredit(it.allowedLimit, it.consumedCount, leasePending)
+                ) throw IllegalStateException("OFFLINE_QUOTA_UNAVAILABLE")
+            }
             dao.insertCreationEvent(
                 app.tijario.data.local.DocumentCreationEventEntity(
                     id = java.util.UUID.randomUUID().toString(),
@@ -3049,7 +3078,7 @@ open class TijarioRepository(
                     documentId = documentId,
                     operationId = java.util.UUID.randomUUID().toString(),
                     installationId = deviceId,
-                    leaseId = lease.id,
+                    leaseId = lease?.id,
                     planCode = entitlement.planCode,
                     quotaScope = entitlement.documentLimitScope,
                     periodKey = periodKey,

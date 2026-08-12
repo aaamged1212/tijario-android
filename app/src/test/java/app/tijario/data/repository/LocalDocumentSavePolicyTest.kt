@@ -24,16 +24,19 @@ class LocalDocumentSavePolicyTest {
     }
 
     @Test
-    fun localDriveSaveRequiresAReconciliableLeaseCredit() {
+    fun localDriveSaveUsesCachedEntitlementAndAnOptionalLocalLease() {
         val source = File("src/main/java/app/tijario/data/repository/TijarioRepository.kt").readText()
+        val localCreate = source.substringAfter("suspend fun createDocumentLocal")
+            .substringBefore("suspend fun updateDocumentLocal")
         val localDriveReservation = source.substringAfter("if (dataMode == AccountDataMode.LocalDrive)")
             .substringBefore("val pendingLedgers")
 
         assertTrue(source.contains("ensureQuotaCreditForDocumentCreation"))
         assertTrue(source.contains("quotaReservationMutex"))
-        assertTrue(localDriveReservation.contains("leaseId = lease.id"))
-        assertTrue(localDriveReservation.contains("OFFLINE_QUOTA_UNAVAILABLE"))
-        assertFalse(localDriveReservation.contains("leaseIdForEvent"))
+        assertTrue(localCreate.contains("withLocalQuotaReservation(userId, isLocalDrive)"))
+        assertFalse(localCreate.contains("refreshOfflineLease(userId"))
+        assertTrue(localDriveReservation.contains("leaseId = lease?.id"))
+        assertFalse(localDriveReservation.contains("?: throw IllegalStateException(\"OFFLINE_QUOTA_UNAVAILABLE\")"))
     }
 
     @Test
@@ -105,7 +108,7 @@ class LocalDocumentSavePolicyTest {
         assertTrue(create.contains("dao.upsertCustomer(customerEntityToUpsert)"))
         assertTrue(create.contains("dao.upsertDocument(docEntity)"))
         assertTrue(create.contains("dao.insertDocumentItems(itemsEntities)"))
-        assertTrue(create.contains("reserveDocumentQuotaLedger(userId, docId, quotaCredit)"))
+        assertTrue(create.contains("reserveDocumentQuotaLedger(userId, docId, localQuotaLease)"))
         assertTrue(update.contains("syncStatus = nextStatus"))
         assertTrue(update.contains("dao.deleteDocumentItems(userId, documentId)"))
         assertFalse(update.contains("reserveDocumentQuotaLedger"))

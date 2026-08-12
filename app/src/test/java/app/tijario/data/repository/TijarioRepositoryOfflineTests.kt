@@ -23,7 +23,6 @@ import app.tijario.data.remote.ApiResult
 import app.tijario.data.remote.CreateDocumentRequest
 import app.tijario.data.remote.DocumentCustomerInput
 import app.tijario.data.remote.DocumentItemInput
-import app.tijario.data.remote.OfflineLeaseData
 import app.tijario.data.remote.OfflineLeaseRequest
 import io.github.jan.supabase.SupabaseClient
 import androidx.room.withTransaction
@@ -35,9 +34,11 @@ import io.mockk.slot
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import java.io.IOException
 import java.math.BigDecimal
 
 class TijarioRepositoryOfflineTests {
@@ -565,14 +566,188 @@ class TijarioRepositoryOfflineTests {
     }
 
     @Test
-    fun createDocument_rejectsLocalDriveWithoutAnActiveLeaseAtomically() = runBlocking {
+    fun updateCustomer_routesLocalDriveToRoomWithoutOperationalOutbox() = runBlocking {
+        val existing = CustomerEntity(
+            id = "offline-customer",
+            userId = userId,
+            name = "Before",
+            whatsappNumber = "111",
+            city = null,
+            notes = null,
+            syncedAt = 0L,
+            syncStatus = "LOCAL_ONLY",
+            localRevision = 2,
+            isDeleted = false,
+        )
+        coEvery { dao.getAccountEntitlement(userId) } returns localDriveEntitlement()
+        coEvery { dao.getCustomer(userId, existing.id) } returns existing
+        val saved = slot<CustomerEntity>()
+        coEvery { dao.upsertCustomer(capture(saved)) } returns Unit
+
+        val result = repository.updateCustomer(
+            Customer(id = existing.id, name = "After", whatsappNumber = "222"),
+        )
+
+        assertTrue(result.isSuccess)
+        assertEquals("LOCAL_ONLY", saved.captured.syncStatus)
+        assertEquals(3, saved.captured.localRevision)
+        coVerify(exactly = 0) { dao.upsertOutbox(any()) }
+    }
+
+    @Test
+    fun createProductAndService_routeLocalDriveToRoomWithoutOperationalOutbox() = runBlocking {
+        coEvery { dao.getAccountEntitlement(userId) } returns localDriveEntitlement()
+        coEvery { dao.getBusinessSettings(userId) } returns BusinessSettingsEntity(
+            userId = userId,
+            remoteId = null,
+            businessName = "Store",
+            whatsappNumber = "111",
+            country = "SA",
+            city = null,
+            currency = "SAR",
+            logoUrl = null,
+            instagramUrl = null,
+            invoiceNote = null,
+            termsText = null,
+            syncedAt = 0L,
+            syncStatus = "LOCAL_ONLY",
+        )
+        coEvery { dao.upsertProduct(any()) } returns Unit
+
+        val product = repository.createProduct(
+            Product(id = "offline-product", kind = ProductKind.Product, name = "Product", price = 10.0, currency = "USD"),
+        )
+        val service = repository.createProduct(
+            Product(id = "offline-service", kind = ProductKind.Service, name = "Service", price = 20.0, currency = "USD"),
+        )
+
+        assertTrue(product.isSuccess)
+        assertTrue(service.isSuccess)
+        coVerify(exactly = 2) { dao.upsertProduct(match { it.syncStatus == "LOCAL_ONLY" && it.currency == "SAR" }) }
+        coVerify(exactly = 0) { dao.upsertOutbox(any()) }
+    }
+
+    @Test
+    fun updateProduct_routesLocalDriveToRoomWithoutOperationalOutbox() = runBlocking {
+        val existing = ProductEntity(
+            id = "offline-product",
+            userId = userId,
+            kind = "product",
+            name = "Before",
+            description = null,
+            price = BigDecimal("10.00"),
+            currency = "SAR",
+            stockQuantity = 2,
+            syncedAt = 0L,
+            syncStatus = "LOCAL_ONLY",
+            localRevision = 2,
+            isDeleted = false,
+        )
+        coEvery { dao.getAccountEntitlement(userId) } returns localDriveEntitlement()
+        coEvery { dao.getProduct(userId, existing.id) } returns existing
+        val saved = slot<ProductEntity>()
+        coEvery { dao.upsertProduct(capture(saved)) } returns Unit
+
+        val result = repository.updateProduct(
+            Product(id = existing.id, kind = ProductKind.Service, name = "After", price = 25.0, currency = "SAR"),
+        )
+
+        assertTrue(result.isSuccess)
+        assertEquals("LOCAL_ONLY", saved.captured.syncStatus)
+        assertEquals(3, saved.captured.localRevision)
+        assertEquals("service", saved.captured.kind)
+        coVerify(exactly = 0) { dao.upsertOutbox(any()) }
+    }
+
+    @Test
+    fun createDocument_localDriveWithoutLeaseSavesInvoiceWithoutNetwork() = runBlocking {
         coEvery { dao.getAccountEntitlement(userId) } returns localDriveEntitlement()
         coEvery { dao.getActiveLease(userId, any(), any()) } returns null
-        coEvery { backendApiClient.requestOfflineLease(any<OfflineLeaseRequest>()) } returns ApiResult<OfflineLeaseData>(
-            ok = false,
-            code = "OFFLINE_QUOTA_UNAVAILABLE",
-        )
+        coEvery { backendApiClient.requestOfflineLease(any<OfflineLeaseRequest>()) } throws IOException("offline")
         every { dao.observeDocuments(userId) } returns flowOf(emptyList())
+        coEvery { dao.getPendingCreationEvents(userId) } returns emptyList()
+        coEvery { dao.getCreationEventByDocument(userId, any()) } returns null
+        coEvery { dao.upsertCustomer(any()) } returns Unit
+        val document = slot<DocumentEntity>()
+        coEvery { dao.upsertDocument(capture(document)) } answers {
+            coEvery { dao.getDocument(userId, document.captured.id) } returns document.captured
+            Unit
+        }
+        coEvery { dao.insertDocumentItems(any()) } returns Unit
+        val event = slot<DocumentCreationEventEntity>()
+        coEvery { dao.insertCreationEvent(capture(event)) } returns 1L
+
+        val result = repository.createDocument(
+            CreateDocumentRequest(
+                type = DocumentType.Invoice,
+                customer = DocumentCustomerInput("Offline customer", "1234567"),
+                items = listOf(DocumentItemInput(name = "Service", quantity = 1, unitPrice = 10.0)),
+                currency = "SAR",
+            ),
+        )
+
+        assertTrue(result.ok)
+        assertNull(event.captured.leaseId)
+        coVerify(exactly = 0) { backendApiClient.createDocument(any()) }
+        coVerify(exactly = 0) { backendApiClient.requestOfflineLease(any<OfflineLeaseRequest>()) }
+        coVerify(exactly = 0) { dao.upsertOutbox(any()) }
+        coVerify(exactly = 1) { dao.upsertCustomer(any()) }
+        coVerify(exactly = 1) { dao.upsertDocument(any()) }
+        coVerify(exactly = 1) { dao.insertDocumentItems(any()) }
+        coVerify(exactly = 1) { dao.insertCreationEvent(any()) }
+    }
+
+    @Test
+    fun createDocument_localDriveWithoutLeaseSavesQuoteWithoutNetwork() = runBlocking {
+        coEvery { dao.getAccountEntitlement(userId) } returns localDriveEntitlement()
+        coEvery { dao.getActiveLease(userId, any(), any()) } returns null
+        coEvery { backendApiClient.requestOfflineLease(any<OfflineLeaseRequest>()) } throws IOException("offline")
+        every { dao.observeDocuments(userId) } returns flowOf(emptyList())
+        coEvery { dao.getPendingCreationEvents(userId) } returns emptyList()
+        coEvery { dao.getCreationEventByDocument(userId, any()) } returns null
+        coEvery { dao.upsertCustomer(any()) } returns Unit
+        val document = slot<DocumentEntity>()
+        coEvery { dao.upsertDocument(capture(document)) } answers {
+            coEvery { dao.getDocument(userId, document.captured.id) } returns document.captured
+            Unit
+        }
+        coEvery { dao.insertDocumentItems(any()) } returns Unit
+        val event = slot<DocumentCreationEventEntity>()
+        coEvery { dao.insertCreationEvent(capture(event)) } returns 1L
+
+        val result = repository.createDocument(
+            CreateDocumentRequest(
+                type = DocumentType.Quote,
+                customer = DocumentCustomerInput("Offline customer", "1234567"),
+                items = listOf(DocumentItemInput(name = "Service", quantity = 1, unitPrice = 10.0)),
+                currency = "SAR",
+            ),
+        )
+
+        assertTrue(result.ok)
+        assertNull(event.captured.leaseId)
+        coVerify(exactly = 0) { backendApiClient.createDocument(any()) }
+        coVerify(exactly = 0) { backendApiClient.requestOfflineLease(any<OfflineLeaseRequest>()) }
+        coVerify(exactly = 0) { dao.upsertOutbox(any()) }
+        coVerify(exactly = 1) { dao.upsertDocument(any()) }
+        coVerify(exactly = 1) { dao.insertDocumentItems(any()) }
+    }
+
+    @Test
+    fun createDocument_localDriveEnforcesCachedLimitWithoutNetworkOrPartialRows() = runBlocking {
+        coEvery { dao.getAccountEntitlement(userId) } returns localDriveEntitlement(documentsUsed = 5)
+        coEvery { dao.getActiveLease(userId, any(), any()) } returns null
+        coEvery { backendApiClient.requestOfflineLease(any<OfflineLeaseRequest>()) } throws IOException("offline")
+        every { dao.observeDocuments(userId) } returns flowOf(emptyList())
+        coEvery { dao.getPendingCreationEvents(userId) } returns emptyList()
+        coEvery { dao.getCreationEventByDocument(userId, any()) } returns null
+        coEvery { dao.upsertCustomer(any()) } returns Unit
+        val document = slot<DocumentEntity>()
+        coEvery { dao.upsertDocument(capture(document)) } answers {
+            coEvery { dao.getDocument(userId, document.captured.id) } returns document.captured
+            Unit
+        }
+        coEvery { dao.insertDocumentItems(any()) } returns Unit
 
         val result = repository.createDocument(
             CreateDocumentRequest(
@@ -584,9 +759,9 @@ class TijarioRepositoryOfflineTests {
         )
 
         assertTrue(!result.ok)
-        assertEquals("OFFLINE_QUOTA_UNAVAILABLE", result.code)
+        assertEquals("DOCUMENT_LIMIT_REACHED", result.code)
         coVerify(exactly = 0) { backendApiClient.createDocument(any()) }
-        coVerify(exactly = 0) { dao.upsertOutbox(any()) }
+        coVerify(exactly = 0) { backendApiClient.requestOfflineLease(any<OfflineLeaseRequest>()) }
         coVerify(exactly = 0) { dao.upsertCustomer(any()) }
         coVerify(exactly = 0) { dao.upsertDocument(any()) }
         coVerify(exactly = 0) { dao.insertDocumentItems(any()) }
@@ -627,6 +802,51 @@ class TijarioRepositoryOfflineTests {
 
         assertTrue(result.ok)
         assertEquals(lease.id, event.captured.leaseId)
+        coVerify(exactly = 0) { dao.upsertOutbox(any()) }
+    }
+
+    @Test
+    fun updateDocument_localDriveStaysLocalOnlyWithoutOperationalOutbox() = runBlocking {
+        val documentId = "offline-document"
+        val existing = DocumentEntity(
+            id = documentId,
+            userId = userId,
+            customerId = "customer",
+            type = "invoice",
+            documentNumber = "INV-00001",
+            status = "draft",
+            paymentStatus = "unpaid",
+            amountPaid = null,
+            issueDate = "2026-08-01",
+            total = BigDecimal("10.00"),
+            currency = "SAR",
+            syncedAt = 0L,
+            syncStatus = "LOCAL_ONLY",
+            localRevision = 2,
+            isDeleted = false,
+        )
+        coEvery { dao.getAccountEntitlement(userId) } returns localDriveEntitlement()
+        coEvery { dao.getDocument(userId, documentId) } returns existing
+        coEvery { dao.deleteDocumentItems(userId, documentId) } returns Unit
+        coEvery { dao.insertDocumentItems(any()) } returns Unit
+        val saved = slot<DocumentEntity>()
+        coEvery { dao.upsertDocument(capture(saved)) } returns Unit
+
+        val result = repository.updateDocument(
+            documentId,
+            CreateDocumentRequest(
+                type = DocumentType.Invoice,
+                customer = DocumentCustomerInput("Customer", "111"),
+                items = listOf(DocumentItemInput(name = "Updated service", quantity = 2, unitPrice = 15.0)),
+                currency = "SAR",
+                notes = "Updated locally",
+            ),
+        )
+
+        assertTrue(result.ok)
+        assertEquals("LOCAL_ONLY", saved.captured.syncStatus)
+        assertEquals(3, saved.captured.localRevision)
+        coVerify(exactly = 0) { backendApiClient.updateDocument(any(), any()) }
         coVerify(exactly = 0) { dao.upsertOutbox(any()) }
     }
 
@@ -703,18 +923,20 @@ class TijarioRepositoryOfflineTests {
             Unit
         }
 
-        val failure = runCatching {
-            repository.createDocument(
-                CreateDocumentRequest(
-                    type = DocumentType.Invoice,
-                    customer = DocumentCustomerInput("Offline customer", "1234567"),
-                    items = listOf(DocumentItemInput(name = "Service", quantity = 1, unitPrice = 10.0)),
-                ),
-            )
-        }.exceptionOrNull()
+        val result = repository.createDocument(
+            CreateDocumentRequest(
+                type = DocumentType.Invoice,
+                customer = DocumentCustomerInput("Offline customer", "1234567"),
+                items = listOf(DocumentItemInput(name = "Service", quantity = 1, unitPrice = 10.0)),
+            ),
+        )
 
-        assertEquals("ENTITLEMENT_INITIALIZATION_REQUIRED", failure?.message)
+        assertTrue(!result.ok)
+        assertEquals("ENTITLEMENT_INITIALIZATION_REQUIRED", result.code)
         coVerify(exactly = 0) { dao.insertCreationEvent(any()) }
+        coVerify(exactly = 0) { dao.upsertCustomer(any()) }
+        coVerify(exactly = 0) { dao.upsertDocument(any()) }
+        coVerify(exactly = 0) { dao.insertDocumentItems(any()) }
         coVerify(exactly = 0) { dao.deleteDocuments(any()) }
     }
 

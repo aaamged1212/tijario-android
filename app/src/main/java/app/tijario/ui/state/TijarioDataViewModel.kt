@@ -328,7 +328,7 @@ class TijarioDataViewModel(
     suspend fun createDocument(request: CreateDocumentRequest): ApiResult<CreateDocumentResponse> {
         val result = repository.createDocument(request)
         if (result.ok) {
-            refreshPlanUsage()
+            refreshPlanUsage(force = false)
             val event = if (request.type == app.tijario.data.model.DocumentType.Invoice) {
                 TijarioAnalyticsEvent.InvoiceCreated
             } else {
@@ -342,7 +342,7 @@ class TijarioDataViewModel(
     suspend fun updateDocument(documentId: String, request: CreateDocumentRequest): ApiResult<CreateDocumentResponse> =
         repository.updateDocument(documentId, request).also { result ->
             if (result.ok) {
-                refreshPlanUsage()
+                refreshPlanUsage(force = false)
             }
         }
 
