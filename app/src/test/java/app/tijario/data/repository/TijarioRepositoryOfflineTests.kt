@@ -11,7 +11,6 @@ import app.tijario.data.local.DocumentCreationEventEntity
 import app.tijario.data.local.AccountEntitlementEntity
 import app.tijario.data.local.OfflineQuotaLeaseEntity
 import app.tijario.data.local.ProductEntity
-import app.tijario.data.local.SyncOutboxEntity
 import app.tijario.data.model.BusinessSettings
 import app.tijario.data.model.Customer
 import app.tijario.data.model.DocumentSummary
@@ -124,34 +123,28 @@ class TijarioRepositoryOfflineTests {
             runBlocking { block() }
         }
         every { database.tijarioDao() } returns dao
-        // Operational writes now require an initialized entitlement; legacy-sync fixtures use this explicit mode.
+        // Legacy server data mode must still use the same Room-only operational policy.
         coEvery { dao.getAccountEntitlement(userId) } returns localDriveEntitlement().copy(dataMode = "legacy_cloud")
         repository = TestableTijarioRepository(context, database, supabaseClient, backendApiClient, userId)
     }
 
     @Test
-    fun createCustomerLocal_writesToRoomAndEnqueuesCreateInOutbox() = runBlocking {
+    fun createCustomer_legacyCloudWritesToRoomWithoutOperationalOutbox() = runBlocking {
         val customer = Customer(name = "عميل جديد", whatsappNumber = "1234567")
 
         val slotEntity = slot<CustomerEntity>()
         coEvery { dao.upsertCustomer(capture(slotEntity)) } returns Unit
 
-        val slotOutbox = slot<SyncOutboxEntity>()
-        coEvery { dao.getPendingOutbox(userId) } returns emptyList()
-        coEvery { dao.upsertOutbox(capture(slotOutbox)) } returns Unit
-
-        val result = repository.createCustomerLocal(customer).getOrThrow()
+        val result = repository.createCustomer(customer).getOrThrow()
 
         // Verify entity details
         assertEquals("LOCAL_ONLY", slotEntity.captured.syncStatus)
         assertEquals(1, slotEntity.captured.localRevision)
         assertEquals("عميل جديد", slotEntity.captured.name)
-        assertEquals(result.id, slotEntity.captured.id)
+        assertEquals(userId, slotEntity.captured.userId)
+        assertTrue(slotEntity.captured.id.isNotBlank())
 
-        // Verify outbox entry details
-        assertEquals("customer", slotOutbox.captured.entityType)
-        assertEquals("CREATE", slotOutbox.captured.operation)
-        assertEquals(result.id, slotOutbox.captured.entityId)
+        coVerify(exactly = 0) { dao.upsertOutbox(any()) }
     }
 
     @Test
@@ -266,6 +259,34 @@ class TijarioRepositoryOfflineTests {
     }
 
     @Test
+    fun nextDocumentNumber_usesLegacyCloudRoomHistoryWithoutRemoteRequest() = runBlocking {
+        every { dao.observeDocuments(userId) } returns flowOf(
+            listOf(
+                DocumentEntity(
+                    id = "invoice-previous",
+                    userId = userId,
+                    customerId = "customer-1",
+                    type = "invoice",
+                    documentNumber = "INV-00041",
+                    status = "draft",
+                    paymentStatus = null,
+                    amountPaid = null,
+                    issueDate = "2026-08-13",
+                    total = BigDecimal("10.00"),
+                    currency = "SAR",
+                    syncedAt = 0L,
+                ),
+            ),
+        )
+
+        val result = repository.getNextDocumentNumber("invoice")
+
+        assertTrue(result.ok)
+        assertEquals("INV-00042", result.data?.documentNumber)
+        coVerify(exactly = 0) { backendApiClient.getNextDocumentNumber(any()) }
+    }
+
+    @Test
     fun createDocumentLocal_usesSelectedCustomerIdWithoutCreatingDuplicateCustomer() = runBlocking {
         val existingCustomerId = "customer_existing_1"
         val existingCustomer = CustomerEntity(
@@ -295,9 +316,7 @@ class TijarioRepositoryOfflineTests {
 
         val customerSlot = slot<CustomerEntity>()
         val documentSlot = slot<app.tijario.data.local.DocumentEntity>()
-        val outboxEntries = mutableListOf<SyncOutboxEntity>()
         coEvery { dao.upsertCustomer(capture(customerSlot)) } returns Unit
-        coEvery { dao.upsertOutbox(capture(outboxEntries)) } returns Unit
         coEvery { dao.upsertDocument(capture(documentSlot)) } answers {
             coEvery { dao.getDocument(userId, documentSlot.captured.id) } returns documentSlot.captured
             Unit
@@ -320,11 +339,11 @@ class TijarioRepositoryOfflineTests {
         assertTrue(result.ok)
         assertEquals(existingCustomerId, customerSlot.captured.id)
         assertEquals(existingCustomerId, documentSlot.captured.customerId)
-        assertTrue(outboxEntries.none { it.entityType == "customer" && it.operation == "CREATE" })
+        coVerify(exactly = 0) { dao.upsertOutbox(any()) }
     }
 
     @Test
-    fun updateCustomerLocal_incrementsRevisionAndEnqueuesUpdate() = runBlocking {
+    fun updateCustomer_legacyCloudRemainsLocalOnlyWithoutOutbox() = runBlocking {
         val existingId = "customer_99"
         val existing = CustomerEntity(
             id = existingId,
@@ -347,167 +366,13 @@ class TijarioRepositoryOfflineTests {
         val slotEntity = slot<CustomerEntity>()
         coEvery { dao.upsertCustomer(capture(slotEntity)) } returns Unit
 
-        coEvery { dao.getPendingOutbox(userId) } returns emptyList()
-        val slotOutbox = slot<SyncOutboxEntity>()
-        coEvery { dao.upsertOutbox(capture(slotOutbox)) } returns Unit
-
         val updateData = Customer(id = existingId, name = "عميل محدث", whatsappNumber = "12345")
-        repository.updateCustomerLocal(updateData).getOrThrow()
+        repository.updateCustomer(updateData).getOrThrow()
 
         // Verify entity fields
         assertEquals(3, slotEntity.captured.localRevision)
-        assertEquals("PENDING_SYNC", slotEntity.captured.syncStatus)
+        assertEquals("LOCAL_ONLY", slotEntity.captured.syncStatus)
         assertEquals("عميل محدث", slotEntity.captured.name)
-
-        // Verify outbox entry
-        assertEquals("customer", slotOutbox.captured.entityType)
-        assertEquals("UPDATE", slotOutbox.captured.operation)
-        assertEquals("rev-99", slotOutbox.captured.baseServerRevision)
-    }
-
-    @Test
-    fun outboxCompaction_createThenUpdate_keepsCreate() = runBlocking {
-        val customerId = "customer_comp_1"
-        val existingCreate = SyncOutboxEntity(
-            id = "outbox_1",
-            userId = userId,
-            entityType = "customer",
-            entityId = customerId,
-            operation = "CREATE",
-            idempotencyKey = "key_1",
-            baseServerRevision = null,
-            status = "PENDING",
-            attempts = 0,
-            nextRetryAt = 0L,
-            processingStartedAt = null,
-            lockExpiresAt = null,
-            lastError = null,
-            createdAt = 1000L,
-            deletedMinimalPayload = null
-        )
-
-        coEvery { dao.getCustomer(userId, customerId) } returns CustomerEntity(
-            id = customerId,
-            userId = userId,
-            name = "name",
-            whatsappNumber = "123",
-            city = null,
-            notes = null,
-            syncedAt = 0L,
-            syncStatus = "LOCAL_ONLY",
-            localRevision = 1,
-            serverRevision = null,
-            serverUpdatedAt = null,
-            lastSyncedAt = null,
-            syncErrorCode = null,
-            isDeleted = false
-        )
-        coEvery { dao.getPendingOutbox(userId) } returns listOf(existingCreate)
-
-        val customerUpdate = Customer(id = customerId, name = "name modified", whatsappNumber = "123")
-        repository.updateCustomerLocal(customerUpdate).getOrThrow()
-
-        // Compaction rule: CREATE + UPDATE -> Keep CREATE, no new outbox upsert called
-        coVerify(exactly = 0) { dao.upsertOutbox(any()) }
-    }
-
-    @Test
-    fun outboxCompaction_updateThenDelete_convertsToDelete() = runBlocking {
-        val customerId = "customer_comp_2"
-        val existingUpdate = SyncOutboxEntity(
-            id = "outbox_2",
-            userId = userId,
-            entityType = "customer",
-            entityId = customerId,
-            operation = "UPDATE",
-            idempotencyKey = "key_2",
-            baseServerRevision = "rev-original",
-            status = "PENDING",
-            attempts = 0,
-            nextRetryAt = 0L,
-            processingStartedAt = null,
-            lockExpiresAt = null,
-            lastError = null,
-            createdAt = 1000L,
-            deletedMinimalPayload = null
-        )
-
-        coEvery { dao.getCustomer(userId, customerId) } returns CustomerEntity(
-            id = customerId,
-            userId = userId,
-            name = "name",
-            whatsappNumber = "123",
-            city = null,
-            notes = null,
-            syncedAt = 2000L,
-            syncStatus = "SYNCED",
-            localRevision = 1,
-            serverRevision = "rev-original",
-            serverUpdatedAt = null,
-            lastSyncedAt = null,
-            syncErrorCode = null,
-            isDeleted = false
-        )
-        coEvery { dao.getPendingOutbox(userId) } returns listOf(existingUpdate)
-        coEvery { dao.countDocumentsForCustomer(customerId) } returns 0
-
-        val slotOutbox = slot<SyncOutboxEntity>()
-        coEvery { dao.upsertOutbox(capture(slotOutbox)) } returns Unit
-        coEvery { dao.deleteOutbox("outbox_2") } returns Unit
-
-        repository.deleteCustomerLocal(customerId).getOrThrow()
-
-        // Compaction rule: UPDATE + DELETE -> delete first outbox, upsert DELETE
-        coVerify(exactly = 1) { dao.deleteOutbox("outbox_2") }
-        assertEquals("DELETE", slotOutbox.captured.operation)
-        assertEquals("rev-original", slotOutbox.captured.baseServerRevision)
-    }
-
-    @Test
-    fun outboxCompaction_createThenDelete_cancelsBoth() = runBlocking {
-        val customerId = "customer_comp_3"
-        val existingCreate = SyncOutboxEntity(
-            id = "outbox_3",
-            userId = userId,
-            entityType = "customer",
-            entityId = customerId,
-            operation = "CREATE",
-            idempotencyKey = "key_3",
-            baseServerRevision = null,
-            status = "PENDING",
-            attempts = 0,
-            nextRetryAt = 0L,
-            processingStartedAt = null,
-            lockExpiresAt = null,
-            lastError = null,
-            createdAt = 1000L,
-            deletedMinimalPayload = null
-        )
-
-        coEvery { dao.getCustomer(userId, customerId) } returns CustomerEntity(
-            id = customerId,
-            userId = userId,
-            name = "name",
-            whatsappNumber = "123",
-            city = null,
-            notes = null,
-            syncedAt = 0L,
-            syncStatus = "LOCAL_ONLY",
-            localRevision = 1,
-            serverRevision = null,
-            serverUpdatedAt = null,
-            lastSyncedAt = null,
-            syncErrorCode = null,
-            isDeleted = false
-        )
-        coEvery { dao.getPendingOutbox(userId) } returns listOf(existingCreate)
-        coEvery { dao.countDocumentsForCustomer(customerId) } returns 0
-        coEvery { dao.deleteOutbox("outbox_3") } returns Unit
-
-        repository.deleteCustomerLocal(customerId).getOrThrow()
-
-        // Compaction rule: CREATE + DELETE -> cancel both (delete first create, do not insert new delete)
-        coVerify(exactly = 1) { dao.deleteOutbox("outbox_3") }
         coVerify(exactly = 0) { dao.upsertOutbox(any()) }
     }
 
@@ -554,8 +419,7 @@ class TijarioRepositoryOfflineTests {
     }
 
     @Test
-    fun createCustomer_routesLocalDriveToRoomWithoutOperationalOutbox() = runBlocking {
-        coEvery { dao.getAccountEntitlement(userId) } returns localDriveEntitlement()
+    fun createCustomer_routesLegacyCloudToRoomWithoutOperationalOutbox() = runBlocking {
         coEvery { dao.upsertCustomer(any()) } returns Unit
 
         val result = repository.createCustomer(Customer(name = "Offline customer", whatsappNumber = "1234567"))
@@ -566,7 +430,7 @@ class TijarioRepositoryOfflineTests {
     }
 
     @Test
-    fun updateCustomer_routesLocalDriveToRoomWithoutOperationalOutbox() = runBlocking {
+    fun updateCustomer_routesLegacyCloudToRoomWithoutOperationalOutbox() = runBlocking {
         val existing = CustomerEntity(
             id = "offline-customer",
             userId = userId,
@@ -579,7 +443,6 @@ class TijarioRepositoryOfflineTests {
             localRevision = 2,
             isDeleted = false,
         )
-        coEvery { dao.getAccountEntitlement(userId) } returns localDriveEntitlement()
         coEvery { dao.getCustomer(userId, existing.id) } returns existing
         val saved = slot<CustomerEntity>()
         coEvery { dao.upsertCustomer(capture(saved)) } returns Unit
@@ -595,8 +458,7 @@ class TijarioRepositoryOfflineTests {
     }
 
     @Test
-    fun createProductAndService_routeLocalDriveToRoomWithoutOperationalOutbox() = runBlocking {
-        coEvery { dao.getAccountEntitlement(userId) } returns localDriveEntitlement()
+    fun createProductAndService_routeLegacyCloudToRoomWithoutOperationalOutbox() = runBlocking {
         coEvery { dao.getBusinessSettings(userId) } returns BusinessSettingsEntity(
             userId = userId,
             remoteId = null,
@@ -628,7 +490,7 @@ class TijarioRepositoryOfflineTests {
     }
 
     @Test
-    fun updateProduct_routesLocalDriveToRoomWithoutOperationalOutbox() = runBlocking {
+    fun updateProduct_routesLegacyCloudToRoomWithoutOperationalOutbox() = runBlocking {
         val existing = ProductEntity(
             id = "offline-product",
             userId = userId,
@@ -643,7 +505,6 @@ class TijarioRepositoryOfflineTests {
             localRevision = 2,
             isDeleted = false,
         )
-        coEvery { dao.getAccountEntitlement(userId) } returns localDriveEntitlement()
         coEvery { dao.getProduct(userId, existing.id) } returns existing
         val saved = slot<ProductEntity>()
         coEvery { dao.upsertProduct(capture(saved)) } returns Unit
@@ -660,8 +521,7 @@ class TijarioRepositoryOfflineTests {
     }
 
     @Test
-    fun createDocument_localDriveWithoutLeaseSavesInvoiceWithoutNetwork() = runBlocking {
-        coEvery { dao.getAccountEntitlement(userId) } returns localDriveEntitlement()
+    fun createDocument_legacyCloudWithoutLeaseSavesInvoiceWithoutNetwork() = runBlocking {
         coEvery { dao.getActiveLease(userId, any(), any()) } returns null
         coEvery { backendApiClient.requestOfflineLease(any<OfflineLeaseRequest>()) } throws IOException("offline")
         every { dao.observeDocuments(userId) } returns flowOf(emptyList())
@@ -698,8 +558,7 @@ class TijarioRepositoryOfflineTests {
     }
 
     @Test
-    fun createDocument_localDriveWithoutLeaseSavesQuoteWithoutNetwork() = runBlocking {
-        coEvery { dao.getAccountEntitlement(userId) } returns localDriveEntitlement()
+    fun createDocument_legacyCloudWithoutLeaseSavesQuoteWithoutNetwork() = runBlocking {
         coEvery { dao.getActiveLease(userId, any(), any()) } returns null
         coEvery { backendApiClient.requestOfflineLease(any<OfflineLeaseRequest>()) } throws IOException("offline")
         every { dao.observeDocuments(userId) } returns flowOf(emptyList())
@@ -734,8 +593,8 @@ class TijarioRepositoryOfflineTests {
     }
 
     @Test
-    fun createDocument_localDriveEnforcesCachedLimitWithoutNetworkOrPartialRows() = runBlocking {
-        coEvery { dao.getAccountEntitlement(userId) } returns localDriveEntitlement(documentsUsed = 5)
+    fun createDocument_legacyCloudEnforcesCachedLimitWithoutNetworkOrPartialRows() = runBlocking {
+        coEvery { dao.getAccountEntitlement(userId) } returns localDriveEntitlement(documentsUsed = 5).copy(dataMode = "legacy_cloud")
         coEvery { dao.getActiveLease(userId, any(), any()) } returns null
         coEvery { backendApiClient.requestOfflineLease(any<OfflineLeaseRequest>()) } throws IOException("offline")
         every { dao.observeDocuments(userId) } returns flowOf(emptyList())
@@ -769,14 +628,14 @@ class TijarioRepositoryOfflineTests {
     }
 
     @Test
-    fun createDocument_localDrivePersistsThePreparedLeaseId() = runBlocking {
+    fun createDocument_legacyCloudPersistsThePreparedLeaseId() = runBlocking {
         val installationId = AppPreferences.getInstallationId(context)
         val lease = validOfflineQuotaLease().copy(
             deviceId = installationId,
             entitlementVersion = 1L,
             periodMonth = "lifetime",
         )
-        coEvery { dao.getAccountEntitlement(userId) } returns localDriveEntitlement()
+        coEvery { dao.getAccountEntitlement(userId) } returns localDriveEntitlement().copy(dataMode = "legacy_cloud")
         coEvery { dao.getActiveLease(userId, installationId, any()) } returns lease
         every { dao.observeDocuments(userId) } returns flowOf(emptyList())
         coEvery { dao.getPendingCreationEvents(userId) } returns emptyList()
@@ -806,7 +665,7 @@ class TijarioRepositoryOfflineTests {
     }
 
     @Test
-    fun updateDocument_localDriveStaysLocalOnlyWithoutOperationalOutbox() = runBlocking {
+    fun updateDocument_legacyCloudStaysLocalOnlyWithoutOperationalOutbox() = runBlocking {
         val documentId = "offline-document"
         val existing = DocumentEntity(
             id = documentId,
@@ -825,7 +684,6 @@ class TijarioRepositoryOfflineTests {
             localRevision = 2,
             isDeleted = false,
         )
-        coEvery { dao.getAccountEntitlement(userId) } returns localDriveEntitlement()
         coEvery { dao.getDocument(userId, documentId) } returns existing
         coEvery { dao.deleteDocumentItems(userId, documentId) } returns Unit
         coEvery { dao.insertDocumentItems(any()) } returns Unit
@@ -910,8 +768,8 @@ class TijarioRepositoryOfflineTests {
     }
 
     @Test
-    fun createDocument_rejectsExpiredLocalDriveEntitlementWithoutDeletingCachedData() = runBlocking {
-        coEvery { dao.getAccountEntitlement(userId) } returns localDriveEntitlement().copy(expiresAt = 1L)
+    fun createDocument_rejectsExpiredLegacyCloudEntitlementWithoutDeletingCachedData() = runBlocking {
+        coEvery { dao.getAccountEntitlement(userId) } returns localDriveEntitlement().copy(dataMode = "legacy_cloud", expiresAt = 1L)
         every { dao.observeDocuments(userId) } returns flowOf(emptyList())
         coEvery { dao.upsertCustomer(any()) } returns Unit
         coEvery { dao.insertDocumentItems(any()) } returns Unit
@@ -952,11 +810,10 @@ class TijarioRepositoryOfflineTests {
     }
 
     @Test
-    fun createCustomerLocal_rejectsLocalDriveWhenActiveLimitReached() = runBlocking {
-        coEvery { dao.getAccountEntitlement(userId) } returns localDriveEntitlement()
+    fun createCustomer_rejectsLegacyCloudWhenActiveLimitReached() = runBlocking {
         coEvery { dao.countActiveCustomers(userId) } returns 5
 
-        val result = repository.createCustomerLocal(Customer(name = "Sixth", whatsappNumber = "555"))
+        val result = repository.createCustomer(Customer(name = "Sixth", whatsappNumber = "555"))
 
         assertTrue(result.isFailure)
         assertEquals("CUSTOMER_LIMIT_REACHED", result.exceptionOrNull()?.message)
@@ -964,11 +821,10 @@ class TijarioRepositoryOfflineTests {
     }
 
     @Test
-    fun createProductLocal_rejectsLocalDriveWhenActiveLimitReached() = runBlocking {
-        coEvery { dao.getAccountEntitlement(userId) } returns localDriveEntitlement()
+    fun createProduct_rejectsLegacyCloudWhenActiveLimitReached() = runBlocking {
         coEvery { dao.countActiveProducts(userId) } returns 5
 
-        val result = repository.createProductLocal(
+        val result = repository.createProduct(
             Product(kind = ProductKind.Product, name = "Sixth", price = 10.0, currency = "SAR"),
         )
 
@@ -978,7 +834,7 @@ class TijarioRepositoryOfflineTests {
     }
 
     @Test
-    fun localDriveCustomerDelete_isSoftAndRestorableEvenWhenReferenced() = runBlocking {
+    fun legacyCloudCustomerDelete_isSoftAndRestorableEvenWhenReferenced() = runBlocking {
         val customer = CustomerEntity(
             id = "customer-local-drive",
             userId = userId,
@@ -991,12 +847,11 @@ class TijarioRepositoryOfflineTests {
             localRevision = 1,
             isDeleted = false,
         )
-        coEvery { dao.getAccountEntitlement(userId) } returns localDriveEntitlement()
         coEvery { dao.getCustomer(userId, customer.id) } returns customer andThen customer.copy(isDeleted = true, localRevision = 2)
         coEvery { dao.countActiveCustomers(userId) } returns 4
 
-        repository.deleteCustomerLocal(customer.id).getOrThrow()
-        repository.restoreCustomerLocal(customer.id).getOrThrow()
+        repository.deleteCustomer(customer.id).getOrThrow()
+        repository.restoreCustomer(customer.id).getOrThrow()
 
         coVerify(exactly = 0) { dao.countDocumentsForCustomer(customer.id) }
         coVerify(exactly = 0) { dao.deleteCustomer(userId, customer.id) }
@@ -1006,7 +861,7 @@ class TijarioRepositoryOfflineTests {
     }
 
     @Test
-    fun localDriveDocumentRestore_doesNotConsumeAnotherCredit() = runBlocking {
+    fun legacyCloudDocumentRestore_doesNotConsumeAnotherCredit() = runBlocking {
         val documentId = "restorable-document"
         val document = DocumentEntity(
             id = documentId,
@@ -1024,10 +879,9 @@ class TijarioRepositoryOfflineTests {
             syncStatus = "LOCAL_ONLY",
             isDeleted = true,
         )
-        coEvery { dao.getAccountEntitlement(userId) } returns localDriveEntitlement()
         coEvery { dao.getDocument(userId, documentId) } returns document
 
-        val result = repository.restoreDocumentLocal(documentId)
+        val result = repository.restoreDocument(documentId)
 
         assertTrue(result.ok)
         coVerify(exactly = 1) { dao.upsertDocument(match { !it.isDeleted && it.id == documentId }) }
@@ -1036,57 +890,74 @@ class TijarioRepositoryOfflineTests {
     }
 
     @Test
-    fun remoteIngestion_replacesMissingCustomerAndSyncedProduct() = runBlocking {
-        coEvery { dao.getCustomer(userId, "cust_remote") } returns null
-        val customerSlot = slot<List<CustomerEntity>>()
-        coEvery { dao.upsertCustomers(capture(customerSlot)) } returns Unit
+    fun legacyCloudProductDeleteAndRestoreRemainRoomOnly() = runBlocking {
+        val product = ProductEntity(
+            id = "product-local",
+            userId = userId,
+            kind = "product",
+            name = "Product",
+            description = null,
+            price = BigDecimal("12.00"),
+            currency = "SAR",
+            stockQuantity = null,
+            syncedAt = 0L,
+            syncStatus = "LOCAL_ONLY",
+            localRevision = 1,
+            isDeleted = false,
+        )
+        coEvery { dao.getProduct(userId, product.id) } returns product andThen product.copy(isDeleted = true, localRevision = 2)
+        coEvery { dao.countActiveProducts(userId) } returns 4
 
-        TestableTijarioRepository(
+        repository.deleteProduct(product.id).getOrThrow()
+        repository.restoreProduct(product.id).getOrThrow()
+
+        coVerify(exactly = 0) { dao.countDocumentItemsForProduct(product.id) }
+        coVerify(exactly = 0) { dao.deleteProduct(userId, product.id) }
+        coVerify(exactly = 1) { dao.upsertDeletedRecord(match { it.entityType == "product" && it.entityId == product.id }) }
+        coVerify(exactly = 1) { dao.deleteDeletedRecord(userId, "product", product.id) }
+        coVerify(exactly = 2) { dao.upsertProduct(any()) }
+    }
+
+    @Test
+    fun refreshOperationalData_doesNotHydrateLegacyCloudRecordsIntoRoom() = runBlocking {
+        val operationalRepository = TestableTijarioRepository(
             context,
             database,
             supabaseClient,
             backendApiClient,
             userId,
             fakeCustomersList = listOf(Customer(id = "cust_remote", name = "Remote customer", whatsappNumber = "555")),
-        ).refreshCustomers()
-
-        assertEquals("Remote customer", customerSlot.captured.single().name)
-
-        coEvery { dao.getProduct(userId, "prod_synced") } returns ProductEntity(
-            id = "prod_synced",
-            userId = userId,
-            kind = "product",
-            name = "Old product",
-            description = null,
-            price = BigDecimal("1.00"),
-            currency = "SAR",
-            stockQuantity = null,
-            syncedAt = 0L,
-            syncStatus = "SYNCED",
-        )
-        val productSlot = slot<List<ProductEntity>>()
-        coEvery { dao.upsertProducts(capture(productSlot)) } returns Unit
-
-        TestableTijarioRepository(
-            context,
-            database,
-            supabaseClient,
-            backendApiClient,
-            userId,
             fakeProductsList = listOf(
                 Product(
-                    id = "prod_synced",
+                    id = "prod_remote",
                     userId = userId,
                     kind = ProductKind.Product,
                     name = "Remote product",
                     price = 12.0,
                     currency = "SAR",
-                    stockQuantity = 4,
                 ),
             ),
-        ).refreshProducts()
+            fakeDocumentsList = listOf(
+                DocumentSummary(
+                    id = "doc_remote",
+                    customerId = "cust_remote",
+                    type = DocumentType.Invoice,
+                    documentNumber = "INV-00001",
+                    status = "draft",
+                    issueDate = "2026-08-13",
+                    total = 12.0,
+                    currency = "SAR",
+                ),
+            ),
+        )
 
-        assertEquals("Remote product", productSlot.captured.single().name)
+        operationalRepository.refreshCustomers().getOrThrow()
+        operationalRepository.refreshProducts().getOrThrow()
+        operationalRepository.refreshDocuments().getOrThrow()
+
+        coVerify(exactly = 0) { dao.upsertCustomers(any()) }
+        coVerify(exactly = 0) { dao.upsertProducts(any()) }
+        coVerify(exactly = 0) { dao.upsertDocuments(any()) }
     }
 
     @Test
@@ -1211,7 +1082,7 @@ class TijarioRepositoryOfflineTests {
     }
 
     @Test
-    fun finalizeOrVerifyQuota_throwsExceptionIfQuotaExceeded() = runBlocking {
+    fun finalizeOrVerifyQuota_rejectsWhenCachedEntitlementUsageIsAtLimit() = runBlocking {
         val documentId = "doc_test_456"
         val existingDoc = app.tijario.data.local.DocumentEntity(
             id = documentId,
@@ -1228,6 +1099,7 @@ class TijarioRepositoryOfflineTests {
             syncedAt = 0L
         )
 
+        coEvery { dao.getAccountEntitlement(userId) } returns localDriveEntitlement(documentsUsed = 5).copy(dataMode = "legacy_cloud")
         coEvery { dao.getDocument(userId, documentId) } returns existingDoc
         coEvery { dao.getCreationEventByDocument(userId, documentId) } returns null
         

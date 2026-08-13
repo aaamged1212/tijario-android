@@ -1,5 +1,9 @@
 # AI Changelog
 
+## 2026-08-13 - Room-first operational storage for every account
+- Customer, product/service, and document operations now persist through Room regardless of the signed entitlement's historical data mode. Operational refresh and sync paths do not import, replace, or send seller data automatically.
+- Store settings remain hybrid: Room commits are immediately successful and the Supabase mirror is best effort. Cached signed entitlement limits and the local document-creation ledger remain enforced offline.
+
 ## 2026-08-12 - Document-number validation messages
 - Added localized Arabic and English mappings for the backend's stable `DOCUMENT_NUMBER_INVALID` and `DOCUMENT_NUMBER_DUPLICATE` codes.
 - Added JVM coverage that verifies both codes resolve to safe user-visible text and never expose the raw backend code. Version and all unrelated Android flows remain unchanged.

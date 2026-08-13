@@ -1,5 +1,10 @@
 # Pending Release
 
+## 2026-08-13 Room-first operational storage QA gate
+- Before any release action, verify on one historical `legacy_cloud` account after one online entitlement initialization: create/edit/delete a customer, create/edit/delete a product or service, create/edit an invoice and quote, and confirm airplane-mode saves never invoke cloud operational CRUD.
+- Verify the next invoice and quote numbers derive from current Room history, custom valid numbers remain stable after edit, and cached plan limits reject the next customer/product/document locally.
+- Verify Business Settings save succeeds offline with the local currency used by the next document, then reconnect and confirm one best-effort mirror does not replace operational Room data. No backend migration or deploy is required for this Android-only behavior.
+
 ## 2026-08-12 Document-number API compatibility gate
 - Do not release this Android branch before the compatible Web API and corrected pending migration are applied through the approved release sequence.
 - On a physical device, verify an invalid requested invoice/quote number and a duplicate requested number show their new localized message, while a valid unique number saves unchanged.

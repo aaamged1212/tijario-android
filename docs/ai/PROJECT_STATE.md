@@ -1,5 +1,11 @@
 # Project State (Android & Web Repos)
 
+## 2026-08-13 - Room-first operational storage for every account
+- Android operational data is now Room-authoritative for `legacy_cloud`, `local_drive`, and future entitlement modes: customers, products/services, documents, document items, local metadata, taxes, payment methods, signatures, and local terms follow the local path. Historical Supabase operational records are neither imported nor deleted.
+- Business settings are hybrid and local-first. Room is the immediate UI source; a background best-effort mirror may update Supabase. The one allowed read is initial settings hydration when the current user's Room settings are absent.
+- Cached signed entitlement data remains authoritative for plan limits while Room supplies active customer/product counts and document creation events. Invoices and quotes receive their next number from Room history and `DocumentNumbering`.
+- Focused JVM tests (47) and `assembleDebug` passed locally. Version remains `1.1.9` / code `19`; physical offline QA is pending. No backend, migration, deployment, push, merge, or Play action occurred.
+
 ## 2026-08-12 - Android document-number contract mapping ready locally
 - Android now maps the compatible backend's `DOCUMENT_NUMBER_INVALID` and `DOCUMENT_NUMBER_DUPLICATE` save responses to localized Arabic/English messages.
 - Full JVM tests, both lint variants, Debug assembly, and Release assembly passed. Version remains `1.1.9` / code `19`; `.agents` remains local and excluded.

@@ -36,7 +36,9 @@ import app.tijario.BuildConfig
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.postgrest.from
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
@@ -47,6 +49,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
@@ -114,8 +117,7 @@ open class TijarioRepository(
     private val syncStateMutable = MutableStateFlow(CacheSyncState())
     private val accountInitializationCoordinator = AccountInitializationCoordinator()
     private val quotaReservationMutex = Mutex()
-    private var lastFullRefreshUserId: String? = null
-    private var lastFullRefreshAt: Long = 0L
+    private val businessSettingsMirrorScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     val syncState: StateFlow<CacheSyncState> = syncStateMutable.asStateFlow()
 
@@ -344,22 +346,14 @@ open class TijarioRepository(
             }
         }
         }
-        if (accountDataMode(userId) != AccountDataMode.LocalDrive) {
-            SyncScheduler(context).triggerSync(userId)
-        }
     }
 
-    private suspend fun accountDataMode(userId: String): AccountDataMode =
-        AccountDataMode.from(dao.getAccountEntitlement(userId)?.dataMode)
-
-    private suspend fun requireOperationalDataMode(userId: String): AccountDataMode {
+    private suspend fun requireOperationalEntitlement(userId: String) {
         val entitlement = dao.getAccountEntitlement(userId)
         check(hasValidOperationalEntitlement(entitlement)) { "ENTITLEMENT_INITIALIZATION_REQUIRED" }
-        return AccountDataMode.from(entitlement?.dataMode)
     }
 
     private suspend fun enforceActiveEntityLimit(userId: String, entityType: String) {
-        if (accountDataMode(userId) != AccountDataMode.LocalDrive) return
         val entitlement = dao.getAccountEntitlement(userId) ?: error("PLAN_REQUIRED")
         val (activeCount, limit, errorCode) = when (entityType) {
             "customer" -> Triple(dao.countActiveCustomers(userId), entitlement.customerLimit, "CUSTOMER_LIMIT_REACHED")
@@ -415,11 +409,7 @@ open class TijarioRepository(
         entityId: String,
         operation: String,
         baseServerRevision: String? = null,
-    ) {
-        if (accountDataMode(userId) != AccountDataMode.LocalDrive) {
-            enqueueOutbox(userId, entityType, entityId, operation, baseServerRevision)
-        }
-    }
+    ) = Unit
 
     // Remote Cache Ingestion Policy
     private suspend fun ingestRemoteCustomers(userId: String, remoteCustomers: List<Customer>, syncedAt: Long) {
@@ -553,93 +543,26 @@ open class TijarioRepository(
         }
     }
 
-    // Refresh Flows
-    suspend fun refreshAll(force: Boolean = false): Result<Unit> =
-        runCatching {
-            val userId = requireUserId()
-            if (accountDataMode(userId) == AccountDataMode.LocalDrive) {
-                syncStateMutable.value = CacheSyncState(lastSyncedAt = System.currentTimeMillis())
-                return@runCatching
-            }
-            val now = System.currentTimeMillis()
-            if (!force && lastFullRefreshUserId == userId && now - lastFullRefreshAt < FULL_REFRESH_THROTTLE_MS) {
-                return@runCatching
-            }
-
-            setRefreshing(true, null)
-            val snapshot = fetchRemoteSnapshot(userId)
-            val syncedAt = System.currentTimeMillis()
-            withContext(Dispatchers.IO) {
-                database.withTransaction {
-                    if (snapshot.businessSettings == null) {
-                        val existing = dao.getBusinessSettings(userId)
-                        if (existing?.syncStatus == "SYNCED") {
-                            dao.deleteBusinessSettings(userId)
-                        }
-                    } else {
-                        val existing = dao.getBusinessSettings(userId)
-                        if (RemoteCacheReplacementPolicy.shouldReplace(existing?.syncStatus)) {
-                            dao.upsertBusinessSettings(snapshot.businessSettings.toEntity(userId, syncedAt).copy(syncStatus = "SYNCED"))
-                        }
-                    }
-
-                    // Ingest remote data safely without overwriting pending local changes
-                    ingestRemoteCustomers(userId, snapshot.customers, syncedAt)
-                    ingestRemoteProducts(userId, snapshot.products, syncedAt)
-                    ingestRemoteDocuments(userId, snapshot.documents, syncedAt)
-
-                    // Prune local SYNCED caches that are no longer on remote
-                    val remoteCustomerIds = snapshot.customers.mapNotNull { it.id }.toSet()
-                    dao.observeCustomers(userId).first().forEach { local ->
-                        if (local.syncStatus == "SYNCED" && local.id !in remoteCustomerIds) {
-                            dao.deleteCustomer(userId, local.id)
-                        }
-                    }
-
-                    val remoteProductIds = snapshot.products.mapNotNull { it.id }.toSet()
-                    dao.observeProducts(userId).first().forEach { local ->
-                        if (local.syncStatus == "SYNCED" && local.id !in remoteProductIds) {
-                            dao.deleteProduct(userId, local.id)
-                        }
-                    }
-
-                    val remoteDocIds = snapshot.documents.map { it.id }.toSet()
-                    dao.observeDocuments(userId).first().forEach { local ->
-                        if (local.syncStatus == "SYNCED" && local.id !in remoteDocIds) {
-                            dao.deleteDocument(userId, local.id)
-                        }
-                    }
-                }
-            }
-            lastFullRefreshUserId = userId
-            lastFullRefreshAt = syncedAt
-            syncStateMutable.value = CacheSyncState(isRefreshing = false, lastSyncedAt = syncedAt)
-            if (dao.getPendingOutbox(userId).any { it.status == "PENDING" }) {
-                SyncScheduler(context).triggerSync(userId)
-            }
-        }.onFailure { error ->
-            setRefreshing(false, localizedRefreshError(error, AppRuntimeState.currentLanguage))
+    // Operational seller data is Room-authoritative for every entitlement data mode.
+    // Only a first business-settings hydration is allowed when this device has no cached settings.
+    suspend fun refreshAll(force: Boolean = false): Result<Unit> = runCatching {
+        val userId = requireUserId()
+        if (dao.getBusinessSettings(userId) == null) {
+            runCatching { refreshBusinessSettings(force = force) }
         }
+        syncStateMutable.value = CacheSyncState(lastSyncedAt = System.currentTimeMillis())
+    }
 
     suspend fun refreshBusinessSettings(force: Boolean = true): Result<Unit> =
         runCatching {
             val userId = requireUserId()
-            if (accountDataMode(userId) == AccountDataMode.LocalDrive) return@runCatching
+            // Do not overwrite an initialized local store with an older server mirror.
+            if (dao.getBusinessSettings(userId) != null) return@runCatching
             setRefreshing(true, null)
             val settings = fetchBusinessSettings(userId)
             val syncedAt = System.currentTimeMillis()
             withContext(Dispatchers.IO) {
-                if (settings == null) {
-                    val existing = dao.getBusinessSettings(userId)
-                    if (existing?.syncStatus == "SYNCED") {
-                        dao.deleteBusinessSettings(userId)
-                    }
-                } else {
-                    val existing = dao.getBusinessSettings(userId)
-                    if (RemoteCacheReplacementPolicy.shouldReplace(existing?.syncStatus)) {
-                        dao.upsertBusinessSettings(settings.toEntity(userId, syncedAt).copy(syncStatus = "SYNCED"))
-                    }
-                }
+                settings?.let { dao.upsertBusinessSettings(it.toEntity(userId, syncedAt).copy(syncStatus = "SYNCED")) }
             }
             syncStateMutable.value = CacheSyncState(isRefreshing = false, lastSyncedAt = syncedAt)
         }.onFailure { error ->
@@ -648,59 +571,26 @@ open class TijarioRepository(
 
     suspend fun refreshCustomers(): Result<Unit> =
         runCatching {
-            val userId = requireUserId()
-            if (accountDataMode(userId) == AccountDataMode.LocalDrive) return@runCatching
-            setRefreshing(true, null)
-            val customers = fetchCustomers(userId)
-            val syncedAt = System.currentTimeMillis()
-            withContext(Dispatchers.IO) {
-                database.withTransaction {
-                    ingestRemoteCustomers(userId, customers, syncedAt)
-                }
-            }
-            syncStateMutable.value = CacheSyncState(isRefreshing = false, lastSyncedAt = syncedAt)
-        }.onFailure { error ->
-            setRefreshing(false, localizedRefreshError(error, AppRuntimeState.currentLanguage))
+            requireUserId()
+            syncStateMutable.value = CacheSyncState(lastSyncedAt = System.currentTimeMillis())
         }
 
     suspend fun refreshProducts(): Result<Unit> =
         runCatching {
-            val userId = requireUserId()
-            if (accountDataMode(userId) == AccountDataMode.LocalDrive) return@runCatching
-            setRefreshing(true, null)
-            val products = fetchProducts(userId)
-            val syncedAt = System.currentTimeMillis()
-            withContext(Dispatchers.IO) {
-                database.withTransaction {
-                    ingestRemoteProducts(userId, products, syncedAt)
-                }
-            }
-            syncStateMutable.value = CacheSyncState(isRefreshing = false, lastSyncedAt = syncedAt)
-        }.onFailure { error ->
-            setRefreshing(false, localizedRefreshError(error, AppRuntimeState.currentLanguage))
+            requireUserId()
+            syncStateMutable.value = CacheSyncState(lastSyncedAt = System.currentTimeMillis())
         }
 
     suspend fun refreshDocuments(): Result<Unit> =
         runCatching {
-            val userId = requireUserId()
-            if (accountDataMode(userId) == AccountDataMode.LocalDrive) return@runCatching
-            setRefreshing(true, null)
-            val documents = fetchDocuments(userId)
-            val syncedAt = System.currentTimeMillis()
-            withContext(Dispatchers.IO) {
-                database.withTransaction {
-                    ingestRemoteDocuments(userId, documents, syncedAt)
-                }
-            }
-            syncStateMutable.value = CacheSyncState(isRefreshing = false, lastSyncedAt = syncedAt)
-        }.onFailure { error ->
-            setRefreshing(false, localizedRefreshError(error, AppRuntimeState.currentLanguage))
+            requireUserId()
+            syncStateMutable.value = CacheSyncState(lastSyncedAt = System.currentTimeMillis())
         }
 
     // Local Customer CRUD
     suspend fun createCustomerLocal(customer: Customer): Result<Customer> = runCatching {
         val userId = requireUserId()
-        requireOperationalDataMode(userId)
+        requireOperationalEntitlement(userId)
         enforceActiveEntityLimit(userId, "customer")
         val generatedId = customer.id ?: java.util.UUID.randomUUID().toString()
         val localCustomer = customer.copy(id = generatedId, userId = userId)
@@ -723,7 +613,6 @@ open class TijarioRepository(
         withContext(Dispatchers.IO) {
             database.withTransaction {
                 dao.upsertCustomer(entity)
-                enqueueOperationalOutbox(userId, "customer", generatedId, "CREATE")
             }
         }
         localCustomer
@@ -731,24 +620,21 @@ open class TijarioRepository(
 
     suspend fun updateCustomerLocal(customer: Customer): Result<Customer> = runCatching {
         val userId = requireUserId()
-        requireOperationalDataMode(userId)
+        requireOperationalEntitlement(userId)
         val customerId = customer.id ?: error("Customer ID required for update")
         withContext(Dispatchers.IO) {
             database.withTransaction {
                 val existing = dao.getCustomer(userId, customerId) ?: error("Customer not found locally")
                 val nextRev = existing.localRevision + 1
-                val nextStatus = if (existing.syncStatus == "LOCAL_ONLY") "LOCAL_ONLY" else "PENDING_SYNC"
                 val entity = existing.copy(
                     name = customer.name,
                     whatsappNumber = customer.whatsappNumber,
                     city = customer.city,
                     notes = customer.notes,
                     localRevision = nextRev,
-                    syncStatus = nextStatus
+                    syncStatus = "LOCAL_ONLY",
                 )
                 dao.upsertCustomer(entity)
-                val outboxOp = if (existing.syncStatus == "LOCAL_ONLY") "CREATE" else "UPDATE"
-                enqueueOperationalOutbox(userId, "customer", customerId, outboxOp, existing.serverRevision)
             }
         }
         customer.copy(userId = userId)
@@ -756,46 +642,26 @@ open class TijarioRepository(
 
     suspend fun deleteCustomerLocal(customerId: String): Result<Unit> = runCatching {
         val userId = requireUserId()
-        requireOperationalDataMode(userId)
+        requireOperationalEntitlement(userId)
         withContext(Dispatchers.IO) {
             database.withTransaction {
                 val existing = dao.getCustomer(userId, customerId) ?: error("Customer not found locally")
-                if (accountDataMode(userId) == AccountDataMode.LocalDrive) {
-                    val nextRev = existing.localRevision + 1
-                    dao.upsertCustomer(
-                        existing.copy(
-                            isDeleted = true,
-                            localRevision = nextRev,
-                            syncStatus = "LOCAL_ONLY",
-                        ),
-                    )
-                    recordLocalDeletion(userId, "customer", customerId, nextRev)
-                    return@withTransaction
-                }
-                val docCount = dao.countDocumentsForCustomer(customerId)
-                if (docCount > 0) {
-                    throw IllegalStateException("لا يمكن حذف العميل لوجود مستندات تاريخية مرتبطة به.")
-                }
-                if (existing.syncStatus == "LOCAL_ONLY") {
-                    dao.deleteCustomer(userId, customerId)
-                    enqueueOperationalOutbox(userId, "customer", customerId, "DELETE")
-                } else {
-                    val nextRev = existing.localRevision + 1
-                    val entity = existing.copy(
+                val nextRev = existing.localRevision + 1
+                dao.upsertCustomer(
+                    existing.copy(
                         isDeleted = true,
                         localRevision = nextRev,
-                        syncStatus = "PENDING_DELETE"
-                    )
-                    dao.upsertCustomer(entity)
-                    enqueueOperationalOutbox(userId, "customer", customerId, "DELETE", existing.serverRevision)
-                }
+                        syncStatus = "LOCAL_ONLY",
+                    ),
+                )
+                recordLocalDeletion(userId, "customer", customerId, nextRev)
             }
         }
     }
 
     suspend fun restoreCustomerLocal(customerId: String): Result<Unit> = runCatching {
         val userId = requireUserId()
-        requireOperationalDataMode(userId)
+        requireOperationalEntitlement(userId)
         withContext(Dispatchers.IO) {
             database.withTransaction {
                 val existing = dao.getCustomer(userId, customerId) ?: error("Customer not found locally")
@@ -805,7 +671,7 @@ open class TijarioRepository(
                     existing.copy(
                         isDeleted = false,
                         localRevision = existing.localRevision + 1,
-                        syncStatus = if (accountDataMode(userId) == AccountDataMode.LocalDrive) "LOCAL_ONLY" else "PENDING_SYNC",
+                        syncStatus = "LOCAL_ONLY",
                     ),
                 )
                 dao.deleteDeletedRecord(userId, "customer", customerId)
@@ -816,7 +682,7 @@ open class TijarioRepository(
     // Local Product CRUD
     suspend fun createProductLocal(product: Product): Result<Product> = runCatching {
         val userId = requireUserId()
-        requireOperationalDataMode(userId)
+        requireOperationalEntitlement(userId)
         enforceActiveEntityLimit(userId, "product")
         val generatedId = product.id ?: java.util.UUID.randomUUID().toString()
         val storeCurrency = dao.getBusinessSettings(userId)?.currency?.takeIf { it.isNotBlank() }
@@ -850,7 +716,6 @@ open class TijarioRepository(
         withContext(Dispatchers.IO) {
             database.withTransaction {
                 dao.upsertProduct(entity)
-                enqueueOperationalOutbox(userId, "product", generatedId, "CREATE")
             }
         }
         localProduct
@@ -858,13 +723,12 @@ open class TijarioRepository(
 
     suspend fun updateProductLocal(product: Product): Result<Product> = runCatching {
         val userId = requireUserId()
-        requireOperationalDataMode(userId)
+        requireOperationalEntitlement(userId)
         val productId = product.id ?: error("Product ID required for update")
         withContext(Dispatchers.IO) {
             database.withTransaction {
                 val existing = dao.getProduct(userId, productId) ?: error("Product not found locally")
                 val nextRev = existing.localRevision + 1
-                val nextStatus = if (existing.syncStatus == "LOCAL_ONLY") "LOCAL_ONLY" else "PENDING_SYNC"
                 val entity = existing.copy(
                     kind = when (product.kind) {
                         app.tijario.data.model.ProductKind.Product -> "product"
@@ -877,11 +741,9 @@ open class TijarioRepository(
                     stockQuantity = product.stockQuantity,
                     category = product.category,
                     localRevision = nextRev,
-                    syncStatus = nextStatus
+                    syncStatus = "LOCAL_ONLY",
                 )
                 dao.upsertProduct(entity)
-                val outboxOp = if (existing.syncStatus == "LOCAL_ONLY") "CREATE" else "UPDATE"
-                enqueueOperationalOutbox(userId, "product", productId, outboxOp, existing.serverRevision)
             }
         }
         product.copy(userId = userId)
@@ -889,46 +751,26 @@ open class TijarioRepository(
 
     suspend fun deleteProductLocal(productId: String): Result<Unit> = runCatching {
         val userId = requireUserId()
-        requireOperationalDataMode(userId)
+        requireOperationalEntitlement(userId)
         withContext(Dispatchers.IO) {
             database.withTransaction {
                 val existing = dao.getProduct(userId, productId) ?: error("Product not found locally")
-                if (accountDataMode(userId) == AccountDataMode.LocalDrive) {
-                    val nextRev = existing.localRevision + 1
-                    dao.upsertProduct(
-                        existing.copy(
-                            isDeleted = true,
-                            localRevision = nextRev,
-                            syncStatus = "LOCAL_ONLY",
-                        ),
-                    )
-                    recordLocalDeletion(userId, "product", productId, nextRev)
-                    return@withTransaction
-                }
-                val itemsUsage = dao.countDocumentItemsForProduct(productId)
-                if (itemsUsage > 0) {
-                    throw IllegalStateException("لا يمكن حذف المنتج لوجوده في مستندات حالية.")
-                }
-                if (existing.syncStatus == "LOCAL_ONLY") {
-                    dao.deleteProduct(userId, productId)
-                    enqueueOperationalOutbox(userId, "product", productId, "DELETE")
-                } else {
-                    val nextRev = existing.localRevision + 1
-                    val entity = existing.copy(
+                val nextRev = existing.localRevision + 1
+                dao.upsertProduct(
+                    existing.copy(
                         isDeleted = true,
                         localRevision = nextRev,
-                        syncStatus = "PENDING_DELETE"
-                    )
-                    dao.upsertProduct(entity)
-                    enqueueOperationalOutbox(userId, "product", productId, "DELETE", existing.serverRevision)
-                }
+                        syncStatus = "LOCAL_ONLY",
+                    ),
+                )
+                recordLocalDeletion(userId, "product", productId, nextRev)
             }
         }
     }
 
     suspend fun restoreProductLocal(productId: String): Result<Unit> = runCatching {
         val userId = requireUserId()
-        requireOperationalDataMode(userId)
+        requireOperationalEntitlement(userId)
         withContext(Dispatchers.IO) {
             database.withTransaction {
                 val existing = dao.getProduct(userId, productId) ?: error("Product not found locally")
@@ -938,7 +780,7 @@ open class TijarioRepository(
                     existing.copy(
                         isDeleted = false,
                         localRevision = existing.localRevision + 1,
-                        syncStatus = if (accountDataMode(userId) == AccountDataMode.LocalDrive) "LOCAL_ONLY" else "PENDING_SYNC",
+                        syncStatus = "LOCAL_ONLY",
                     ),
                 )
                 dao.deleteDeletedRecord(userId, "product", productId)
@@ -950,8 +792,8 @@ open class TijarioRepository(
     suspend fun createDocumentLocal(request: CreateDocumentRequest): ApiResult<CreateDocumentResponse> {
         return try {
             val userId = requireUserId()
-            val isLocalDrive = requireOperationalDataMode(userId) == AccountDataMode.LocalDrive
-            logLocalDocumentSave("create", userId, isLocalDrive, "started")
+            requireOperationalEntitlement(userId)
+            logLocalDocumentSave("create", userId, "started")
             val docId = java.util.UUID.randomUUID().toString()
             val dateStr = LocalDate.now(ZoneOffset.UTC).format(DateTimeFormatter.ISO_LOCAL_DATE)
             val existingDocs = dao.observeDocuments(userId).first()
@@ -969,11 +811,7 @@ open class TijarioRepository(
                 whatsappNumber = request.customer.whatsappNumber,
                 city = request.customer.city,
                 localRevision = if (customerChanged) existingCustomer.localRevision + 1 else existingCustomer.localRevision,
-                syncStatus = when {
-                    !customerChanged -> existingCustomer.syncStatus
-                    isLocalDrive || existingCustomer.syncStatus == "LOCAL_ONLY" -> "LOCAL_ONLY"
-                    else -> "PENDING_SYNC"
-                },
+                syncStatus = "LOCAL_ONLY",
             ) ?: app.tijario.data.local.CustomerEntity(
                 id = documentCustomerId,
                 userId = userId,
@@ -982,7 +820,7 @@ open class TijarioRepository(
                 city = request.customer.city,
                 notes = null,
                 syncedAt = 0L,
-                syncStatus = if (isLocalDrive || requestedCustomerId == null) "LOCAL_ONLY" else "SYNCED",
+                syncStatus = "LOCAL_ONLY",
                 localRevision = 1,
                 serverRevision = null,
                 serverUpdatedAt = null,
@@ -990,13 +828,6 @@ open class TijarioRepository(
                 syncErrorCode = null,
                 isDeleted = false,
             )
-            val customerOutboxOperation = when {
-                requestedCustomerId == null -> "CREATE"
-                customerChanged && existingCustomer?.syncStatus == "LOCAL_ONLY" -> "CREATE"
-                customerChanged -> "UPDATE"
-                else -> null
-            }
-
             val itemsEntities = request.items.mapIndexed { index, item ->
                 val lineTotal = BigDecimal.valueOf(item.quantity.toLong()).multiply(BigDecimal.valueOf(item.unitPrice))
                 app.tijario.data.local.DocumentItemEntity(
@@ -1090,26 +921,14 @@ open class TijarioRepository(
             )
 
             withContext(Dispatchers.IO) {
-                withLocalQuotaReservation(userId, isLocalDrive) { localQuotaLease ->
+                withLocalQuotaReservation(userId) { localQuotaLease ->
                     database.withTransaction {
-                    logLocalDocumentSave("create", userId, isLocalDrive, "transaction_started")
+                    logLocalDocumentSave("create", userId, "transaction_started")
                     dao.upsertCustomer(customerEntityToUpsert)
-                    if (!isLocalDrive) customerOutboxOperation?.let { operation ->
-                        enqueueOperationalOutbox(
-                            userId = userId,
-                            entityType = "customer",
-                            entityId = documentCustomerId,
-                            operation = operation,
-                            baseServerRevision = existingCustomer?.serverRevision,
-                        )
-                    }
                     dao.upsertDocument(docEntity)
                     dao.insertDocumentItems(itemsEntities)
                     reserveDocumentQuotaLedger(userId, docId, localQuotaLease)
-                    if (!isLocalDrive) {
-                        enqueueOperationalOutbox(userId, "document", docId, "CREATE")
-                    }
-                    logLocalDocumentSave("create", userId, isLocalDrive, "transaction_completed")
+                    logLocalDocumentSave("create", userId, "transaction_completed")
                     }
                 }
             }
@@ -1123,8 +942,8 @@ open class TijarioRepository(
     suspend fun updateDocumentLocal(documentId: String, request: CreateDocumentRequest): ApiResult<CreateDocumentResponse> {
         return try {
             val userId = requireUserId()
-            val isLocalDrive = requireOperationalDataMode(userId) == AccountDataMode.LocalDrive
-            logLocalDocumentSave("update", userId, isLocalDrive, "started")
+            requireOperationalEntitlement(userId)
+            logLocalDocumentSave("update", userId, "started")
             val existing = dao.getDocument(userId, documentId) ?: error("Document not found locally")
 
             val itemsEntities = request.items.mapIndexed { index, item ->
@@ -1160,12 +979,6 @@ open class TijarioRepository(
             }
 
             val nextRev = existing.localRevision + 1
-            val nextStatus = if (isLocalDrive || existing.syncStatus == "LOCAL_ONLY") {
-                "LOCAL_ONLY"
-            } else {
-                "PENDING_SYNC"
-            }
-
             val docEntity = existing.copy(
                 paymentStatus = request.paymentStatus,
                 amountPaid = request.amountPaid?.let { BigDecimal.valueOf(it) },
@@ -1184,7 +997,7 @@ open class TijarioRepository(
                 documentTitle = request.documentTitle,
                 documentLanguage = request.documentLanguage,
                 localRevision = nextRev,
-                syncStatus = nextStatus,
+                syncStatus = "LOCAL_ONLY",
                 // Invalidate PDF metadata since document content changed
                 localPdfRelativePath = null,
                 pdfGeneratedAt = null,
@@ -1195,17 +1008,13 @@ open class TijarioRepository(
 
             withContext(Dispatchers.IO) {
                 database.withTransaction {
-                    logLocalDocumentSave("update", userId, isLocalDrive, "transaction_started")
+                    logLocalDocumentSave("update", userId, "transaction_started")
                     // Replace all document items atomically
                     dao.deleteDocumentItems(userId, documentId)
                     dao.insertDocumentItems(itemsEntities)
                     dao.upsertDocument(docEntity)
 
-                    if (!isLocalDrive) {
-                        val outboxOp = if (existing.syncStatus == "LOCAL_ONLY") "CREATE" else "UPDATE"
-                        enqueueOperationalOutbox(userId, "document", documentId, outboxOp, existing.serverRevision)
-                    }
-                    logLocalDocumentSave("update", userId, isLocalDrive, "transaction_completed")
+                    logLocalDocumentSave("update", userId, "transaction_completed")
                 }
             }
 
@@ -1228,12 +1037,11 @@ open class TijarioRepository(
     private suspend fun logLocalDocumentSave(
         operation: String,
         userId: String,
-        isLocalDrive: Boolean,
         stage: String,
     ) {
         if (!BuildConfig.DEBUG) return
         val entitlement = dao.getAccountEntitlement(userId)
-        val hasLease = isLocalDrive && dao.getActiveLease(
+        val hasLease = dao.getActiveLease(
             userId,
             AppPreferences.getInstallationId(context),
             System.currentTimeMillis(),
@@ -1241,7 +1049,7 @@ open class TijarioRepository(
         runCatching {
             android.util.Log.d(
                 "TijarioLocalDocument",
-                "operation=$operation local_drive=$isLocalDrive entitlement_available=${hasValidOperationalEntitlement(entitlement)} lease_available=$hasLease transaction=$stage",
+                "operation=$operation room_only=true entitlement_available=${hasValidOperationalEntitlement(entitlement)} lease_available=$hasLease transaction=$stage",
             )
         }
     }
@@ -1249,41 +1057,20 @@ open class TijarioRepository(
     suspend fun deleteDocumentLocal(documentId: String): ApiResult<CreateDocumentResponse> {
         return try {
             val userId = requireUserId()
-            requireOperationalDataMode(userId)
+            requireOperationalEntitlement(userId)
             val existing = dao.getDocument(userId, documentId) ?: error("Document not found locally")
-            val isLocalDrive = accountDataMode(userId) == AccountDataMode.LocalDrive
-            val hasLedger = dao.getCreationEventByDocument(userId, documentId) != null
-            val hasPdf = existing.localPdfRelativePath != null
-            val mustSoftDelete = hasLedger || hasPdf
-
             withContext(Dispatchers.IO) {
                 database.withTransaction {
-                    if (isLocalDrive) {
-                        val nextRev = existing.localRevision + 1
-                        dao.upsertDocument(
-                            existing.copy(
-                                isDeleted = true,
-                                deletedAt = System.currentTimeMillis(),
-                                localRevision = nextRev,
-                                syncStatus = "LOCAL_ONLY",
-                            ),
-                        )
-                        recordLocalDeletion(userId, "document", documentId, nextRev)
-                    } else if (existing.syncStatus == "LOCAL_ONLY" && !mustSoftDelete) {
-                        dao.deleteDocumentItems(userId, documentId)
-                        dao.deleteDocument(userId, documentId)
-                        enqueueOperationalOutbox(userId, "document", documentId, "DELETE")
-                    } else {
-                        val nextRev = existing.localRevision + 1
-                        val entity = existing.copy(
+                    val nextRev = existing.localRevision + 1
+                    dao.upsertDocument(
+                        existing.copy(
                             isDeleted = true,
                             deletedAt = System.currentTimeMillis(),
                             localRevision = nextRev,
-                            syncStatus = "PENDING_DELETE"
-                        )
-                        dao.upsertDocument(entity)
-                        enqueueOperationalOutbox(userId, "document", documentId, "DELETE", existing.serverRevision)
-                    }
+                            syncStatus = "LOCAL_ONLY",
+                        ),
+                    )
+                    recordLocalDeletion(userId, "document", documentId, nextRev)
                 }
             }
 
@@ -1296,15 +1083,13 @@ open class TijarioRepository(
     // Local Business Settings update
     suspend fun updateBusinessSettingsLocal(settings: BusinessSettings): Result<Unit> = runCatching {
         val userId = requireUserId()
-        val dataMode = accountDataMode(userId)
-        persistBusinessSettingsLocal(userId, settings, dataMode)
-        mirrorLocalDriveBusinessSettings(userId, settings, dataMode)
+        persistBusinessSettingsLocal(userId, settings)
+        mirrorBusinessSettingsBestEffort(userId, settings)
     }
 
     private suspend fun persistBusinessSettingsLocal(
         userId: String,
         settings: BusinessSettings,
-        dataMode: AccountDataMode,
     ) {
         if (
             settings.businessName.isBlank() ||
@@ -1315,16 +1100,11 @@ open class TijarioRepository(
             throw AccountInitializationException("INVALID_ONBOARDING_FIELDS")
         }
         val syncedAt = System.currentTimeMillis()
-        val baseServerRevision = try {
+        try {
             withContext(Dispatchers.IO) {
                 database.withTransaction {
                     val existing = dao.getBusinessSettings(userId)
                     val nextRev = (existing?.localRevision ?: 0) + 1
-                    val nextStatus = if (dataMode == AccountDataMode.LegacyCloud || dataMode == AccountDataMode.CloudSyncFuture) {
-                        "PENDING_SYNC"
-                    } else {
-                        "LOCAL_ONLY"
-                    }
                     val entity = app.tijario.data.local.BusinessSettingsEntity(
                         userId = userId,
                         remoteId = existing?.remoteId ?: settings.id,
@@ -1342,10 +1122,9 @@ open class TijarioRepository(
                         termsText = settings.termsText,
                         syncedAt = syncedAt,
                         localRevision = nextRev,
-                        syncStatus = nextStatus
+                        syncStatus = "LOCAL_ONLY",
                     )
                     dao.upsertBusinessSettings(entity)
-                    existing?.serverId()
                 }
             }
         } catch (error: CancellationException) {
@@ -1353,35 +1132,23 @@ open class TijarioRepository(
         } catch (error: Throwable) {
             throw AccountInitializationException("LOCAL_DATABASE_WRITE_FAILED", error)
         }
-        if (dataMode == AccountDataMode.LegacyCloud || dataMode == AccountDataMode.CloudSyncFuture) {
-            enqueueOperationalOutbox(userId, "business_settings", userId, "UPDATE", baseServerRevision)
-            sync(userId).onFailure {
-                SyncScheduler(context).triggerSync(userId)
-            }
-        }
     }
 
-    private fun app.tijario.data.local.BusinessSettingsEntity.serverId(): String? =
-        remoteId
-
-    private suspend fun mirrorLocalDriveBusinessSettings(
+    private fun mirrorBusinessSettingsBestEffort(
         userId: String,
         settings: BusinessSettings,
-        dataMode: AccountDataMode,
     ) {
-        if (dataMode != AccountDataMode.LocalDrive && dataMode != AccountDataMode.Uninitialized) return
-
         val remoteSettings = settings.copy(userId = userId)
         val fingerprint = businessSettingsMirrorFingerprint(remoteSettings)
         if (AppPreferences.getBusinessSettingsMirrorFingerprint(context, userId) == fingerprint) return
 
-        // Room remains authoritative. This is one best-effort mirror per changed payload.
-        runCatching {
-            withContext(Dispatchers.IO) {
+        // Room is the save contract. The mirror can fail offline without changing UI success.
+        businessSettingsMirrorScope.launch {
+            runCatching {
                 supabaseClient.from("business_settings").upsert(remoteSettings)
+            }.onSuccess {
+                AppPreferences.setBusinessSettingsMirrorFingerprint(context, userId, fingerprint)
             }
-        }.onSuccess {
-            AppPreferences.setBusinessSettingsMirrorFingerprint(context, userId, fingerprint)
         }
     }
 
@@ -1407,230 +1174,35 @@ open class TijarioRepository(
             .joinToString("") { byte -> "%02x".format(byte) }
     }
 
-    // Legacy Save / Cache adapters for backward compatibility
-    suspend fun createCustomer(customer: Customer): Result<Unit> = runCatching {
-        val userId = requireUserId()
-        if (accountDataMode(userId) == AccountDataMode.LocalDrive) {
-            createCustomerLocal(customer).getOrThrow()
-            return@runCatching
-        }
-        requireOperationalDataMode(userId)
-        val generatedId = customer.id ?: java.util.UUID.randomUUID().toString()
-        val remoteCustomer = customer.copy(id = generatedId, userId = userId)
-        withContext(Dispatchers.IO) {
-            supabaseClient.from("customers").insert(remoteCustomer)
-            val entity = app.tijario.data.local.CustomerEntity(
-                id = generatedId,
-                userId = userId,
-                name = remoteCustomer.name,
-                whatsappNumber = remoteCustomer.whatsappNumber,
-                city = remoteCustomer.city,
-                notes = remoteCustomer.notes,
-                syncedAt = System.currentTimeMillis(),
-                syncStatus = "SYNCED",
-                localRevision = 1,
-                serverRevision = null,
-                serverUpdatedAt = System.currentTimeMillis(),
-                lastSyncedAt = System.currentTimeMillis(),
-                syncErrorCode = null,
-                isDeleted = false
-            )
-            dao.upsertCustomer(entity)
-        }
-    }
+    // Compatibility entry points now share the Room-only operational policy.
+    suspend fun createCustomer(customer: Customer): Result<Unit> =
+        createCustomerLocal(customer).map { Unit }
 
-    suspend fun updateCustomer(customer: Customer): Result<Unit> = runCatching {
-        val userId = requireUserId()
-        if (accountDataMode(userId) == AccountDataMode.LocalDrive) {
-            updateCustomerLocal(customer).getOrThrow()
-            return@runCatching
-        }
-        requireOperationalDataMode(userId)
-        val customerId = customer.id ?: error("Customer ID required for update")
-        withContext(Dispatchers.IO) {
-            supabaseClient.from("customers").update(customer) {
-                filter {
-                    eq("id", customerId)
-                }
-            }
-            val existing = dao.getCustomer(userId, customerId)
-            val entity = app.tijario.data.local.CustomerEntity(
-                id = customerId,
-                userId = userId,
-                name = customer.name,
-                whatsappNumber = customer.whatsappNumber,
-                city = customer.city,
-                notes = customer.notes,
-                syncedAt = System.currentTimeMillis(),
-                syncStatus = "SYNCED",
-                localRevision = (existing?.localRevision ?: 0) + 1,
-                serverRevision = existing?.serverRevision,
-                serverUpdatedAt = System.currentTimeMillis(),
-                lastSyncedAt = System.currentTimeMillis(),
-                syncErrorCode = null,
-                isDeleted = false
-            )
-            dao.upsertCustomer(entity)
-        }
-    }
+    suspend fun updateCustomer(customer: Customer): Result<Unit> =
+        updateCustomerLocal(customer).map { Unit }
 
-    suspend fun deleteCustomer(customerId: String): Result<Unit> = runCatching {
-        val userId = requireUserId()
-        requireOperationalDataMode(userId)
-        if (accountDataMode(userId) == AccountDataMode.LocalDrive) {
-            deleteCustomerLocal(customerId).getOrThrow()
-            return@runCatching
-        }
-        withContext(Dispatchers.IO) {
-            val docCount = dao.countDocumentsForCustomer(customerId)
-            if (docCount > 0) {
-                throw IllegalStateException("لا يمكن حذف العميل لوجود مستندات تاريخية مرتبطة به.")
-            }
-            supabaseClient.from("customers").delete {
-                filter {
-                    eq("id", customerId)
-                }
-            }
-            dao.deleteCustomer(userId, customerId)
-        }
-    }
+    suspend fun deleteCustomer(customerId: String): Result<Unit> =
+        deleteCustomerLocal(customerId)
 
-    suspend fun createProduct(product: Product): Result<Unit> = runCatching {
-        val userId = requireUserId()
-        if (accountDataMode(userId) == AccountDataMode.LocalDrive) {
-            createProductLocal(product).getOrThrow()
-            return@runCatching
-        }
-        requireOperationalDataMode(userId)
-        val generatedId = product.id ?: java.util.UUID.randomUUID().toString()
-        val storeCurrency = dao.getBusinessSettings(userId)?.currency?.takeIf { it.isNotBlank() }
-        val remoteProduct = product.copy(id = generatedId, userId = userId, currency = storeCurrency ?: product.currency)
-        withContext(Dispatchers.IO) {
-            supabaseClient.from("products").insert(remoteProduct)
-            val entity = app.tijario.data.local.ProductEntity(
-                id = generatedId,
-                userId = userId,
-                kind = when (remoteProduct.kind) {
-                    app.tijario.data.model.ProductKind.Product -> "product"
-                    app.tijario.data.model.ProductKind.Service -> "service"
-                },
-                name = remoteProduct.name,
-                description = remoteProduct.description,
-                price = java.math.BigDecimal.valueOf(remoteProduct.price),
-                currency = remoteProduct.currency,
-                stockQuantity = remoteProduct.stockQuantity,
-                category = remoteProduct.category,
-                syncedAt = System.currentTimeMillis(),
-                syncStatus = "SYNCED",
-                localRevision = 1,
-                serverRevision = null,
-                serverUpdatedAt = System.currentTimeMillis(),
-                lastSyncedAt = System.currentTimeMillis(),
-                syncErrorCode = null,
-                isDeleted = false
-            )
-            dao.upsertProduct(entity)
-        }
-    }
+    suspend fun restoreCustomer(customerId: String): Result<Unit> =
+        restoreCustomerLocal(customerId)
 
-    suspend fun updateProduct(product: Product): Result<Unit> = runCatching {
-        val userId = requireUserId()
-        if (accountDataMode(userId) == AccountDataMode.LocalDrive) {
-            updateProductLocal(product).getOrThrow()
-            return@runCatching
-        }
-        requireOperationalDataMode(userId)
-        val productId = product.id ?: error("Product ID required for update")
-        withContext(Dispatchers.IO) {
-            supabaseClient.from("products").update(product) {
-                filter {
-                    eq("id", productId)
-                }
-            }
-            val existing = dao.getProduct(userId, productId)
-            val entity = app.tijario.data.local.ProductEntity(
-                id = productId,
-                userId = userId,
-                kind = when (product.kind) {
-                    app.tijario.data.model.ProductKind.Product -> "product"
-                    app.tijario.data.model.ProductKind.Service -> "service"
-                },
-                name = product.name,
-                description = product.description,
-                price = java.math.BigDecimal.valueOf(product.price),
-                currency = product.currency,
-                stockQuantity = product.stockQuantity,
-                category = product.category,
-                syncedAt = System.currentTimeMillis(),
-                syncStatus = "SYNCED",
-                localRevision = (existing?.localRevision ?: 0) + 1,
-                serverRevision = existing?.serverRevision,
-                serverUpdatedAt = System.currentTimeMillis(),
-                lastSyncedAt = System.currentTimeMillis(),
-                syncErrorCode = null,
-                isDeleted = false
-            )
-            dao.upsertProduct(entity)
-        }
-    }
+    suspend fun createProduct(product: Product): Result<Unit> =
+        createProductLocal(product).map { Unit }
 
-    suspend fun deleteProduct(productId: String): Result<Unit> = runCatching {
-        val userId = requireUserId()
-        requireOperationalDataMode(userId)
-        if (accountDataMode(userId) == AccountDataMode.LocalDrive) {
-            deleteProductLocal(productId).getOrThrow()
-            return@runCatching
-        }
-        withContext(Dispatchers.IO) {
-            val count = dao.countDocumentItemsForProduct(productId)
-            if (count > 0) {
-                throw IllegalStateException("لا يمكن حذف المنتج لوجود مستندات مرتبطة به.")
-            }
-            supabaseClient.from("products").delete {
-                filter {
-                    eq("id", productId)
-                }
-            }
-            dao.deleteProduct(userId, productId)
-        }
-    }
+    suspend fun updateProduct(product: Product): Result<Unit> =
+        updateProductLocal(product).map { Unit }
+
+    suspend fun deleteProduct(productId: String): Result<Unit> =
+        deleteProductLocal(productId)
+
+    suspend fun restoreProduct(productId: String): Result<Unit> =
+        restoreProductLocal(productId)
 
     suspend fun saveBusinessSettings(settings: BusinessSettings): Result<Unit> = runCatching {
         val userId = requireUserId()
-        val dataMode = accountDataMode(userId)
-        if (dataMode == AccountDataMode.LocalDrive || dataMode == AccountDataMode.Uninitialized) {
-            persistBusinessSettingsLocal(userId, settings, dataMode)
-            mirrorLocalDriveBusinessSettings(userId, settings, dataMode)
-            return@runCatching
-        }
-        withContext(Dispatchers.IO) {
-            val remoteSettings = settings.copy(userId = userId)
-            supabaseClient.from("business_settings").upsert(remoteSettings)
-            val existing = dao.getBusinessSettings(userId)
-            val entity = app.tijario.data.local.BusinessSettingsEntity(
-                userId = userId,
-                remoteId = existing?.remoteId ?: settings.id,
-                businessName = settings.businessName,
-                whatsappNumber = settings.whatsappNumber,
-                country = settings.country,
-                city = settings.city,
-                address = settings.address,
-                email = settings.email,
-                websiteUrl = settings.websiteUrl,
-                currency = settings.currency,
-                logoUrl = settings.logoUrl,
-                instagramUrl = settings.instagramUrl,
-                invoiceNote = settings.invoiceNote,
-                termsText = settings.termsText,
-                syncedAt = System.currentTimeMillis(),
-                localRevision = (existing?.localRevision ?: 0) + 1,
-                syncStatus = "SYNCED",
-                serverRevision = existing?.serverRevision,
-                serverUpdatedAt = System.currentTimeMillis(),
-                lastSyncedAt = System.currentTimeMillis()
-            )
-            dao.upsertBusinessSettings(entity)
-        }
+        persistBusinessSettingsLocal(userId, settings)
+        mirrorBusinessSettingsBestEffort(userId, settings)
     }
 
     suspend fun cacheBusinessSettings(settings: BusinessSettings): Result<Unit> = runCatching {
@@ -1644,60 +1216,29 @@ open class TijarioRepository(
 
     suspend fun getNextDocumentNumber(type: String): ApiResult<NextNumberResponse> {
         val userId = requireUserId()
-        if (accountDataMode(userId) == AccountDataMode.LocalDrive) {
-            val documentType = if (type.equals("quote", ignoreCase = true)) DocumentType.Quote else DocumentType.Invoice
-            val next = DocumentNumbering.nextDocumentNumber(
-                dao.observeDocuments(userId).first().map { it.documentNumber },
-                documentType,
-            )
-            return ApiResult(ok = true, data = NextNumberResponse(next))
-        }
-        return withContext(Dispatchers.IO) { backendApiClient.getNextDocumentNumber(type) }
+        val documentType = if (type.equals("quote", ignoreCase = true)) DocumentType.Quote else DocumentType.Invoice
+        val next = DocumentNumbering.nextDocumentNumber(
+            dao.observeDocuments(userId).first().map { it.documentNumber },
+            documentType,
+        )
+        return ApiResult(ok = true, data = NextNumberResponse(next))
     }
 
-    // Legacy Document Remote Bridges
+    // Document compatibility entry points use the same Room-only write path.
     suspend fun createDocument(request: CreateDocumentRequest): ApiResult<CreateDocumentResponse> {
         val userId = requireUserId()
         val storeCurrency = dao.getBusinessSettings(userId)
             ?.currency
             ?.takeIf { it.isNotBlank() }
-        // New documents use the store currency in every data mode. Existing documents retain their snapshot on update.
+        // New documents inherit the Room store currency. Existing documents retain their snapshot on update.
         val effectiveRequest = request.copy(currency = storeCurrency ?: request.currency)
-        if (accountDataMode(userId) == AccountDataMode.LocalDrive) return createDocumentLocal(effectiveRequest)
-        requireOperationalDataMode(userId)
-        return withContext(Dispatchers.IO) {
-            val result = backendApiClient.createDocument(effectiveRequest)
-            if (!result.ok) return@withContext result
-
-            val documentId = result.data?.documentId?.takeIf { it.isNotBlank() }
-                ?: return@withContext ApiResult(
-                    ok = false,
-                    code = "SERVER_SAVE_FAILED",
-                    message = "Server did not return a document ID.",
-                )
-
-            runCatching {
-                backendApiClient.fetchCompleteDocument(documentId).data?.let { remote ->
-                    cacheCompleteDocumentSnapshot(
-                        remote.copy(
-                            documentNumber = resolveCachedDocumentNumber(remote.documentNumber, effectiveRequest.documentNumber),
-                            documentTitle = effectiveRequest.documentTitle ?: remote.documentTitle,
-                            documentLanguage = effectiveRequest.documentLanguage,
-                        )
-                    )
-                }
-                    ?: refreshAll(force = true)
-            }
-            runCatching { refreshProducts() }
-            runCatching { fetchUserPlanUsage() }
-            result
-        }
+        return createDocumentLocal(effectiveRequest)
     }
 
     suspend fun restoreDocumentLocal(documentId: String): ApiResult<CreateDocumentResponse> {
         return try {
             val userId = requireUserId()
-            requireOperationalDataMode(userId)
+            requireOperationalEntitlement(userId)
             val existing = dao.getDocument(userId, documentId) ?: error("Document not found locally")
             check(existing.isDeleted) { "Document is not deleted" }
             withContext(Dispatchers.IO) {
@@ -1707,7 +1248,7 @@ open class TijarioRepository(
                             isDeleted = false,
                             deletedAt = null,
                             localRevision = existing.localRevision + 1,
-                            syncStatus = if (accountDataMode(userId) == AccountDataMode.LocalDrive) "LOCAL_ONLY" else "PENDING_SYNC",
+                            syncStatus = "LOCAL_ONLY",
                         ),
                     )
                     dao.deleteDeletedRecord(userId, "document", documentId)
@@ -1719,54 +1260,14 @@ open class TijarioRepository(
         }
     }
 
-    suspend fun updateDocument(documentId: String, request: CreateDocumentRequest): ApiResult<CreateDocumentResponse> {
-        val userId = requireUserId()
-        if (accountDataMode(userId) == AccountDataMode.LocalDrive) return updateDocumentLocal(documentId, request)
-        requireOperationalDataMode(userId)
-        return withContext(Dispatchers.IO) {
-            val result = backendApiClient.updateDocument(documentId, request)
-            if (!result.ok) return@withContext result
+    suspend fun restoreDocument(documentId: String): ApiResult<CreateDocumentResponse> =
+        restoreDocumentLocal(documentId)
 
-            val resolvedDocumentId = result.data?.documentId?.takeIf { it.isNotBlank() } ?: documentId
-            runCatching {
-                backendApiClient.fetchCompleteDocument(resolvedDocumentId).data?.let { remote ->
-                    cacheCompleteDocumentSnapshot(
-                        remote.copy(
-                            documentNumber = resolveCachedDocumentNumber(remote.documentNumber, request.documentNumber),
-                            documentTitle = request.documentTitle ?: remote.documentTitle,
-                            documentLanguage = request.documentLanguage,
-                        )
-                    )
-                }
-                    ?: refreshAll(force = true)
-            }
-            runCatching { refreshProducts() }
-            runCatching { fetchUserPlanUsage() }
-            result
-        }
-    }
+    suspend fun updateDocument(documentId: String, request: CreateDocumentRequest): ApiResult<CreateDocumentResponse> =
+        updateDocumentLocal(documentId, request)
 
-    suspend fun deleteDocument(documentId: String): ApiResult<CreateDocumentResponse> {
-        val userId = requireUserId()
-        requireOperationalDataMode(userId)
-        if (accountDataMode(userId) == AccountDataMode.LocalDrive) return deleteDocumentLocal(documentId)
-        return withContext(Dispatchers.IO) {
-            val result = backendApiClient.deleteDocument(documentId)
-            if (!result.ok) return@withContext result
-
-            runCatching {
-                val userId = requireUserId()
-                database.withTransaction {
-                    dao.deleteDocumentItems(userId, documentId)
-                    dao.deleteDocument(userId, documentId)
-                }
-            }
-            runCatching { refreshDocuments() }
-            runCatching { refreshProducts() }
-            runCatching { fetchUserPlanUsage() }
-            result
-        }
-    }
+    suspend fun deleteDocument(documentId: String): ApiResult<CreateDocumentResponse> =
+        deleteDocumentLocal(documentId)
 
     // Plans and usage
     suspend fun fetchUserPlanUsage(): Result<app.tijario.data.model.UserPlanUsage> {
@@ -1866,9 +1367,6 @@ open class TijarioRepository(
             AppPreferences.getPlanUsage(context, userId)?.let { overlayLocalUsage(userId, it) }
         }
 
-    suspend fun isLocalDriveAccount(userId: String): Boolean =
-        accountDataMode(userId) == AccountDataMode.LocalDrive
-
     fun isCachedPlanUsageFresh(userId: String): Boolean =
         AppPreferences.isPlanUsageFresh(context, userId, PLAN_USAGE_TTL_MS)
 
@@ -1879,26 +1377,8 @@ open class TijarioRepository(
                 val localDoc = dao.getDocument(userId, documentId)
                 val localItems = dao.getDocumentItems(userId, documentId)
                 val localSnapshot = localDoc?.takeIf { localItems.isNotEmpty() }
-                if (accountDataMode(userId) == AccountDataMode.LocalDrive) {
-                    return@withContext localSnapshot?.let { buildLocalCompleteDocument(userId, it) }
-                        ?: error("document_not_found")
-                }
-                val hasPendingLocalChanges = localSnapshot?.syncStatus?.let { it != "SYNCED" } == true
-                val cacheIsFresh = localSnapshot?.lastSyncedAt?.let {
-                    System.currentTimeMillis() - it < PULL_SYNC_TTL_MS
-                } == true
-                if (localSnapshot != null && (hasPendingLocalChanges || cacheIsFresh)) {
-                    return@withContext buildLocalCompleteDocument(userId, localSnapshot)
-                }
-
-                val remote = runCatching { backendApiClient.fetchCompleteDocument(documentId) }.getOrNull()
-                if (remote?.ok != true || remote.data == null) {
-                    if (localSnapshot != null) return@withContext buildLocalCompleteDocument(userId, localSnapshot)
-                    error(remote?.message ?: remote?.code ?: "document_not_found")
-                }
-
-                cacheCompleteDocumentSnapshot(remote.data)
-                remote.data
+                localSnapshot?.let { buildLocalCompleteDocument(userId, it) }
+                    ?: error("document_not_found")
             }
         }
 
@@ -2038,14 +1518,10 @@ open class TijarioRepository(
                 notificationsDao.clearReceiptOutbox()
             }
         }
-        lastFullRefreshUserId = null
-        lastFullRefreshAt = 0L
         syncStateMutable.value = CacheSyncState()
     }
 
     fun clearTransientSessionState() {
-        lastFullRefreshUserId = null
-        lastFullRefreshAt = 0L
         syncStateMutable.value = CacheSyncState()
     }
 
@@ -2100,9 +1576,6 @@ open class TijarioRepository(
 
                 delay(250)
             }
-        }
-        if (accountDataMode(userId) != AccountDataMode.LocalDrive) {
-            SyncScheduler(context).triggerSync(userId)
         }
     }
 
@@ -2229,7 +1702,6 @@ open class TijarioRepository(
                 status = "sent",
                 syncStatus = "LOCAL_ONLY"
             ))
-            enqueueOperationalOutbox(userId, "document", documentId, "CREATE")
         }
     }
 
@@ -2267,11 +1739,10 @@ open class TijarioRepository(
     }
 
     open suspend fun sync(userId: String): Result<Unit> = runCatching {
-        if (accountDataMode(userId) == AccountDataMode.LocalDrive) {
-            withContext(Dispatchers.IO) { reconcileDocumentCreationEvents(userId) }
-            fetchUserPlanUsage().getOrThrow()
-            return@runCatching
-        }
+        // Legacy rows are retained for recovery diagnostics, but this release does not send or
+        // import operational seller data through cloud sync.
+        if (operationalCloudSyncDisabled()) return@runCatching
+
         val currentToken = supabaseClient.auth.currentSessionOrNull()?.accessToken
             ?: throw IllegalStateException("SESSION_EXPIRED")
 
@@ -2484,7 +1955,7 @@ open class TijarioRepository(
                                         val newId = java.util.UUID.randomUUID().toString()
                                         val newDoc = doc.copy(
                                             id = newId,
-                                            documentNumber = doc.documentNumber + "-تعارض",
+                                            documentNumber = doc.documentNumber + "-ØªØ¹Ø§Ø±Ø¶",
                                             status = "draft",
                                             syncStatus = "LOCAL_ONLY",
                                             localRevision = 1,
@@ -2740,6 +2211,8 @@ open class TijarioRepository(
         }
     }
 
+    private fun operationalCloudSyncDisabled(): Boolean = true
+
     suspend fun deleteAccountLocal(userId: String): Result<Unit> = runCatching {
         withContext(Dispatchers.IO) {
             database.withTransaction {
@@ -2927,10 +2400,8 @@ open class TijarioRepository(
 
     private suspend fun withLocalQuotaReservation(
         userId: String,
-        isLocalDrive: Boolean,
         block: suspend (app.tijario.data.local.OfflineQuotaLeaseEntity?) -> Unit,
     ) {
-        if (!isLocalDrive) return block(null)
         quotaReservationMutex.withLock {
             ensureLocalDocumentQuotaAvailable(userId)
             // A valid cached entitlement remains the local authorization source. A lease
@@ -3040,83 +2511,53 @@ open class TijarioRepository(
     private suspend fun reserveDocumentQuotaLedger(
         userId: String,
         documentId: String,
-        preparedLocalDriveLease: app.tijario.data.local.OfflineQuotaLeaseEntity? = null,
+        preparedLocalLease: app.tijario.data.local.OfflineQuotaLeaseEntity? = null,
     ) {
         val doc = dao.getDocument(userId, documentId) ?: error("Document not found")
         if (doc.syncStatus == "SYNCED") return
         if (dao.getCreationEventByDocument(userId, documentId) != null) return
         val periodMonth = currentUtcPeriodMonth()
         val deviceId = AppPreferences.getInstallationId(context)
-        val dataMode = accountDataMode(userId)
-        if (dataMode == AccountDataMode.LocalDrive) {
-            val entitlement = dao.getAccountEntitlement(userId)
-                ?: throw IllegalStateException("ENTITLEMENT_INITIALIZATION_REQUIRED")
-            if (!hasValidOperationalEntitlement(entitlement)) throw IllegalStateException("ENTITLEMENT_INITIALIZATION_REQUIRED")
-            val periodKey = if (entitlement.documentLimitScope == "lifetime") "lifetime" else periodMonth
-            val pendingEvents = dao.getPendingCreationEvents(userId).count {
-                entitlement.documentLimitScope == "lifetime" || it.periodKey == periodKey
-            }
-            val limit = entitlement.documentLimit
-            if (limit != null && entitlement.documentsUsed + pendingEvents >= limit) {
-                throw IllegalStateException("QUOTA_LIMIT_EXCEEDED")
-            }
-            val lease = preparedLocalDriveLease?.also {
-                val leasePending = dao.getPendingCreationEvents(userId).count { event -> event.leaseId == it.id }
-                if (
-                    it.userId != userId || it.deviceId != deviceId ||
-                    it.planCode != entitlement.planCode ||
-                    it.entitlementVersion != entitlement.entitlementVersion ||
-                    !leaseMatchesPeriod(it.periodMonth, periodKey) ||
-                    it.status != "ACTIVE" || it.expiresAt <= System.currentTimeMillis() ||
-                    !hasLeaseCredit(it.allowedLimit, it.consumedCount, leasePending)
-                ) throw IllegalStateException("OFFLINE_QUOTA_UNAVAILABLE")
-            }
-            dao.insertCreationEvent(
-                app.tijario.data.local.DocumentCreationEventEntity(
-                    id = java.util.UUID.randomUUID().toString(),
-                    userId = userId,
-                    documentId = documentId,
-                    operationId = java.util.UUID.randomUUID().toString(),
-                    installationId = deviceId,
-                    leaseId = lease?.id,
-                    planCode = entitlement.planCode,
-                    quotaScope = entitlement.documentLimitScope,
-                    periodKey = periodKey,
-                    status = "PENDING",
-                    createdAtClient = System.currentTimeMillis(),
-                    acknowledgedAtServer = null,
-                    entitlementVersion = entitlement.entitlementVersion,
-                    source = "local_create",
-                ),
-            )
-            return
+        val entitlement = dao.getAccountEntitlement(userId)
+            ?: throw IllegalStateException("ENTITLEMENT_INITIALIZATION_REQUIRED")
+        if (!hasValidOperationalEntitlement(entitlement)) throw IllegalStateException("ENTITLEMENT_INITIALIZATION_REQUIRED")
+        val periodKey = if (entitlement.documentLimitScope == "lifetime") "lifetime" else periodMonth
+        val pendingEvents = dao.getPendingCreationEvents(userId).count {
+            entitlement.documentLimitScope == "lifetime" || it.periodKey == periodKey
         }
-
-        val pendingLedgers = dao.getPendingCreationEvents(userId).size
-        val lease = dao.getLease(userId, deviceId, periodMonth)
-            ?.takeIf { it.status == "ACTIVE" && it.expiresAt >= System.currentTimeMillis() }
-            ?: throw IllegalStateException("OFFLINE_LEASE_REQUIRED")
-        val available = lease.allowedLimit - lease.consumedCount - pendingLedgers
-        if (available <= 0) {
+        val limit = entitlement.documentLimit
+        if (limit != null && entitlement.documentsUsed + pendingEvents >= limit) {
             throw IllegalStateException("QUOTA_LIMIT_EXCEEDED")
         }
-        val opId = java.util.UUID.randomUUID().toString()
-        dao.insertCreationEvent(app.tijario.data.local.DocumentCreationEventEntity(
-            id = java.util.UUID.randomUUID().toString(),
-            userId = userId,
-            documentId = documentId,
-            operationId = opId,
-            installationId = deviceId,
-            leaseId = lease.id,
-            planCode = lease.planCode,
-            quotaScope = if (lease.planCode == "free") "lifetime" else "billing_cycle",
-            periodKey = periodMonth,
-            status = "PENDING",
-            createdAtClient = System.currentTimeMillis(),
-            acknowledgedAtServer = null,
-            entitlementVersion = null,
-            source = "local_create",
-        ))
+        val lease = preparedLocalLease?.also {
+            val leasePending = dao.getPendingCreationEvents(userId).count { event -> event.leaseId == it.id }
+            if (
+                it.userId != userId || it.deviceId != deviceId ||
+                it.planCode != entitlement.planCode ||
+                it.entitlementVersion != entitlement.entitlementVersion ||
+                !leaseMatchesPeriod(it.periodMonth, periodKey) ||
+                it.status != "ACTIVE" || it.expiresAt <= System.currentTimeMillis() ||
+                !hasLeaseCredit(it.allowedLimit, it.consumedCount, leasePending)
+            ) throw IllegalStateException("OFFLINE_QUOTA_UNAVAILABLE")
+        }
+        dao.insertCreationEvent(
+            app.tijario.data.local.DocumentCreationEventEntity(
+                id = java.util.UUID.randomUUID().toString(),
+                userId = userId,
+                documentId = documentId,
+                operationId = java.util.UUID.randomUUID().toString(),
+                installationId = deviceId,
+                leaseId = lease?.id,
+                planCode = entitlement.planCode,
+                quotaScope = entitlement.documentLimitScope,
+                periodKey = periodKey,
+                status = "PENDING",
+                createdAtClient = System.currentTimeMillis(),
+                acknowledgedAtServer = null,
+                entitlementVersion = entitlement.entitlementVersion,
+                source = "local_create",
+            ),
+        )
     }
 
     private suspend fun overlayLocalUsage(
@@ -3124,12 +2565,11 @@ open class TijarioRepository(
         usage: app.tijario.data.model.UserPlanUsage,
     ): app.tijario.data.model.UserPlanUsage {
         val pendingDocs = dao.getPendingCreationEvents(userId).size
-        val isLocalDrive = accountDataMode(userId) == AccountDataMode.LocalDrive
         return effectivePlanUsage(
             usage = usage,
-            isLocalDrive = isLocalDrive,
-            activeCustomers = if (isLocalDrive) dao.countActiveCustomers(userId) else usage.customersUsed,
-            activeProducts = if (isLocalDrive) dao.countActiveProducts(userId) else usage.productsUsed,
+            isLocalDrive = true,
+            activeCustomers = dao.countActiveCustomers(userId),
+            activeProducts = dao.countActiveProducts(userId),
             pendingDocumentEvents = pendingDocs,
         )
     }

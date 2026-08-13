@@ -84,10 +84,7 @@ sealed interface AccountInitializationState {
     data object Unauthenticated : AccountInitializationState
 }
 
-internal fun shouldUseCachedLocalDrivePlanUsage(
-    isLocalDriveAccount: Boolean,
-    force: Boolean,
-): Boolean = isLocalDriveAccount && !force
+internal fun shouldUseCachedOperationalPlanUsage(force: Boolean): Boolean = !force
 
 class TijarioDataViewModel(
     private val repository: TijarioRepository,
@@ -193,10 +190,7 @@ class TijarioDataViewModel(
         val cachedUsage = userId?.let { repository.getCachedPlanUsage(it) }
         if (
             userId != null &&
-            shouldUseCachedLocalDrivePlanUsage(
-                isLocalDriveAccount = repository.isLocalDriveAccount(userId),
-                force = force,
-            )
+            shouldUseCachedOperationalPlanUsage(force)
         ) {
             if (cachedUsage != null) {
                 planUsageStateMutable.value = PlanUsageState.Success(cachedUsage)

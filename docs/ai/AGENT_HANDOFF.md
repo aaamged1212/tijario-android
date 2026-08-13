@@ -1,5 +1,12 @@
 # Agent Handoff (Android & Web Repos)
 
+## 2026-08-13 (Room-first operational storage for every account, local)
+- **Architecture correction**: Android operational seller data now uses Room for every signed entitlement data mode, including historical `legacy_cloud`. Customer, product/service, and document compatibility entry points no longer create operational outbox work or require cloud CRUD. Existing cloud records and historical outbox rows are retained but are not imported, deleted, or sent automatically.
+- **Business settings**: Store settings persist to Room first and return success after the local transaction. A best-effort Supabase mirror runs asynchronously; an empty local store may hydrate settings once from the server, while initialized local settings are never replaced by a refresh.
+- **Quota and documents**: Cached signed entitlements still enforce customer, product, and document limits. Invoice/quote writes remain atomic with their item rows, snapshots, and creation event. Next document numbers derive from Room history only.
+- **Validation**: Focused JVM suite passed: 47 tests, zero failures/errors. `assembleDebug` passed. Physical offline QA remains required for the six documented account scenarios.
+- **Safety Status**: No push, PR, merge, backend/Web change, migration, Production write, external configuration change, or Google Play upload occurred. `.agents` remains local and excluded.
+
 ## 2026-08-12 (Document-number error contract, local)
 - **Branch**: `fix/android-runtime-critical-fixes` from `6f048a4c5217d8ac3409058bb1ca85141cdf72b1`.
 - **Compatibility**: Added localized handling for backend `DOCUMENT_NUMBER_INVALID` and `DOCUMENT_NUMBER_DUPLICATE` responses. Arabic and English users receive a specific safe message instead of a generic document-save failure.

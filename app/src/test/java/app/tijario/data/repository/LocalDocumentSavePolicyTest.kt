@@ -24,19 +24,22 @@ class LocalDocumentSavePolicyTest {
     }
 
     @Test
-    fun localDriveSaveUsesCachedEntitlementAndAnOptionalLocalLease() {
+    fun roomOnlySaveUsesCachedEntitlementAndAnOptionalLocalLeaseForEveryAccountMode() {
         val source = File("src/main/java/app/tijario/data/repository/TijarioRepository.kt").readText()
         val localCreate = source.substringAfter("suspend fun createDocumentLocal")
             .substringBefore("suspend fun updateDocumentLocal")
-        val localDriveReservation = source.substringAfter("if (dataMode == AccountDataMode.LocalDrive)")
-            .substringBefore("val pendingLedgers")
+        val localReservation = source.substringAfter("private suspend fun withLocalQuotaReservation")
+            .substringBefore("private suspend fun ensureLocalDocumentQuotaAvailable")
+        val ledgerReservation = source.substringAfter("private suspend fun reserveDocumentQuotaLedger")
+            .substringBefore("private suspend fun overlayLocalUsage")
 
         assertTrue(source.contains("ensureQuotaCreditForDocumentCreation"))
         assertTrue(source.contains("quotaReservationMutex"))
-        assertTrue(localCreate.contains("withLocalQuotaReservation(userId, isLocalDrive)"))
+        assertTrue(localCreate.contains("withLocalQuotaReservation(userId)"))
         assertFalse(localCreate.contains("refreshOfflineLease(userId"))
-        assertTrue(localDriveReservation.contains("leaseId = lease?.id"))
-        assertFalse(localDriveReservation.contains("?: throw IllegalStateException(\"OFFLINE_QUOTA_UNAVAILABLE\")"))
+        assertTrue(localReservation.contains("block(findUsableLocalQuotaLease(userId))"))
+        assertTrue(ledgerReservation.contains("leaseId = lease?.id"))
+        assertFalse(ledgerReservation.contains("?: throw IllegalStateException(\"OFFLINE_QUOTA_UNAVAILABLE\")"))
     }
 
     @Test
@@ -91,11 +94,11 @@ class LocalDocumentSavePolicyTest {
 
         assertFalse(createAndUpdate.contains("SyncScheduler(context).triggerSync"))
         assertFalse(createAndUpdate.contains("enqueueOutbox("))
-        assertTrue(createAndUpdate.contains("if (!isLocalDrive)"))
+        assertFalse(createAndUpdate.contains("isLocalDrive"))
     }
 
     @Test
-    fun localDriveSaveKeepsDocumentsAndQuotaEventsInOneTransaction() {
+    fun roomOnlySaveKeepsDocumentsAndQuotaEventsInOneTransaction() {
         val source = File("src/main/java/app/tijario/data/repository/TijarioRepository.kt").readText()
         val create = source.substringAfter("suspend fun createDocumentLocal")
             .substringBefore("suspend fun updateDocumentLocal")
@@ -109,7 +112,7 @@ class LocalDocumentSavePolicyTest {
         assertTrue(create.contains("dao.upsertDocument(docEntity)"))
         assertTrue(create.contains("dao.insertDocumentItems(itemsEntities)"))
         assertTrue(create.contains("reserveDocumentQuotaLedger(userId, docId, localQuotaLease)"))
-        assertTrue(update.contains("syncStatus = nextStatus"))
+        assertTrue(update.contains("syncStatus = \"LOCAL_ONLY\""))
         assertTrue(update.contains("dao.deleteDocumentItems(userId, documentId)"))
         assertFalse(update.contains("reserveDocumentQuotaLedger"))
     }
