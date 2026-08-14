@@ -6,13 +6,13 @@ import org.junit.Test
 
 class DocumentPickerUiContractTest {
     @Test
-    fun emptyDocumentPickersOfferCreateActionsAndCustomerDialCodeOnly() {
+    fun documentPickersAlwaysOfferCreateActionsAndCustomerDialCodeOnly() {
         val source = File("src/main/java/app/tijario/ui/screens/FormScreens.kt").readText()
 
         assertTrue(source.contains("onNavigateToCreateCustomer"))
         assertTrue(source.contains("onNavigateToCreateProduct"))
-        assertTrue(source.contains("uiState.customers.isEmpty()"))
-        assertTrue(source.contains("uiState.products.isEmpty()"))
+        assertTrue(!source.contains("if (uiState.customers.isEmpty())"))
+        assertTrue(!source.contains("if (uiState.products.isEmpty())"))
         assertTrue(source.contains("showCountryNameInDialCode = false"))
     }
 

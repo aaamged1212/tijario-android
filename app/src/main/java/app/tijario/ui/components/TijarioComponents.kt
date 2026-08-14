@@ -54,6 +54,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.tijario.config.LocalLanguage
 import app.tijario.config.t
+import app.tijario.domain.DialCodeOption
 import app.tijario.domain.MvpDialCodeOptions
 import app.tijario.domain.normalizePhoneWithDialCode
 import app.tijario.domain.splitPhoneNumber
@@ -178,23 +179,26 @@ fun TijarioPhoneField(
     onValueChange: (String) -> Unit,
     error: String? = null,
     modifier: Modifier = Modifier,
-    defaultDialCode: String = MvpDialCodeOptions.first().dialCode,
+    defaultDialCode: String = "+966",
     onDialCodeChange: ((String) -> Unit)? = null,
+    onCountryCodeSelected: ((DialCodeOption) -> Unit)? = null,
     showCountryNameInDialCode: Boolean = true,
 ) {
     val language = LocalLanguage.current
     val adaptive = LocalAdaptiveLayoutInfo.current
     val safeDefaultDialCode = MvpDialCodeOptions.firstOrNull { it.dialCode == defaultDialCode }?.dialCode
-        ?: MvpDialCodeOptions.first().dialCode
+        ?: "+966"
     val parts = if (value.isBlank()) {
         app.tijario.domain.PhoneNumberParts(safeDefaultDialCode, "")
     } else {
         splitPhoneNumber(value)
     }
     var selectedDialCode by rememberSaveable { mutableStateOf(safeDefaultDialCode) }
-    LaunchedEffect(value) {
+    LaunchedEffect(value, safeDefaultDialCode) {
         if (value.isNotBlank()) {
             selectedDialCode = parts.dialCode
+        } else {
+            selectedDialCode = safeDefaultDialCode
         }
     }
     val activeDialCode = if (value.isBlank()) selectedDialCode else parts.dialCode
@@ -226,6 +230,7 @@ fun TijarioPhoneField(
                         onClick = {
                             selectedDialCode = option.dialCode
                             onDialCodeChange?.invoke(option.dialCode)
+                            onCountryCodeSelected?.invoke(option)
                             onValueChange(normalizePhoneWithDialCode(option.dialCode, parts.localNumber))
                             menuExpanded = false
                         },

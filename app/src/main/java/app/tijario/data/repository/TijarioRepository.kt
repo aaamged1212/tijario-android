@@ -689,7 +689,7 @@ open class TijarioRepository(
         val localProduct = product.copy(
             id = generatedId,
             userId = userId,
-            currency = storeCurrency ?: product.currency,
+            currency = product.currency.takeIf { it.isNotBlank() } ?: storeCurrency ?: "SAR",
         )
         val entity = app.tijario.data.local.ProductEntity(
             id = generatedId,
@@ -749,6 +749,24 @@ open class TijarioRepository(
         product.copy(userId = userId)
     }
 
+    suspend fun increaseProductStockLocal(productId: String, amount: Int): Result<Product> = runCatching {
+        require(amount > 0) { "Stock increase must be positive" }
+        val userId = requireUserId()
+        withContext(Dispatchers.IO) {
+            database.withTransaction {
+                val existing = dao.getProduct(userId, productId) ?: error("Product not found locally")
+                check(existing.kind == "product") { "Only products track stock" }
+                val updated = existing.copy(
+                    stockQuantity = (existing.stockQuantity ?: 0) + amount,
+                    localRevision = existing.localRevision + 1,
+                    syncStatus = "LOCAL_ONLY",
+                )
+                dao.upsertProduct(updated)
+                updated.toModel()
+            }
+        }
+    }
+
     suspend fun deleteProductLocal(productId: String): Result<Unit> = runCatching {
         val userId = requireUserId()
         requireOperationalEntitlement(userId)
@@ -796,6 +814,7 @@ open class TijarioRepository(
             logLocalDocumentSave("create", userId, "started")
             val docId = java.util.UUID.randomUUID().toString()
             val dateStr = LocalDate.now(ZoneOffset.UTC).format(DateTimeFormatter.ISO_LOCAL_DATE)
+            val createdAt = java.time.Instant.now().toString()
             val existingDocs = dao.observeDocuments(userId).first()
 
             val requestedCustomerId = request.customer.id?.takeIf { it.isNotBlank() }
@@ -896,6 +915,7 @@ open class TijarioRepository(
                 paymentStatus = request.paymentStatus,
                 amountPaid = request.amountPaid?.let { BigDecimal.valueOf(it) },
                 issueDate = dateStr,
+                createdAt = createdAt,
                 taxName = request.taxName?.takeIf { it.isNotBlank() },
                 taxRate = BigDecimal.valueOf(request.taxRate),
                 taxAmount = calculations.taxAmount,
@@ -942,7 +962,8 @@ open class TijarioRepository(
     suspend fun updateDocumentLocal(documentId: String, request: CreateDocumentRequest): ApiResult<CreateDocumentResponse> {
         return try {
             val userId = requireUserId()
-            requireOperationalEntitlement(userId)
+            // Editing an existing local document neither creates a document credit nor
+            // changes the entitlement. It must remain available while offline.
             logLocalDocumentSave("update", userId, "started")
             val existing = dao.getDocument(userId, documentId) ?: error("Document not found locally")
 
@@ -1192,6 +1213,9 @@ open class TijarioRepository(
 
     suspend fun updateProduct(product: Product): Result<Unit> =
         updateProductLocal(product).map { Unit }
+
+    suspend fun increaseProductStock(productId: String, amount: Int): Result<Unit> =
+        increaseProductStockLocal(productId, amount).map { Unit }
 
     suspend fun deleteProduct(productId: String): Result<Unit> =
         deleteProductLocal(productId)

@@ -43,7 +43,11 @@ import app.tijario.config.AppPreferences
 import app.tijario.config.LocalLanguage
 import app.tijario.config.Localization
 import app.tijario.config.t
+import app.tijario.domain.CountryCatalog
+import app.tijario.domain.CurrencyCatalog
 import app.tijario.domain.LocalizedErrorMapper
+import app.tijario.domain.normalizePhoneWithDialCode
+import app.tijario.domain.splitPhoneNumber
 import app.tijario.data.remote.localizedDisplayMessage
 import app.tijario.ui.components.GoogleSignInButton
 import app.tijario.ui.components.StoreLogoPicker
@@ -1047,17 +1051,13 @@ fun OnboardingScreen(
 ) {
     val language = LocalLanguage.current
     val initializationState by dataViewModel.accountInitializationState.collectAsState()
-    val countries = if (language == AppLanguage.AR) listOf("السعودية", "اليمن", "مصر", "الإمارات", "الكويت", "قطر", "عمان", "البحرين", "الأردن", "لبنان", "المغرب", "تونس", "الجزائر", "ليبيا", "السودان", "العراق", "سوريا", "فلسطين") else listOf("Saudi Arabia", "Yemen", "Egypt", "United Arab Emirates", "Kuwait", "Qatar", "Oman", "Bahrain", "Jordan", "Lebanon", "Morocco", "Tunisia", "Algeria", "Libya", "Sudan", "Iraq", "Syria", "Palestine")
-    val countryDialCodes = listOf("+966", "+967", "+20", "+971", "+965", "+974", "+968", "+973", "+962", "+961", "+212", "+216", "+213", "+218", "+249", "+964", "+963", "+970")
-    val currencies = listOf("SAR", "YER", "EGP", "AED", "KWD", "QAR", "OMR", "BHD", "JOD", "LBP", "MAD", "TND", "DZD", "LYD", "SDG", "IQD", "SYP", "USD", "EUR")
+    val countries = CountryCatalog.allCountries
+    val currencies = CurrencyCatalog.options
 
     var form by remember(language) {
         mutableStateOf(
             BusinessSettingsFormState(
-                country = try {
-                    val currentCountry = java.util.Locale.getDefault().displayCountry
-                    if (countries.any { it in currentCountry }) countries.first { it in currentCountry } else if (language == AppLanguage.AR) "السعودية" else "Saudi Arabia"
-                } catch (e: Exception) { if (language == AppLanguage.AR) "السعودية" else "Saudi Arabia" },
+                country = CountryCatalog.defaultCountry().storageName,
                 lang = language
             )
         )
@@ -1171,12 +1171,9 @@ fun OnboardingScreen(
                         value = form.whatsapp,
                         onValueChange = { form = form.copy(whatsapp = it) },
                         error = if (form.whatsapp.isNotEmpty()) form.whatsappError else null,
-                        defaultDialCode = countryDialCodes.getOrElse(countries.indexOf(form.country)) { "+966" },
-                        onDialCodeChange = { dialCode ->
-                            val index = countryDialCodes.indexOf(dialCode)
-                            if (index >= 0) {
-                                form = form.copy(country = countries[index])
-                            }
+                        defaultDialCode = CountryCatalog.dialCodeFor(form.country),
+                        onCountryCodeSelected = { option ->
+                            form = form.copy(country = CountryCatalog.find(option.countryCode)?.storageName ?: form.country)
                         },
                     )
 
@@ -1188,7 +1185,7 @@ fun OnboardingScreen(
                         ) {
                             TijarioTextField(
                                 label = t("country"),
-                                value = form.country,
+                                value = CountryCatalog.display(form.country, language),
                                 onValueChange = {},
                                 error = if (form.country.isNotEmpty()) form.countryError else null,
                                 leadingIcon = {
@@ -1204,11 +1201,16 @@ fun OnboardingScreen(
                                 expanded = countryMenuExpanded,
                                 onDismissRequest = { countryMenuExpanded = false }
                             ) {
-                                countries.forEach { selection ->
+                                countries.forEach { country ->
                                     DropdownMenuItem(
-                                        text = { Text(selection) },
+                                        text = { Text(country.label(language)) },
                                         onClick = {
-                                            form = form.copy(country = selection)
+                                            form = form.copy(
+                                                country = country.storageName,
+                                                whatsapp = splitPhoneNumber(form.whatsapp).let { phone ->
+                                                    normalizePhoneWithDialCode(country.dialCode ?: "+966", phone.localNumber)
+                                                },
+                                            )
                                             countryMenuExpanded = false
                                         }
                                     )
@@ -1263,7 +1265,7 @@ fun OnboardingScreen(
                         ) {
                             TijarioTextField(
                                 label = t("currency"),
-                                value = form.currency,
+                                value = CurrencyCatalog.display(form.currency, language),
                                 onValueChange = {},
                                 error = if (form.currency.isNotEmpty()) form.currencyError else null,
                                 leadingIcon = {
@@ -1279,11 +1281,11 @@ fun OnboardingScreen(
                                 expanded = currencyMenuExpanded,
                                 onDismissRequest = { currencyMenuExpanded = false }
                             ) {
-                                currencies.forEach { selection ->
+                                currencies.forEach { currency ->
                                     DropdownMenuItem(
-                                        text = { Text(selection) },
+                                        text = { Text(CurrencyCatalog.display(currency.code, language)) },
                                         onClick = {
-                                            form = form.copy(currency = selection)
+                                            form = form.copy(currency = currency.code)
                                             currencyMenuExpanded = false
                                         }
                                     )

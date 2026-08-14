@@ -62,7 +62,7 @@ interface TijarioDao {
     @Query("SELECT COUNT(*) FROM products_cache WHERE user_id = :userId AND is_deleted = 0")
     suspend fun countActiveProducts(userId: String): Int
 
-    @Query("SELECT * FROM documents_cache WHERE user_id = :userId ORDER BY COALESCE(created_at, issue_date) DESC, synced_at DESC, document_number DESC")
+    @Query("SELECT * FROM documents_cache WHERE user_id = :userId ORDER BY COALESCE(created_at, issue_date) DESC, synced_at DESC, local_revision DESC, id DESC")
     fun observeDocuments(userId: String): Flow<List<DocumentEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)

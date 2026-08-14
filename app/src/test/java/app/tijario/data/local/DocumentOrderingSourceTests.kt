@@ -10,7 +10,8 @@ class DocumentOrderingSourceTests {
         val source = File("src/main/java/app/tijario/data/local/TijarioDao.kt").readText()
 
         assertTrue(source.contains("COALESCE(created_at, issue_date) DESC"))
-        assertTrue(source.contains("synced_at DESC, document_number DESC"))
+        assertTrue(source.contains("synced_at DESC, local_revision DESC, id DESC"))
+        assertTrue(!source.contains("synced_at DESC, document_number DESC"))
     }
 
     @Test

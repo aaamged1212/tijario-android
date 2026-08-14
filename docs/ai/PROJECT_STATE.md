@@ -167,6 +167,12 @@
 - No physical device/emulator is connected. Release QA remains required for documents/PDF/share, backup/Google Drive, notifications, and verified App Links. The current Release manifest has transitive advertising-ID declarations from an existing dependency; no analytics/Facebook SDK configuration was changed by this work.
 - Android CI has a completed reliability follow-up after a documentation-only push hit a non-diagnostic `:app:packageDebug` failure despite the preceding green source run. The workflow now separates lint, Debug, and Release Gradle gates with non-parallel execution and stack traces; GitHub Actions run `31337272388` passed both jobs.
 
+## 2026-08-13
+- **Current task**: Local Android follow-up for offline document edits, chronological document ordering, global country/currency catalogs, and invoice stock controls on `fix/android-runtime-critical-fixes`.
+- **State**: Saved-document updates stay inside the Room-first local path and no longer require an entitlement lookup. New records retain a full creation timestamp for chronological ordering. Country/phone and currency selectors share catalog data across onboarding, business settings, customers, and products.
+- **Validation**: Six focused JVM suites and `assembleDebug` passed. `lintDebug` did not complete before the local command timeout and is pending. Device QA remains required.
+- **Safety**: No commit, push, deployment, migration, Production write, external configuration change, or Google Play upload occurred. `.agents` remains local and excluded.
+
 ## 2026-08-10 Runtime-critical local remediation
 - Uncommitted work on `fix/android-runtime-critical-fixes` makes Settings/child-route back navigation fall back safely to the main screen, centralizes creation-plan checks before navigation and at save time, and derives LocalDrive usage from Room without changing signed limits.
 - New documents default to the saved business currency until the user overrides it. Local invoice and quote numbers are type-specific, preserve valid user-entered suffixes and leading zeroes, reject exact local duplicates before Room writes, and never change on edit.

@@ -17,6 +17,16 @@ class DocumentOrderingTests {
     }
 
     @Test
+    fun newestUsesCreationTimestampInsteadOfDocumentNumber() {
+        val documents = listOf(
+            document("older-high-number", DocumentType.Invoice, "2026-08-13T08:00:00Z", "2026-08-13").copy(documentNumber = "INV-00099"),
+            document("newer-low-number", DocumentType.Invoice, "2026-08-13T10:00:00Z", "2026-08-13").copy(documentNumber = "INV-00001"),
+        )
+
+        assertEquals(listOf("newer-low-number", "older-high-number"), newestDocuments(documents).map { it.id })
+    }
+
+    @Test
     fun legacyRowsFallBackToIssueDateAndUseStableIdTieBreak() {
         val documents = listOf(
             document("a", DocumentType.Invoice, null, "2026-07-10"),

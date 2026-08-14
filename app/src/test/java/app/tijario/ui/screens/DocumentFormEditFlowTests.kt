@@ -289,4 +289,44 @@ class DocumentFormEditFlowTests {
             ),
         )
     }
+
+    @Test
+    fun stockShortageBlocksAnotherInvoiceItemUntilStockIsIncreased() {
+        val product = Product(
+            id = "product-1",
+            kind = ProductKind.Product,
+            name = "Tracked Product",
+            price = 10.0,
+            stockQuantity = 2,
+        )
+        val items = listOf(
+            DocumentItemState(productId = "product-1", name = "Tracked Product", quantity = "2", unitPrice = "10"),
+        )
+        val requested = DocumentItemState(productId = "product-1", name = "Tracked Product", quantity = "3", unitPrice = "10")
+
+        assertTrue(!canAddProductToInvoice(DocumentType.Invoice, product, items))
+        assertEquals(
+            1,
+            additionalInvoiceStockRequired(
+                DocumentType.Invoice,
+                requested,
+                listOf(requested),
+                listOf(product),
+            ),
+        )
+        assertTrue(canAddProductToInvoice(DocumentType.Invoice, product.copy(stockQuantity = 3), items))
+    }
+
+    @Test
+    fun replacingAnExistingItemDoesNotReserveItsOwnStockTwice() {
+        val product = Product(
+            id = "product-1",
+            kind = ProductKind.Product,
+            name = "Tracked Product",
+            price = 10.0,
+            stockQuantity = 1,
+        )
+
+        assertTrue(canAddProductToInvoice(DocumentType.Invoice, product, emptyList()))
+    }
 }

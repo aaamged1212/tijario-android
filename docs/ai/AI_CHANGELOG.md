@@ -555,3 +555,9 @@
 # 2026-08-13 - LocalDrive offline CRUD recovery
 - Local invoice and quote saves no longer request a server lease in the critical Room transaction path. A valid cached entitlement and locally tracked pending documents enforce the quota offline; a compatible cached lease is attached only when one exists.
 - Local customer, product/service, and document create/update routing is covered by focused repository tests that assert `LOCAL_ONLY` writes and no operational outbox or document API call. Expired or missing cached entitlements remain typed rejections, and offline plan limits remain enforced.
+
+# 2026-08-13 - Offline document editing and catalog parity
+- Local document updates now remain in the existing Room transaction without an entitlement read, so editing a saved invoice or quotation works after prior initialization even when offline.
+- Document ordering now uses creation time and stable local metadata rather than the display number. New local documents persist a timestamp at creation.
+- Store/onboarding country and phone-code selection now share the full catalog with country flags. Currency labels include their country and flag, and products retain an explicitly chosen price currency.
+- Product selection prevents invoice stock over-allocation and can add local stock explicitly from the item editor. Customer and product creation remain available from populated pickers.

@@ -823,6 +823,13 @@
 - **Remote validation**: GitHub Actions Source Audit Scan and Android CI run `31327114193` both completed successfully. Android CI passed its compile/unit-test and lint/release-assembly jobs.
 - **Safety Status**: No deployment, migration, Production write, external configuration change, or Google Play upload occurred.
 
+## 2026-08-13 (Offline document editing, ordering, and catalog follow-up, local)
+- **Offline correction**: Editing a locally saved invoice or quotation no longer checks or refreshes the document-creation entitlement. The existing Room transaction updates only the document and its replacement items, so an offline edit remains `LOCAL_ONLY` and cannot consume a quota credit.
+- **Ordering and catalogs**: Newly created local documents receive a full creation timestamp and document lists now order by creation time, then sync/revision metadata. Store onboarding and settings use the full country and calling-code catalog with flags; currency labels include their country and flag. Products can retain a selected product currency.
+- **Invoice selection and stock**: Customer and product pickers always expose their create action. Tracked products cannot be selected or confirmed beyond available stock; the item editor offers a local stock increase that updates the Room product row before the item can be confirmed.
+- **Validation**: Six focused JVM suites passed. `assembleDebug` passed. `lintDebug` exceeded the local command timeout before a result was returned, so it remains pending rather than passed. Physical device QA is required for picker scrolling, stock increase, offline edit, and same-day ordering.
+- **Safety Status**: No commit, push, deployment, migration, Production write, backend/Web change, external configuration change, or Google Play upload occurred. `.agents` remains local and excluded.
+
 ## 2026-08-13 (LocalDrive offline CRUD recovery, local)
 - **Cause and correction**: Local invoice and quote creation required a newly refreshed server lease when no active lease was cached. That made a Room-first save fail offline before its transaction began. LocalDrive now validates the signed cached entitlement and local pending-event count, attaches a valid cached lease only when present, and records a lease-less pending creation event otherwise for later reconciliation.
 - **Operational behavior**: Customer, product/service, and document create/update routes enter their LocalDrive Room path before the legacy-cloud gate. Local document save does not call the document API, request a lease, or queue operational sync. The post-save plan refresh uses the cached LocalDrive state.

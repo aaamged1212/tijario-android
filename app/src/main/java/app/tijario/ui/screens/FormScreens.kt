@@ -101,9 +101,12 @@ import app.tijario.ui.components.loadStoreLogoBitmap
 import app.tijario.domain.DocumentCalculator
 import app.tijario.domain.DocumentNumbering
 import app.tijario.domain.CreationTarget
+import app.tijario.domain.CountryCatalog
+import app.tijario.domain.CurrencyCatalog
 import app.tijario.domain.Validation
 import app.tijario.domain.creationTargetForErrorCode
 import app.tijario.domain.limitErrorCode
+import app.tijario.domain.normalizePhoneWithDialCode
 import app.tijario.domain.splitPhoneNumber
 import app.tijario.data.model.DocumentType
 import app.tijario.data.model.DocumentSummary
@@ -321,16 +324,50 @@ internal fun invoiceStockValidationMessage(
     val productId = item.productId ?: return null
     val product = products.firstOrNull { it.id == productId } ?: return null
     if (product.kind != ProductKind.Product) return null
+    val additionalStockRequired = additionalInvoiceStockRequired(
+        documentType = documentType,
+        item = item,
+        items = items,
+        products = products,
+        originalQuantitiesByProductId = originalQuantitiesByProductId,
+    ) ?: return null
+    val currentStock = product.stockQuantity ?: return null
+    val availableStock = currentStock + (originalQuantitiesByProductId[productId] ?: 0)
+
+    return Localization.getString("invoice_quantity_exceeds_stock", language).format(availableStock)
+}
+
+internal fun additionalInvoiceStockRequired(
+    documentType: DocumentType,
+    item: DocumentItemState,
+    items: List<DocumentItemState>,
+    products: List<Product>,
+    originalQuantitiesByProductId: Map<String, Int> = emptyMap(),
+): Int? {
+    if (documentType != DocumentType.Invoice) return null
+    val productId = item.productId ?: return null
+    val product = products.firstOrNull { it.id == productId } ?: return null
+    if (product.kind != ProductKind.Product) return null
     val currentStock = product.stockQuantity ?: return null
     val requestedQuantity = quantityByProductId(items)[productId] ?: return null
     val availableStock = currentStock + (originalQuantitiesByProductId[productId] ?: 0)
-
-    return if (requestedQuantity > availableStock) {
-        Localization.getString("invoice_quantity_exceeds_stock", language).format(availableStock)
-    } else {
-        null
-    }
+    return (requestedQuantity - availableStock).takeIf { it > 0 }
 }
+
+internal fun canAddProductToInvoice(
+    documentType: DocumentType,
+    product: Product,
+    items: List<DocumentItemState>,
+    originalQuantitiesByProductId: Map<String, Int> = emptyMap(),
+): Boolean {
+    if (documentType != DocumentType.Invoice || product.kind != ProductKind.Product) return true
+    val stock = product.stockQuantity ?: return true
+    val reserved = quantityByProductId(items)[product.id].orEmptyInt()
+    val originalQuantity = originalQuantitiesByProductId[product.id] ?: 0
+    return reserved < stock + originalQuantity
+}
+
+private fun Int?.orEmptyInt(): Int = this ?: 0
 
 internal fun quantityByProductId(items: List<DocumentItemState>): Map<String, Int> =
     items.fold(mutableMapOf<String, Int>()) { totals, item ->
@@ -468,7 +505,7 @@ fun CustomerFormScreen(
         uiState.businessSettings?.whatsappNumber
             ?.takeIf { it.isNotBlank() }
             ?.let { splitPhoneNumber(it).dialCode }
-            ?: dialCodeForCountrySelection(uiState.businessSettings?.country.orEmpty(), language)
+            ?: dialCodeForCountrySelection(uiState.businessSettings?.country.orEmpty())
     }
 
     LaunchedEffect(customerId) {
@@ -691,6 +728,7 @@ private fun SettingsDropdownField(
     onValueChange: (String) -> Unit,
     modifier: Modifier = Modifier,
     error: String? = null,
+    optionLabel: (String) -> String = { it },
 ) {
     var expanded by remember { mutableStateOf(false) }
     ExposedDropdownMenuBox(
@@ -699,7 +737,7 @@ private fun SettingsDropdownField(
         modifier = modifier,
     ) {
         OutlinedTextField(
-            value = value,
+            value = optionLabel(value),
             onValueChange = {},
             readOnly = true,
             label = { Text(label) },
@@ -718,7 +756,7 @@ private fun SettingsDropdownField(
         ) {
             options.forEach { option ->
                 DropdownMenuItem(
-                    text = { Text(option) },
+                    text = { Text(optionLabel(option)) },
                     onClick = {
                         onValueChange(option)
                         expanded = false
@@ -729,76 +767,11 @@ private fun SettingsDropdownField(
     }
 }
 
-private fun countryOptions(language: AppLanguage): List<String> = if (language == AppLanguage.AR) {
-    listOf(
-        "السعودية",
-        "اليمن",
-        "الإمارات",
-        "مصر",
-        "الكويت",
-        "قطر",
-        "عمان",
-        "البحرين",
-        "الأردن",
-        "لبنان",
-        "المغرب",
-        "تونس",
-        "الجزائر",
-        "ليبيا",
-        "السودان",
-        "العراق",
-        "سوريا",
-        "فلسطين",
-    )
-} else {
-    listOf(
-        "Saudi Arabia",
-        "Yemen",
-        "United Arab Emirates",
-        "Egypt",
-        "Kuwait",
-        "Qatar",
-        "Oman",
-        "Bahrain",
-        "Jordan",
-        "Lebanon",
-        "Morocco",
-        "Tunisia",
-        "Algeria",
-        "Libya",
-        "Sudan",
-        "Iraq",
-        "Syria",
-        "Palestine",
-    )
-}
+private fun countryOptions(): List<String> = CountryCatalog.allCountries.map { it.storageName }
 
-private val formCountryDialCodes = listOf(
-    "+966", "+967", "+971", "+20", "+965", "+974", "+968", "+973", "+962",
-    "+961", "+212", "+216", "+213", "+218", "+249", "+964", "+963", "+970",
-)
+private fun dialCodeForCountrySelection(country: String): String = CountryCatalog.dialCodeFor(country)
 
-private fun dialCodeForCountrySelection(country: String, language: AppLanguage): String {
-    val index = countryOptions(language).indexOf(country)
-    return formCountryDialCodes.getOrElse(index) { "+966" }
-}
-
-private fun countryForDialCodeSelection(dialCode: String, language: AppLanguage): String? {
-    val index = formCountryDialCodes.indexOf(dialCode)
-    return countryOptions(language).getOrNull(index)
-}
-
-private fun currencyOptions(): List<String> = listOf(
-    "SAR",
-    "YER",
-    "USD",
-    "AED",
-    "EGP",
-    "KWD",
-    "BHD",
-    "OMR",
-    "QAR",
-)
+private fun currencyOptions(): List<String> = CurrencyCatalog.options.map { it.code }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -814,12 +787,14 @@ fun ProductFormScreen(
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var limitReachedTarget by remember { mutableStateOf<CreationTarget?>(null) }
+    var showCurrencyPicker by remember { mutableStateOf(false) }
+    var currencyEditedByUser by rememberSaveable { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val isEditMode = productId != null
 
-    LaunchedEffect(isEditMode, uiState.businessSettings?.currency) {
+    LaunchedEffect(isEditMode, uiState.businessSettings?.currency, currencyEditedByUser) {
         val businessCurrency = uiState.businessSettings?.currency?.takeIf { it.isNotBlank() }
-        if (!isEditMode && businessCurrency != null) {
+        if (!isEditMode && !currencyEditedByUser && businessCurrency != null) {
             form = form.copy(currency = businessCurrency)
         }
     }
@@ -927,14 +902,34 @@ fun ProductFormScreen(
                         leadingIcon = { Icon(Icons.Filled.Note, contentDescription = null, tint = Color(0xFF64748B)) }
                     )
 
-                    TijarioTextField(
-                        label = t("product_price"),
-                        value = form.price,
-                        onValueChange = { form = form.copy(price = it) },
-                        error = if (form.price.isNotEmpty()) form.priceError else null,
-                        keyboardOptions = MoneyKeyboardOptions,
-                        leadingIcon = { Icon(Icons.Filled.PriceChange, contentDescription = null, tint = Color(0xFF64748B)) }
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.Top,
+                    ) {
+                        TijarioTextField(
+                            label = t("product_price"),
+                            value = form.price,
+                            onValueChange = { form = form.copy(price = it) },
+                            error = if (form.price.isNotEmpty()) form.priceError else null,
+                            keyboardOptions = MoneyKeyboardOptions,
+                            leadingIcon = { Icon(Icons.Filled.PriceChange, contentDescription = null, tint = Color(0xFF64748B)) },
+                            modifier = Modifier.weight(1f),
+                        )
+                        OutlinedButton(
+                            onClick = { showCurrencyPicker = true },
+                            modifier = Modifier.padding(top = 8.dp),
+                            shape = RoundedCornerShape(12.dp),
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(form.currency, fontWeight = FontWeight.Bold)
+                                Text(
+                                    text = CountryCatalog.find(CurrencyCatalog.find(form.currency)?.countryCode)?.flag.orEmpty(),
+                                    fontSize = 12.sp,
+                                )
+                            }
+                        }
+                    }
 
                     TijarioTextField(
                         label = if (form.kind == ProductKind.Product) {
@@ -1143,6 +1138,18 @@ fun ProductFormScreen(
             },
         )
     }
+
+    if (showCurrencyPicker) {
+        CurrencyPickerDialog(
+            currentCurrency = form.currency,
+            onDismiss = { showCurrencyPicker = false },
+            onSelect = { currency ->
+                currencyEditedByUser = true
+                form = form.copy(currency = currency)
+                showCurrencyPicker = false
+            },
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -1257,11 +1264,9 @@ fun BusinessSettingsScreen(
                                 defaultDialCode = form.whatsapp
                                     .takeIf { it.isNotBlank() }
                                     ?.let { splitPhoneNumber(it).dialCode }
-                                    ?: dialCodeForCountrySelection(form.country, language),
-                                onDialCodeChange = { dialCode ->
-                                    countryForDialCodeSelection(dialCode, language)?.let { country ->
-                                        form = form.copy(country = country)
-                                    }
+                                    ?: dialCodeForCountrySelection(form.country),
+                                onCountryCodeSelected = { option ->
+                                    form = form.copy(country = CountryCatalog.find(option.countryCode)?.storageName ?: form.country)
                                 },
                             )
                         }
@@ -1269,9 +1274,17 @@ fun BusinessSettingsScreen(
                             SettingsDropdownField(
                                 label = t("country"),
                                 value = form.country,
-                                options = countryOptions(language),
-                                onValueChange = { form = form.copy(country = it) },
-                                error = if (form.country.isNotEmpty()) form.countryError else null
+                                options = countryOptions(),
+                                onValueChange = { country ->
+                                    form = form.copy(
+                                        country = country,
+                                        whatsapp = splitPhoneNumber(form.whatsapp).let { phone ->
+                                            normalizePhoneWithDialCode(dialCodeForCountrySelection(country), phone.localNumber)
+                                        },
+                                    )
+                                },
+                                error = if (form.country.isNotEmpty()) form.countryError else null,
+                                optionLabel = { CountryCatalog.display(it, language) },
                             )
                         }
                         "city" -> {
@@ -1314,7 +1327,8 @@ fun BusinessSettingsScreen(
                                 value = form.currency,
                                 options = currencyOptions(),
                                 onValueChange = { form = form.copy(currency = it) },
-                                error = if (form.currency.isNotEmpty()) form.currencyError else null
+                                error = if (form.currency.isNotEmpty()) form.currencyError else null,
+                                optionLabel = { CurrencyCatalog.display(it, language) },
                             )
                         }
                         "terms" -> {
@@ -2250,6 +2264,7 @@ fun EditItemDialog(
     onSave: (app.tijario.ui.state.DocumentItemState) -> Unit,
     onDelete: () -> Unit,
     onChooseProduct: () -> Unit,
+    onIncreaseStock: (productId: String, amount: Int) -> Unit,
 ) {
     var name by remember { mutableStateOf(item.name) }
     var price by remember { mutableStateOf(item.unitPrice) }
@@ -2272,6 +2287,16 @@ fun EditItemDialog(
         language = language,
         originalQuantitiesByProductId = originalQuantitiesByProductId,
     )
+    val additionalStockRequired = additionalInvoiceStockRequired(
+        documentType = documentType,
+        item = draftItem,
+        items = draftItems,
+        products = products,
+        originalQuantitiesByProductId = originalQuantitiesByProductId,
+    )
+    var stockIncreaseAmount by remember(additionalStockRequired) {
+        mutableStateOf(additionalStockRequired?.toString().orEmpty())
+    }
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -2378,6 +2403,27 @@ fun EditItemDialog(
                                 error = quantityStockError,
                                 keyboardOptions = QuantityKeyboardOptions,
                             )
+
+                            if (quantityStockError != null && item.productId != null) {
+                                TijarioTextField(
+                                    label = Localization.getString("stock_increase_amount", language),
+                                    value = stockIncreaseAmount,
+                                    onValueChange = { stockIncreaseAmount = it },
+                                    keyboardOptions = QuantityKeyboardOptions,
+                                )
+                                Button(
+                                    onClick = {
+                                        val amount = Validation.parsePositiveInt(stockIncreaseAmount)
+                                        if (amount != null) onIncreaseStock(item.productId, amount)
+                                    },
+                                    enabled = Validation.parsePositiveInt(stockIncreaseAmount) != null,
+                                    modifier = Modifier.fillMaxWidth(),
+                                ) {
+                                    Icon(Icons.Filled.Add, contentDescription = null)
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(Localization.getString("add_stock_and_continue", language))
+                                }
+                            }
 
                             TijarioTextField(
                                 label = t("unit_measure_label"),
@@ -3793,7 +3839,15 @@ fun DocumentFormScreen(
                         pendingProductRowIndex = index
                         productPickerQuery = ""
                         showProductPickerRowIndex = index
-                    }
+                    },
+                    onIncreaseStock = { productId, amount ->
+                        scope.launch {
+                            dataViewModel.increaseProductStock(productId, amount)
+                                .onFailure { error ->
+                                    showDocumentError(LocalizedErrorMapper.map(null, error.message, language))
+                                }
+                        }
+                    },
                 )
             }
         }
@@ -4035,17 +4089,15 @@ fun DocumentFormScreen(
                         leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
                         modifier = Modifier.weight(1f),
                     )
-                    if (uiState.customers.isEmpty()) {
-                        OutlinedButton(
-                            onClick = {
-                                showCustomerPickerSheet = false
-                                onNavigateToCreateCustomer()
-                            },
-                        ) {
-                            Icon(Icons.Filled.Add, contentDescription = null)
-                            Spacer(Modifier.width(4.dp))
-                            Text(t("btn_add_customer"))
-                        }
+                    OutlinedButton(
+                        onClick = {
+                            showCustomerPickerSheet = false
+                            onNavigateToCreateCustomer()
+                        },
+                    ) {
+                        Icon(Icons.Filled.Add, contentDescription = null)
+                        Spacer(Modifier.width(4.dp))
+                        Text(t("btn_add_customer"))
                     }
                 }
                 LazyColumn(
@@ -4109,17 +4161,15 @@ fun DocumentFormScreen(
                         leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
                         modifier = Modifier.weight(1f),
                     )
-                    if (uiState.products.isEmpty()) {
-                        OutlinedButton(
-                            onClick = {
-                                showProductPickerRowIndex = null
-                                onNavigateToCreateProduct()
-                            },
-                        ) {
-                            Icon(Icons.Filled.Add, contentDescription = null)
-                            Spacer(Modifier.width(4.dp))
-                            Text(t("btn_add_product"))
-                        }
+                    OutlinedButton(
+                        onClick = {
+                            showProductPickerRowIndex = null
+                            onNavigateToCreateProduct()
+                        },
+                    ) {
+                        Icon(Icons.Filled.Add, contentDescription = null)
+                        Spacer(Modifier.width(4.dp))
+                        Text(t("btn_add_product"))
                     }
                 }
                 LazyColumn(
@@ -4127,25 +4177,48 @@ fun DocumentFormScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     items(filteredProducts) { product ->
+                        val itemsForStockSelection = if (rowIndex in form.items.indices) {
+                            form.items.filterIndexed { index, _ -> index != rowIndex }
+                        } else {
+                            form.items
+                        }
+                        val canAddProduct = canAddProductToInvoice(
+                            documentType = type,
+                            product = product,
+                            items = itemsForStockSelection,
+                            originalQuantitiesByProductId = originalQuantitiesByProductId,
+                        )
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(14.dp))
-                                .clickable {
+                                .clickable(enabled = canAddProduct) {
                                     val (updatedItems, targetIndex) = mergeSelectedProductIntoItems(form.items, product, rowIndex)
                                     form = form.copy(items = updatedItems)
                                     editingItemIndex = targetIndex
                                     pendingProductRowIndex = null
                                     showProductPickerRowIndex = null
                                 }
-                                .padding(12.dp),
+                                .padding(12.dp)
+                                .then(if (canAddProduct) Modifier else Modifier.background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
-                            Icon(Icons.Filled.BusinessCenter, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            Icon(
+                                Icons.Filled.BusinessCenter,
+                                contentDescription = null,
+                                tint = if (canAddProduct) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(product.name, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 Text(product.description ?: t("kind_product"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                if (!canAddProduct) {
+                                    Text(
+                                        text = Localization.getString("cannot_add_product_insufficient_stock", language),
+                                        color = MaterialTheme.colorScheme.error,
+                                        fontSize = 11.sp,
+                                    )
+                                }
                             }
                             Text("${product.price} ${product.currency}", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, maxLines = 1)
                         }
@@ -4301,8 +4374,8 @@ fun CurrencyPickerDialog(
     onDismiss: () -> Unit,
     onSelect: (String) -> Unit
 ) {
-    val currencies = listOf("SAR", "AED", "USD", "QAR", "KWD", "BHD", "OMR", "YER", "EGP")
-    val isArabic = LocalLanguage.current == app.tijario.config.AppLanguage.AR
+    val language = LocalLanguage.current
+    val currencies = CurrencyCatalog.options
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = MaterialTheme.colorScheme.surface) {
         Card(
             shape = RoundedCornerShape(16.dp),
@@ -4314,29 +4387,30 @@ fun CurrencyPickerDialog(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Text(
-                    text = if (isArabic) "اختر العملة" else "Select Currency",
+                    text = Localization.getString("select_currency", language),
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp
                 )
                 LazyVerticalGrid(
-                    columns = GridCells.Fixed(3),
-                    modifier = Modifier.height(180.dp),
+                    columns = GridCells.Fixed(1),
+                    modifier = Modifier.heightIn(max = 360.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(currencies) { curr ->
-                        val isSelected = curr == currentCurrency
+                    items(currencies) { currency ->
+                        val isSelected = currency.code == currentCurrency
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(44.dp)
-                                .clip(RoundedCornerShape(8.dp))
+                                .height(48.dp)
+                                .clip(RoundedCornerShape(12.dp))
                                 .background(if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant)
-                                .clickable { onSelect(curr) },
-                            contentAlignment = Alignment.Center
+                                .clickable { onSelect(currency.code) }
+                                .padding(horizontal = 14.dp),
+                            contentAlignment = Alignment.CenterStart,
                         ) {
                             Text(
-                                text = curr,
+                                text = CurrencyCatalog.display(currency.code, language),
                                 color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 14.sp
@@ -4349,7 +4423,7 @@ fun CurrencyPickerDialog(
                     horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)
                 ) {
                     TextButton(onClick = onDismiss) {
-                        Text(if (isArabic) "إلغاء" else "Cancel")
+                        Text(Localization.getString("btn_cancel", language))
                     }
                 }
             }

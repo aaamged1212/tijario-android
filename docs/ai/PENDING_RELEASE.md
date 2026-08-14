@@ -118,3 +118,9 @@ The counters migration is required to manage sequential document numbers without
 - Install the local Debug APK and verify customer create/edit, product/service create/edit, invoice/quote create, and document edit while airplane mode is enabled after one successful online account initialization.
 - Verify the stored plan limits still reject the next customer, product, or document offline. A missing or expired cached entitlement is expected to show its typed setup/entitlement error rather than a generic failure.
 - No migration, backend deployment, or Google Play upload is authorized by this local source correction.
+
+## 2026-08-13 Offline document and catalog QA gate
+- After one successful online account initialization, enable airplane mode and edit a saved invoice and quote. Confirm both save, reopen with their changed items/totals, and remain `LOCAL_ONLY` without a generic error.
+- Create same-day invoices or quotes with intentionally non-sequential display numbers and confirm the newest creation time appears first in document and dashboard lists.
+- Verify country flag, calling-code selection, country-to-phone synchronization, and currency labels in onboarding and store settings. Confirm a product-specific currency survives save and reopen.
+- On a tracked product, verify an over-stock product is disabled in the picker, the item editor blocks confirmation, and an explicit stock increase updates the saved product before allowing the item.

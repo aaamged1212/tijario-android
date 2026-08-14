@@ -197,6 +197,51 @@ class TijarioRepositoryOfflineTests {
         assertEquals("YER", documentSlot.captured.currency)
         assertEquals("1234567", customerSlot.captured.whatsappNumber)
         assertEquals(customerSlot.captured.id, documentSlot.captured.customerId)
+        assertTrue(documentSlot.captured.createdAt?.contains("T") == true)
+    }
+
+    @Test
+    fun updateDocumentLocal_succeedsWithoutCachedEntitlementAndKeepsRoomOnlyState() = runBlocking {
+        val existing = DocumentEntity(
+            id = "offline-edit-document",
+            userId = userId,
+            customerId = "customer-1",
+            type = "invoice",
+            documentNumber = "INV-00007",
+            status = "draft",
+            paymentStatus = "unpaid",
+            amountPaid = null,
+            issueDate = "2026-08-13",
+            createdAt = "2026-08-13T08:00:00Z",
+            total = BigDecimal("10.00"),
+            currency = "SAR",
+            syncedAt = 0L,
+            syncStatus = "LOCAL_ONLY",
+            localRevision = 3,
+        )
+        coEvery { dao.getAccountEntitlement(userId) } returns null
+        coEvery { dao.getDocument(userId, existing.id) } returns existing
+        coEvery { dao.deleteDocumentItems(userId, existing.id) } returns Unit
+        coEvery { dao.insertDocumentItems(any()) } returns Unit
+        val savedDocument = slot<DocumentEntity>()
+        coEvery { dao.upsertDocument(capture(savedDocument)) } returns Unit
+
+        val result = repository.updateDocumentLocal(
+            existing.id,
+            CreateDocumentRequest(
+                type = DocumentType.Invoice,
+                customer = DocumentCustomerInput("Customer", "555"),
+                items = listOf(DocumentItemInput(name = "Updated item", quantity = 2, unitPrice = 15.0)),
+                currency = "SAR",
+            ),
+        )
+
+        assertTrue(result.ok)
+        assertEquals(existing.documentNumber, result.data?.documentNumber)
+        assertEquals("LOCAL_ONLY", savedDocument.captured.syncStatus)
+        assertEquals(existing.localRevision + 1, savedDocument.captured.localRevision)
+        assertEquals(existing.createdAt, savedDocument.captured.createdAt)
+        coVerify(exactly = 0) { dao.upsertOutbox(any()) }
     }
 
     @Test
@@ -485,7 +530,36 @@ class TijarioRepositoryOfflineTests {
 
         assertTrue(product.isSuccess)
         assertTrue(service.isSuccess)
-        coVerify(exactly = 2) { dao.upsertProduct(match { it.syncStatus == "LOCAL_ONLY" && it.currency == "SAR" }) }
+        coVerify(exactly = 2) { dao.upsertProduct(match { it.syncStatus == "LOCAL_ONLY" && it.currency == "USD" }) }
+        coVerify(exactly = 0) { dao.upsertOutbox(any()) }
+    }
+
+    @Test
+    fun increaseProductStock_updatesOnlyTheLocalProduct() = runBlocking {
+        val existing = ProductEntity(
+            id = "stock-product",
+            userId = userId,
+            kind = "product",
+            name = "Tracked product",
+            description = null,
+            price = BigDecimal("10.00"),
+            currency = "SAR",
+            stockQuantity = 3,
+            syncedAt = 0L,
+            syncStatus = "LOCAL_ONLY",
+            localRevision = 4,
+            isDeleted = false,
+        )
+        coEvery { dao.getProduct(userId, existing.id) } returns existing
+        val saved = slot<ProductEntity>()
+        coEvery { dao.upsertProduct(capture(saved)) } returns Unit
+
+        val result = repository.increaseProductStock(existing.id, 2)
+
+        assertTrue(result.isSuccess)
+        assertEquals(5, saved.captured.stockQuantity)
+        assertEquals(5, saved.captured.localRevision)
+        assertEquals("LOCAL_ONLY", saved.captured.syncStatus)
         coVerify(exactly = 0) { dao.upsertOutbox(any()) }
     }
 

@@ -155,6 +155,12 @@
 - **Safety**: No push, deployment, migration, Production write, external configuration change, or Google Play upload occurred. `.agents` remains local and excluded.
 
 ## 2026-08-13
+- **Active task**: Local Android follow-up on `fix/android-runtime-critical-fixes`.
+- **Completed locally**: Offline Room-only document updates, chronological document ordering, country/currency catalogs, product-currency selection, stocked-item safeguards, and always-available customer/product creation actions.
+- **Evidence**: Focused JVM suites and Debug assembly passed. `lintDebug` is pending after exceeding the local command timeout. No connected device was used.
+- **Safety**: No commit, push, deployment, migration, Production write, external configuration change, or Google Play upload occurred. `.agents` remains untracked and excluded.
+
+## 2026-08-13
 - **Current task**: LocalDrive offline CRUD recovery on `fix/android-runtime-critical-fixes`.
 - **State**: Local document creation uses cached entitlement/local quota validation and does not request a lease from the network. Customer, product/service, and document create/update route directly to Room in LocalDrive without operational outbox writes.
 - **Validation**: 47 focused JVM tests and `assembleDebug` passed. Physical offline QA remains pending.

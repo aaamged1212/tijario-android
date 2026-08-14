@@ -307,6 +307,9 @@ class TijarioDataViewModel(
     suspend fun updateProduct(product: Product): Result<Unit> =
         repository.updateProduct(product)
 
+    suspend fun increaseProductStock(productId: String, amount: Int): Result<Unit> =
+        repository.increaseProductStock(productId, amount)
+
     suspend fun deleteProduct(productId: String): Result<Unit> =
         repository.deleteProduct(productId).onSuccess { refreshPlanUsage(force = false) }
 

@@ -7,22 +7,16 @@ data class DialCodeOption(
     val dialCode: String,
     val nameAr: String,
     val nameEn: String,
+    val flag: String = "",
 ) {
     fun label(language: AppLanguage): String =
-        "${if (language == AppLanguage.AR) nameAr else nameEn} $dialCode"
+        listOf(flag, if (language == AppLanguage.AR) nameAr else nameEn, dialCode)
+            .filter { it.isNotBlank() }
+            .joinToString(" ")
 }
 
-val MvpDialCodeOptions = listOf(
-    DialCodeOption("YE", "+967", "اليمن", "Yemen"),
-    DialCodeOption("SA", "+966", "السعودية", "Saudi Arabia"),
-    DialCodeOption("AE", "+971", "الإمارات", "UAE"),
-    DialCodeOption("OM", "+968", "عمان", "Oman"),
-    DialCodeOption("QA", "+974", "قطر", "Qatar"),
-    DialCodeOption("KW", "+965", "الكويت", "Kuwait"),
-    DialCodeOption("BH", "+973", "البحرين", "Bahrain"),
-    DialCodeOption("EG", "+20", "مصر", "Egypt"),
-    DialCodeOption("JO", "+962", "الأردن", "Jordan"),
-)
+val MvpDialCodeOptions: List<DialCodeOption>
+    get() = CountryCatalog.dialCodeOptions
 
 fun normalizePhoneWithDialCode(dialCode: String, localNumber: String): String {
     val dialDigits = normalizePhoneDigits(dialCode).filter(Char::isDigit)
