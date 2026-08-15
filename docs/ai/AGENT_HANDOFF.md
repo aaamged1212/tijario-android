@@ -5,7 +5,7 @@
 - **Correction**: The same Room transaction now writes the document parent first, clears old items, then inserts replacement items. This preserves the new item rows and keeps the edited document reopenable offline.
 - **Recovery**: An itemless local document with a persisted server revision can hydrate the last complete server snapshot when online. A purely local itemless record remains protected and returns the typed missing-items state. Item edits already deleted by the prior defect cannot be reconstructed from Room.
 - **Validation**: Focused repository tests passed, including ordering and recovery coverage; `assembleDebug` passed. No device was connected.
-- **Safety Status**: No commit, push, merge, backend/Web change, migration, Production write, external configuration change, or Google Play upload occurred. `.agents` remains local and excluded.
+- **Publication**: Source and prior handoff updates are committed locally as `b8465e9346b515071037f90a3aee78ebbb82f367`; they are not pushed. No merge, backend/Web change, migration, Production write, external configuration change, or Google Play upload occurred. `.agents` remains local and excluded.
 
 ## 2026-08-15 (document cache hydration and picker flow, local)
 - **Branch**: `fix/android-runtime-critical-fixes`.

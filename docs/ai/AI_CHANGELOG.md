@@ -571,3 +571,4 @@
 - Room `REPLACE` semantics were cascading newly inserted document items because the update transaction inserted them before replacing the document parent. The transaction now replaces the parent first, then writes the replacement item set.
 - A server-backed document left itemless by the prior defect can recover its last complete server snapshot when online. Purely local records remain protected from remote replacement.
 - Focused repository tests and Debug assembly passed locally. No external action occurred.
+- The scoped source is committed locally as `b8465e9346b515071037f90a3aee78ebbb82f367`; it has not been pushed.

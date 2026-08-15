@@ -3,7 +3,7 @@
 ## 2026-08-15 - Document update item-loss correction
 - A Room update ordering defect was identified: `upsertDocument` uses `REPLACE`, so writing new document items before the parent replacement cascaded those items away. The local update transaction now replaces the document parent before deleting and inserting the item set.
 - A server-backed document left itemless by the prior defect is eligible to hydrate the last complete server snapshot when online. Purely local documents remain protected and report the typed missing-items state instead of silently replacing local data.
-- Focused repository tests and `assembleDebug` passed. No device was connected and no backend, migration, deployment, push, merge, external configuration, or Play action occurred.
+- Focused repository tests and `assembleDebug` passed. Source is committed locally as `b8465e9346b515071037f90a3aee78ebbb82f367`; no device was connected and no backend, migration, deployment, push, merge, external configuration, or Play action occurred.
 
 ## 2026-08-15 - Local document detail cache recovery
 - On `fix/android-runtime-critical-fixes`, document detail loading now treats a complete Room snapshot as the offline source of truth. A replaceable synced summary missing item rows may hydrate once through the existing mobile detail contract and atomically replace its item cache; local-only, pending, conflict, and plan-blocked records remain protected.

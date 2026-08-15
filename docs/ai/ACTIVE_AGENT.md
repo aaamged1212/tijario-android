@@ -4,7 +4,7 @@
 - **Current task**: Document update item-preservation correction on `fix/android-runtime-critical-fixes`.
 - **State**: Room now replaces the document parent before inserting replacement item rows, avoiding the `REPLACE` cascade that left edited documents itemless. Server-backed itemless records can recover the last complete server snapshot when online; purely local records remain protected.
 - **Validation**: Focused repository tests and `assembleDebug` passed. Physical device QA remains pending.
-- **Safety**: No commit, push, merge, migration, deployment, Production write, external configuration change, or Google Play upload occurred. `.agents` remains local and excluded.
+- **Safety**: Source is committed locally as `b8465e9346b515071037f90a3aee78ebbb82f367` and is not pushed. No merge, migration, deployment, Production write, external configuration change, or Google Play upload occurred. `.agents` remains local and excluded.
 
 ## 2026-08-15
 - **Current task**: Local document detail cache recovery and document picker continuity on `fix/android-runtime-critical-fixes`.
