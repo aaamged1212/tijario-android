@@ -20,4 +20,12 @@ class CountryCatalogTests {
         assertTrue(CurrencyCatalog.display("SAR", AppLanguage.EN).contains("SAR"))
         assertTrue(CurrencyCatalog.display("SAR", AppLanguage.EN).contains("🇸🇦"))
     }
+
+    @Test
+    fun dialCodeAndCurrencySearchSupportCodeCountryAndCallingCode() {
+        assertTrue(filterDialCodeOptions("+966", AppLanguage.EN).any { it.countryCode == "SA" })
+        assertTrue(filterDialCodeOptions("Saudi", AppLanguage.EN).any { it.countryCode == "SA" })
+        assertTrue(filterCurrencyOptions("Saudi", AppLanguage.EN).any { it.code == "SAR" })
+        assertTrue(filterCurrencyOptions("SAR", AppLanguage.AR).any { it.code == "SAR" })
+    }
 }

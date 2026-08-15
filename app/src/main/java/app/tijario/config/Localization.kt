@@ -67,6 +67,7 @@ object Localization {
         "btn_new_invoice" to mapOf(AppLanguage.AR to "فاتورة جديدة", AppLanguage.EN to "New Invoice"),
         "btn_new_quote" to mapOf(AppLanguage.AR to "عرض سعر جديد", AppLanguage.EN to "New Quote"),
         "btn_add_customer" to mapOf(AppLanguage.AR to "إضافة عميل", AppLanguage.EN to "Add Customer"),
+        "picker_new" to mapOf(AppLanguage.AR to "جديد", AppLanguage.EN to "New"),
 
         // Customers Screen
         "customers_title" to mapOf(AppLanguage.AR to "العملاء", AppLanguage.EN to "Customers"),

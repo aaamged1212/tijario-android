@@ -137,7 +137,11 @@ fun DocumentDetailScreen(
             TopAppBar(
                 title = {
                     Text(
-                        if (document?.type == DocumentType.Invoice) t("doc_detail_invoice") else t("doc_detail_quote"),
+                        when (document?.type) {
+                            DocumentType.Invoice -> t("doc_detail_invoice")
+                            DocumentType.Quote -> t("doc_detail_quote")
+                            null -> t("documents_title")
+                        },
                         fontWeight = FontWeight.Bold,
                     )
                 },

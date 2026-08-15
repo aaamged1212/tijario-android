@@ -13,6 +13,8 @@ import app.tijario.data.local.OfflineQuotaLeaseEntity
 import app.tijario.data.local.ProductEntity
 import app.tijario.data.model.BusinessSettings
 import app.tijario.data.model.Customer
+import app.tijario.data.model.CompleteDocument
+import app.tijario.data.model.DocumentItem
 import app.tijario.data.model.DocumentSummary
 import app.tijario.data.model.DocumentType
 import app.tijario.data.model.Product
@@ -27,6 +29,7 @@ import io.github.jan.supabase.SupabaseClient
 import androidx.room.withTransaction
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.coVerifyOrder
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
@@ -241,7 +244,196 @@ class TijarioRepositoryOfflineTests {
         assertEquals("LOCAL_ONLY", savedDocument.captured.syncStatus)
         assertEquals(existing.localRevision + 1, savedDocument.captured.localRevision)
         assertEquals(existing.createdAt, savedDocument.captured.createdAt)
+        coVerifyOrder {
+            dao.upsertDocument(any())
+            dao.deleteDocumentItems(userId, existing.id)
+            dao.insertDocumentItems(any())
+        }
         coVerify(exactly = 0) { dao.upsertOutbox(any()) }
+    }
+
+    @Test
+    fun fetchCompleteDocument_usesCompleteRoomSnapshotWithoutNetwork() = runBlocking {
+        val localDocument = DocumentEntity(
+            id = "local-document",
+            userId = userId,
+            customerId = "customer-1",
+            type = "invoice",
+            documentNumber = "INV-00008",
+            status = "draft",
+            paymentStatus = "unpaid",
+            amountPaid = null,
+            issueDate = "2026-08-15",
+            total = BigDecimal("20.00"),
+            currency = "SAR",
+            syncedAt = 0L,
+            syncStatus = "LOCAL_ONLY",
+        )
+        coEvery { dao.getDocument(userId, localDocument.id) } returns localDocument
+        coEvery { dao.getDocumentItems(userId, localDocument.id) } returns listOf(
+            app.tijario.data.local.DocumentItemEntity(
+                id = "item-1",
+                userId = userId,
+                documentId = localDocument.id,
+                productId = null,
+                name = "Local item",
+                description = null,
+                quantity = 1,
+                unitPrice = BigDecimal("20.00"),
+                lineTotal = BigDecimal("20.00"),
+                sortOrder = 0,
+            ),
+        )
+
+        val result = repository.fetchCompleteDocument(localDocument.id)
+
+        assertTrue(result.isSuccess)
+        assertEquals("Local item", result.getOrThrow().items.single().name)
+        coVerify(exactly = 0) { backendApiClient.fetchCompleteDocument(any()) }
+    }
+
+    @Test
+    fun fetchCompleteDocument_hydratesLegacySyncedSummaryWithMissingItems() = runBlocking {
+        val localDocument = DocumentEntity(
+            id = "legacy-document",
+            userId = userId,
+            customerId = "customer-1",
+            type = "invoice",
+            documentNumber = "INV-00009",
+            status = "issued",
+            paymentStatus = "unpaid",
+            amountPaid = null,
+            issueDate = "2026-08-15",
+            total = BigDecimal("20.00"),
+            currency = "SAR",
+            syncedAt = 1L,
+            syncStatus = "SYNCED",
+        )
+        val remoteDocument = CompleteDocument(
+            id = localDocument.id,
+            userId = userId,
+            customerId = localDocument.customerId,
+            type = DocumentType.Invoice,
+            documentNumber = localDocument.documentNumber,
+            status = "issued",
+            paymentStatus = "unpaid",
+            issueDate = localDocument.issueDate,
+            subtotal = 20.0,
+            discount = 0.0,
+            extraFees = 0.0,
+            total = 20.0,
+            currency = "SAR",
+            items = listOf(
+                DocumentItem(
+                    id = "remote-item",
+                    documentId = localDocument.id,
+                    name = "Hydrated item",
+                    quantity = 1,
+                    unitPrice = 20.0,
+                ),
+            ),
+        )
+        coEvery { dao.getDocument(userId, localDocument.id) } returns localDocument
+        coEvery { dao.getDocumentItems(userId, localDocument.id) } returns emptyList()
+        coEvery { backendApiClient.fetchCompleteDocument(localDocument.id) } returns ApiResult(
+            ok = true,
+            data = remoteDocument,
+        )
+        coEvery { dao.upsertDocument(any()) } returns Unit
+        coEvery { dao.deleteDocumentItems(userId, localDocument.id) } returns Unit
+        coEvery { dao.insertDocumentItems(any()) } returns Unit
+
+        val result = repository.fetchCompleteDocument(localDocument.id)
+
+        assertEquals("Hydrated item", result.getOrThrow().items.single().name)
+        coVerify(exactly = 1) { backendApiClient.fetchCompleteDocument(localDocument.id) }
+        coVerify(exactly = 1) { dao.insertDocumentItems(match { it.single().name == "Hydrated item" }) }
+    }
+
+    @Test
+    fun fetchCompleteDocument_doesNotReplaceIncompleteUnsyncedLocalDocument() = runBlocking {
+        val localDocument = DocumentEntity(
+            id = "protected-document",
+            userId = userId,
+            customerId = "customer-1",
+            type = "invoice",
+            documentNumber = "INV-00010",
+            status = "draft",
+            paymentStatus = "unpaid",
+            amountPaid = null,
+            issueDate = "2026-08-15",
+            total = BigDecimal("20.00"),
+            currency = "SAR",
+            syncedAt = 0L,
+            syncStatus = "LOCAL_ONLY",
+        )
+        coEvery { dao.getDocument(userId, localDocument.id) } returns localDocument
+        coEvery { dao.getDocumentItems(userId, localDocument.id) } returns emptyList()
+
+        val result = repository.fetchCompleteDocument(localDocument.id)
+
+        assertTrue(result.isFailure)
+        assertEquals("MISSING_DOCUMENT_ITEMS", result.exceptionOrNull()?.message)
+        coVerify(exactly = 0) { backendApiClient.fetchCompleteDocument(any()) }
+    }
+
+    @Test
+    fun fetchCompleteDocument_recoversServerBackedDocumentWhoseItemsWereLostAfterLocalEdit() = runBlocking {
+        val localDocument = DocumentEntity(
+            id = "recoverable-document",
+            userId = userId,
+            customerId = "customer-1",
+            type = "invoice",
+            documentNumber = "INV-00011",
+            status = "draft",
+            paymentStatus = "unpaid",
+            amountPaid = null,
+            issueDate = "2026-08-15",
+            total = BigDecimal("20.00"),
+            currency = "SAR",
+            syncedAt = 1L,
+            syncStatus = "LOCAL_ONLY",
+            serverRevision = "2026-08-15T10:00:00Z",
+        )
+        val remoteDocument = CompleteDocument(
+            id = localDocument.id,
+            userId = userId,
+            customerId = localDocument.customerId,
+            type = DocumentType.Invoice,
+            documentNumber = localDocument.documentNumber,
+            status = "issued",
+            paymentStatus = "unpaid",
+            issueDate = localDocument.issueDate,
+            subtotal = 20.0,
+            discount = 0.0,
+            extraFees = 0.0,
+            total = 20.0,
+            currency = "SAR",
+            items = listOf(
+                DocumentItem(
+                    id = "recovered-item",
+                    documentId = localDocument.id,
+                    name = "Recovered item",
+                    quantity = 1,
+                    unitPrice = 20.0,
+                ),
+            ),
+        )
+        coEvery { dao.getDocument(userId, localDocument.id) } returns localDocument
+        coEvery { dao.getDocumentItems(userId, localDocument.id) } returns emptyList()
+        coEvery { backendApiClient.fetchCompleteDocument(localDocument.id) } returns ApiResult(
+            ok = true,
+            data = remoteDocument,
+        )
+        coEvery { dao.upsertDocument(any()) } returns Unit
+        coEvery { dao.deleteDocumentItems(userId, localDocument.id) } returns Unit
+        coEvery { dao.insertDocumentItems(any()) } returns Unit
+
+        val result = repository.fetchCompleteDocument(localDocument.id)
+
+        assertEquals("Recovered item", result.getOrThrow().items.single().name)
+        coVerify(exactly = 1) { backendApiClient.fetchCompleteDocument(localDocument.id) }
+        coVerify(exactly = 1) { dao.insertDocumentItems(match { it.single().id == "recovered-item" }) }
     }
 
     @Test

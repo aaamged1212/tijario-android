@@ -1,5 +1,17 @@
 # Active Agent Status
 
+## 2026-08-15
+- **Current task**: Document update item-preservation correction on `fix/android-runtime-critical-fixes`.
+- **State**: Room now replaces the document parent before inserting replacement item rows, avoiding the `REPLACE` cascade that left edited documents itemless. Server-backed itemless records can recover the last complete server snapshot when online; purely local records remain protected.
+- **Validation**: Focused repository tests and `assembleDebug` passed. Physical device QA remains pending.
+- **Safety**: No commit, push, merge, migration, deployment, Production write, external configuration change, or Google Play upload occurred. `.agents` remains local and excluded.
+
+## 2026-08-15
+- **Current task**: Local document detail cache recovery and document picker continuity on `fix/android-runtime-critical-fixes`.
+- **State**: Complete Room document snapshots open offline. Legacy synced summaries that lack items are hydrated only when online and only when their cache state is replaceable; protected local states are preserved. New document numbering reads Room history, and newly created picker records return to the active document.
+- **Validation**: 59 focused JVM tests and `assembleDebug` passed. Physical device QA remains pending.
+- **Safety**: No commit, push, merge, migration, deployment, Production write, external configuration change, or Google Play upload occurred. `.agents` remains local and excluded.
+
 - **Current task**: Room-first operational storage correction on `fix/android-runtime-critical-fixes`.
 - **State**: All signed entitlement modes now use Room for operational customer, product/service, and document CRUD. Store settings remain Room-first with a best-effort server mirror; personal account/profile and entitlement remain server-authoritative.
 - **Validation**: 47 focused JVM tests and `assembleDebug` passed. Physical offline QA is pending; version remains `19` / `1.1.9`.

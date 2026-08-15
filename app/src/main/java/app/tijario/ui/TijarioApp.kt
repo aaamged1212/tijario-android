@@ -795,6 +795,14 @@ private fun TijarioAppContent() {
                         onUpgrade = { navController.navigateSingleTop("upgrade-plan") },
                     )
                 }
+                composable("customer-form-for-document") {
+                    CustomerFormScreen(
+                        dataViewModel = dataViewModel,
+                        onBack = { navController.popBackStack() },
+                        onCustomerSaved = { customer -> activeSelectedCustomer = customer },
+                        onUpgrade = { navController.navigateSingleTop("upgrade-plan") },
+                    )
+                }
                 composable("products") {
                     ProductsScreen(
                         dataViewModel = dataViewModel,
@@ -830,6 +838,26 @@ private fun TijarioAppContent() {
                         onUpgrade = { navController.navigateSingleTop("upgrade-plan") },
                     )
                 }
+                composable(
+                    route = "product-form-for-document?rowIndex={rowIndex}",
+                    arguments = listOf(
+                        navArgument("rowIndex") {
+                            type = NavType.IntType
+                            defaultValue = -1
+                        },
+                    ),
+                ) { backStackEntry ->
+                    val rowIndex = backStackEntry.arguments?.getInt("rowIndex") ?: -1
+                    ProductFormScreen(
+                        dataViewModel = dataViewModel,
+                        onBack = { navController.popBackStack() },
+                        onProductSaved = { product ->
+                            activeSelectedProduct = product
+                            activeSelectedProductRowIndex = rowIndex.takeIf { it >= 0 }
+                        },
+                        onUpgrade = { navController.navigateSingleTop("upgrade-plan") },
+                    )
+                }
                 composable("business-settings") {
                     BusinessSettingsScreen(
                         dataViewModel = dataViewModel,
@@ -851,11 +879,14 @@ private fun TijarioAppContent() {
                             activeSelectedProductRowIndex = rowIndex
                             navController.navigate("products")
                         },
-                        onNavigateToCreateCustomer = { requestCreation(CreationTarget.Customer, "customer-form") },
-                        onNavigateToCreateProduct = { requestCreation(CreationTarget.Product, "product-form") },
+                        onNavigateToCreateCustomer = { requestCreation(CreationTarget.Customer, "customer-form-for-document") },
+                        onNavigateToCreateProduct = { rowIndex ->
+                            requestCreation(CreationTarget.Product, "product-form-for-document?rowIndex=$rowIndex")
+                        },
                         selectedCustomer = activeSelectedCustomer,
                         selectedProduct = activeSelectedProduct,
                         selectedProductRowIndex = activeSelectedProductRowIndex,
+                        onSelectedCustomerConsumed = { activeSelectedCustomer = null },
                         onSelectedProductConsumed = {
                             activeSelectedProduct = null
                             activeSelectedProductRowIndex = null
@@ -879,11 +910,14 @@ private fun TijarioAppContent() {
                             activeSelectedProductRowIndex = rowIndex
                             navController.navigate("products")
                         },
-                        onNavigateToCreateCustomer = { requestCreation(CreationTarget.Customer, "customer-form") },
-                        onNavigateToCreateProduct = { requestCreation(CreationTarget.Product, "product-form") },
+                        onNavigateToCreateCustomer = { requestCreation(CreationTarget.Customer, "customer-form-for-document") },
+                        onNavigateToCreateProduct = { rowIndex ->
+                            requestCreation(CreationTarget.Product, "product-form-for-document?rowIndex=$rowIndex")
+                        },
                         selectedCustomer = activeSelectedCustomer,
                         selectedProduct = activeSelectedProduct,
                         selectedProductRowIndex = activeSelectedProductRowIndex,
+                        onSelectedCustomerConsumed = { activeSelectedCustomer = null },
                         onSelectedProductConsumed = {
                             activeSelectedProduct = null
                             activeSelectedProductRowIndex = null
@@ -917,11 +951,14 @@ private fun TijarioAppContent() {
                             activeSelectedProductRowIndex = rowIndex
                             navController.navigate("products")
                         },
-                        onNavigateToCreateCustomer = { requestCreation(CreationTarget.Customer, "customer-form") },
-                        onNavigateToCreateProduct = { requestCreation(CreationTarget.Product, "product-form") },
+                        onNavigateToCreateCustomer = { requestCreation(CreationTarget.Customer, "customer-form-for-document") },
+                        onNavigateToCreateProduct = { rowIndex ->
+                            requestCreation(CreationTarget.Product, "product-form-for-document?rowIndex=$rowIndex")
+                        },
                         selectedCustomer = activeSelectedCustomer,
                         selectedProduct = activeSelectedProduct,
                         selectedProductRowIndex = activeSelectedProductRowIndex,
+                        onSelectedCustomerConsumed = { activeSelectedCustomer = null },
                         onSelectedProductConsumed = {
                             activeSelectedProduct = null
                             activeSelectedProductRowIndex = null
@@ -955,11 +992,14 @@ private fun TijarioAppContent() {
                             activeSelectedProductRowIndex = rowIndex
                             navController.navigate("products")
                         },
-                        onNavigateToCreateCustomer = { requestCreation(CreationTarget.Customer, "customer-form") },
-                        onNavigateToCreateProduct = { requestCreation(CreationTarget.Product, "product-form") },
+                        onNavigateToCreateCustomer = { requestCreation(CreationTarget.Customer, "customer-form-for-document") },
+                        onNavigateToCreateProduct = { rowIndex ->
+                            requestCreation(CreationTarget.Product, "product-form-for-document?rowIndex=$rowIndex")
+                        },
                         selectedCustomer = activeSelectedCustomer,
                         selectedProduct = activeSelectedProduct,
                         selectedProductRowIndex = activeSelectedProductRowIndex,
+                        onSelectedCustomerConsumed = { activeSelectedCustomer = null },
                         onSelectedProductConsumed = {
                             activeSelectedProduct = null
                             activeSelectedProductRowIndex = null

@@ -1,5 +1,16 @@
 # Pending Release
 
+## 2026-08-15 document update item-preservation QA gate
+- On a device in airplane mode, edit an invoice and a quote with multiple items, save each, reopen each, and confirm the edited item count, quantities, prices, totals, and metadata remain intact.
+- For any document already affected by the prior item-loss defect, reconnect once and open it to recover the last complete server snapshot. Confirm the restored document has items before editing it again. The previous locally deleted item edits cannot be reconstructed.
+- No migration, backend deployment, or external configuration change is required for this Android-only correction.
+
+## 2026-08-15 document detail and picker QA gate
+- On a device, create a new invoice and quote after several existing documents and confirm the initial number is the next type-specific Room number.
+- With airplane mode enabled, open and edit locally-created documents. For an older cloud-created document whose Room cache has no item rows, open it online once to hydrate the local snapshot, then confirm it opens and edits offline. Confirm protected unsynced documents are not replaced by that hydration path.
+- From both populated customer and product pickers, create a new record and confirm it is selected in the active document without reopening the picker. Verify search and selection in country calling-code and product-currency sheets.
+- No migration, backend deployment, or external configuration change is required for these Android-only tests.
+
 ## 2026-08-13 Room-first operational storage QA gate
 - Before any release action, verify on one historical `legacy_cloud` account after one online entitlement initialization: create/edit/delete a customer, create/edit/delete a product or service, create/edit an invoice and quote, and confirm airplane-mode saves never invoke cloud operational CRUD.
 - Verify the next invoice and quote numbers derive from current Room history, custom valid numbers remain stable after edit, and cached plan limits reject the next customer/product/document locally.

@@ -1,5 +1,15 @@
 # Project State (Android & Web Repos)
 
+## 2026-08-15 - Document update item-loss correction
+- A Room update ordering defect was identified: `upsertDocument` uses `REPLACE`, so writing new document items before the parent replacement cascaded those items away. The local update transaction now replaces the document parent before deleting and inserting the item set.
+- A server-backed document left itemless by the prior defect is eligible to hydrate the last complete server snapshot when online. Purely local documents remain protected and report the typed missing-items state instead of silently replacing local data.
+- Focused repository tests and `assembleDebug` passed. No device was connected and no backend, migration, deployment, push, merge, external configuration, or Play action occurred.
+
+## 2026-08-15 - Local document detail cache recovery
+- On `fix/android-runtime-critical-fixes`, document detail loading now treats a complete Room snapshot as the offline source of truth. A replaceable synced summary missing item rows may hydrate once through the existing mobile detail contract and atomically replace its item cache; local-only, pending, conflict, and plan-blocked records remain protected.
+- New invoice/quote form numbering reads current Room history rather than an already-observed UI list. New customers/products created from an active document picker are returned to that document immediately. Calling-code and product-currency selection now support searchable bottom sheets.
+- Focused JVM coverage (59 tests) and `assembleDebug` passed. Physical QA is pending. No backend, migration, deployment, push, merge, external configuration, or Play action occurred.
+
 ## 2026-08-13 - Room-first operational storage for every account
 - Android operational data is now Room-authoritative for `legacy_cloud`, `local_drive`, and future entitlement modes: customers, products/services, documents, document items, local metadata, taxes, payment methods, signatures, and local terms follow the local path. Historical Supabase operational records are neither imported nor deleted.
 - Business settings are hybrid and local-first. Room is the immediate UI source; a background best-effort mirror may update Supabase. The one allowed read is initial settings hydration when the current user's Room settings are absent.

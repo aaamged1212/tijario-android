@@ -1030,10 +1030,11 @@ open class TijarioRepository(
             withContext(Dispatchers.IO) {
                 database.withTransaction {
                     logLocalDocumentSave("update", userId, "transaction_started")
-                    // Replace all document items atomically
+                    // Room REPLACE deletes the parent row before inserting it again. Write
+                    // the parent first so its cascade cannot remove the new item rows.
+                    dao.upsertDocument(docEntity)
                     dao.deleteDocumentItems(userId, documentId)
                     dao.insertDocumentItems(itemsEntities)
-                    dao.upsertDocument(docEntity)
 
                     logLocalDocumentSave("update", userId, "transaction_completed")
                 }
@@ -1397,13 +1398,35 @@ open class TijarioRepository(
     suspend fun fetchCompleteDocument(documentId: String): Result<app.tijario.data.model.CompleteDocument> =
         runCatching {
             val userId = requireUserId()
-            withContext(Dispatchers.IO) {
-                val localDoc = dao.getDocument(userId, documentId)
-                val localItems = dao.getDocumentItems(userId, documentId)
-                val localSnapshot = localDoc?.takeIf { localItems.isNotEmpty() }
-                localSnapshot?.let { buildLocalCompleteDocument(userId, it) }
-                    ?: error("document_not_found")
+            val localDocument = withContext(Dispatchers.IO) { dao.getDocument(userId, documentId) }
+                ?: error("document_not_found")
+            val localItems = withContext(Dispatchers.IO) { dao.getDocumentItems(userId, documentId) }
+
+            if (localItems.isNotEmpty()) {
+                return@runCatching buildLocalCompleteDocument(userId, localDocument)
             }
+
+            // Older cloud summaries can be missing their item rows. A locally marked
+            // document with a server revision can only reach this state after a prior
+            // cache/write defect, so allow it to recover the last complete server copy.
+            // A purely local record remains protected from remote replacement.
+            val canHydrateMissingItems = RemoteCacheReplacementPolicy.shouldReplace(localDocument.syncStatus) ||
+                localDocument.serverRevision != null || localDocument.lastSyncedAt != null
+            if (!canHydrateMissingItems) {
+                error("MISSING_DOCUMENT_ITEMS")
+            }
+
+            val remote = try {
+                backendApiClient.fetchCompleteDocument(documentId)
+            } catch (_: Exception) {
+                error("MISSING_DOCUMENT_ITEMS")
+            }
+            val hydratedDocument = remote.data
+                ?.takeIf { remote.ok && it.userId == userId && it.items.isNotEmpty() }
+                ?: error(remote.code?.takeIf { it == "document_not_found" } ?: "MISSING_DOCUMENT_ITEMS")
+
+            cacheCompleteDocumentSnapshot(hydratedDocument)
+            hydratedDocument
         }
 
     private suspend fun cacheCompleteDocumentSnapshot(document: app.tijario.data.model.CompleteDocument) {

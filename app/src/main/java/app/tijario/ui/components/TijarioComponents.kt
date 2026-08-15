@@ -7,9 +7,16 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -22,14 +29,12 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MenuAnchorType
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
@@ -56,6 +61,7 @@ import app.tijario.config.LocalLanguage
 import app.tijario.config.t
 import app.tijario.domain.DialCodeOption
 import app.tijario.domain.MvpDialCodeOptions
+import app.tijario.domain.filterDialCodeOptions
 import app.tijario.domain.normalizePhoneWithDialCode
 import app.tijario.domain.splitPhoneNumber
 
@@ -204,39 +210,28 @@ fun TijarioPhoneField(
     val activeDialCode = if (value.isBlank()) selectedDialCode else parts.dialCode
     val selectedOption = MvpDialCodeOptions.firstOrNull { it.dialCode == activeDialCode }
         ?: MvpDialCodeOptions.first()
-    var menuExpanded by remember { mutableStateOf(false) }
+    var showDialCodeSheet by rememberSaveable { mutableStateOf(false) }
+    var dialCodeQuery by rememberSaveable { mutableStateOf("") }
 
     val dialCodeField: @Composable (Modifier) -> Unit = { fieldModifier ->
-        ExposedDropdownMenuBox(
-            expanded = menuExpanded,
-            onExpandedChange = { menuExpanded = !menuExpanded },
-            modifier = fieldModifier,
+        OutlinedButton(
+            onClick = {
+                dialCodeQuery = ""
+                showDialCodeSheet = true
+            },
+            modifier = fieldModifier.height(56.dp),
+            shape = RoundedCornerShape(12.dp),
         ) {
-            TijarioTextField(
-                label = t("country_code"),
-                value = if (showCountryNameInDialCode) selectedOption.label(language) else selectedOption.dialCode,
-                onValueChange = {},
-                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = menuExpanded) },
-                modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable),
-                readOnly = true,
+            Text(
+                text = if (showCountryNameInDialCode) {
+                    listOf(selectedOption.flag, selectedOption.dialCode)
+                        .filter { it.isNotBlank() }
+                        .joinToString(" ")
+                } else {
+                    selectedOption.dialCode
+                },
+                maxLines = 1,
             )
-            ExposedDropdownMenu(
-                expanded = menuExpanded,
-                onDismissRequest = { menuExpanded = false },
-            ) {
-                MvpDialCodeOptions.forEach { option ->
-                    DropdownMenuItem(
-                        text = { Text(option.label(language), maxLines = 1) },
-                        onClick = {
-                            selectedDialCode = option.dialCode
-                            onDialCodeChange?.invoke(option.dialCode)
-                            onCountryCodeSelected?.invoke(option)
-                            onValueChange(normalizePhoneWithDialCode(option.dialCode, parts.localNumber))
-                            menuExpanded = false
-                        },
-                    )
-                }
-            }
         }
     }
     val numberField: @Composable (Modifier) -> Unit = { fieldModifier ->
@@ -270,6 +265,61 @@ fun TijarioPhoneField(
         ) {
             dialCodeField(Modifier.weight(0.75f))
             numberField(Modifier.weight(1.25f))
+        }
+    }
+
+    if (showDialCodeSheet) {
+        val filteredOptions = remember(dialCodeQuery, language) {
+            filterDialCodeOptions(dialCodeQuery, language)
+        }
+        ModalBottomSheet(
+            onDismissRequest = { showDialCodeSheet = false },
+            containerColor = MaterialTheme.colorScheme.surface,
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text(t("country_code"), fontWeight = FontWeight.Bold)
+                TijarioTextField(
+                    label = t("search_placeholder"),
+                    value = dialCodeQuery,
+                    onValueChange = { dialCodeQuery = it },
+                )
+                LazyColumn(
+                    modifier = Modifier.heightIn(max = 420.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    items(filteredOptions, key = { it.countryCode }) { option ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickable {
+                                    selectedDialCode = option.dialCode
+                                    onDialCodeChange?.invoke(option.dialCode)
+                                    onCountryCodeSelected?.invoke(option)
+                                    onValueChange(normalizePhoneWithDialCode(option.dialCode, parts.localNumber))
+                                    showDialCodeSheet = false
+                                }
+                                .padding(horizontal = 12.dp, vertical = 14.dp),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(option.flag)
+                            Text(
+                                text = if (language == app.tijario.config.AppLanguage.AR) option.nameAr else option.nameEn,
+                                modifier = Modifier.weight(1f),
+                                maxLines = 1,
+                            )
+                            Text(option.dialCode, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
+            }
         }
     }
 }

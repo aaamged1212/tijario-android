@@ -103,6 +103,7 @@ import app.tijario.domain.DocumentNumbering
 import app.tijario.domain.CreationTarget
 import app.tijario.domain.CountryCatalog
 import app.tijario.domain.CurrencyCatalog
+import app.tijario.domain.filterCurrencyOptions
 import app.tijario.domain.Validation
 import app.tijario.domain.creationTargetForErrorCode
 import app.tijario.domain.limitErrorCode
@@ -488,6 +489,7 @@ fun CustomerFormScreen(
     dataViewModel: TijarioDataViewModel,
     customerId: String? = null,
     onBack: () -> Unit,
+    onCustomerSaved: (app.tijario.data.model.Customer) -> Unit = {},
     onUpgrade: () -> Unit = {},
 ) {
     val language = LocalLanguage.current
@@ -611,6 +613,7 @@ fun CustomerFormScreen(
                                         dataViewModel.createCustomer(customer)
                                     }
                                     if (result.isSuccess) {
+                                        onCustomerSaved(customer)
                                         onBack()
                                     } else {
                                         val target = creationTargetForErrorCode(result.exceptionOrNull()?.message)
@@ -779,6 +782,7 @@ fun ProductFormScreen(
     dataViewModel: TijarioDataViewModel,
     productId: String? = null,
     onBack: () -> Unit,
+    onProductSaved: (Product) -> Unit = {},
     onUpgrade: () -> Unit = {},
 ) {
     val language = LocalLanguage.current
@@ -1098,6 +1102,7 @@ fun ProductFormScreen(
                                                 destFile.delete()
                                             }
                                         }
+                                        onProductSaved(product)
                                         onBack()
                                     } else {
                                         val target = creationTargetForErrorCode(result.exceptionOrNull()?.message)
@@ -2492,10 +2497,11 @@ fun DocumentFormScreen(
     onNavigateToSelectCustomer: () -> Unit = {},
     onNavigateToSelectProduct: (Int) -> Unit = {},
     onNavigateToCreateCustomer: () -> Unit = {},
-    onNavigateToCreateProduct: () -> Unit = {},
+    onNavigateToCreateProduct: (Int) -> Unit = {},
     selectedCustomer: app.tijario.data.model.Customer? = null,
     selectedProduct: app.tijario.data.model.Product? = null,
     selectedProductRowIndex: Int? = null,
+    onSelectedCustomerConsumed: () -> Unit = {},
     onSelectedProductConsumed: () -> Unit = {},
     onNavigateToBusinessSettings: () -> Unit = {},
     onUpgrade: () -> Unit = {},
@@ -2578,21 +2584,26 @@ fun DocumentFormScreen(
 
     var suggestedDocumentNumber by rememberSaveable(type) { mutableStateOf("") }
     var isLoadingNextDocumentNumber by rememberSaveable(isEditMode, type) { mutableStateOf(false) }
-    val localDraftDocumentNumber = remember(uiState.documents, type) {
-        nextLocalDocumentNumber(uiState.documents, type)
-    }
 
-    LaunchedEffect(isEditMode, localDraftDocumentNumber) {
+    LaunchedEffect(isEditMode, type) {
         if (isEditMode) {
             isLoadingNextDocumentNumber = false
             return@LaunchedEffect
         }
-        isLoadingNextDocumentNumber = false
-        val shouldApplyLocalNumber = !documentNumberEditedByUser &&
-            (form.documentNumber.isBlank() || form.documentNumber == suggestedDocumentNumber)
-        suggestedDocumentNumber = localDraftDocumentNumber
-        if (shouldApplyLocalNumber) {
-            form = form.copy(documentNumber = localDraftDocumentNumber)
+        isLoadingNextDocumentNumber = true
+        try {
+            val nextNumber = runCatching {
+                dataViewModel.getNextDocumentNumber(type.name).data?.documentNumber
+            }.getOrNull()
+                ?: nextLocalDocumentNumber(uiState.documents, type)
+            val shouldApplyLocalNumber = !documentNumberEditedByUser &&
+                (form.documentNumber.isBlank() || form.documentNumber == suggestedDocumentNumber)
+            suggestedDocumentNumber = nextNumber
+            if (shouldApplyLocalNumber) {
+                form = form.copy(documentNumber = nextNumber)
+            }
+        } finally {
+            isLoadingNextDocumentNumber = false
         }
     }
 
@@ -2783,6 +2794,7 @@ fun DocumentFormScreen(
                     customerWhatsapp = it.whatsappNumber,
                     customerCity = it.city
                 )
+                onSelectedCustomerConsumed()
             }
         }
     }
@@ -4094,10 +4106,12 @@ fun DocumentFormScreen(
                             showCustomerPickerSheet = false
                             onNavigateToCreateCustomer()
                         },
+                        modifier = Modifier.height(40.dp),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
                     ) {
                         Icon(Icons.Filled.Add, contentDescription = null)
                         Spacer(Modifier.width(4.dp))
-                        Text(t("btn_add_customer"))
+                        Text(t("picker_new"))
                     }
                 }
                 LazyColumn(
@@ -4164,12 +4178,14 @@ fun DocumentFormScreen(
                     OutlinedButton(
                         onClick = {
                             showProductPickerRowIndex = null
-                            onNavigateToCreateProduct()
+                            onNavigateToCreateProduct(rowIndex)
                         },
+                        modifier = Modifier.height(40.dp),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
                     ) {
                         Icon(Icons.Filled.Add, contentDescription = null)
                         Spacer(Modifier.width(4.dp))
-                        Text(t("btn_add_product"))
+                        Text(t("picker_new"))
                     }
                 }
                 LazyColumn(
@@ -4375,7 +4391,10 @@ fun CurrencyPickerDialog(
     onSelect: (String) -> Unit
 ) {
     val language = LocalLanguage.current
-    val currencies = CurrencyCatalog.options
+    var query by rememberSaveable { mutableStateOf("") }
+    val currencies = remember(query, language) {
+        filterCurrencyOptions(query, language)
+    }
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = MaterialTheme.colorScheme.surface) {
         Card(
             shape = RoundedCornerShape(16.dp),
@@ -4390,6 +4409,12 @@ fun CurrencyPickerDialog(
                     text = Localization.getString("select_currency", language),
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp
+                )
+                TijarioTextField(
+                    label = t("search_placeholder"),
+                    value = query,
+                    onValueChange = { query = it },
+                    leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
                 )
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(1),

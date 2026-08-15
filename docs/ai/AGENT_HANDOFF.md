@@ -1,5 +1,19 @@
 # Agent Handoff (Android & Web Repos)
 
+## 2026-08-15 (document update item preservation, local)
+- **Root cause**: `updateDocumentLocal` inserted replacement item rows before calling Room `upsertDocument`. The DAO uses `REPLACE`, which deletes the parent row and its cascading child rows, leaving an itemless `LOCAL_ONLY` document after a seemingly successful edit.
+- **Correction**: The same Room transaction now writes the document parent first, clears old items, then inserts replacement items. This preserves the new item rows and keeps the edited document reopenable offline.
+- **Recovery**: An itemless local document with a persisted server revision can hydrate the last complete server snapshot when online. A purely local itemless record remains protected and returns the typed missing-items state. Item edits already deleted by the prior defect cannot be reconstructed from Room.
+- **Validation**: Focused repository tests passed, including ordering and recovery coverage; `assembleDebug` passed. No device was connected.
+- **Safety Status**: No commit, push, merge, backend/Web change, migration, Production write, external configuration change, or Google Play upload occurred. `.agents` remains local and excluded.
+
+## 2026-08-15 (document cache hydration and picker flow, local)
+- **Branch**: `fix/android-runtime-critical-fixes`.
+- **Documents**: The detail loader now renders complete Room snapshots offline and, for replaceable legacy cloud summaries with missing item rows, hydrates the complete document once from the mobile detail endpoint and atomically caches its items. Protected local states are never overwritten. Missing legacy items now return a typed local state rather than falling through to an incorrect quote detail title or a generic failure.
+- **Form and pickers**: New document numbers query Room history at form opening. Customer/product creation launched from a document returns the new record directly to the active form. Country calling codes and product currencies use searchable bottom sheets; picker creation actions are compact `+ New` controls.
+- **Validation**: 59 focused JVM tests passed and `assembleDebug` passed locally. Physical QA remains required, especially opening one historical cloud document online once before testing it offline if its old local cache never contained items.
+- **Safety Status**: No commit, push, merge, backend/Web change, migration, Production write, external configuration change, or Google Play upload occurred. `.agents` remains local and excluded.
+
 ## 2026-08-13 (Room-first operational storage for every account, local)
 - **Architecture correction**: Android operational seller data now uses Room for every signed entitlement data mode, including historical `legacy_cloud`. Customer, product/service, and document compatibility entry points no longer create operational outbox work or require cloud CRUD. Existing cloud records and historical outbox rows are retained but are not imported, deleted, or sent automatically.
 - **Business settings**: Store settings persist to Room first and return success after the local transaction. A best-effort Supabase mirror runs asynchronously; an empty local store may hydrate settings once from the server, while initialized local settings are never replaced by a refresh.

@@ -561,3 +561,13 @@
 - Document ordering now uses creation time and stable local metadata rather than the display number. New local documents persist a timestamp at creation.
 - Store/onboarding country and phone-code selection now share the full catalog with country flags. Currency labels include their country and flag, and products retain an explicitly chosen price currency.
 - Product selection prevents invoice stock over-allocation and can add local stock explicitly from the item editor. Customer and product creation remain available from populated pickers.
+
+# 2026-08-15 - Offline document hydration and document picker continuity
+- Complete documents already cached in Room now open and edit offline without a network request. A legacy synced summary that has no cached item rows hydrates once from the existing detail endpoint when online, atomically caches its items, and remains available afterward; protected local records are not overwritten.
+- New document numbering reads Room history at form opening. Customer/product creation from document pickers immediately returns the created record to the active form. Calling-code and currency selectors are searchable bottom sheets, and their in-picker creation action is compact.
+- Focused JVM tests (59) and Debug assembly passed locally. No commit, push, deployment, migration, Production change, or Play action occurred.
+
+# 2026-08-15 - Preserve document items during Room updates
+- Room `REPLACE` semantics were cascading newly inserted document items because the update transaction inserted them before replacing the document parent. The transaction now replaces the parent first, then writes the replacement item set.
+- A server-backed document left itemless by the prior defect can recover its last complete server snapshot when online. Purely local records remain protected from remote replacement.
+- Focused repository tests and Debug assembly passed locally. No external action occurred.

@@ -169,3 +169,31 @@ object CurrencyCatalog {
             .replace(" - ${country?.flag}", " ${country?.flag}")
     }
 }
+
+fun filterDialCodeOptions(
+    query: String,
+    language: AppLanguage,
+    options: List<DialCodeOption> = CountryCatalog.dialCodeOptions,
+): List<DialCodeOption> {
+    val normalizedQuery = query.trim()
+    if (normalizedQuery.isBlank()) return options
+    return options.filter { option ->
+        option.dialCode.contains(normalizedQuery, ignoreCase = true) ||
+            option.countryCode.contains(normalizedQuery, ignoreCase = true) ||
+            option.label(language).contains(normalizedQuery, ignoreCase = true)
+    }
+}
+
+fun filterCurrencyOptions(
+    query: String,
+    language: AppLanguage,
+    options: List<CurrencyOption> = CurrencyCatalog.options,
+): List<CurrencyOption> {
+    val normalizedQuery = query.trim()
+    if (normalizedQuery.isBlank()) return options
+    return options.filter { currency ->
+        currency.code.contains(normalizedQuery, ignoreCase = true) ||
+            CurrencyCatalog.display(currency.code, language)
+                .contains(normalizedQuery, ignoreCase = true)
+    }
+}
