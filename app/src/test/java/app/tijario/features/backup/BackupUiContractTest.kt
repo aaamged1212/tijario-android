@@ -40,6 +40,21 @@ class BackupUiContractTest {
     }
 
     @Test
+    fun backupScreen_groupsCompactLocalActionsAndKeepsClearSections() {
+        val source = File("src/main/java/app/tijario/ui/screens/BackupSettingsScreen.kt").readText()
+        val localSection = source
+            .substringAfter("BackupSectionTitle(Icons.Filled.Folder")
+            .substringBefore("BackupSectionTitle(Icons.Filled.Schedule")
+
+        assertTrue(source.contains("private fun BackupSectionTitle"))
+        assertTrue(localSection.contains("startPhoneBackup"))
+        assertTrue(localSection.contains("restoreLauncher.launch"))
+        assertTrue(source.contains("BackupSectionTitle(Icons.Filled.CloudDownload"))
+        assertTrue(source.contains("BackupSectionTitle(Icons.Filled.Restore"))
+        assertTrue(source.contains("verticalArrangement = Arrangement.spacedBy(10.dp)"))
+    }
+
+    @Test
     fun oversizedArchivesAreRejectedBeforeRestore() {
         val source = File("src/main/java/app/tijario/features/backup/BackupViewModel.kt").readText()
         val restoreWorker = File("src/main/java/app/tijario/features/backup/BackupRestoreWorker.kt").readText()

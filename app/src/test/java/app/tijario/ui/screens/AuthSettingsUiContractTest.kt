@@ -36,21 +36,33 @@ class AuthSettingsUiContractTest {
         assertFalse(settingsHome.contains("HorizontalDivider"))
 
         assertTrue(settingsSource.contains("fun PaymentsSubscriptionsScreen"))
+        assertTrue(settingsSource.contains("fun PersonalProfileScreen"))
         assertTrue(settingsSource.contains("CurrentPlanUsageCard"))
+        assertTrue(navigationSource.contains("composable(\"personal-profile\")"))
         assertTrue(navigationSource.contains("composable(\"payments-subscriptions\")"))
         assertTrue(navigationSource.contains("navController.navigateSingleTop(\"payments-subscriptions\")"))
         assertTrue(navigationSource.contains("SettingsHomeScreen(\n                        dataViewModel = dataViewModel"))
     }
 
     @Test
-    fun appSettings_usesBottomSheetsForSystemAwareLanguageAndTheme() {
+    fun appSettings_usesExplicitLanguagesAndSystemAwareThemeBottomSheets() {
         val appSettings = settingsSource
             .substringAfter("fun AppSettingsScreen")
             .substringBefore("private fun LocalNotificationSettingsSection")
+        val languageSheet = appSettings
+            .substringAfter("if (showLanguageSheet)")
+            .substringBefore("if (showThemeSheet)")
+        val languageOptions = languageSheet
+            .substringAfter("options = listOf(")
+            .substringBefore("onDismiss =")
 
         assertTrue(appSettings.contains("SettingsSelectionBottomSheet"))
-        assertTrue(appSettings.contains("AppLanguageMode.SYSTEM"))
+        assertFalse(languageOptions.contains("AppLanguageMode.SYSTEM"))
+        assertTrue(languageOptions.contains("AppLanguageMode.ARABIC"))
+        assertTrue(languageOptions.contains("AppLanguageMode.ENGLISH"))
         assertTrue(appSettings.contains("AppThemeMode.SYSTEM"))
+        assertTrue(appSettings.contains("Icons.Filled.Translate"))
+        assertTrue(appSettings.contains("Icons.Filled.SettingsBrightness"))
         assertTrue(appSettings.contains("AppPreferences.setLanguageMode"))
         assertTrue(appSettings.contains("AppPreferences.setThemeMode"))
         assertFalse(appSettings.contains("AlertDialog"))

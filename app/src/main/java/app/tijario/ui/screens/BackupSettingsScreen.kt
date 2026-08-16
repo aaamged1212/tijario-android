@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Restore
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -59,12 +60,14 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.tijario.config.LocalLanguage
@@ -224,20 +227,24 @@ fun BackupSettingsScreen(
                 .background(MaterialTheme.colorScheme.background)
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+                .padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Card(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                shape = RoundedCornerShape(20.dp),
+                shape = RoundedCornerShape(16.dp),
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Column(
-                    modifier = Modifier.padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Text(t("backup_local_title"), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                    Text(t("backup_local_description"), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    BackupSectionTitle(Icons.Filled.Folder, t("backup_local_title"))
+                    Text(
+                        t("backup_local_description"),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
                     state.latestBackup?.let { record ->
                         Text(
                             text = "${t("backup_last_created")}: ${formatBackupTime(record.createdAt, language.name)}",
@@ -271,19 +278,66 @@ fun BackupSettingsScreen(
                             modifier = Modifier.fillMaxWidth(),
                         ) { Text(t("backup_phone_folder_default")) }
                     }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Button(
+                            onClick = startPhoneBackup,
+                            enabled = !state.isBusy && userId.isNotBlank(),
+                            modifier = Modifier.weight(1f).height(46.dp),
+                            shape = RoundedCornerShape(12.dp),
+                        ) {
+                            Icon(Icons.Filled.Backup, contentDescription = null)
+                            Spacer(Modifier.padding(3.dp))
+                            Text(t("backup_save_to_phone"), fontWeight = FontWeight.Bold, fontSize = 11.sp, maxLines = 1)
+                        }
+                        OutlinedButton(
+                            onClick = { startTrackedOperation { restoreLauncher.launch(arrayOf("application/octet-stream", "application/zip", "application/x-tijario-backup")) } },
+                            enabled = !state.isBusy && userId.isNotBlank(),
+                            modifier = Modifier.weight(1f).height(46.dp),
+                            shape = RoundedCornerShape(12.dp),
+                        ) {
+                            Icon(Icons.Filled.Restore, contentDescription = null)
+                            Spacer(Modifier.padding(3.dp))
+                            Text(t("backup_restore_file"), fontWeight = FontWeight.Bold, fontSize = 11.sp, maxLines = 1)
+                        }
+                    }
+                    state.latestBackup?.let {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                            TextButton(
+                                onClick = { backupViewModel.requestShareLatestBackup(preferTelegram = false) },
+                                enabled = !state.isBusy,
+                                modifier = Modifier.weight(1f),
+                            ) {
+                                Icon(Icons.Filled.Share, contentDescription = null)
+                                Spacer(Modifier.padding(3.dp))
+                                Text(t("backup_share"))
+                            }
+                            TextButton(
+                                onClick = { backupViewModel.requestShareLatestBackup(preferTelegram = true) },
+                                enabled = !state.isBusy,
+                                modifier = Modifier.weight(1f),
+                            ) {
+                                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null)
+                                Spacer(Modifier.padding(3.dp))
+                                Text(t("backup_telegram"))
+                            }
+                        }
+                    }
                 }
             }
 
             Card(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                shape = RoundedCornerShape(20.dp),
+                shape = RoundedCornerShape(16.dp),
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Column(
-                    modifier = Modifier.padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    Text(t("backup_schedule"), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                    BackupSectionTitle(Icons.Filled.Schedule, t("backup_schedule"))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -338,14 +392,14 @@ fun BackupSettingsScreen(
 
             Card(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                shape = RoundedCornerShape(20.dp),
+                shape = RoundedCornerShape(16.dp),
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Column(
-                    modifier = Modifier.padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Text(t("backup_drive_title"), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                    BackupSectionTitle(Icons.Filled.CloudDownload, t("backup_drive_title"))
                     Text(
                         when (state.driveConnectionState) {
                             DriveConnectionState.NotConfigured -> t("backup_drive_not_configured")
@@ -461,51 +515,17 @@ fun BackupSettingsScreen(
                 }
             }
 
-            Button(
-                onClick = startPhoneBackup,
-                enabled = !state.isBusy && userId.isNotBlank(),
-                modifier = Modifier.fillMaxWidth().height(52.dp),
-                shape = RoundedCornerShape(16.dp),
-            ) {
-                Icon(Icons.Filled.Backup, contentDescription = null)
-                Spacer(Modifier.padding(4.dp))
-                Text(t("backup_save_to_phone"), fontWeight = FontWeight.Bold)
-            }
-
-            state.latestBackup?.let {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                    OutlinedButton(
-                        onClick = { backupViewModel.requestShareLatestBackup(preferTelegram = false) },
-                        enabled = !state.isBusy,
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        Icon(Icons.Filled.Share, contentDescription = null)
-                        Spacer(Modifier.padding(4.dp))
-                        Text(t("backup_share"))
-                    }
-                    OutlinedButton(
-                        onClick = { backupViewModel.requestShareLatestBackup(preferTelegram = true) },
-                        enabled = !state.isBusy,
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null)
-                        Spacer(Modifier.padding(4.dp))
-                        Text(t("backup_telegram"))
-                    }
-                }
-            }
-
             if (state.history.isNotEmpty()) {
                 Card(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    shape = RoundedCornerShape(20.dp),
+                    shape = RoundedCornerShape(16.dp),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Column(
-                        modifier = Modifier.padding(20.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        Text(t("backup_history"), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                        BackupSectionTitle(Icons.Filled.Restore, t("backup_history"))
                         state.history.take(10).forEach { record ->
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -543,17 +563,6 @@ fun BackupSettingsScreen(
                         }
                     }
                 }
-            }
-
-            OutlinedButton(
-                onClick = { startTrackedOperation { restoreLauncher.launch(arrayOf("application/octet-stream", "application/zip", "application/x-tijario-backup")) } },
-                enabled = !state.isBusy && userId.isNotBlank(),
-                modifier = Modifier.fillMaxWidth().height(52.dp),
-                shape = RoundedCornerShape(16.dp),
-            ) {
-                Icon(Icons.Filled.Restore, contentDescription = null)
-                Spacer(Modifier.padding(4.dp))
-                Text(t("backup_restore_file"), fontWeight = FontWeight.Bold)
             }
 
             if (state.isBusy) {
@@ -679,6 +688,25 @@ fun BackupSettingsScreen(
             dismissButton = {
                 TextButton(onClick = { showLegacyFolderChoice = false }) { Text(t("cancel")) }
             },
+        )
+    }
+}
+
+@Composable
+private fun BackupSectionTitle(icon: ImageVector, title: String) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+        )
+        Text(
+            text = title,
+            fontWeight = FontWeight.Bold,
+            style = MaterialTheme.typography.titleSmall,
         )
     }
 }

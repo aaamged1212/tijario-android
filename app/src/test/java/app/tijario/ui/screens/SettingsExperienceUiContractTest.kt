@@ -38,6 +38,34 @@ class SettingsExperienceUiContractTest {
     }
 
     @Test
+    fun settingsHome_ordersSectionsAndSeparatesProfileFromAccountActions() {
+        val settingsHome = settingsSource
+            .substringAfter("fun SettingsHomeScreen")
+            .substringBefore("private fun SettingsPlanBanner")
+        val options = settingsHome.substringAfter("SettingsOption(Icons.Outlined.BusinessCenter")
+
+        assertTrue(options.indexOf("account_settings") < options.indexOf("app_settings"))
+        assertTrue(options.indexOf("app_settings") < options.indexOf("payments_subscriptions"))
+        assertTrue(options.indexOf("payments_subscriptions") < options.indexOf("backup_restore"))
+        assertTrue(settingsHome.contains("onPersonalProfile"))
+        assertTrue(settingsSource.contains("fun PersonalProfileScreen"))
+        assertTrue(settingsSource.contains("if (isEditingName) Icons.Filled.Check else Icons.Filled.Edit"))
+        assertTrue(settingsSource.contains("delete_account_short_desc"))
+    }
+
+    @Test
+    fun planBanner_showsUpgradeOnlyForFreeAndStarterPlans() {
+        val planBanner = settingsSource
+            .substringAfter("private fun SettingsPlanBanner")
+            .substringBefore("private fun SettingsProfileCard")
+
+        assertTrue(planBanner.contains("planCode == \"free\" || planCode == \"starter\""))
+        assertTrue(planBanner.contains("if (canUpgrade)"))
+        assertTrue(planBanner.contains("onUpgrade"))
+        assertFalse(planBanner.contains("Icons.AutoMirrored.Filled.KeyboardArrowRight"))
+    }
+
+    @Test
     fun pricingPlans_renderImmediatelyInHorizontalPagerWithOnlyProHighlighted() {
         val pricingSection = settingsSource
             .substringAfter("private fun PricingPlansSection")

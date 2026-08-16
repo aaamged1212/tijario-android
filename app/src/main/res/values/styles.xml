@@ -1,12 +1,12 @@
 <resources>
     <style name="Theme.Tijario.Splash" parent="Theme.SplashScreen">
-        <item name="windowSplashScreenBackground">#0F766E</item>
-        <item name="windowSplashScreenAnimatedIcon">@drawable/logo_app</item>
-        <item name="windowSplashScreenIconBackgroundColor">#0F766E</item>
+        <item name="windowSplashScreenBackground">@color/tijario_splash_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/tijario_splash_icon</item>
         <item name="postSplashScreenTheme">@style/Theme.Tijario</item>
-        <item name="android:windowBackground">#0F766E</item>
-        <item name="android:statusBarColor">#0F766E</item>
-        <item name="android:navigationBarColor">#0F766E</item>
+        <item name="android:windowBackground">@color/tijario_splash_background</item>
+        <item name="android:statusBarColor">@color/tijario_splash_background</item>
+        <item name="android:navigationBarColor">@color/tijario_splash_background</item>
+        <item name="android:windowLightStatusBar">false</item>
     </style>
 
     <style name="Theme.Tijario" parent="android:style/Theme.Material.Light.NoActionBar">

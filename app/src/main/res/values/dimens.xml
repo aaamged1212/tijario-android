@@ -1,0 +1,4 @@
+<resources>
+    <!-- Keeps the supplied logo within Android's 160dp splash-icon safe circle. -->
+    <dimen name="tijario_splash_logo_size">160dp</dimen>
+</resources>

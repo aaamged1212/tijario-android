@@ -1,5 +1,11 @@
 # Pending Release
 
+## 2026-08-16 Android splash visual QA gate
+- Cold-launch the app on Android 12 or newer in both light and dark system themes. Confirm the full Tijario mark is centered, none of its four segments is cropped, and the neutral icon surface separates both brand colors from the background.
+- Cold-launch on one pre-Android-12 device or emulator to verify the SplashScreen compatibility implementation uses the same scale and background.
+- Confirm the transition from the system splash to the Compose startup state does not visibly jump in logo shape, crop, or alignment.
+- No backend deployment, Supabase migration, Production configuration, or Google Play action is required for this Android-only visual correction.
+
 ## 2026-08-16 settings and plan-carousel QA gate
 - In Business Settings, open Currency and verify a searchable bottom sheet lists the full catalog, persists a selection, and remains readable in Arabic RTL and English LTR.
 - In App Settings, select Device language, Arabic, and English; then select Device theme, Light, and Dark. Restart after each explicit choice and verify persistence, then change the device configuration while System is selected and verify the app follows it after recreation.
@@ -169,3 +175,10 @@ The counters migration is required to manage sequential document numbers without
 - Attempt to add a product with a different saved currency from the document. It must be disabled with the localized explanation and final save must reject any stale mismatched item.
 - Confirm the product picker shows the exact remaining stock for tracked products after adding the same product to another invoice row.
 - Check reply and caption output in Arabic and English for customer/product, tone, dialect, platform, offer, benefit, and length controls. Confirm private contact data is never sent or displayed.
+
+## 2026-08-16 Navigation and Splash Visual QA Gate
+- Cold-start the app in light and dark device modes and confirm the transparent Tijario mark is fully visible on the dark splash background with no white plate or clipped edges.
+- Verify Arabic and English headers: Home stays at the start edge with `تجاريو / Tijario`; Documents, AI, Products, and Customers remain centered on compact screens.
+- Verify the profile card opens only name/email, inline pencil/check editing saves correctly, and Account Settings still exposes password, subscription sync, logout, and deletion.
+- Verify Free and Starter show the gold upgrade action, Pro does not, and tapping the surrounding plan card opens the current-plan page.
+- Verify Arabic/English and Device (Automatic)/Light/Dark bottom sheets, plus local/Drive backup actions, restore, sharing, scheduling, and history on a physical device.

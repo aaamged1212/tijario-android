@@ -1,5 +1,10 @@
 # Project State (Android & Web Repos)
 
+## 2026-08-16 - Android startup branding
+- The Android system splash no longer renders the full-bleed launcher bitmap. It uses the approved transparent brand mark inside the platform's 160dp safe area with an icon background that preserves contrast.
+- Startup background and system-bar contrast follow Android day/night resources. The Compose fallback splash uses the same source asset without clipping and follows the active Material color scheme.
+- Focused splash tests and Debug APK assembly passed. No backend, migration, deployment, push, merge, external configuration, or Play action occurred; physical startup QA remains pending.
+
 ## 2026-08-16 - Settings selection and pricing presentation
 - App preference persistence now distinguishes System, Light, and Dark appearance while remaining compatible with the legacy dark-mode boolean. Language similarly distinguishes device language from explicit Arabic or English.
 - Settings displays cached plan/profile context before compact navigation rows. Business currency and app preference choices use bottom sheets; settings action rows use spacing instead of divider lines.
@@ -225,4 +230,10 @@
 ## 2026-08-16 Preview, Currency, and AI Follow-up
 - **State**: Local uncommitted Android changes make the draft preview use the same cached business-logo source as the PDF path. Document item selection and saving consistently reject cross-currency products, and the picker shows remaining tracked stock after current invoice reservations. The bounded AI V3 snapshot now includes product category and its actual currency.
 - **Validation**: 58 focused JVM tests and `assembleDebug` passed. Physical device verification remains pending.
+- **Safety**: No commit, push, deployment, migration, Production write, external configuration change, or Google Play upload occurred.
+
+## 2026-08-16 Navigation and Settings UI Follow-up
+- **State**: Local uncommitted Android UI changes apply Tijario branding to core headers, center child tab titles, separate personal profile editing from account security, add plan-aware upgrade controls, and make language/theme choices explicit and brand-colored.
+- **Backup and splash**: Backup actions are grouped into compact sections without changing repositories or workers. The system and Compose splash layers now share the exact transparent brand asset on a dark background with no white icon plate.
+- **Validation**: 17 focused JVM tests, `assembleDebugAndroidTest`, `assembleDebug`, and `lintDebug` passed. Physical RTL/LTR and cold-start visual QA remains pending.
 - **Safety**: No commit, push, deployment, migration, Production write, external configuration change, or Google Play upload occurred.

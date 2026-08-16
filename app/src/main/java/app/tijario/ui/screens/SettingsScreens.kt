@@ -32,7 +32,9 @@ import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Business
 import androidx.compose.material.icons.filled.DarkMode
-import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.filled.SettingsBrightness
+import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.RocketLaunch
 import androidx.compose.material.icons.filled.Settings
@@ -58,8 +60,6 @@ import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.ui.platform.LocalContext
 import java.io.File
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
@@ -139,7 +139,9 @@ fun SettingsHomeScreen(
     dataViewModel: TijarioDataViewModel,
     onBack: () -> Unit,
     onStoreSettings: () -> Unit,
+    onPersonalProfile: () -> Unit,
     onPaymentsSubscriptions: () -> Unit,
+    onUpgradePlan: () -> Unit,
     onAccountSettings: () -> Unit,
     onAppSettings: () -> Unit,
     onBackupSettings: () -> Unit,
@@ -186,7 +188,8 @@ fun SettingsHomeScreen(
         ) {
             SettingsPlanBanner(
                 state = planUsageState,
-                onClick = onPaymentsSubscriptions,
+                onOpenPlan = onPaymentsSubscriptions,
+                onUpgrade = onUpgradePlan,
             )
 
             SettingsProfileCard(
@@ -195,7 +198,7 @@ fun SettingsHomeScreen(
                 },
                 email = profileEmail,
                 profileBitmap = profilePicBitmap,
-                onClick = onAccountSettings,
+                onClick = onPersonalProfile,
             )
 
             Card(
@@ -208,9 +211,9 @@ fun SettingsHomeScreen(
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     SettingsOption(Icons.Outlined.BusinessCenter, t("store_settings"), onStoreSettings)
-                    SettingsOption(Icons.Outlined.CreditCard, t("payments_subscriptions"), onPaymentsSubscriptions)
                     SettingsOption(Icons.Outlined.Person, t("account_settings"), onAccountSettings)
                     SettingsOption(Icons.Outlined.Tune, t("app_settings"), onAppSettings)
+                    SettingsOption(Icons.Outlined.CreditCard, t("payments_subscriptions"), onPaymentsSubscriptions)
                     SettingsOption(Icons.Outlined.CloudSync, t("backup_restore"), onBackupSettings)
                 }
             }
@@ -246,8 +249,11 @@ fun SettingsHomeScreen(
 @Composable
 private fun SettingsPlanBanner(
     state: PlanUsageState,
-    onClick: () -> Unit,
+    onOpenPlan: () -> Unit,
+    onUpgrade: () -> Unit,
 ) {
+    val planCode = (state as? PlanUsageState.Success)?.value?.planCode?.lowercase()
+    val canUpgrade = planCode == "free" || planCode == "starter"
     val planName = when (state) {
         is PlanUsageState.Success -> when (state.value.planCode.lowercase()) {
             "free" -> t("free_plan")
@@ -260,7 +266,7 @@ private fun SettingsPlanBanner(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick),
+            .clickable(onClick = onOpenPlan),
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
@@ -299,11 +305,28 @@ private fun SettingsPlanBanner(
                     fontSize = 17.sp,
                 )
             }
-            Icon(
-                Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onPrimary,
-            )
+            if (canUpgrade) {
+                Surface(
+                    modifier = Modifier.clickable(onClick = onUpgrade),
+                    color = Color(0xFFFFC857).copy(alpha = 0.18f),
+                    contentColor = Color(0xFFFFD166),
+                    shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.dp, Color(0xFFFFD166).copy(alpha = 0.65f)),
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(5.dp),
+                    ) {
+                        Icon(
+                            Icons.Filled.WorkspacePremium,
+                            contentDescription = null,
+                            modifier = Modifier.size(15.dp),
+                        )
+                        Text(t("upgrade"), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    }
+                }
+            }
         }
     }
 }
@@ -531,6 +554,172 @@ private fun PlanUsageSkeleton() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+fun PersonalProfileScreen(
+    dataViewModel: TijarioDataViewModel,
+    onBack: () -> Unit,
+) {
+    val adaptive = LocalAdaptiveLayoutInfo.current
+    val context = LocalContext.current
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    val profilePicFile = remember { File(context.filesDir, "personal_profile_pic.jpg") }
+    var profilePicBitmap by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
+    var email by remember { mutableStateOf("") }
+    var profileFullName by remember { mutableStateOf("") }
+    var editNameValue by remember { mutableStateOf("") }
+    var editNameError by remember { mutableStateOf<String?>(null) }
+    var isEditingName by remember { mutableStateOf(false) }
+    var isSavingName by remember { mutableStateOf(false) }
+    val unknownUser = t("unknown_user")
+    val invalidName = t("edit_name_invalid")
+    val nameUpdated = t("name_updated")
+    val nameUpdateFailed = t("name_update_failed")
+
+    LaunchedEffect(Unit) {
+        email = Supabase.client.auth.currentUserOrNull()?.email.orEmpty()
+        profileFullName = dataViewModel.fetchCurrentProfileFullName().orEmpty()
+        editNameValue = profileFullName
+        profilePicBitmap = profilePicFile
+            .takeIf(File::exists)
+            ?.let { android.graphics.BitmapFactory.decodeFile(it.absolutePath) }
+    }
+
+    fun saveName() {
+        if (isSavingName) return
+        val normalized = editNameValue.trim()
+        if (normalized.length !in 2..80) {
+            editNameError = invalidName
+            return
+        }
+        scope.launch {
+            isSavingName = true
+            val result = dataViewModel.updateCurrentProfileFullName(normalized)
+            isSavingName = false
+            if (result.isSuccess) {
+                profileFullName = normalized
+                editNameValue = normalized
+                editNameError = null
+                isEditingName = false
+                snackbarHostState.showSnackbar(nameUpdated)
+            } else {
+                snackbarHostState.showSnackbar(nameUpdateFailed)
+            }
+        }
+    }
+
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = { Text(t("tab_personal_account"), fontWeight = FontWeight.Bold) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = t("btn_back"))
+                    }
+                },
+            )
+        },
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+                .padding(padding)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = adaptive.pageHorizontalPadding, vertical = adaptive.sectionSpacing),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Surface(
+                color = MaterialTheme.colorScheme.primaryContainer,
+                shape = CircleShape,
+                modifier = Modifier.size(72.dp),
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    if (profilePicBitmap != null) {
+                        Image(
+                            bitmap = profilePicBitmap!!.asImageBitmap(),
+                            contentDescription = null,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop,
+                        )
+                    } else {
+                        Text(
+                            text = profileFullName.trim().take(2).ifBlank { "T" },
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            fontWeight = FontWeight.Black,
+                            fontSize = 22.sp,
+                        )
+                    }
+                }
+            }
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    OutlinedTextField(
+                        value = editNameValue,
+                        onValueChange = {
+                            editNameValue = it
+                            editNameError = null
+                        },
+                        label = { Text(t("fullname")) },
+                        leadingIcon = { Icon(Icons.Filled.PersonOutline, contentDescription = null) },
+                        trailingIcon = {
+                            IconButton(
+                                onClick = {
+                                    if (isEditingName) {
+                                        saveName()
+                                    } else {
+                                        editNameValue = profileFullName
+                                        editNameError = null
+                                        isEditingName = true
+                                    }
+                                },
+                                enabled = !isSavingName,
+                            ) {
+                                if (isSavingName) {
+                                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                                } else {
+                                    Icon(
+                                        if (isEditingName) Icons.Filled.Check else Icons.Filled.Edit,
+                                        contentDescription = if (isEditingName) t("btn_save") else t("edit_name"),
+                                        tint = MaterialTheme.colorScheme.primary,
+                                    )
+                                }
+                            }
+                        },
+                        readOnly = !isEditingName,
+                        placeholder = { Text(unknownUser) },
+                        singleLine = true,
+                        isError = editNameError != null,
+                        supportingText = editNameError?.let { message -> { Text(message) } },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+
+                    OutlinedTextField(
+                        value = email.ifBlank { t("no_email_associated") },
+                        onValueChange = {},
+                        label = { Text(t("email")) },
+                        leadingIcon = { Icon(Icons.Filled.MailOutline, contentDescription = null) },
+                        readOnly = true,
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
 fun AccountSettingsScreen(
     dataViewModel: TijarioDataViewModel,
     onBack: () -> Unit,
@@ -540,21 +729,7 @@ fun AccountSettingsScreen(
 ) {
     val adaptive = LocalAdaptiveLayoutInfo.current
     val snackbarHostState = remember { SnackbarHostState() }
-    val noEmailMsg = t("no_email_associated")
-    val unexpectedErrorMsg = t("unexpected_error")
-    val unknownUserMsg = t("unknown_user")
-    val editNameInvalidMsg = t("edit_name_invalid")
-    val nameUpdatedMsg = t("name_updated")
-    val nameUpdateFailedMsg = t("name_update_failed")
-    val savingMsg = t("saving")
-    val btnSaveMsg = t("btn_save")
     val scope = rememberCoroutineScope()
-    var email by remember { mutableStateOf("") }
-    var profileFullName by remember { mutableStateOf("") }
-    var showEditNameDialog by remember { mutableStateOf(false) }
-    var editNameValue by remember { mutableStateOf("") }
-    var editNameError by remember { mutableStateOf<String?>(null) }
-    var isSavingName by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val language = LocalLanguage.current
     val subscriptionBillingViewModel: BillingViewModel = viewModel(
@@ -574,18 +749,8 @@ fun AccountSettingsScreen(
         }
     )
     val subscriptionBillingState by subscriptionBillingViewModel.state.collectAsStateWithLifecycle()
-    val profilePicFile = remember { File(context.filesDir, "personal_profile_pic.jpg") }
-    var profilePicBitmap by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var showLogoutConfirmation by remember { mutableStateOf(false) }
-
-    LaunchedEffect(Unit) {
-        email = Supabase.client.auth.currentUserOrNull()?.email.orEmpty()
-        profileFullName = dataViewModel.fetchCurrentProfileFullName().orEmpty()
-        if (profilePicFile.exists()) {
-            profilePicBitmap = android.graphics.BitmapFactory.decodeFile(profilePicFile.absolutePath)
-        }
-    }
 
     LaunchedEffect(subscriptionBillingViewModel) {
         subscriptionBillingViewModel.effects.collect { effect ->
@@ -613,36 +778,6 @@ fun AccountSettingsScreen(
         val errorKey = subscriptionBillingState.errorMessage ?: return@LaunchedEffect
         snackbarHostState.showSnackbar(billingMessage(errorKey, language))
     }
-
-    val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        if (uri != null) {
-            try {
-                context.contentResolver.openInputStream(uri)?.use { input ->
-                    val bytes = input.readBytes()
-                    profilePicFile.writeBytes(bytes)
-                }
-                profilePicBitmap = android.graphics.BitmapFactory.decodeFile(profilePicFile.absolutePath)
-            } catch (e: Exception) {
-                // Ignore
-            }
-        }
-    }
-
-    val userEmail = email.ifBlank { noEmailMsg }
-    val displayName = remember(profileFullName, unknownUserMsg) {
-        profileFullName.trim().ifBlank { unknownUserMsg }
-    }
-
-    fun maskEmail(mail: String): String {
-        if (!mail.contains("@")) return mail
-        val parts = mail.split("@")
-        val local = parts[0]
-        val domain = parts[1]
-        if (local.length <= 2) return "$local****@$domain"
-        return "${local.take(1)}******${local.takeLast(4)}@$domain"
-    }
-
-
 
     if (showDeleteConfirm) {
         AlertDialog(
@@ -672,83 +807,11 @@ fun AccountSettingsScreen(
         )
     }
 
-    if (showEditNameDialog) {
-        AlertDialog(
-            onDismissRequest = {
-                if (!isSavingName) {
-                    showEditNameDialog = false
-                    editNameError = null
-                }
-            },
-            title = { Text(t("edit_name"), fontWeight = FontWeight.Bold) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(t("edit_name_desc"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
-                    OutlinedTextField(
-                        value = editNameValue,
-                        onValueChange = {
-                            editNameValue = it
-                            editNameError = null
-                        },
-                        label = { Text(t("edit_name_label")) },
-                        singleLine = true,
-                        enabled = !isSavingName,
-                        isError = editNameError != null,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    editNameError?.let {
-                        Text(it, color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        if (isSavingName) return@TextButton
-                        val normalized = editNameValue.trim()
-                        if (normalized.length !in 2..80) {
-                            editNameError = editNameInvalidMsg
-                            return@TextButton
-                        }
-                        scope.launch {
-                            isSavingName = true
-                            val result = dataViewModel.updateCurrentProfileFullName(normalized)
-                            isSavingName = false
-                            if (result.isSuccess) {
-                                profileFullName = normalized
-                                editNameValue = normalized
-                                editNameError = null
-                                showEditNameDialog = false
-                                snackbarHostState.showSnackbar(nameUpdatedMsg)
-                            } else {
-                                snackbarHostState.showSnackbar(nameUpdateFailedMsg)
-                            }
-                        }
-                    },
-                    enabled = !isSavingName
-                ) {
-                    Text(if (isSavingName) savingMsg else btnSaveMsg)
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = {
-                        if (!isSavingName) {
-                            showEditNameDialog = false
-                            editNameError = null
-                        }
-                    },
-                    enabled = !isSavingName
-                ) { Text(t("btn_cancel")) }
-            }
-        )
-    }
-
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text(t("tab_personal_account"), fontWeight = FontWeight.Bold) },
+                title = { Text(t("account_settings"), fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = t("btn_back"))
@@ -763,324 +826,63 @@ fun AccountSettingsScreen(
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = adaptive.pageHorizontalPadding, vertical = adaptive.sectionSpacing),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            // Welcome Header Blue Gradient Card
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.Transparent)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .background(
-                            brush = Brush.verticalGradient(
-                                colors = listOf(Color(0xFF081C36), Color(0xFF0F2D54))
-                            )
-                        )
-                        .padding(adaptive.cardPadding)
-                        .fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column(
-                        modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Text(
-                            text = displayName,
-                            color = Color.White,
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Surface(
-                            color = Color(0xFF0D9488).copy(alpha = 0.2f),
-                            shape = RoundedCornerShape(6.dp),
-                            modifier = Modifier.align(Alignment.Start)
-                        ) {
-                            Text(
-                                text = t("personal_account"),
-                                color = Color(0xFF2DD4BF),
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
-                            )
-                        }
-                        Text(
-                            text = t("personal_account_desc"),
-                            color = Color.White.copy(alpha = 0.7f),
-                            fontSize = 11.sp,
-                            lineHeight = 14.sp
-                        )
-                    }
-
-                    // Avatar with edit badge
-                    Box(
-                        modifier = Modifier.clickable { photoPicker.launch("image/*") }
-                    ) {
-                        Surface(
-                            color = Color(0xFF0D9488),
-                            shape = CircleShape,
-                            modifier = Modifier.size(64.dp),
-                            border = BorderStroke(2.dp, Color.White)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                profilePicBitmap?.let { bitmap ->
-                                    Image(
-                                        bitmap = bitmap.asImageBitmap(),
-                                        contentDescription = null,
-                                        modifier = Modifier.fillMaxSize(),
-                                        contentScale = ContentScale.Crop
-                                    )
-                                } ?: run {
-                                    Text(
-                                        text = displayName.take(2),
-                                        color = Color.White,
-                                        fontWeight = FontWeight.Black,
-                                        fontSize = 24.sp
-                                    )
-                                }
-                            }
-                        }
-                        Surface(
-                            color = Color.White,
-                            shape = CircleShape,
-                            modifier = Modifier
-                                .size(22.dp)
-                                .align(Alignment.BottomStart)
-                                .offset(x = (-2).dp, y = 2.dp)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    imageVector = Icons.Filled.Edit,
-                                    contentDescription = null,
-                                    tint = Color(0xFF081C36),
-                                    modifier = Modifier.size(10.dp)
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Account info Card containing name and email
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
+                shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
             ) {
                 Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    modifier = Modifier.padding(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(Icons.Filled.Person, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp))
-                        Text(t("account_info"), fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                    }
-                    
-                    Spacer(modifier = Modifier.height(2.dp))
-
-                    // Full Name Row
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
-                            .padding(16.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(displayName, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Text(t("fullname"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
-                            Icon(Icons.Filled.PersonOutline, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f), modifier = Modifier.size(18.dp))
-                        }
-                    }
-
-                    OutlinedButton(
-                        onClick = {
-                            editNameValue = profileFullName
-                            editNameError = null
-                            showEditNameDialog = true
+                    CompactSettingsRow(
+                        icon = Icons.Filled.Lock,
+                        title = t("change_password"),
+                        onClick = onChangePassword,
+                    )
+                    CompactSettingsRow(
+                        icon = Icons.Filled.WorkspacePremium,
+                        title = if (subscriptionBillingState.isRestoring) {
+                            if (language == AppLanguage.AR) "جارٍ مزامنة الاشتراك..." else "Syncing subscription..."
+                        } else {
+                            if (language == AppLanguage.AR) "مزامنة الاشتراك" else "Sync subscription"
                         },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(t("edit_name"), fontWeight = FontWeight.Bold)
-                    }
-
-                    // Email Row
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
-                            .padding(16.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(maskEmail(userEmail), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Text(t("email"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
-                            Icon(Icons.Filled.MailOutline, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f), modifier = Modifier.size(18.dp))
-                        }
-                    }
-                }
-            }
-
-            // Change Password Row
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { onChangePassword() },
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-            ) {
-                Row(
-                    modifier = Modifier.padding(12.dp).fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Surface(
-                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.size(34.dp)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(Icons.Filled.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(18.dp))
-                            }
-                        }
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                t("change_password"),
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp,
-                            )
-                            Text(t("update_password_desc"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
-                        }
-                    }
-                }
-            }
-            // Manual subscription sync support action
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(enabled = !subscriptionBillingState.isRestoring) {
-                        subscriptionBillingViewModel.restorePurchases()
-                    },
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .padding(12.dp)
-                        .fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Surface(
-                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.size(34.dp)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    Icons.Filled.WorkspacePremium,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onSurface,
-                                    modifier = Modifier.size(18.dp)
+                        subtitle = if (language == AppLanguage.AR) {
+                            "استعادة اشتراك Google Play عند الحاجة"
+                        } else {
+                            "Restore your Google Play subscription when needed"
+                        },
+                        enabled = !subscriptionBillingState.isRestoring,
+                        onClick = subscriptionBillingViewModel::restorePurchases,
+                        trailing = if (subscriptionBillingState.isRestoring) {
+                            {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(18.dp),
+                                    strokeWidth = 2.dp,
                                 )
                             }
-                        }
-                        Column {
-                            Text(
-                                text = if (subscriptionBillingState.isRestoring) {
-                                    if (language == AppLanguage.AR) {
-                                        "جارٍ مزامنة الاشتراك..."
-                                    } else {
-                                        "Syncing subscription..."
-                                    }
-                                } else {
-                                    if (language == AppLanguage.AR) {
-                                        "مزامنة الاشتراك"
-                                    } else {
-                                        "Sync subscription"
-                                    }
-                                },
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp,
-                            )
-                            Text(
-                                text = if (language == AppLanguage.AR) {
-                                    "استخدمه إذا دفعت عبر Google Play ولم تظهر خطتك."
-                                } else {
-                                    "Use this if you paid through Google Play and your plan did not appear."
-                                },
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontSize = 11.sp,
-                            )
-                        }
-                    }
-
-                    if (subscriptionBillingState.isRestoring) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(18.dp),
-                            strokeWidth = 2.dp,
-                        )
-                    }
-                }
-            }
-
-            // Log Out Row
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { showLogoutConfirmation = true },
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-            ) {
-                Row(
-                    modifier = Modifier.padding(12.dp).fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Surface(
-                            color = Color(0xFFFCE8E6),
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.size(34.dp)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null, tint = Color(0xFFC5221F), modifier = Modifier.size(18.dp))
-                            }
-                        }
-                        Column {
-                            Text(t("logout"), fontWeight = FontWeight.Bold, color = Color(0xFFC5221F), fontSize = 14.sp)
-                            Text(t("logout_desc"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
-                        }
-                    }
+                        } else {
+                            null
+                        },
+                    )
+                    CompactSettingsRow(
+                        icon = Icons.AutoMirrored.Filled.Logout,
+                        title = t("logout"),
+                        titleColor = MaterialTheme.colorScheme.error,
+                        iconTint = MaterialTheme.colorScheme.error,
+                        onClick = { showLogoutConfirmation = true },
+                    )
+                    CompactSettingsRow(
+                        icon = Icons.Filled.DeleteForever,
+                        title = t("delete_account"),
+                        subtitle = t("delete_account_short_desc"),
+                        titleColor = MaterialTheme.colorScheme.error,
+                        iconTint = MaterialTheme.colorScheme.error,
+                        onClick = { showDeleteConfirm = true },
+                    )
                 }
             }
 
@@ -1095,40 +897,6 @@ fun AccountSettingsScreen(
                 )
             }
 
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { showDeleteConfirm = true },
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-            ) {
-                Row(
-                    modifier = Modifier.padding(12.dp).fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Surface(
-                            color = Color(0xFFFEE2E2),
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.size(34.dp)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(Icons.Filled.DeleteForever, contentDescription = null, tint = Color(0xFFB91C1C), modifier = Modifier.size(18.dp))
-                            }
-                        }
-                        Column {
-                            Text(t("delete_account"), fontWeight = FontWeight.Bold, color = Color(0xFFB91C1C), fontSize = 14.sp)
-                            Text(t("delete_account_desc"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
-                        }
-                    }
-                }
-            }
-
         }
     }
 }
@@ -1141,15 +909,22 @@ fun AppSettingsScreen(onBack: () -> Unit) {
     var themeMode by remember(context) { mutableStateOf(AppPreferences.getThemeMode(context)) }
     var showLanguageSheet by remember { mutableStateOf(false) }
     var showThemeSheet by remember { mutableStateOf(false) }
+    val effectiveLanguageMode = when (languageMode) {
+        AppLanguageMode.SYSTEM -> if (AppRuntimeState.currentLanguage == AppLanguage.AR) {
+            AppLanguageMode.ARABIC
+        } else {
+            AppLanguageMode.ENGLISH
+        }
+        else -> languageMode
+    }
 
     if (showLanguageSheet) {
         SettingsSelectionBottomSheet(
             title = t("settings_lang"),
-            selected = languageMode,
+            selected = effectiveLanguageMode,
             options = listOf(
-                SettingsSelectionOption(AppLanguageMode.SYSTEM, t("language_system")),
-                SettingsSelectionOption(AppLanguageMode.ARABIC, t("language_arabic")),
-                SettingsSelectionOption(AppLanguageMode.ENGLISH, t("language_english")),
+                SettingsSelectionOption(AppLanguageMode.ARABIC, t("language_arabic"), Icons.Filled.Translate),
+                SettingsSelectionOption(AppLanguageMode.ENGLISH, t("language_english"), Icons.Filled.Translate),
             ),
             onDismiss = { showLanguageSheet = false },
             onSelect = { selected ->
@@ -1166,9 +941,9 @@ fun AppSettingsScreen(onBack: () -> Unit) {
             title = t("settings_theme"),
             selected = themeMode,
             options = listOf(
-                SettingsSelectionOption(AppThemeMode.SYSTEM, t("theme_system")),
-                SettingsSelectionOption(AppThemeMode.LIGHT, t("theme_light")),
-                SettingsSelectionOption(AppThemeMode.DARK, t("theme_dark")),
+                SettingsSelectionOption(AppThemeMode.SYSTEM, t("theme_system"), Icons.Filled.SettingsBrightness),
+                SettingsSelectionOption(AppThemeMode.LIGHT, t("theme_light"), Icons.Filled.LightMode),
+                SettingsSelectionOption(AppThemeMode.DARK, t("theme_dark"), Icons.Filled.DarkMode),
             ),
             onDismiss = { showThemeSheet = false },
             onSelect = { selected ->
@@ -1212,18 +987,18 @@ fun AppSettingsScreen(onBack: () -> Unit) {
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     CompactSettingsRow(
-                        icon = Icons.Filled.Language,
+                        icon = Icons.Filled.Translate,
                         title = t("settings_lang"),
-                        subtitle = when (languageMode) {
-                            AppLanguageMode.SYSTEM -> t("language_system")
+                        subtitle = when (effectiveLanguageMode) {
                             AppLanguageMode.ARABIC -> t("language_arabic")
                             AppLanguageMode.ENGLISH -> t("language_english")
+                            AppLanguageMode.SYSTEM -> t("language_arabic")
                         },
                         onClick = { showLanguageSheet = true },
                     )
 
                     CompactSettingsRow(
-                        icon = Icons.Filled.DarkMode,
+                        icon = Icons.Filled.SettingsBrightness,
                         title = t("settings_theme"),
                         subtitle = when (themeMode) {
                             AppThemeMode.SYSTEM -> t("theme_system")
@@ -2802,6 +2577,7 @@ private fun SettingsOption(icon: ImageVector, title: String, onClick: () -> Unit
 private data class SettingsSelectionOption<T>(
     val value: T,
     val label: String,
+    val icon: ImageVector? = null,
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -2837,7 +2613,7 @@ private fun <T> SettingsSelectionBottomSheet(
                         .clip(RoundedCornerShape(14.dp))
                         .background(
                             if (isSelected) {
-                                MaterialTheme.colorScheme.primaryContainer
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
                             } else {
                                 MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
                             }
@@ -2847,9 +2623,22 @@ private fun <T> SettingsSelectionBottomSheet(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
+                    option.icon?.let { icon ->
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = null,
+                            tint = if (isSelected) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
                     Text(
                         text = option.label,
                         modifier = Modifier.weight(1f),
+                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                         fontSize = 15.sp,
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                     )
@@ -2873,6 +2662,9 @@ private fun CompactSettingsRow(
     icon: ImageVector,
     title: String,
     subtitle: String? = null,
+    enabled: Boolean = true,
+    titleColor: Color = MaterialTheme.colorScheme.onSurface,
+    iconTint: Color = MaterialTheme.colorScheme.onSurface,
     onClick: () -> Unit,
     trailing: (@Composable () -> Unit)? = null,
 ) {
@@ -2881,7 +2673,7 @@ private fun CompactSettingsRow(
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.32f))
-            .clickable(onClick = onClick)
+            .clickable(enabled = enabled, onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -2895,7 +2687,7 @@ private fun CompactSettingsRow(
                 Icon(
                     icon,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurface,
+                    tint = iconTint,
                     modifier = Modifier.size(18.dp),
                 )
             }
@@ -2904,7 +2696,13 @@ private fun CompactSettingsRow(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(1.dp),
         ) {
-            Text(title, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, maxLines = 1)
+            Text(
+                title,
+                color = titleColor,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 14.sp,
+                maxLines = 1,
+            )
             if (!subtitle.isNullOrBlank()) {
                 Text(
                     subtitle,

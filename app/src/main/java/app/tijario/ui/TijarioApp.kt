@@ -61,6 +61,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.dp
@@ -97,6 +98,7 @@ import app.tijario.ui.screens.VerifyEmailScreen
 import app.tijario.ui.screens.ProductsScreen
 import app.tijario.ui.screens.ProductFormScreen
 import app.tijario.ui.screens.AccountSettingsScreen
+import app.tijario.ui.screens.PersonalProfileScreen
 import app.tijario.ui.screens.AppSettingsScreen
 import app.tijario.ui.screens.ChangePasswordScreen
 import app.tijario.ui.screens.IntroWalkthroughScreen
@@ -528,19 +530,13 @@ private fun TijarioAppContent() {
                         topBar = {
                             val currentPage = pagerState.currentPage
                             val titleText = when (currentPage) {
-                                0 -> t("tab_home")
+                                0 -> t("app_name")
                                 1 -> t("documents_title")
                                 2 -> t("tab_ai")
                                 3 -> t("tab_products")
                                 else -> t("customers_title")
                             }
-                            val pageIcon = when (currentPage) {
-                                0 -> Icons.Filled.Home
-                                1 -> Icons.Filled.Description
-                                2 -> Icons.Filled.AutoAwesome
-                                3 -> Icons.Filled.ShoppingBag
-                                else -> Icons.Filled.People
-                            }
+                            val usesBrandLogo = currentPage == 0 || currentPage == 1 || currentPage == 3 || currentPage == 4
 
                             Surface(
                                 modifier = Modifier.fillMaxWidth(),
@@ -548,7 +544,7 @@ private fun TijarioAppContent() {
                                 tonalElevation = 0.dp,
                                 shadowElevation = 0.dp
                             ) {
-                                Row(
+                                Box(
                                     modifier = Modifier
                                         .statusBarsPadding()
                                         .fillMaxWidth()
@@ -556,32 +552,60 @@ private fun TijarioAppContent() {
                                             horizontal = adaptive.pageHorizontalPadding,
                                             vertical = if (adaptive.isExtraCompact) 8.dp else 12.dp,
                                         ),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.spacedBy(if (adaptive.isExtraCompact) 6.dp else 10.dp),
-                                        modifier = Modifier.weight(1f)
+                                        modifier = Modifier
+                                            .align(Alignment.CenterStart)
+                                            .padding(end = if (adaptive.isExtraCompact) 84.dp else 100.dp),
                                     ) {
-                                        Icon(
-                                            imageVector = pageIcon,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.onSurface,
-                                            modifier = Modifier.size(adaptive.iconSize)
-                                        )
+                                        if (usesBrandLogo) {
+                                            Image(
+                                                painter = painterResource(app.tijario.R.drawable.tijario_splash_logo),
+                                                contentDescription = t("app_logo_desc"),
+                                                contentScale = ContentScale.Fit,
+                                                modifier = Modifier.size(if (adaptive.isExtraCompact) 25.dp else 29.dp),
+                                            )
+                                        } else {
+                                            Icon(
+                                                imageVector = Icons.Filled.AutoAwesome,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.onSurface,
+                                                modifier = Modifier.size(adaptive.iconSize),
+                                            )
+                                        }
+                                        if (currentPage == 0) {
+                                            Text(
+                                                text = titleText,
+                                                fontSize = adaptive.titleFontSize,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.onSurface,
+                                                maxLines = 1,
+                                                softWrap = false,
+                                                overflow = TextOverflow.Ellipsis,
+                                            )
+                                        }
+                                    }
+                                    if (currentPage != 0) {
                                         Text(
                                             text = titleText,
                                             fontSize = adaptive.titleFontSize,
                                             fontWeight = FontWeight.Bold,
                                             color = MaterialTheme.colorScheme.onSurface,
-                                            modifier = Modifier.weight(1f),
+                                            modifier = Modifier
+                                                .align(Alignment.Center)
+                                                .padding(horizontal = if (adaptive.isExtraCompact) 86.dp else 104.dp),
                                             maxLines = 1,
                                             softWrap = false,
                                             overflow = TextOverflow.Ellipsis,
                                         )
                                     }
-                                    Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Row(
+                                        modifier = Modifier.align(Alignment.CenterEnd),
+                                        horizontalArrangement = Arrangement.spacedBy(2.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
                                         NotificationBellButton(
                                             unreadCount = notificationsState.unreadCount,
                                             onClick = { navController.navigate("notifications") },
@@ -1045,7 +1069,9 @@ private fun TijarioAppContent() {
                         dataViewModel = dataViewModel,
                         onBack = { navController.safePopBackToMain() },
                         onStoreSettings = { navController.navigateSingleTop("business-settings") },
+                        onPersonalProfile = { navController.navigateSingleTop("personal-profile") },
                         onPaymentsSubscriptions = { navController.navigateSingleTop("payments-subscriptions") },
+                        onUpgradePlan = { navController.navigateSingleTop("upgrade-plan") },
                         onAccountSettings = { navController.navigateSingleTop("account-settings") },
                         onAppSettings = { navController.navigateSingleTop("app-settings") },
                         onBackupSettings = { navController.navigateSingleTop("backup-settings") },
@@ -1068,6 +1094,12 @@ private fun TijarioAppContent() {
                     NotificationsScreen(
                         viewModel = notificationsViewModel,
                         initialAnnouncementId = backStackEntry.arguments?.getString("announcementId"),
+                        onBack = { navController.safePopBackToMain() },
+                    )
+                }
+                composable("personal-profile") {
+                    PersonalProfileScreen(
+                        dataViewModel = dataViewModel,
                         onBack = { navController.safePopBackToMain() },
                     )
                 }
@@ -1181,14 +1213,18 @@ private fun AccountDeletionRecoveryFailedScreen(onRetry: () -> Unit) {
 
 @Composable
 fun SplashScreen() {
+    val splashBackground = Color(0xFF0B1220)
+    val splashAccent = Color(0xFF101C2F)
+    val splashText = Color.White
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(
                 brush = androidx.compose.ui.graphics.Brush.verticalGradient(
                     colors = listOf(
-                        Color(0xFF0F766E),
-                        Color(0xFF064E3B)
+                        splashBackground,
+                        splashAccent,
                     )
                 )
             ),
@@ -1198,37 +1234,27 @@ fun SplashScreen() {
             horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Surface(
-                modifier = Modifier.size(90.dp),
-                shape = RoundedCornerShape(24.dp),
-                color = Color.White.copy(alpha = 0.2f),
-                shadowElevation = 8.dp
-            ) {
-                Box(contentAlignment = androidx.compose.ui.Alignment.Center) {
-                    Image(
-                        painter = painterResource(id = app.tijario.R.drawable.logo_app),
-                        contentDescription = t("app_logo_desc"),
-                        modifier = Modifier
-                            .size(76.dp)
-                            .clip(RoundedCornerShape(18.dp))
-                    )
-                }
-            }
+            Image(
+                painter = painterResource(id = app.tijario.R.drawable.tijario_splash_logo),
+                contentDescription = t("app_logo_desc"),
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.size(150.dp),
+            )
             Text(
                 text = t("app_name"),
-                color = Color.White,
+                color = splashText,
                 fontSize = 32.sp,
                 fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
                 letterSpacing = 1.5.sp
             )
             Text(
                 text = t("app_slogan"),
-                color = Color.White.copy(alpha = 0.7f),
+                color = Color.White.copy(alpha = 0.72f),
                 fontSize = 14.sp
             )
             Spacer(modifier = Modifier.height(24.dp))
             androidx.compose.material3.CircularProgressIndicator(
-                color = Color.White,
+                color = Color(0xFF14B8A6),
                 strokeWidth = 3.dp,
                 modifier = Modifier.size(28.dp)
             )

@@ -1,5 +1,10 @@
 # AI Changelog
 
+## 2026-08-16 - Android splash logo safe-area correction
+- Replaced the full-bleed startup icon with the exact supplied transparent Tijario mark in a dedicated 160dp safe-area drawable.
+- Added a neutral icon surface and light/dark launch backgrounds so the navy and teal brand mark remains legible without clipping.
+- Aligned the in-app Compose splash with the same asset and fit scaling, and added focused asset/resource contract coverage.
+
 ## 2026-08-16 - Settings bottom sheets and instant plan carousel
 - Replaced the Business currency dropdown with the searchable currency bottom sheet and changed App language/appearance to bottom sheets with device-system choices.
 - Added a current-plan banner and profile summary above compact, divider-free Settings destinations; reduced action-row density in settings subpages.
@@ -606,3 +611,11 @@
 - AI snapshots preserve each product's real currency and category; prompts use the business terms and all relevant form controls while retaining privacy exclusions.
 - Product pickers now show remaining tracked stock after any invoice quantities already reserved in the draft.
 - Vercel runtime evidence confirms the live AI failure is an older deployed provider adapter rejecting Replicate's canonical `succeeded` status; the tested local Web fix handles it.
+
+# 2026-08-16 - Navigation, settings, backup, and splash polish
+- Replaced core-page header glyphs with the Tijario brand mark, localized the Home title to the product name, and centered non-home titles.
+- Split personal name/email editing from account security actions and added inline pencil/check name editing.
+- Reordered Settings, added plan-aware upgrade treatment, limited language choices to Arabic/English, and added branded theme-choice icons and selection colors.
+- Grouped backup/restore actions into compact sections while preserving all existing backup operations.
+- Replaced the clipped splash icon treatment with the approved transparent logo on a dark background in both system and Compose splash layers.
+- Focused JVM contracts, Debug/DebugAndroidTest assembly, and `lintDebug` pass; physical visual QA remains pending.

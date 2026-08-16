@@ -1,6 +1,12 @@
 # Active Agent Status
 
 ## 2026-08-16
+- **Current task**: Correct the Android startup splash logo scale and presentation on `fix/android-runtime-critical-fixes`.
+- **State**: The system splash uses the exact supplied transparent Tijario mark inside Android's 160dp safe area with a dedicated light icon surface and light/dark launch backgrounds. The in-app Compose splash uses the same unclipped asset, `ContentScale.Fit`, and theme-aware colors.
+- **Validation**: Focused splash resource/asset JVM tests and `assembleDebug` passed. Physical launch QA on Android 12+ and a pre-Android-12 device remains pending.
+- **Safety**: No commit, push, deployment, migration, Production write, external configuration change, or Google Play upload occurred. `.agents` remains local and excluded.
+
+## 2026-08-16
 - **Current task**: Modernize settings pickers, compact settings rows, and plan browsing on `fix/android-runtime-critical-fixes`.
 - **State**: Business currency, app language, and app appearance now use searchable/selection bottom sheets. Language and appearance support explicit device-system modes. Settings shows the current plan and local profile header, while plan cards render immediately from safe local definitions in a horizontal pager and only Pro receives a colored border.
 - **Validation**: Kotlin compilation, focused preference/settings/catalog JVM tests, `assembleDebugAndroidTest`, `assembleDebug`, and `git diff --check` passed. Physical RTL/LTR visual QA remains pending.
@@ -195,6 +201,12 @@
 - **Validation**: Full JVM tests, `lintDebug`, `lintRelease`, Debug/Release/AndroidTest/PlayQa assembly, and `bundleRelease` passed locally. No ADB device or emulator is connected.
 - **Boundary**: The Android app avoids sending local-only customer/product IDs to the current AI API. Full server-side support for a bounded local context snapshot remains a separate backend contract change.
 - **Safety**: No push, deployment, migration, Production write, external configuration change, or Google Play upload occurred. `.agents` remains local and excluded.
+
+## 2026-08-16
+- **Current task**: Android navigation branding, settings information architecture, backup-page organization, and splash-logo correction on `fix/android-runtime-critical-fixes`.
+- **State**: Core page headers use the Tijario mark; non-home titles are centered while Home shows `تجاريو / Tijario` at the language-aware start edge. Profile details are separated from account security, plan upgrade affordances follow the active plan, language/theme sheets are normalized, backup actions are grouped, and both splash layers use the approved transparent logo on a dark background.
+- **Validation**: 17 focused JVM tests, `assembleDebugAndroidTest`, `assembleDebug`, and `lintDebug` passed. Physical visual QA remains pending.
+- **Safety**: No commit, push, deployment, migration, Production write, external configuration change, or Google Play upload occurred. `.agents` remains local and excluded.
 
 ## 2026-08-16
 - **Current task**: Local preview-logo, document-currency, and AI-context follow-up on `fix/android-runtime-critical-fixes`.

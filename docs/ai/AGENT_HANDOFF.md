@@ -1,5 +1,12 @@
 # Agent Handoff (Android & Web Repos)
 
+## 2026-08-16 (Android splash logo safe area, local uncommitted)
+- **Root cause**: `logo_app.png` occupied essentially the full 1024px canvas, while Android masks the outer third of splash icons. The logo therefore appeared oversized and visibly cropped on startup.
+- **System splash**: `Theme.Tijario.Splash` now uses `Theme.SplashScreen.IconBackground`, a dedicated 160dp centered drawable, the exact supplied transparent 2000x2000 logo, and day/night launch colors with matching system-bar contrast.
+- **Compose splash**: The secondary startup surface uses the same transparent mark with fit scaling inside a neutral circular surface, while text and progress colors follow the active Material theme.
+- **Validation**: `SplashScreenUiContractTest` passed and verifies the approved asset SHA-256, dimensions, splash theme contract, and Compose asset usage. `assembleDebug` passed. Physical launch QA remains pending.
+- **Safety**: No commit, push, merge, backend/Web change, Supabase migration, deployment, Production write, external configuration change, or Google Play upload occurred. `.agents` remains local and excluded.
+
 ## 2026-08-16 (settings sheets and plan carousel)
 - **Selection UX**: Business currency opens the existing searchable currency bottom sheet. App language and appearance each open a compact bottom sheet with Arabic/English/device-language and light/dark/device-theme choices; explicit selections remain backward compatible with prior stored booleans/language values.
 - **Settings hierarchy**: The Settings home shows a cached current-plan banner followed by the local profile image/name/email, then compact destination rows. Business, App, and Account action rows use smaller icons/padding and space instead of separator lines.
@@ -869,6 +876,14 @@
 - **Published**: `fix/android-full-hardening` is available on `origin` at `f6c32b4` and remains unmerged from `main`.
 - **Remote validation**: GitHub Actions Source Audit Scan and Android CI run `31327114193` both completed successfully. Android CI passed its compile/unit-test and lint/release-assembly jobs.
 - **Safety Status**: No deployment, migration, Production write, external configuration change, or Google Play upload occurred.
+
+## 2026-08-16 (Navigation, settings, backup, and splash polish, local)
+- **Navigation**: Home now displays the localized Tijario name beside the transparent brand mark. Documents, products, and customers use the mark with centered titles; Tijario AI keeps its AI icon and centered title.
+- **Settings**: The profile card opens a dedicated name/email screen with inline pencil/check editing. Account security and destructive actions remain in a compact separate screen. Option order is Business, Account, App, Payments, then Backup. Free/Starter plans show a gold upgrade action; Pro does not.
+- **Preferences and backup**: Language selection is explicitly Arabic or English. Theme selection keeps Device (Automatic), Light, and Dark with matching icons and teal selected state. Backup actions are grouped into compact Local, Schedule, Drive, and History sections without changing backup behavior.
+- **Splash**: Android system and Compose splash screens use the exact approved transparent 2000x2000 logo without an icon background, on `#0B1220`, with a safe inset drawable to prevent clipping.
+- **Validation**: 17 focused JVM tests, both Debug/DebugAndroidTest assemblies, and `lintDebug` passed. Run physical RTL/LTR, compact-screen, and cold-launch visual QA before release.
+- **Safety Status**: No commit, push, deployment, migration, Production write, external configuration change, or Google Play upload occurred. `.agents` remains local and excluded.
 
 ## 2026-08-16 (Document preview currency and AI context follow-up, local)
 - **Preview logo**: The pre-save WebView now reads the same shared business-logo cache used by the PDF flow, prefers the explicit business owner cache, and safely caches a verified remote image when it is first reachable. This keeps a previously cached logo available offline without exposing credentials.
