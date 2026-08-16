@@ -2272,6 +2272,7 @@ open class TijarioRepository(
                 dao.deleteLocalSignaturesForUser(userId)
                 dao.deleteLocalTermsForUser(userId)
                 dao.deleteLocalDocumentMetadataForUser(userId)
+                dao.deleteAiGenerationHistoryForUser(userId)
                 dao.deleteSyncStateForUser(userId)
                 dao.deleteOutboxForUser(userId)
                 notificationsDao.deleteAnnouncementsForUser(userId)

@@ -566,6 +566,34 @@ data class LocalDocumentMetadataEntity(
     val userId: String = "",
 )
 
+@Entity(
+    tableName = "ai_generation_history",
+    indices = [
+        Index(value = ["user_id"]),
+        Index(value = ["user_id", "generation_type", "created_at"]),
+    ],
+)
+data class AiGenerationHistoryEntity(
+    @PrimaryKey
+    val id: String,
+    @ColumnInfo(name = "user_id")
+    val userId: String,
+    @ColumnInfo(name = "generation_type")
+    val generationType: String,
+    @ColumnInfo(name = "generation_id")
+    val generationId: String,
+    @ColumnInfo(name = "variant_id")
+    val variantId: String,
+    @ColumnInfo(name = "variant_label")
+    val variantLabel: String,
+    @ColumnInfo(name = "variant_order")
+    val variantOrder: Int,
+    @ColumnInfo(name = "result_text")
+    val resultText: String,
+    @ColumnInfo(name = "created_at")
+    val createdAt: Long,
+)
+
 // Mapping extensions
 fun BusinessSettings.toEntity(userIdFallback: String, syncedAt: Long = System.currentTimeMillis()): BusinessSettingsEntity =
     BusinessSettingsEntity(

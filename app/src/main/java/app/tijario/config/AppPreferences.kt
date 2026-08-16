@@ -1,12 +1,15 @@
 package app.tijario.config
 
 import android.content.Context
+import android.content.res.Configuration
 import app.tijario.data.model.UserPlanUsage
+import java.util.Locale
 import java.util.UUID
 
 private const val PREFS_NAME = "tijario_app_preferences"
 private const val KEY_LANGUAGE = "language"
 private const val KEY_DARK_MODE = "dark_mode"
+private const val KEY_THEME_MODE = "theme_mode"
 private const val KEY_PLAN_CODE = "plan_code"
 private const val KEY_PLAN_NAME = "plan_name"
 private const val KEY_PERIOD_MONTH = "period_month"
@@ -35,7 +38,58 @@ private const val KEY_PENDING_ACCOUNT_DELETION_CLEANUP_USER_ID = "pending_accoun
 
 private fun planKey(userId: String, suffix: String) = "plan_usage_${userId}_$suffix"
 
+internal fun resolveInitialLanguage(savedValue: String?, systemLanguage: String): AppLanguage =
+    savedValue
+        ?.let { value -> runCatching { AppLanguage.valueOf(value) }.getOrNull() }
+        ?: if (systemLanguage.equals("ar", ignoreCase = true)) AppLanguage.AR else AppLanguage.EN
+
+internal fun resolveInitialDarkMode(savedValue: Boolean?, systemDarkMode: Boolean): Boolean =
+    savedValue ?: systemDarkMode
+
+enum class AppLanguageMode {
+    SYSTEM,
+    ARABIC,
+    ENGLISH,
+}
+
+enum class AppThemeMode {
+    SYSTEM,
+    LIGHT,
+    DARK,
+}
+
+internal fun resolveLanguageMode(savedValue: String?): AppLanguageMode =
+    when (savedValue?.uppercase()) {
+        AppLanguage.AR.name -> AppLanguageMode.ARABIC
+        AppLanguage.EN.name -> AppLanguageMode.ENGLISH
+        else -> AppLanguageMode.SYSTEM
+    }
+
+internal fun resolveThemeMode(savedMode: String?, legacyDarkMode: Boolean?): AppThemeMode =
+    savedMode
+        ?.let { value -> runCatching { AppThemeMode.valueOf(value) }.getOrNull() }
+        ?: legacyDarkMode?.let { isDark -> if (isDark) AppThemeMode.DARK else AppThemeMode.LIGHT }
+        ?: AppThemeMode.SYSTEM
+
 object AppPreferences {
+    fun getSystemLanguage(context: Context): AppLanguage {
+        val systemLanguage = context.resources.configuration.locales
+            .takeIf { !it.isEmpty }
+            ?.get(0)
+            ?.language
+            ?: Locale.getDefault().language
+        return if (systemLanguage.equals("ar", ignoreCase = true)) AppLanguage.AR else AppLanguage.EN
+    }
+
+    fun getSystemDarkMode(context: Context): Boolean =
+        context.resources.configuration.uiMode and
+            Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
+
+    fun getLanguageMode(context: Context): AppLanguageMode {
+        val preferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return resolveLanguageMode(preferences.getString(KEY_LANGUAGE, null))
+    }
+
     fun getInstallationId(context: Context): String {
         val preferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         preferences.getString(KEY_INSTALLATION_ID, null)
@@ -49,30 +103,61 @@ object AppPreferences {
     }
 
     fun getLanguage(context: Context): AppLanguage {
-        val value = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .getString(KEY_LANGUAGE, AppLanguage.AR.name)
-            .orEmpty()
-
-        return runCatching { AppLanguage.valueOf(value) }.getOrDefault(AppLanguage.AR)
+        return when (getLanguageMode(context)) {
+            AppLanguageMode.SYSTEM -> getSystemLanguage(context)
+            AppLanguageMode.ARABIC -> AppLanguage.AR
+            AppLanguageMode.ENGLISH -> AppLanguage.EN
+        }
     }
 
     fun setLanguage(context: Context, language: AppLanguage) {
+        setLanguageMode(
+            context = context,
+            mode = if (language == AppLanguage.AR) AppLanguageMode.ARABIC else AppLanguageMode.ENGLISH,
+        )
+    }
+
+    fun setLanguageMode(context: Context, mode: AppLanguageMode) {
+        val editor = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
+        when (mode) {
+            AppLanguageMode.SYSTEM -> editor.remove(KEY_LANGUAGE)
+            AppLanguageMode.ARABIC -> editor.putString(KEY_LANGUAGE, AppLanguage.AR.name)
+            AppLanguageMode.ENGLISH -> editor.putString(KEY_LANGUAGE, AppLanguage.EN.name)
+        }
+        editor.apply()
+    }
+
+    fun getThemeMode(context: Context): AppThemeMode {
+        val preferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val legacyDarkMode = if (preferences.contains(KEY_DARK_MODE)) {
+            preferences.getBoolean(KEY_DARK_MODE, false)
+        } else {
+            null
+        }
+        return resolveThemeMode(
+            savedMode = preferences.getString(KEY_THEME_MODE, null),
+            legacyDarkMode = legacyDarkMode,
+        )
+    }
+
+    fun setThemeMode(context: Context, mode: AppThemeMode) {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit()
-            .putString(KEY_LANGUAGE, language.name)
+            .putString(KEY_THEME_MODE, mode.name)
+            .remove(KEY_DARK_MODE)
             .apply()
     }
 
     fun getDarkMode(context: Context): Boolean {
-        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .getBoolean(KEY_DARK_MODE, false)
+        return when (getThemeMode(context)) {
+            AppThemeMode.SYSTEM -> getSystemDarkMode(context)
+            AppThemeMode.LIGHT -> false
+            AppThemeMode.DARK -> true
+        }
     }
 
     fun setDarkMode(context: Context, enabled: Boolean) {
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .edit()
-            .putBoolean(KEY_DARK_MODE, enabled)
-            .apply()
+        setThemeMode(context, if (enabled) AppThemeMode.DARK else AppThemeMode.LIGHT)
     }
 
     fun getPlanUsage(context: Context, userId: String): UserPlanUsage? {

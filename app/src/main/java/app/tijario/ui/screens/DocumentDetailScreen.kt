@@ -324,6 +324,7 @@ fun DocumentDetailScreen(
                             DocumentPreviewWebView(
                                 model = renderModel,
                                 modifier = Modifier.fillMaxSize(),
+                                logoOwnerId = businessSettings?.userId,
                             )
                         }
                     }
@@ -406,6 +407,7 @@ fun DocumentDetailScreen(
                                     model = renderModel,
                                     modifier = Modifier.fillMaxSize(),
                                     interactive = true,
+                                    logoOwnerId = businessSettings?.userId,
                                 )
                                 IconButton(
                                     onClick = { showFullScreenPreview = false },

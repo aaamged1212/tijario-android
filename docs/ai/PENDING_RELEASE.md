@@ -1,5 +1,33 @@
 # Pending Release
 
+## 2026-08-16 settings and plan-carousel QA gate
+- In Business Settings, open Currency and verify a searchable bottom sheet lists the full catalog, persists a selection, and remains readable in Arabic RTL and English LTR.
+- In App Settings, select Device language, Arabic, and English; then select Device theme, Light, and Dark. Restart after each explicit choice and verify persistence, then change the device configuration while System is selected and verify the app follows it after recreation.
+- Verify Settings shows the cached current plan immediately and then the profile image/name/email. Check Business, Payments & Subscriptions, Account, App, and Backup rows on compact screens; confirm options use spacing rather than separator lines.
+- Open Upgrade Plan offline and online. Confirm Free, Starter, and Pro cards appear immediately, swipe horizontally, only Pro has a colored outline, Google Play prices replace the placeholder when available, and the comparison remains below.
+- No backend deployment, Supabase migration, Production configuration, or Google Play action is required for this Android-only UI change.
+
+## 2026-08-16 system-default and account UI QA gate
+- Clear app data and launch once with Arabic/light, Arabic/dark, English/light, and English/dark system configurations. Confirm the first screen follows both settings, then choose a different in-app language/theme, restart, and confirm the explicit choice persists.
+- On compact and large screens, verify login, registration, verification, password recovery, and onboarding in RTL and LTR with the keyboard open. Confirm controls remain reachable and all cards/text have sufficient contrast in both themes.
+- Open Settings and confirm its compact rows navigate to Business, Payments & Subscriptions, Account, App, and Backup. Confirm plan/usage loading, retry, and upgrade navigation are no longer shown on the Settings home page and work from the new destination.
+- No backend deployment, Supabase migration, Production configuration, or Google Play action is required for this Android-only UI change.
+
+## 2026-08-16 AI history and picker/search QA gate
+- Upgrade an existing installation with Room schema 19 data and confirm migration to schema 20 preserves customers, products, and documents. Generate multiple replies and captions, restart the app, and confirm each tab shows only its own scrollable history and that every item copies correctly.
+- In onboarding, Business Settings, and customer phone entry, search countries by localized name and calling code, select one, and confirm its flag/code remain selected. In product currency selection, search by currency code and country and confirm the selected value persists.
+- Enter different queries in the invoice and quotation tabs, switch between them, and confirm each query is retained and matches both document number and customer name while status filtering still applies.
+- No backend deployment, Supabase migration, Production configuration, or Google Play action is required. The Room 19-to-20 instrumentation migration test is compiled but requires a connected device to execute.
+
+## 2026-08-16 AI result isolation QA gate
+- On a physical device, generate a smart reply, switch to captions, and confirm the reply result is not visible. Generate a caption, switch back, and confirm the original reply remains unchanged.
+- Confirm caption output contains generated text and actions without customer intent/message analysis. On a compact screen, generate a long result and confirm its final actions are fully reachable above the bottom navigation.
+- No migration, backend deployment, external configuration change, or Google Play action is required for this Android-only UI correction.
+
+## 2026-08-16 notification branding QA gate
+- On an Android 13+ device, trigger one announcement and one backup/restore notification. Confirm the expanded notification displays the supplied full-color Tijario logo and the status bar shows a clear monochrome Tijario mark on light and dark system surfaces.
+- No migration, backend deployment, external configuration change, or Google Play action is required for this Android-only visual correction.
+
 ## 2026-08-15 document update item-preservation QA gate
 - On a device in airplane mode, edit an invoice and a quote with multiple items, save each, reopen each, and confirm the edited item count, quantities, prices, totals, and metadata remain intact.
 - For any document already affected by the prior item-loss defect, reconnect once and open it to recover the last complete server snapshot. Confirm the restored document has items before editing it again. The previous locally deleted item edits cannot be reconstructed.
@@ -135,3 +163,9 @@ The counters migration is required to manage sequential document numbers without
 - Create same-day invoices or quotes with intentionally non-sequential display numbers and confirm the newest creation time appears first in document and dashboard lists.
 - Verify country flag, calling-code selection, country-to-phone synchronization, and currency labels in onboarding and store settings. Confirm a product-specific currency survives save and reopen.
 - On a tracked product, verify an over-stock product is disabled in the picker, the item editor blocks confirmation, and an explicit stock increase updates the saved product before allowing the item.
+
+## 2026-08-16 Preview and Currency QA Gate
+- On a device, set a store logo, open a new invoice and quote preview before saving, and verify the same logo is visible in the preview and exported PDF. Reopen while offline after the logo has been cached.
+- Attempt to add a product with a different saved currency from the document. It must be disabled with the localized explanation and final save must reject any stale mismatched item.
+- Confirm the product picker shows the exact remaining stock for tracked products after adding the same product to another invoice row.
+- Check reply and caption output in Arabic and English for customer/product, tone, dialect, platform, offer, benefit, and length controls. Confirm private contact data is never sent or displayed.

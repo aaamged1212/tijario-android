@@ -3,6 +3,7 @@ package app.tijario.data
 import android.content.Context
 import app.tijario.config.Supabase
 import app.tijario.data.local.TijarioDatabase
+import app.tijario.data.repository.AiHistoryRepository
 import app.tijario.data.repository.TijarioRepository
 
 object AppContainer {
@@ -18,4 +19,7 @@ object AppContainer {
                 backendApiClient = Supabase.apiClient,
             ).also { repositoryInstance = it }
         }
+
+    fun aiHistoryRepository(context: Context): AiHistoryRepository =
+        AiHistoryRepository(TijarioDatabase.getInstance(context).tijarioDao())
 }

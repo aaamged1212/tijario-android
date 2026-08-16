@@ -200,6 +200,24 @@ interface TijarioDao {
     @Query("DELETE FROM local_document_metadata WHERE user_id = :userId")
     suspend fun deleteLocalDocumentMetadataForUser(userId: String)
 
+    @Query(
+        """
+        SELECT * FROM ai_generation_history
+        WHERE user_id = :userId AND generation_type = :generationType
+        ORDER BY created_at DESC, variant_order ASC, id ASC
+        """,
+    )
+    fun observeAiGenerationHistory(
+        userId: String,
+        generationType: String,
+    ): Flow<List<AiGenerationHistoryEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAiGenerationHistory(entries: List<AiGenerationHistoryEntity>)
+
+    @Query("DELETE FROM ai_generation_history WHERE user_id = :userId")
+    suspend fun deleteAiGenerationHistoryForUser(userId: String)
+
     // V7 Sync state queries
     @Query("SELECT * FROM sync_state WHERE user_id = :userId LIMIT 1")
     suspend fun getSyncState(userId: String): SyncStateEntity?

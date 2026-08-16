@@ -1,5 +1,32 @@
 # AI Changelog
 
+## 2026-08-16 - Settings bottom sheets and instant plan carousel
+- Replaced the Business currency dropdown with the searchable currency bottom sheet and changed App language/appearance to bottom sheets with device-system choices.
+- Added a current-plan banner and profile summary above compact, divider-free Settings destinations; reduced action-row density in settings subpages.
+- Made Free, Starter, and Pro cards render immediately in a horizontal pager, retained backend/Google Play updates, and limited the colored plan outline to Pro.
+- Added focused preference and source-contract coverage without changing billing or purchase behavior.
+
+## 2026-08-16 - System-aware first launch and compact account UI
+- Fresh installations now derive language and appearance from Android system settings while preserving any explicit user preference.
+- Reworked authentication and account-setup screens around theme-aware Material surfaces, responsive branding, and direct language/theme controls rather than a fixed green background.
+- Simplified Settings into compact icon rows, renamed the business destination, and moved current plan and usage details into a dedicated Payments & Subscriptions screen.
+- Added focused behavioral/source-contract tests; Debug and AndroidTest assembly passed locally.
+
+## 2026-08-16 - Local AI history and searchable catalogs
+- Added account-scoped Room history for smart replies and captions, with separate scrollable history sheets and copy actions for every saved variant.
+- Replaced ambiguous customer-search hints with country, calling-code, and currency-specific search. Country selection now uses the full flagged catalog in onboarding and Business Settings, while product currencies use an expanded ISO catalog.
+- Added independent compact search state for invoice and quotation lists by document number or customer name.
+- Focused JVM tests and Debug/AndroidTest compilation passed locally; physical Room migration and visual QA remain pending.
+
+## 2026-08-16 - Reply and caption result isolation
+- Reply and caption tools now own independent generation states and scroll positions, preventing a result from one tool from appearing in the other tab.
+- Caption output no longer shows reply-only customer-message analysis or customer intent. Successful generation scrolls the active tool to its result, and the page keeps final content above the app bottom navigation.
+- Focused JVM state tests and Debug assembly passed locally. No external action occurred.
+
+## 2026-08-16 - Notification branding asset
+- Bundled the supplied official Tijario 512px logo specifically for full-color notification large icons.
+- Announcement and backup/restore notifications now use that asset. The required Android small icon remains a monochrome Tijario silhouette for status-bar compatibility.
+
 ## 2026-08-13 - Room-first operational storage for every account
 - Customer, product/service, and document operations now persist through Room regardless of the signed entitlement's historical data mode. Operational refresh and sync paths do not import, replace, or send seller data automatically.
 - Store settings remain hybrid: Room commits are immediately successful and the Supabase mirror is best effort. Cached signed entitlement limits and the local document-creation ledger remain enforced offline.
@@ -572,3 +599,10 @@
 - A server-backed document left itemless by the prior defect can recover its last complete server snapshot when online. Purely local records remain protected from remote replacement.
 - Focused repository tests and Debug assembly passed locally. No external action occurred.
 - The scoped source is committed locally as `b8465e9346b515071037f90a3aee78ebbb82f367`; it has not been pushed.
+
+# 2026-08-16 - Preview logo, product currency, and AI context parity
+- Pre-save document previews resolve the business logo through the existing owner and shared bitmap caches, with a bounded image-only fetch only when no cache exists.
+- Product selection now rejects a product whose saved currency differs from the active document currency in the picker, route-return handling, and final save guard.
+- AI snapshots preserve each product's real currency and category; prompts use the business terms and all relevant form controls while retaining privacy exclusions.
+- Product pickers now show remaining tracked stock after any invoice quantities already reserved in the draft.
+- Vercel runtime evidence confirms the live AI failure is an older deployed provider adapter rejecting Replicate's canonical `succeeded` status; the tested local Web fix handles it.

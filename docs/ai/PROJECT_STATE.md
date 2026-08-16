@@ -1,5 +1,32 @@
 # Project State (Android & Web Repos)
 
+## 2026-08-16 - Settings selection and pricing presentation
+- App preference persistence now distinguishes System, Light, and Dark appearance while remaining compatible with the legacy dark-mode boolean. Language similarly distinguishes device language from explicit Arabic or English.
+- Settings displays cached plan/profile context before compact navigation rows. Business currency and app preference choices use bottom sheets; settings action rows use spacing instead of divider lines.
+- Pricing remains server/Google Play authoritative for billing and localized prices, but safe Free/Starter/Pro display definitions render synchronously so the horizontal plan carousel never starts empty. Only Pro is visually outlined with the primary color, and the existing detailed comparison remains below.
+- Kotlin compilation, focused JVM coverage, Debug/AndroidTest assembly, and clean-diff validation passed. No backend, migration, deployment, push, merge, external configuration, or Play action occurred. Physical visual QA remains pending.
+
+## 2026-08-16 - System-aware authentication and settings organization
+- On first launch without stored preferences, Android now initializes Arabic only for an Arabic system locale, English otherwise, and mirrors the system light/dark setting. User-selected language and appearance continue to persist as explicit overrides.
+- Authentication, verification, recovery, and onboarding surfaces now use the active Material theme with a consistent brand treatment and responsive light/dark behavior.
+- Settings is now a compact grouped list. Business configuration is labeled `Business` / `النشاط التجاري`, while current plan, usage limits, retry, and upgrade are isolated under `Payments & Subscriptions`.
+- Focused JVM tests and Debug/AndroidTest compilation passed. No backend, migration, deployment, push, merge, external configuration, or Play action occurred. Physical visual QA remains pending.
+
+## 2026-08-16 - Local AI history, catalog pickers, and document search
+- Android Room schema is version 20. New account-scoped AI generation history stores reply and caption variants under separate types, is deleted with that account's local data, and powers a scrollable copy-enabled bottom sheet in each AI tab.
+- Country and calling-code selection now uses one full searchable catalog with flags and purpose-specific hints. Product currency selection searches an expanded ISO currency catalog by code or country. Business Settings and onboarding keep the phone calling code synchronized with the selected country.
+- Invoice and quotation lists keep independent compact search text and filter by document number or customer name without changing the existing date ordering or payment-status filters.
+- Focused JVM coverage and Debug/AndroidTest compilation passed. No Web/API contract, Supabase schema, deployment, push, merge, external configuration, or Play action occurred. Physical migration and UI QA remain pending.
+
+## 2026-08-16 - AI tool result isolation
+- Smart replies and captions now use distinct local UI result states. Switching tabs no longer exposes a prior reply under captions or the reverse, and caption results exclude customer intent/message analysis.
+- Each tab retains its own scroll position and scrolls to a newly completed result. AI content includes a bottom inset when shown inside the root shell so the final card remains reachable above the navigation bar.
+- Focused state tests and `assembleDebug` passed. No backend, migration, deployment, push, merge, external configuration, or Play action occurred. Physical visual QA remains pending.
+
+## 2026-08-16 - Official notification branding asset
+- Announcement and backup/restore notifications now use the supplied official Tijario logo as their full-color large icon. Android continues to use the monochrome status-bar resource required by the platform for the small icon.
+- `assembleDebug` passed. Physical visual validation on an Android device remains pending. No backend, migration, deployment, push, merge, external configuration, or Play action occurred.
+
 ## 2026-08-15 - Document update item-loss correction
 - A Room update ordering defect was identified: `upsertDocument` uses `REPLACE`, so writing new document items before the parent replacement cascaded those items away. The local update transaction now replaces the document parent before deleting and inserting the item set.
 - A server-backed document left itemless by the prior defect is eligible to hydrate the last complete server snapshot when online. Purely local documents remain protected and report the typed missing-items state instead of silently replacing local data.
@@ -186,7 +213,7 @@
 ## 2026-08-10 Runtime-critical local remediation
 - Uncommitted work on `fix/android-runtime-critical-fixes` makes Settings/child-route back navigation fall back safely to the main screen, centralizes creation-plan checks before navigation and at save time, and derives LocalDrive usage from Room without changing signed limits.
 - New documents default to the saved business currency until the user overrides it. Local invoice and quote numbers are type-specific, preserve valid user-entered suffixes and leading zeroes, reject exact local duplicates before Room writes, and never change on edit.
-- AI reply/caption flows stop submitting local-only customer/product identifiers that the current backend cannot resolve. They send a bounded generation-only fallback context without WhatsApp, email, or local IDs. Full snapshot acceptance still requires a future backend contract change.
+- AI reply/caption flows do not submit local-only customer/product identifiers. They send a bounded generation context without WhatsApp, email, or local IDs; the compatible local backend contract now accepts the snapshot, pending separate authorized publication and deployment.
 - The build remains version `1.1.9` / code `19`. Full JVM tests, both lint variants, Debug/Release/AndroidTest/PlayQa assembly, and `bundleRelease` completed successfully locally. No connected ADB device is available for physical QA.
 - No commit, push, deployment, migration, Production write, external configuration change, or Play upload occurred. `.agents` remains untracked and excluded.
 
@@ -194,3 +221,8 @@
 - Local invoice/quote creation no longer requires a network lease refresh. With a valid cached signed entitlement, Room validates the local document count and writes the document, items, customer snapshot, and pending creation event atomically; it attaches an active compatible lease only when one is already cached.
 - Customer, product/service, and document create/update remain `LOCAL_ONLY` in LocalDrive and do not enqueue operational cloud sync. Missing or expired entitlements remain blocked with typed errors; plan limits remain locally enforced.
 - Focused JVM coverage (47 tests) and Debug assembly passed. Physical offline QA is still required before any release action. No backend, migration, deployment, or external change occurred.
+
+## 2026-08-16 Preview, Currency, and AI Follow-up
+- **State**: Local uncommitted Android changes make the draft preview use the same cached business-logo source as the PDF path. Document item selection and saving consistently reject cross-currency products, and the picker shows remaining tracked stock after current invoice reservations. The bounded AI V3 snapshot now includes product category and its actual currency.
+- **Validation**: 58 focused JVM tests and `assembleDebug` passed. Physical device verification remains pending.
+- **Safety**: No commit, push, deployment, migration, Production write, external configuration change, or Google Play upload occurred.

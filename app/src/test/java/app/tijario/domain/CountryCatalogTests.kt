@@ -16,6 +16,7 @@ class CountryCatalogTests {
 
     @Test
     fun countryAndCurrencyLabelsContainLocalizedCountryAndFlag() {
+        assertTrue(CurrencyCatalog.options.size >= 140)
         assertTrue(CountryCatalog.display("SA", AppLanguage.AR).contains("🇸🇦"))
         assertTrue(CurrencyCatalog.display("SAR", AppLanguage.EN).contains("SAR"))
         assertTrue(CurrencyCatalog.display("SAR", AppLanguage.EN).contains("🇸🇦"))
@@ -25,6 +26,8 @@ class CountryCatalogTests {
     fun dialCodeAndCurrencySearchSupportCodeCountryAndCallingCode() {
         assertTrue(filterDialCodeOptions("+966", AppLanguage.EN).any { it.countryCode == "SA" })
         assertTrue(filterDialCodeOptions("Saudi", AppLanguage.EN).any { it.countryCode == "SA" })
+        assertTrue(filterCountryOptions("+966", AppLanguage.AR).any { it.countryCode == "SA" })
+        assertTrue(filterCountryOptions("السعودية", AppLanguage.AR).any { it.countryCode == "SA" })
         assertTrue(filterCurrencyOptions("Saudi", AppLanguage.EN).any { it.code == "SAR" })
         assertTrue(filterCurrencyOptions("SAR", AppLanguage.AR).any { it.code == "SAR" })
     }

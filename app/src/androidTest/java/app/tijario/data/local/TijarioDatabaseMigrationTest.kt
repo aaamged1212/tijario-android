@@ -88,8 +88,41 @@ class TijarioDatabaseMigrationTest {
         database.close()
     }
 
+    @Test
+    fun migrate19To20_createsAccountScopedAiHistory() {
+        migrationHelper.createDatabase(TEST_DATABASE_V20, 19).close()
+
+        val database = migrationHelper.runMigrationsAndValidate(
+            TEST_DATABASE_V20,
+            20,
+            true,
+            TijarioDatabase.MIGRATION_19_20,
+        )
+
+        val columns = buildSet {
+            database.query("PRAGMA table_info(ai_generation_history)").use { cursor ->
+                val nameIndex = cursor.getColumnIndexOrThrow("name")
+                while (cursor.moveToNext()) add(cursor.getString(nameIndex))
+            }
+        }
+        assertTrue("user_id" in columns)
+        assertTrue("generation_type" in columns)
+        assertTrue("result_text" in columns)
+
+        val indices = buildSet {
+            database.query("PRAGMA index_list(ai_generation_history)").use { cursor ->
+                val nameIndex = cursor.getColumnIndexOrThrow("name")
+                while (cursor.moveToNext()) add(cursor.getString(nameIndex))
+            }
+        }
+        assertTrue("index_ai_generation_history_user_id" in indices)
+        assertTrue("index_ai_generation_history_user_id_generation_type_created_at" in indices)
+        database.close()
+    }
+
     private companion object {
         const val TEST_DATABASE = "tijario-migration-test"
         const val TEST_DATABASE_V19 = "tijario-backup-history-migration-test"
+        const val TEST_DATABASE_V20 = "tijario-ai-history-migration-test"
     }
 }

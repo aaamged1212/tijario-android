@@ -17,7 +17,7 @@ class AiV3ContextSnapshotContractTest {
             contextSnapshot = AiV3ContextSnapshot(
                 business = AiV3BusinessContextSnapshot(name = "Store", country = "YE", currency = "YER"),
                 customer = AiV3CustomerContextSnapshot(localId = "local-customer", name = "Customer", city = "Sanaa"),
-                product = AiV3ProductContextSnapshot(localId = "local-product", name = "Item", price = 15.0, currency = "YER"),
+                product = AiV3ProductContextSnapshot(localId = "local-product", category = "Accessories", name = "Item", price = 15.0, currency = "YER"),
             ),
         )
 
@@ -26,6 +26,7 @@ class AiV3ContextSnapshotContractTest {
         assertTrue(encoded.contains("\"context_snapshot\""))
         assertTrue(encoded.contains("\"customer_id\":\"local-customer\""))
         assertTrue(encoded.contains("\"product_id\":\"local-product\""))
+        assertTrue(encoded.contains("\"category\":\"Accessories\""))
         assertTrue(encoded.contains("\"currency\":\"YER\""))
         assertTrue(!encoded.contains("whatsapp"))
         assertTrue(!encoded.contains("email"))

@@ -23,6 +23,7 @@ class AiLocalContextFallbackTest {
         description = "Local description",
         price = 120.0,
         currency = "SAR",
+        category = "Accessories",
     )
 
     private val business = BusinessSettings(
@@ -45,12 +46,13 @@ class AiLocalContextFallbackTest {
         assertEquals("local-customer-id", snapshot.customer?.localId)
         assertEquals("Local product", snapshot.product?.name)
         assertEquals(120.0, snapshot.product?.price)
-        assertEquals("YER", snapshot.product?.currency)
+        assertEquals("SAR", snapshot.product?.currency)
+        assertEquals("Accessories", snapshot.product?.category)
         assertFalse(snapshot.toString().contains(customer.whatsappNumber))
     }
 
     @Test
-    fun snapshot_usesStoreCurrencyInsteadOfLegacyProductCurrency() {
+    fun snapshot_keepsTheProductCurrencySeparateFromTheStoreCurrency() {
         val snapshot = buildAiContextSnapshot(
             businessSettings = business,
             product = product,
@@ -58,7 +60,7 @@ class AiLocalContextFallbackTest {
         )
 
         assertEquals("YER", snapshot.business.currency)
-        assertEquals("YER", snapshot.product?.currency)
+        assertEquals("SAR", snapshot.product?.currency)
         assertTrue(snapshot.product?.description.orEmpty().length <= 500)
     }
 }

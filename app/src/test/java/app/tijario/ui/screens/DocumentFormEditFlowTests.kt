@@ -318,6 +318,33 @@ class DocumentFormEditFlowTests {
     }
 
     @Test
+    fun productPickerShowsRemainingStockAfterCurrentInvoiceReservations() {
+        val product = Product(
+            id = "product-1",
+            kind = ProductKind.Product,
+            name = "Tracked Product",
+            price = 10.0,
+            stockQuantity = 5,
+        )
+        val reservedItems = listOf(
+            DocumentItemState(productId = "product-1", name = "Tracked Product", quantity = "3", unitPrice = "10"),
+        )
+
+        assertEquals(2, remainingProductStockForPicker(DocumentType.Invoice, product, reservedItems))
+        assertEquals(5, remainingProductStockForPicker(DocumentType.Quote, product, reservedItems))
+        assertEquals(
+            5,
+            remainingProductStockForPicker(
+                documentType = DocumentType.Invoice,
+                product = product.copy(stockQuantity = 1),
+                items = emptyList(),
+                originalQuantitiesByProductId = mapOf("product-1" to 4),
+            ),
+        )
+        assertEquals(null, remainingProductStockForPicker(DocumentType.Invoice, product.copy(kind = ProductKind.Service), reservedItems))
+    }
+
+    @Test
     fun replacingAnExistingItemDoesNotReserveItsOwnStockTwice() {
         val product = Product(
             id = "product-1",
@@ -328,5 +355,28 @@ class DocumentFormEditFlowTests {
         )
 
         assertTrue(canAddProductToInvoice(DocumentType.Invoice, product, emptyList()))
+    }
+
+    @Test
+    fun productWithDifferentCurrencyIsBlockedInSelectionAndBeforeSave() {
+        val sarProduct = Product(
+            id = "sar-product",
+            kind = ProductKind.Product,
+            name = "SAR item",
+            price = 10.0,
+            currency = "SAR",
+        )
+        val usdProduct = sarProduct.copy(id = "usd-product", currency = "USD")
+
+        assertTrue(isProductCurrencyCompatibleWithDocument("sar", sarProduct.currency))
+        assertFalse(isProductCurrencyCompatibleWithDocument("SAR", usdProduct.currency))
+        assertEquals(
+            usdProduct,
+            firstDocumentCurrencyMismatch(
+                items = listOf(DocumentItemState(productId = usdProduct.id, name = usdProduct.name, quantity = "1", unitPrice = "10")),
+                products = listOf(sarProduct, usdProduct),
+                documentCurrency = "SAR",
+            ),
+        )
     }
 }

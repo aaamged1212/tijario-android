@@ -5,6 +5,7 @@ import app.tijario.data.model.DocumentType
 import app.tijario.features.documents.mapper.DraftDocumentRenderMapper
 import app.tijario.features.documents.mapper.SavedDocumentRenderMapper
 import app.tijario.features.documents.mapper.TijarioDocumentMapper
+import app.tijario.features.documents.preview.documentLogoOwnerCandidates
 import app.tijario.features.documents.model.resolveDocumentLogoForRender
 import app.tijario.features.documents.pdf.PdfCacheKeyFactory
 import app.tijario.features.documents.pdf.PdfFileNameSanitizer
@@ -429,6 +430,18 @@ class DocumentEngineTests {
 
         assertFalse(html.contains("javascript:alert"))
         assertTrue(html.contains("logo-initials"))
+    }
+
+    @Test
+    fun previewUsesTheBusinessOwnerLogoCacheBeforeFallingBackToTheActiveSession() {
+        assertEquals(
+            listOf("business-owner", "active-session"),
+            documentLogoOwnerCandidates("business-owner", "active-session"),
+        )
+        assertEquals(
+            listOf("business-owner"),
+            documentLogoOwnerCandidates("business-owner", "business-owner"),
+        )
     }
 
     @Test

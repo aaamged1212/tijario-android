@@ -102,6 +102,7 @@ import app.tijario.ui.screens.ChangePasswordScreen
 import app.tijario.ui.screens.IntroWalkthroughScreen
 import app.tijario.ui.screens.DocumentDetailScreen
 import app.tijario.ui.screens.SettingsHomeScreen
+import app.tijario.ui.screens.PaymentsSubscriptionsScreen
 import app.tijario.ui.screens.BackupSettingsScreen
 import app.tijario.ui.screens.UpgradePlanScreen
 import app.tijario.ui.state.TijarioDataViewModel
@@ -1044,10 +1045,10 @@ private fun TijarioAppContent() {
                         dataViewModel = dataViewModel,
                         onBack = { navController.safePopBackToMain() },
                         onStoreSettings = { navController.navigateSingleTop("business-settings") },
+                        onPaymentsSubscriptions = { navController.navigateSingleTop("payments-subscriptions") },
                         onAccountSettings = { navController.navigateSingleTop("account-settings") },
                         onAppSettings = { navController.navigateSingleTop("app-settings") },
                         onBackupSettings = { navController.navigateSingleTop("backup-settings") },
-                        onUpgrade = { navController.navigateSingleTop("upgrade-plan") },
                         onLogout = {
                             notificationsViewModel.logout()
                             authViewModel.logout()
@@ -1115,6 +1116,13 @@ private fun TijarioAppContent() {
                     BackupSettingsScreen(
                         userId = app.tijario.config.Supabase.client.auth.currentUserOrNull()?.id.orEmpty(),
                         onBack = { navController.safePopBackToMain() },
+                    )
+                }
+                composable("payments-subscriptions") {
+                    PaymentsSubscriptionsScreen(
+                        dataViewModel = dataViewModel,
+                        onBack = { navController.safePopBackToMain() },
+                        onUpgrade = { navController.navigateSingleTop("upgrade-plan") },
                     )
                 }
                 composable("upgrade-plan") {

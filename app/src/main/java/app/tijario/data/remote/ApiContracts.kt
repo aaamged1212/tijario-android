@@ -280,6 +280,7 @@ data class AiV3CustomerContextSnapshot(
 @Serializable
 data class AiV3ProductContextSnapshot(
     @SerialName("local_id") val localId: String? = null,
+    val category: String? = null,
     val name: String? = null,
     val description: String? = null,
     val price: Double? = null,

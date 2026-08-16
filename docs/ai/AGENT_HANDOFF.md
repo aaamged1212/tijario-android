@@ -1,5 +1,38 @@
 # Agent Handoff (Android & Web Repos)
 
+## 2026-08-16 (settings sheets and plan carousel)
+- **Selection UX**: Business currency opens the existing searchable currency bottom sheet. App language and appearance each open a compact bottom sheet with Arabic/English/device-language and light/dark/device-theme choices; explicit selections remain backward compatible with prior stored booleans/language values.
+- **Settings hierarchy**: The Settings home shows a cached current-plan banner followed by the local profile image/name/email, then compact destination rows. Business, App, and Account action rows use smaller icons/padding and space instead of separator lines.
+- **Plans**: Free, Starter, and Pro cards are available synchronously from safe local display definitions, then backend limits and Google Play localized prices replace their corresponding values when available. The cards swipe horizontally, comparison remains below, and only Pro has a colored outline. Purchase availability and Google Play billing logic are unchanged.
+- **Validation**: Kotlin compilation, focused JVM tests for preference modes/settings contracts/searchable currency selection/country catalogs, `assembleDebugAndroidTest`, `assembleDebug`, and `git diff --check` passed. Physical compact-screen and RTL/LTR visual QA remain pending.
+- **Safety**: This handoff is recorded in one local commit on the current feature branch. No push, merge, backend/Web change, Supabase migration, deployment, Production write, external configuration change, or Google Play upload occurred. `.agents` remains local and excluded.
+
+## 2026-08-16 (system defaults and authentication/settings UI, local uncommitted)
+- **First launch**: When no preference has been saved, Android language follows an Arabic system locale or uses English for other locales, and appearance follows the system night mode. An explicit in-app language or theme choice remains persisted and overrides later system changes.
+- **Authentication**: Login, registration, email verification, password recovery, and business onboarding now share a Material theme-aware background, branding header, responsive card surfaces, and always-available language/theme controls instead of a fixed green canvas.
+- **Settings**: The main Settings page is a compact grouped list. `Store Settings` is presented as `Business` / `النشاط التجاري`; a new `Payments & Subscriptions` destination owns current-plan usage, retry, and upgrade actions.
+- **Validation**: `AppPreferencesDefaultsTest` and `AuthSettingsUiContractTest` passed. `assembleDebugAndroidTest`, `assembleDebug`, and `git diff --check` passed. Physical fresh-install, RTL/LTR, keyboard, and compact-screen visual QA remain pending.
+- **Safety**: No commit, push, merge, backend/Web change, Supabase migration, deployment, Production write, external configuration change, or Google Play upload occurred. `.agents` remains local and excluded.
+
+## 2026-08-16 (local AI history and searchable pickers/documents, local uncommitted)
+- **AI history**: Smart replies and captions now persist in account-scoped Room history with separate types. Each tab opens its own scrollable bottom sheet, and every saved variant can be copied independently. Room schema advances from 19 to 20 with a forward migration; historical generations created before this change cannot be reconstructed.
+- **Pickers**: Country and calling-code selection uses the full searchable country catalog with flags and context-specific hints. Product currency search now matches currency code, country, and flag across the expanded ISO catalog. Business Settings and onboarding share the country bottom sheet and keep the calling code aligned with the selected country.
+- **Documents**: Invoice and quotation tabs retain independent compact search queries and match either document number or customer name before displaying their existing status filters.
+- **Validation**: Focused AI-history, catalog, picker, and document-search JVM tests passed. `assembleDebugAndroidTest` and `assembleDebug` passed; the Room 19-to-20 instrumentation migration test compiled but still requires a connected device for execution.
+- **Safety**: No commit, push, merge, backend/Web change, Supabase migration, deployment, Production write, external configuration change, or Google Play upload occurred. `.agents` remains local and excluded.
+
+## 2026-08-16 (AI result isolation and bottom-navigation visibility, local uncommitted)
+- **Change**: Smart-reply and caption generation now retain separate UI states and independent scroll positions. A reply result cannot render in the caption tab, and a caption result cannot replace a reply result. Caption output no longer renders the customer-message analysis, including customer intent.
+- **UX**: A successful result scrolls its active tab to the generated result. The AI page reserves bottom content space when embedded in the app shell so the final result actions remain visible above the bottom navigation.
+- **Validation**: `AiGenerationStateStoreTest` and `assembleDebug` passed. The first test attempt was blocked by a local KSP incremental-cache flush failure; the same test completed successfully with incremental KSP disabled only for that invocation.
+- **Safety**: No commit, push, merge, backend/Web change, migration, Production write, external configuration change, or Google Play upload occurred. `.agents` remains local and excluded.
+
+## 2026-08-16 (official notification branding asset, local uncommitted)
+- **Change**: The supplied official Tijario 512px logo is bundled as `tijario_notification_logo` and is now the large icon for announcement and backup/restore notifications.
+- **Android behavior**: The status-bar icon remains the existing monochrome `ic_stat_tijario`, because Android masks small notification icons to a monochrome silhouette. The expanded notification shows the supplied full-color logo.
+- **Validation**: `assembleDebug --console plain --no-daemon` passed. Physical notification visual QA remains pending.
+- **Safety**: No commit, push, merge, backend/Web change, migration, Production write, external configuration change, or Google Play upload occurred. `.agents` remains local and excluded.
+
 ## 2026-08-15 (document update item preservation, local)
 - **Root cause**: `updateDocumentLocal` inserted replacement item rows before calling Room `upsertDocument`. The DAO uses `REPLACE`, which deletes the parent row and its cascading child rows, leaving an itemless `LOCAL_ONLY` document after a seemingly successful edit.
 - **Correction**: The same Room transaction now writes the document parent first, clears old items, then inserts replacement items. This preserves the new item rows and keeps the edited document reopenable offline.
@@ -837,6 +870,13 @@
 - **Remote validation**: GitHub Actions Source Audit Scan and Android CI run `31327114193` both completed successfully. Android CI passed its compile/unit-test and lint/release-assembly jobs.
 - **Safety Status**: No deployment, migration, Production write, external configuration change, or Google Play upload occurred.
 
+## 2026-08-16 (Document preview currency and AI context follow-up, local)
+- **Preview logo**: The pre-save WebView now reads the same shared business-logo cache used by the PDF flow, prefers the explicit business owner cache, and safely caches a verified remote image when it is first reachable. This keeps a previously cached logo available offline without exposing credentials.
+- **Document currency and stock**: The item picker disables products whose saved currency differs from the document currency and explains why; route-return and save-time guards enforce the same rule. Tracked products also show their remaining stock after any quantities already reserved in the current invoice.
+- **AI context and runtime**: Product currency and category now reach the bounded V3 context, while the server prompt also incorporates the relevant business terms and user-selected generation controls. Production runtime logs identified the canonical Replicate `succeeded` status as the rejection cause on deployed commit `a0390be`; the local provider fix accepts it and requires separate authorized publication/deployment. Contact data stays excluded.
+- **Validation**: 58 focused JVM tests and `assembleDebug` passed. Device QA remains required for a real store logo before first cache, currency-mismatch picker behavior, and Arabic/English generated content.
+- **Safety Status**: No commit, push, deployment, migration, Production write, external configuration change, or Google Play upload occurred. `.agents` remains local and excluded.
+
 ## 2026-08-13 (Offline document editing, ordering, and catalog follow-up, local)
 - **Offline correction**: Editing a locally saved invoice or quotation no longer checks or refreshes the document-creation entitlement. The existing Room transaction updates only the document and its replacement items, so an offline edit remains `LOCAL_ONLY` and cannot consume a quota credit.
 - **Ordering and catalogs**: Newly created local documents receive a full creation timestamp and document lists now order by creation time, then sync/revision metadata. Store onboarding and settings use the full country and calling-code catalog with flags; currency labels include their country and flag. Products can retain a selected product currency.
@@ -853,7 +893,7 @@
 ## 2026-08-10 (Runtime-critical Android remediation, local and uncommitted)
 - **Navigation and plan guards**: Settings and child-route back actions now recover to the main route if the navigation stack has no valid predecessor. All invoice, quote, customer, and product creation entries use one creation-limit policy before navigation, while forms preserve a localized save-time limit dialog if a stale state is rejected.
 - **Local data behavior**: LocalDrive usage overlays use Room counts for customers/products and pending creation events for documents without changing entitlement limits. New forms inherit the saved business currency unless manually changed. Local document numbers are deterministic per type, preserve valid custom suffixes and leading zeroes, reject local duplicates before writing, and remain stable on edit.
-- **AI boundary**: Android no longer sends local-only selected entity IDs to the existing AI API. It sends a bounded non-sensitive fallback prompt context; the API does not yet accept `context_snapshot`, so backend work is still required before local-only business settings can become authoritative AI context.
+- **AI boundary**: Android does not send local-only selected entity IDs. It sends a bounded non-sensitive `context_snapshot`; the current local backend source accepts that contract, but it still requires an authorized commit, push, and deployment before Production can use it.
 - **Validation**: 343 JVM tests passed with zero failures/errors. `lintDebug`, `lintRelease`, `assembleDebug`, `assembleRelease`, `assembleAndroidTest`, `assemblePlayQa`, and `bundleRelease` passed. The first full run exceeded the command wrapper timeout while Gradle continued; the same fully up-to-date gate then completed with exit code 0.
 - **Physical QA still required**: no ADB device/emulator was connected. Verify the Settings back loop, creation-limit sheet, YER defaults and manual override, invoice/quote numbering edge cases, AI customer/product reply/caption, and the status-bar icon on a real device.
 - **Safety Status**: No commit, push, deployment, migration, Production write, external configuration change, or Google Play upload occurred. `.agents` remains local and excluded.

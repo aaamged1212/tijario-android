@@ -1,7 +1,11 @@
 package app.tijario.domain
 
 import app.tijario.config.AppLanguage
+import java.util.Currency
 import java.util.Locale
+
+private fun localeForCountry(countryCode: String): Locale =
+    Locale.Builder().setRegion(countryCode).build()
 
 data class CountryOption(
     val countryCode: String,
@@ -17,8 +21,8 @@ data class CountryOption(
             .orEmpty()
 
     fun name(language: AppLanguage): String {
-        val locale = if (language == AppLanguage.AR) Locale("ar") else Locale.ENGLISH
-        return Locale("", countryCode).getDisplayCountry(locale).takeIf { it.isNotBlank() } ?: storageName
+        val locale = if (language == AppLanguage.AR) Locale.forLanguageTag("ar") else Locale.ENGLISH
+        return localeForCountry(countryCode).getDisplayCountry(locale).takeIf { it.isNotBlank() } ?: storageName
     }
 
     fun label(language: AppLanguage): String = listOf(flag, name(language)).filter { it.isNotBlank() }.joinToString(" ")
@@ -76,7 +80,7 @@ object CountryCatalog {
                 CountryOption(
                     countryCode = countryCode,
                     dialCode = callingCodes[countryCode],
-                    storageName = if (countryCode == "XK") "Kosovo" else Locale("", countryCode).getDisplayCountry(Locale.ENGLISH),
+                    storageName = if (countryCode == "XK") "Kosovo" else localeForCountry(countryCode).getDisplayCountry(Locale.ENGLISH),
                 )
             }
             .sortedBy { it.storageName }
@@ -147,7 +151,7 @@ object CountryCatalog {
 }
 
 object CurrencyCatalog {
-    val options: List<CurrencyOption> = listOf(
+    private val preferredOptions: List<CurrencyOption> = listOf(
         "AED" to "AE", "AUD" to "AU", "BHD" to "BH", "BRL" to "BR", "CAD" to "CA",
         "CHF" to "CH", "CNY" to "CN", "DKK" to "DK", "DZD" to "DZ", "EGP" to "EG",
         "EUR" to "DE", "GBP" to "GB", "IDR" to "ID", "INR" to "IN", "IQD" to "IQ",
@@ -157,6 +161,18 @@ object CurrencyCatalog {
         "SDG" to "SD", "SEK" to "SE", "SYP" to "SY", "THB" to "TH", "TND" to "TN",
         "TRY" to "TR", "USD" to "US", "YER" to "YE", "ZAR" to "ZA",
     ).map { (code, countryCode) -> CurrencyOption(code, countryCode) }
+
+    val options: List<CurrencyOption> = (
+        preferredOptions + CountryCatalog.allCountries.mapNotNull { country ->
+            runCatching {
+                Currency.getInstance(localeForCountry(country.countryCode)).currencyCode
+            }.getOrNull()
+                ?.takeUnless { it == "XXX" }
+                ?.let { code -> CurrencyOption(code, country.countryCode) }
+        }
+    )
+        .distinctBy { it.code }
+        .sortedBy { it.code }
 
     fun find(code: String?): CurrencyOption? = options.firstOrNull { it.code.equals(code, ignoreCase = true) }
 
@@ -181,6 +197,23 @@ fun filterDialCodeOptions(
         option.dialCode.contains(normalizedQuery, ignoreCase = true) ||
             option.countryCode.contains(normalizedQuery, ignoreCase = true) ||
             option.label(language).contains(normalizedQuery, ignoreCase = true)
+    }
+}
+
+fun filterCountryOptions(
+    query: String,
+    language: AppLanguage,
+    options: List<CountryOption> = CountryCatalog.allCountries,
+): List<CountryOption> {
+    val normalizedQuery = query.trim()
+    if (normalizedQuery.isBlank()) return options
+    return options.filter { country ->
+        country.countryCode.contains(normalizedQuery, ignoreCase = true) ||
+            country.storageName.contains(normalizedQuery, ignoreCase = true) ||
+            country.name(language).contains(normalizedQuery, ignoreCase = true) ||
+            country.name(AppLanguage.AR).contains(normalizedQuery, ignoreCase = true) ||
+            country.name(AppLanguage.EN).contains(normalizedQuery, ignoreCase = true) ||
+            country.dialCode?.contains(normalizedQuery, ignoreCase = true) == true
     }
 }
 

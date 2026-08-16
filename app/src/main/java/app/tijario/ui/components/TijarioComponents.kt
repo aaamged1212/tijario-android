@@ -60,7 +60,10 @@ import androidx.compose.ui.unit.sp
 import app.tijario.config.LocalLanguage
 import app.tijario.config.t
 import app.tijario.domain.DialCodeOption
+import app.tijario.domain.CountryCatalog
+import app.tijario.domain.CountryOption
 import app.tijario.domain.MvpDialCodeOptions
+import app.tijario.domain.filterCountryOptions
 import app.tijario.domain.filterDialCodeOptions
 import app.tijario.domain.normalizePhoneWithDialCode
 import app.tijario.domain.splitPhoneNumber
@@ -285,7 +288,7 @@ fun TijarioPhoneField(
             ) {
                 Text(t("country_code"), fontWeight = FontWeight.Bold)
                 TijarioTextField(
-                    label = t("search_placeholder"),
+                    label = t("search_dial_code_placeholder"),
                     value = dialCodeQuery,
                     onValueChange = { dialCodeQuery = it },
                 )
@@ -316,6 +319,74 @@ fun TijarioPhoneField(
                                 maxLines = 1,
                             )
                             Text(option.dialCode, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CountryPickerBottomSheet(
+    currentCountry: String,
+    onDismiss: () -> Unit,
+    onSelect: (CountryOption) -> Unit,
+) {
+    val language = LocalLanguage.current
+    var query by rememberSaveable { mutableStateOf("") }
+    val countries = remember(query, language) {
+        filterCountryOptions(query, language)
+    }
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.surface,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(t("country"), fontWeight = FontWeight.Bold)
+            TijarioTextField(
+                label = t("search_country_placeholder"),
+                value = query,
+                onValueChange = { query = it },
+            )
+            LazyColumn(
+                modifier = Modifier.heightIn(max = 460.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                items(countries, key = { it.countryCode }) { country ->
+                    val selected = CountryCatalog.find(currentCountry)?.countryCode == country.countryCode
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(
+                                if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                                else Color.Transparent,
+                            )
+                            .clickable { onSelect(country) }
+                            .padding(horizontal = 12.dp, vertical = 14.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(country.flag)
+                        Text(
+                            text = country.name(language),
+                            modifier = Modifier.weight(1f),
+                            maxLines = 1,
+                        )
+                        country.dialCode?.let { dialCode ->
+                            Text(
+                                text = dialCode,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontWeight = FontWeight.SemiBold,
+                            )
                         }
                     }
                 }

@@ -1,5 +1,35 @@
 # Active Agent Status
 
+## 2026-08-16
+- **Current task**: Modernize settings pickers, compact settings rows, and plan browsing on `fix/android-runtime-critical-fixes`.
+- **State**: Business currency, app language, and app appearance now use searchable/selection bottom sheets. Language and appearance support explicit device-system modes. Settings shows the current plan and local profile header, while plan cards render immediately from safe local definitions in a horizontal pager and only Pro receives a colored border.
+- **Validation**: Kotlin compilation, focused preference/settings/catalog JVM tests, `assembleDebugAndroidTest`, `assembleDebug`, and `git diff --check` passed. Physical RTL/LTR visual QA remains pending.
+- **Safety**: This handoff is recorded in one local commit on the current feature branch. No push, deployment, migration, Production write, external configuration change, or Google Play upload occurred. `.agents` remains local and excluded.
+
+## 2026-08-16
+- **Current task**: Align first-launch appearance with the phone and modernize authentication/settings UI on `fix/android-runtime-critical-fixes`.
+- **State**: A fresh install follows the system Arabic/English language and light/dark appearance until the user explicitly saves an in-app choice. Authentication and account-setup screens are theme-aware, and the compact Settings list routes plan/usage into a dedicated Payments & Subscriptions screen.
+- **Validation**: Focused JVM tests, `assembleDebugAndroidTest`, `assembleDebug`, and `git diff --check` passed. Fresh-install and compact-screen visual QA remain pending.
+- **Safety**: No commit, push, deployment, migration, Production write, external configuration change, or Google Play upload occurred. `.agents` remains local and excluded.
+
+## 2026-08-16
+- **Current task**: Add local AI history, searchable country/currency pickers, and independent document search on `fix/android-runtime-critical-fixes`.
+- **State**: Reply and caption histories are account-scoped and separated in Room, each with a copy-enabled bottom sheet. Country/calling-code and product-currency searches use purpose-specific hints and expanded catalogs. Invoice and quotation tabs retain independent number/customer queries.
+- **Validation**: Focused JVM tests passed. `assembleDebugAndroidTest` and `assembleDebug` passed; physical Room migration and visual QA remain pending.
+- **Safety**: No commit, push, deployment, migration, Production write, external configuration change, or Google Play upload occurred. `.agents` remains local and excluded.
+
+## 2026-08-16
+- **Current task**: Isolate smart-reply and caption output in the Android AI page on `fix/android-runtime-critical-fixes`.
+- **State**: Each tool retains independent generation state and scroll position; caption results no longer show reply-only customer intent or message analysis. A completed result scrolls into view and the final content clears the bottom navigation.
+- **Validation**: `AiGenerationStateStoreTest` and `assembleDebug` passed with a one-shot non-incremental KSP invocation after the local incremental cache failed to flush. Physical visual QA is pending.
+- **Safety**: No commit, push, deployment, migration, Production write, external configuration change, or Google Play upload occurred. `.agents` remains local and excluded.
+
+## 2026-08-16
+- **Current task**: Replace the notification large icon with the supplied official Tijario logo on `fix/android-runtime-critical-fixes`.
+- **State**: Announcement and backup/restore notifications use the exact bundled 512px source image as their large icon. The Android-required monochrome status-bar icon is deliberately retained.
+- **Validation**: `assembleDebug --console plain --no-daemon` passed. Physical notification visual QA is pending.
+- **Safety**: No commit, push, deployment, migration, Production write, external configuration change, or Google Play upload occurred. `.agents` remains local and excluded.
+
 ## 2026-08-15
 - **Current task**: Document update item-preservation correction on `fix/android-runtime-critical-fixes`.
 - **State**: Room now replaces the document parent before inserting replacement item rows, avoiding the `REPLACE` cascade that left edited documents itemless. Server-backed itemless records can recover the last complete server snapshot when online; purely local records remain protected.
@@ -165,6 +195,12 @@
 - **Validation**: Full JVM tests, `lintDebug`, `lintRelease`, Debug/Release/AndroidTest/PlayQa assembly, and `bundleRelease` passed locally. No ADB device or emulator is connected.
 - **Boundary**: The Android app avoids sending local-only customer/product IDs to the current AI API. Full server-side support for a bounded local context snapshot remains a separate backend contract change.
 - **Safety**: No push, deployment, migration, Production write, external configuration change, or Google Play upload occurred. `.agents` remains local and excluded.
+
+## 2026-08-16
+- **Current task**: Local preview-logo, document-currency, and AI-context follow-up on `fix/android-runtime-critical-fixes`.
+- **State**: Draft previews now use the cached store-logo path already used by PDF generation. Cross-currency products are blocked in the picker and save path, and tracked products show remaining stock there. AI snapshots preserve product category and actual currency; the live provider-status correction remains pending Web publication/deployment.
+- **Validation**: 58 focused JVM tests and `assembleDebug` passed. Physical device QA remains pending.
+- **Safety**: No commit, push, deployment, migration, Production write, external configuration change, or Google Play upload occurred. `.agents` remains local and excluded.
 
 ## 2026-08-13
 - **Active task**: Local Android follow-up on `fix/android-runtime-critical-fixes`.

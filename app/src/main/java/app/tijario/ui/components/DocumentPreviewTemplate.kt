@@ -58,7 +58,11 @@ fun ModernDocumentPreview(
     var showFullScreenPreview by remember { mutableStateOf(false) }
 
     Box(modifier = modifier) {
-        DocumentPreviewWebView(model = model, modifier = Modifier.fillMaxSize())
+        DocumentPreviewWebView(
+            model = model,
+            modifier = Modifier.fillMaxSize(),
+            logoOwnerId = businessSettings?.userId,
+        )
         IconButton(
             onClick = { showFullScreenPreview = true },
             modifier = Modifier
@@ -87,6 +91,7 @@ fun ModernDocumentPreview(
                     model = model,
                     modifier = Modifier.fillMaxSize(),
                     interactive = true,
+                    logoOwnerId = businessSettings?.userId,
                 )
                 IconButton(
                     onClick = { showFullScreenPreview = false },

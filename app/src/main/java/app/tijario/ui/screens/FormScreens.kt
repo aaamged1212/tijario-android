@@ -129,6 +129,7 @@ import app.tijario.features.documents.ui.DocumentTemplatePreferences
 import app.tijario.features.documents.ui.AmountPreset
 import app.tijario.features.documents.ui.DocumentInvoiceOptionPreferences
 import app.tijario.ui.components.ModernDocumentPreview
+import app.tijario.ui.components.CountryPickerBottomSheet
 import app.tijario.ui.components.TijarioButton
 import app.tijario.ui.components.TijarioPhoneField
 import app.tijario.ui.components.TijarioTextField
@@ -367,6 +368,40 @@ internal fun canAddProductToInvoice(
     val originalQuantity = originalQuantitiesByProductId[product.id] ?: 0
     return reserved < stock + originalQuantity
 }
+
+internal fun remainingProductStockForPicker(
+    documentType: DocumentType,
+    product: Product,
+    items: List<DocumentItemState>,
+    originalQuantitiesByProductId: Map<String, Int> = emptyMap(),
+): Int? {
+    if (product.kind != ProductKind.Product) return null
+    val stock = product.stockQuantity ?: return null
+    if (documentType != DocumentType.Invoice) return stock
+
+    val reserved = quantityByProductId(items)[product.id].orEmptyInt()
+    val originalQuantity = originalQuantitiesByProductId[product.id] ?: 0
+    return (stock + originalQuantity - reserved).coerceAtLeast(0)
+}
+
+internal fun isProductCurrencyCompatibleWithDocument(
+    documentCurrency: String,
+    productCurrency: String,
+): Boolean {
+    val normalizedDocumentCurrency = documentCurrency.trim()
+    val normalizedProductCurrency = productCurrency.trim()
+    return normalizedDocumentCurrency.isBlank() ||
+        normalizedProductCurrency.isBlank() ||
+        normalizedDocumentCurrency.equals(normalizedProductCurrency, ignoreCase = true)
+}
+
+internal fun firstDocumentCurrencyMismatch(
+    items: List<DocumentItemState>,
+    products: List<Product>,
+    documentCurrency: String,
+): Product? = items
+    .mapNotNull { item -> item.productId?.let { productId -> products.firstOrNull { it.id == productId } } }
+    .firstOrNull { product -> !isProductCurrencyCompatibleWithDocument(documentCurrency, product.currency) }
 
 private fun Int?.orEmptyInt(): Int = this ?: 0
 
@@ -770,11 +805,7 @@ private fun SettingsDropdownField(
     }
 }
 
-private fun countryOptions(): List<String> = CountryCatalog.allCountries.map { it.storageName }
-
 private fun dialCodeForCountrySelection(country: String): String = CountryCatalog.dialCodeFor(country)
-
-private fun currencyOptions(): List<String> = CurrencyCatalog.options.map { it.code }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -1218,7 +1249,9 @@ fun BusinessSettingsScreen(
     }
 
     // Dialog control states
-    var activeDialog by remember { mutableStateOf<String?>(null) } // "name", "phone", "country", "city", "currency", "terms"
+    var activeDialog by remember { mutableStateOf<String?>(null) }
+    var showCountryPicker by remember { mutableStateOf(false) }
+    var showCurrencyPicker by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         dataViewModel.refreshAll()
@@ -1275,23 +1308,6 @@ fun BusinessSettingsScreen(
                                 },
                             )
                         }
-                        "country" -> {
-                            SettingsDropdownField(
-                                label = t("country"),
-                                value = form.country,
-                                options = countryOptions(),
-                                onValueChange = { country ->
-                                    form = form.copy(
-                                        country = country,
-                                        whatsapp = splitPhoneNumber(form.whatsapp).let { phone ->
-                                            normalizePhoneWithDialCode(dialCodeForCountrySelection(country), phone.localNumber)
-                                        },
-                                    )
-                                },
-                                error = if (form.country.isNotEmpty()) form.countryError else null,
-                                optionLabel = { CountryCatalog.display(it, language) },
-                            )
-                        }
                         "city" -> {
                             TijarioTextField(
                                 label = t("city"),
@@ -1326,16 +1342,6 @@ fun BusinessSettingsScreen(
                                 leadingIcon = { Icon(Icons.Filled.Public, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface) }
                             )
                         }
-                        "currency" -> {
-                            SettingsDropdownField(
-                                label = t("currency"),
-                                value = form.currency,
-                                options = currencyOptions(),
-                                onValueChange = { form = form.copy(currency = it) },
-                                error = if (form.currency.isNotEmpty()) form.currencyError else null,
-                                optionLabel = { CurrencyCatalog.display(it, language) },
-                            )
-                        }
                         "terms" -> {
                             TijarioTextField(
                                 label = t("terms"),
@@ -1356,6 +1362,33 @@ fun BusinessSettingsScreen(
                     Text(t("btn_ok"))
                 }
             }
+        )
+    }
+
+    if (showCountryPicker) {
+        CountryPickerBottomSheet(
+            currentCountry = form.country,
+            onDismiss = { showCountryPicker = false },
+            onSelect = { country ->
+                form = form.copy(
+                    country = country.storageName,
+                    whatsapp = splitPhoneNumber(form.whatsapp).let { phone ->
+                        normalizePhoneWithDialCode(country.dialCode ?: "+966", phone.localNumber)
+                    },
+                )
+                showCountryPicker = false
+            },
+        )
+    }
+
+    if (showCurrencyPicker) {
+        CurrencyPickerDialog(
+            currentCurrency = form.currency,
+            onDismiss = { showCurrencyPicker = false },
+            onSelect = { currency ->
+                form = form.copy(currency = currency)
+                showCurrencyPicker = false
+            },
         )
     }
 
@@ -1508,7 +1541,8 @@ fun BusinessSettingsScreen(
                 elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
             ) {
                 Column(
-                    modifier = Modifier.padding(12.dp)
+                    modifier = Modifier.padding(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     // Row 1: اسم المتجر / النشاط التجاري
                     SettingsItemRow(
@@ -1518,7 +1552,6 @@ fun BusinessSettingsScreen(
                         onClick = { activeDialog = "name" }
                     )
 
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = 4.dp))
 
 
 
@@ -1530,17 +1563,15 @@ fun BusinessSettingsScreen(
                         onClick = { activeDialog = "phone" }
                     )
 
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = 4.dp))
 
                     // Row 4: الدولة
                     SettingsItemRow(
                         icon = Icons.Filled.Public,
                         title = t("country"),
                         value = form.country.ifBlank { if (language == AppLanguage.AR) "اليمن" else "Yemen" },
-                        onClick = { activeDialog = "country" }
+                        onClick = { showCountryPicker = true }
                     )
 
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = 4.dp))
 
                     // Row 5: المدينة
                     SettingsItemRow(
@@ -1550,7 +1581,6 @@ fun BusinessSettingsScreen(
                         onClick = { activeDialog = "city" }
                     )
 
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = 4.dp))
 
                     SettingsItemRow(
                         icon = Icons.Filled.LocationOn,
@@ -1559,7 +1589,6 @@ fun BusinessSettingsScreen(
                         onClick = { activeDialog = "address" }
                     )
 
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = 4.dp))
 
                     SettingsItemRow(
                         icon = Icons.Filled.Description,
@@ -1568,7 +1597,6 @@ fun BusinessSettingsScreen(
                         onClick = { activeDialog = "email" }
                     )
 
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = 4.dp))
 
                     SettingsItemRow(
                         icon = Icons.Filled.Public,
@@ -1577,20 +1605,13 @@ fun BusinessSettingsScreen(
                         onClick = { activeDialog = "website" }
                     )
 
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = 4.dp))
 
                     // Row 6: العملة
-                    val displayCurrency = when (form.currency.uppercase()) {
-                        "YER" -> if (language == AppLanguage.AR) "ريال يمني - YER" else "Yemeni Rial - YER"
-                        "SAR" -> if (language == AppLanguage.AR) "الريال السعودي - SAR" else "Saudi Riyal - SAR"
-                        "USD" -> if (language == AppLanguage.AR) "الدولار الأمريكي - USD" else "US Dollar - USD"
-                        else -> form.currency
-                    }
                     SettingsItemRow(
                         icon = Icons.Filled.AttachMoney,
                         title = t("currency"),
-                        value = displayCurrency,
-                        onClick = { activeDialog = "currency" }
+                        value = CurrencyCatalog.display(form.currency, language),
+                        onClick = { showCurrencyPicker = true }
                     )
 
                 }
@@ -1678,30 +1699,37 @@ private fun SettingsItemRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.32f))
             .clickable { onClick() }
-            .padding(vertical = 12.dp, horizontal = 4.dp),
+            .padding(vertical = 9.dp, horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            modifier = Modifier.weight(1f)
+        Surface(
+            color = MaterialTheme.colorScheme.surface,
+            shape = RoundedCornerShape(9.dp),
+            modifier = Modifier.size(34.dp),
         ) {
-            Surface(
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
-                shape = RoundedCornerShape(8.dp),
-                modifier = Modifier.size(40.dp)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp))
-                }
-            }
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(title, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(value, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+            Box(contentAlignment = Alignment.Center) {
+                Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(18.dp))
             }
         }
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(1.dp),
+        ) {
+            Text(title, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+            if (value.isNotBlank()) {
+                Text(value, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+            }
+        }
+        Icon(
+            Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(18.dp),
+        )
     }
 }
 
@@ -2664,6 +2692,10 @@ fun DocumentFormScreen(
             showDocumentError(Localization.getString("enter_item_details_correctly", language))
             return
         }
+        firstDocumentCurrencyMismatch(form.items, uiState.products, form.currency)?.let {
+            showDocumentError(Localization.getString("cannot_add_product_currency_mismatch", language))
+            return
+        }
         firstInvoiceStockValidationMessage(
             type,
             form.items,
@@ -2868,10 +2900,14 @@ fun DocumentFormScreen(
     // Sync selected product to specific row
     LaunchedEffect(selectedProduct, selectedProductRowIndex) {
         selectedProduct?.let { prod ->
-            val idx = selectedProductRowIndex ?: pendingProductRowIndex ?: form.items.size
-            val (updatedItems, targetIndex) = mergeSelectedProductIntoItems(form.items, prod, idx)
-            form = form.copy(items = updatedItems)
-            editingItemIndex = targetIndex
+            if (isProductCurrencyCompatibleWithDocument(form.currency, prod.currency)) {
+                val idx = selectedProductRowIndex ?: pendingProductRowIndex ?: form.items.size
+                val (updatedItems, targetIndex) = mergeSelectedProductIntoItems(form.items, prod, idx)
+                form = form.copy(items = updatedItems)
+                editingItemIndex = targetIndex
+            } else {
+                showDocumentError(Localization.getString("cannot_add_product_currency_mismatch", language))
+            }
             pendingProductRowIndex = null
             onSelectedProductConsumed()
         }
@@ -4198,12 +4234,17 @@ fun DocumentFormScreen(
                         } else {
                             form.items
                         }
-                        val canAddProduct = canAddProductToInvoice(
+                        val hasMatchingCurrency = isProductCurrencyCompatibleWithDocument(
+                            documentCurrency = form.currency,
+                            productCurrency = product.currency,
+                        )
+                        val hasAvailableStock = canAddProductToInvoice(
                             documentType = type,
                             product = product,
                             items = itemsForStockSelection,
                             originalQuantitiesByProductId = originalQuantitiesByProductId,
                         )
+                        val canAddProduct = hasMatchingCurrency && hasAvailableStock
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -4228,7 +4269,25 @@ fun DocumentFormScreen(
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(product.name, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 Text(product.description ?: t("kind_product"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                if (!canAddProduct) {
+                                remainingProductStockForPicker(
+                                    documentType = type,
+                                    product = product,
+                                    items = itemsForStockSelection,
+                                    originalQuantitiesByProductId = originalQuantitiesByProductId,
+                                )?.let { remainingStock ->
+                                    Text(
+                                        text = "${Localization.getString("available_stock", language)}$remainingStock",
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontSize = 11.sp,
+                                    )
+                                }
+                                if (!hasMatchingCurrency) {
+                                    Text(
+                                        text = Localization.getString("cannot_add_product_currency_mismatch", language),
+                                        color = MaterialTheme.colorScheme.error,
+                                        fontSize = 11.sp,
+                                    )
+                                } else if (!hasAvailableStock) {
                                     Text(
                                         text = Localization.getString("cannot_add_product_insufficient_stock", language),
                                         color = MaterialTheme.colorScheme.error,
@@ -4411,7 +4470,7 @@ fun CurrencyPickerDialog(
                     fontSize = 16.sp
                 )
                 TijarioTextField(
-                    label = t("search_placeholder"),
+                    label = t("search_currency_placeholder"),
                     value = query,
                     onValueChange = { query = it },
                     leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },

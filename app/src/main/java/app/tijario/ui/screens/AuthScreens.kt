@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -50,6 +51,7 @@ import app.tijario.domain.normalizePhoneWithDialCode
 import app.tijario.domain.splitPhoneNumber
 import app.tijario.data.remote.localizedDisplayMessage
 import app.tijario.ui.components.GoogleSignInButton
+import app.tijario.ui.components.CountryPickerBottomSheet
 import app.tijario.ui.components.StoreLogoPicker
 import app.tijario.ui.components.buildLogoUploadRequest
 import app.tijario.ui.components.TijarioPhoneField
@@ -73,7 +75,12 @@ import kotlinx.serialization.json.put
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.Canvas
 import androidx.compose.ui.res.painterResource
+import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.drawscope.Stroke
 
 @Composable
 private fun AuthLanguageToggle(modifier: Modifier = Modifier) {
@@ -88,14 +95,118 @@ private fun AuthLanguageToggle(modifier: Modifier = Modifier) {
         modifier = modifier
             .size(38.dp)
             .clip(CircleShape)
-            .background(Color.White.copy(alpha = 0.16f))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
     ) {
         Icon(
             imageVector = Icons.Filled.Language,
             contentDescription = if (language == AppLanguage.AR) "تبديل اللغة" else "Switch language",
-            tint = Color.White
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
+}
+
+@Composable
+private fun AuthThemeToggle(modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    IconButton(
+        onClick = {
+            AppRuntimeState.isDarkMode = !AppRuntimeState.isDarkMode
+            AppPreferences.setDarkMode(context, AppRuntimeState.isDarkMode)
+        },
+        modifier = modifier
+            .size(38.dp)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.surfaceVariant),
+    ) {
+        Icon(
+            imageVector = if (AppRuntimeState.isDarkMode) Icons.Filled.LightMode else Icons.Filled.DarkMode,
+            contentDescription = t("settings_theme"),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun AuthScreenBackground(content: @Composable BoxScope.() -> Unit) {
+    val background = MaterialTheme.colorScheme.background
+    val accent = MaterialTheme.colorScheme.primary
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    listOf(
+                        background,
+                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.42f),
+                        background,
+                    ),
+                ),
+            ),
+    ) {
+        Canvas(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(290.dp)
+                .align(Alignment.TopCenter),
+        ) {
+            val center = Offset(size.width / 2f, -size.height * 0.12f)
+            listOf(0.72f, 0.98f, 1.24f).forEachIndexed { index, scale ->
+                drawCircle(
+                    color = accent.copy(alpha = 0.11f - index * 0.025f),
+                    radius = size.width * scale,
+                    center = center,
+                    style = Stroke(width = 1.dp.toPx()),
+                )
+            }
+        }
+        Row(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .statusBarsPadding()
+                .padding(12.dp)
+                .zIndex(2f),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            AuthThemeToggle()
+            AuthLanguageToggle()
+        }
+        content()
+    }
+}
+
+@Composable
+private fun AuthBrandHeader(compact: Boolean = false) {
+    val language = LocalLanguage.current
+    Surface(
+        modifier = Modifier.size(if (compact) 64.dp else 76.dp),
+        shape = RoundedCornerShape(if (compact) 18.dp else 22.dp),
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 3.dp,
+        shadowElevation = 2.dp,
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Image(
+                painter = painterResource(id = app.tijario.R.drawable.logo_app),
+                contentDescription = if (language == AppLanguage.AR) "شعار التطبيق" else "App logo",
+                modifier = Modifier
+                    .size(if (compact) 54.dp else 64.dp)
+                    .clip(RoundedCornerShape(if (compact) 14.dp else 17.dp)),
+            )
+        }
+    }
+    Spacer(modifier = Modifier.height(14.dp))
+    Text(
+        text = t("app_name"),
+        color = MaterialTheme.colorScheme.onBackground,
+        fontSize = if (compact) 24.sp else 28.sp,
+        fontWeight = FontWeight.Black,
+    )
+    Text(
+        text = t("app_slogan"),
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        fontSize = 13.sp,
+        textAlign = TextAlign.Center,
+    )
 }
 
 @Composable
@@ -113,26 +224,7 @@ fun LoginScreen(
     val scope = rememberCoroutineScope()
     val googleSignInEnabled = remember { app.tijario.config.loadAppConfig().isGoogleSignInEnabled }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        Color(0xFF0F766E),
-                        Color(0xFF0F766E),
-                        Color(0xFF064E3B)
-                    )
-                )
-            )
-    ) {
-        AuthLanguageToggle(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(12.dp)
-                .statusBarsPadding()
-                .zIndex(1f)
-        )
+    AuthScreenBackground {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -146,36 +238,7 @@ fun LoginScreen(
         ) {
             Spacer(modifier = Modifier.height(32.dp))
 
-            // Logo & Title
-            Surface(
-                modifier = Modifier.size(72.dp),
-                shape = RoundedCornerShape(20.dp),
-                color = Color.White.copy(alpha = 0.15f)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Image(
-                        painter = painterResource(id = app.tijario.R.drawable.logo_app),
-                        contentDescription = if (language == AppLanguage.AR) "شعار التطبيق" else "App logo",
-                        modifier = Modifier
-                            .size(60.dp)
-                            .clip(RoundedCornerShape(14.dp))
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = t("app_name"),
-                color = Color.White,
-                fontSize = 28.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 1.sp
-            )
-            Text(
-                text = t("app_slogan"),
-                color = Color.White.copy(alpha = 0.8f),
-                fontSize = 14.sp,
-                textAlign = TextAlign.Center
-            )
+            AuthBrandHeader()
 
             Spacer(modifier = Modifier.height(32.dp))
 
@@ -184,7 +247,7 @@ fun LoginScreen(
                 modifier = Modifier.fillMaxWidth().widthIn(max = 520.dp),
                 shape = RoundedCornerShape(24.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Column(
                     modifier = Modifier.padding(24.dp),
@@ -195,6 +258,11 @@ fun LoginScreen(
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = t("login_subtitle"),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
 
                     TijarioTextField(
@@ -269,14 +337,14 @@ fun LoginScreen(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            HorizontalDivider(modifier = Modifier.weight(1f), color = Color(0xFFE2E8F0))
+                            HorizontalDivider(modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.outlineVariant)
                             Text(
                                 text = t("or"),
                                 modifier = Modifier.padding(horizontal = 16.dp),
-                                color = Color(0xFF94A3B8),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontSize = 14.sp
                             )
-                            HorizontalDivider(modifier = Modifier.weight(1f), color = Color(0xFFE2E8F0))
+                            HorizontalDivider(modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.outlineVariant)
                         }
 
                         val loginGoogleAction = app.tijario.config.Supabase.client.composeAuth.rememberSignInWithGoogle(
@@ -330,11 +398,11 @@ fun LoginScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center
             ) {
-                Text(t("no_account"), color = Color.White.copy(alpha = 0.8f), fontSize = 14.sp)
+                Text(t("no_account"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
                 TextButton(onClick = onRegister, contentPadding = PaddingValues(0.dp)) {
                     Text(
                         t("create_account"),
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.Bold,
                         fontSize = 14.sp,
                         textDecoration = TextDecoration.Underline,
@@ -345,6 +413,7 @@ fun LoginScreen(
             Spacer(modifier = Modifier.height(32.dp))
         }
     }
+
 }
 
 @Composable
@@ -363,26 +432,7 @@ fun RegisterScreen(
     val context = LocalContext.current
     val googleSignInEnabled = remember { app.tijario.config.loadAppConfig().isGoogleSignInEnabled }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        Color(0xFF0F766E),
-                        Color(0xFF0F766E),
-                        Color(0xFF064E3B)
-                    )
-                )
-            )
-    ) {
-        AuthLanguageToggle(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(12.dp)
-                .statusBarsPadding()
-                .zIndex(1f)
-        )
+    AuthScreenBackground {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -396,15 +446,19 @@ fun RegisterScreen(
         ) {
             Spacer(modifier = Modifier.height(32.dp))
 
+            AuthBrandHeader(compact = true)
+
+            Spacer(modifier = Modifier.height(22.dp))
+
             Text(
                 text = t("register_title"),
-                color = Color.White,
+                color = MaterialTheme.colorScheme.onBackground,
                 fontSize = 26.sp,
                 fontWeight = FontWeight.Bold
             )
             Text(
                 text = t("register_subtitle"),
-                color = Color.White.copy(alpha = 0.8f),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 14.sp,
                 textAlign = TextAlign.Center
             )
@@ -415,7 +469,7 @@ fun RegisterScreen(
                 modifier = Modifier.fillMaxWidth().widthIn(max = 520.dp),
                 shape = RoundedCornerShape(24.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Column(
                     modifier = Modifier.padding(24.dp),
@@ -549,14 +603,14 @@ fun RegisterScreen(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            HorizontalDivider(modifier = Modifier.weight(1f), color = Color(0xFFE2E8F0))
+                            HorizontalDivider(modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.outlineVariant)
                             Text(
                                 text = t("or"),
                                 modifier = Modifier.padding(horizontal = 16.dp),
-                                color = Color(0xFF94A3B8),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontSize = 14.sp
                             )
-                            HorizontalDivider(modifier = Modifier.weight(1f), color = Color(0xFFE2E8F0))
+                            HorizontalDivider(modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.outlineVariant)
                         }
 
                         val registerGoogleAction = app.tijario.config.Supabase.client.composeAuth.rememberSignInWithGoogle(
@@ -609,11 +663,11 @@ fun RegisterScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center
             ) {
-                Text(t("already_have_account"), color = Color.White.copy(alpha = 0.8f), fontSize = 14.sp)
+                Text(t("already_have_account"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
                 TextButton(onClick = onBackToLogin, contentPadding = PaddingValues(0.dp)) {
                     Text(
                         t("btn_login"),
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.Bold,
                         fontSize = 14.sp,
                         textDecoration = TextDecoration.Underline,
@@ -712,26 +766,7 @@ fun VerifyEmailScreen(
         return true
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        Color(0xFF0F766E),
-                        Color(0xFF0F766E),
-                        Color(0xFF064E3B)
-                    )
-                )
-            )
-    ) {
-        AuthLanguageToggle(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(12.dp)
-                .statusBarsPadding()
-                .zIndex(1f)
-        )
+    AuthScreenBackground {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -747,7 +782,7 @@ fun VerifyEmailScreen(
 
             Text(
                 text = if (language == AppLanguage.AR) "تحقق من البريد" else "Verify your email",
-                color = Color.White,
+                color = MaterialTheme.colorScheme.onBackground,
                 fontSize = 26.sp,
                 fontWeight = FontWeight.Bold
             )
@@ -757,7 +792,7 @@ fun VerifyEmailScreen(
                 } else {
                     "Enter the verification code sent to: $emailToUse"
                 },
-                color = Color.White.copy(alpha = 0.8f),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 14.sp,
                 textAlign = TextAlign.Center
             )
@@ -770,7 +805,7 @@ fun VerifyEmailScreen(
                 } else {
                     Localization.getString("verification_code_expired", language)
                 },
-                color = Color.White.copy(alpha = 0.75f),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 12.sp,
                 textAlign = TextAlign.Center
             )
@@ -781,7 +816,7 @@ fun VerifyEmailScreen(
                 modifier = Modifier.fillMaxWidth().widthIn(max = 520.dp),
                 shape = RoundedCornerShape(24.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Column(
                     modifier = Modifier.padding(24.dp),
@@ -918,26 +953,7 @@ fun ForgotPasswordScreen(onBackToLogin: () -> Unit) {
     val scope = rememberCoroutineScope()
     val form = LoginFormState(email = email, password = "placeholder")
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        Color(0xFF0F766E),
-                        Color(0xFF0F766E),
-                        Color(0xFF064E3B)
-                    )
-                )
-            )
-    ) {
-        AuthLanguageToggle(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(12.dp)
-                .statusBarsPadding()
-                .zIndex(1f)
-        )
+    AuthScreenBackground {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -953,13 +969,13 @@ fun ForgotPasswordScreen(onBackToLogin: () -> Unit) {
 
             Text(
                 text = t("reset_password_title"),
-                color = Color.White,
+                color = MaterialTheme.colorScheme.onBackground,
                 fontSize = 26.sp,
                 fontWeight = FontWeight.Bold
             )
             Text(
                 text = t("reset_password_subtitle"),
-                color = Color.White.copy(alpha = 0.8f),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 14.sp,
                 textAlign = TextAlign.Center
             )
@@ -970,7 +986,7 @@ fun ForgotPasswordScreen(onBackToLogin: () -> Unit) {
                 modifier = Modifier.fillMaxWidth().widthIn(max = 520.dp),
                 shape = RoundedCornerShape(24.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Column(
                     modifier = Modifier.padding(24.dp),
@@ -1051,7 +1067,6 @@ fun OnboardingScreen(
 ) {
     val language = LocalLanguage.current
     val initializationState by dataViewModel.accountInitializationState.collectAsState()
-    val countries = CountryCatalog.allCountries
     val currencies = CurrencyCatalog.options
 
     var form by remember(language) {
@@ -1072,7 +1087,7 @@ fun OnboardingScreen(
         dataViewModel.initializeAccount()
     }
 
-    var countryMenuExpanded by remember { mutableStateOf(false) }
+    var showCountryPicker by remember { mutableStateOf(false) }
     var currencyMenuExpanded by remember { mutableStateOf(false) }
     val logoPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) {
@@ -1080,19 +1095,7 @@ fun OnboardingScreen(
         }
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        Color(0xFF0F766E),
-                        Color(0xFF0F766E),
-                        Color(0xFF064E3B)
-                    )
-                )
-            )
-    ) {
+    AuthScreenBackground {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -1104,24 +1107,17 @@ fun OnboardingScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Top
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
-            ) {
-                AuthLanguageToggle()
-            }
-
             Spacer(modifier = Modifier.height(24.dp))
 
             Text(
                 text = t("onboarding_title"),
-                color = Color.White,
+                color = MaterialTheme.colorScheme.onBackground,
                 fontSize = 26.sp,
                 fontWeight = FontWeight.Bold
             )
             Text(
                 text = t("onboarding_subtitle"),
-                color = Color.White.copy(alpha = 0.8f),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 14.sp,
                 textAlign = TextAlign.Center
             )
@@ -1132,7 +1128,7 @@ fun OnboardingScreen(
                 modifier = Modifier.fillMaxWidth().widthIn(max = 560.dp),
                 shape = RoundedCornerShape(24.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Column(
                     modifier = Modifier.padding(24.dp),
@@ -1177,46 +1173,25 @@ fun OnboardingScreen(
                         },
                     )
 
-                    // Country Dropdown
                     Box(modifier = Modifier.fillMaxWidth()) {
-                        ExposedDropdownMenuBox(
-                            expanded = countryMenuExpanded,
-                            onExpandedChange = { countryMenuExpanded = !countryMenuExpanded }
-                        ) {
-                            TijarioTextField(
-                                label = t("country"),
-                                value = CountryCatalog.display(form.country, language),
-                                onValueChange = {},
-                                error = if (form.country.isNotEmpty()) form.countryError else null,
-                                leadingIcon = {
-                                    Icon(Icons.Filled.Public, contentDescription = null, tint = Color(0xFF64748B))
-                                },
-                                trailingIcon = {
-                                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = countryMenuExpanded)
-                                },
-                                modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable),
-                                readOnly = true
-                            )
-                            ExposedDropdownMenu(
-                                expanded = countryMenuExpanded,
-                                onDismissRequest = { countryMenuExpanded = false }
-                            ) {
-                                countries.forEach { country ->
-                                    DropdownMenuItem(
-                                        text = { Text(country.label(language)) },
-                                        onClick = {
-                                            form = form.copy(
-                                                country = country.storageName,
-                                                whatsapp = splitPhoneNumber(form.whatsapp).let { phone ->
-                                                    normalizePhoneWithDialCode(country.dialCode ?: "+966", phone.localNumber)
-                                                },
-                                            )
-                                            countryMenuExpanded = false
-                                        }
-                                    )
-                                }
-                            }
-                        }
+                        TijarioTextField(
+                            label = t("country"),
+                            value = CountryCatalog.display(form.country, language),
+                            onValueChange = {},
+                            error = if (form.country.isNotEmpty()) form.countryError else null,
+                            leadingIcon = {
+                                Icon(Icons.Filled.Public, contentDescription = null, tint = Color(0xFF64748B))
+                            },
+                            trailingIcon = {
+                                Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
+                            },
+                            readOnly = true,
+                        )
+                        Box(
+                            modifier = Modifier
+                                .matchParentSize()
+                                .clickable { showCountryPicker = true },
+                        )
                     }
 
                     TijarioTextField(
@@ -1418,6 +1393,22 @@ fun OnboardingScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
         }
+    }
+
+    if (showCountryPicker) {
+        CountryPickerBottomSheet(
+            currentCountry = form.country,
+            onDismiss = { showCountryPicker = false },
+            onSelect = { country ->
+                form = form.copy(
+                    country = country.storageName,
+                    whatsapp = splitPhoneNumber(form.whatsapp).let { phone ->
+                        normalizePhoneWithDialCode(country.dialCode ?: "+966", phone.localNumber)
+                    },
+                )
+                showCountryPicker = false
+            },
+        )
     }
 }
 

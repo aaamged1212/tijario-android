@@ -68,7 +68,7 @@ class TijarioFirebaseMessagingService : FirebaseMessagingService() {
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .apply {
-                ContextCompat.getDrawable(this@TijarioFirebaseMessagingService, R.drawable.logo_app)
+                ContextCompat.getDrawable(this@TijarioFirebaseMessagingService, R.drawable.tijario_notification_logo)
                     ?.let { drawable ->
                         setLargeIcon(drawable.toBitmap(width = 128, height = 128))
                     }

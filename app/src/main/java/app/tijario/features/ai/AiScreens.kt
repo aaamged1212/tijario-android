@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -30,6 +32,7 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
@@ -56,6 +59,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -74,6 +78,8 @@ import app.tijario.config.AppLanguage
 import app.tijario.config.LocalLanguage
 import app.tijario.config.Supabase
 import app.tijario.config.t
+import app.tijario.data.AppContainer
+import app.tijario.data.local.AiGenerationHistoryEntity
 import app.tijario.data.model.Customer
 import app.tijario.data.model.BusinessSettings
 import app.tijario.data.model.Product
@@ -86,6 +92,9 @@ import app.tijario.data.remote.AiV3ReplyRequest
 import app.tijario.data.remote.AiV3ResponseData
 import app.tijario.data.remote.AiV3Variant
 import app.tijario.ui.state.TijarioDataViewModel
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import java.util.UUID
 
 // Dynamic SaaS Color Scheme for Light and Dark mode harmony
@@ -205,15 +214,32 @@ fun AiToolsScreen(
     hideHeader: Boolean = false,
 ) {
     val language = LocalLanguage.current
+    val context = LocalContext.current
     val uiState by dataViewModel.uiState.collectAsStateWithLifecycle()
+    val aiRepository = remember { AiRepositoryV3(Supabase.apiClient) }
+    val historyRepository = remember(context.applicationContext) {
+        AppContainer.aiHistoryRepository(context.applicationContext)
+    }
     val aiViewModel: AiViewModel = viewModel(
-        factory = AiViewModelFactory(remember { AiRepositoryV3(Supabase.apiClient) }),
+        factory = remember(aiRepository, historyRepository) {
+            AiViewModelFactory(aiRepository, historyRepository)
+        },
     )
-    val state by aiViewModel.state.collectAsStateWithLifecycle()
-    val scrollState = rememberScrollState()
-
     var selectedTab by remember { mutableIntStateOf(0) }
+    val replyState by aiViewModel.replyState.collectAsStateWithLifecycle()
+    val captionState by aiViewModel.captionState.collectAsStateWithLifecycle()
+    val replyHistory by aiViewModel.replyHistory.collectAsStateWithLifecycle()
+    val captionHistory by aiViewModel.captionHistory.collectAsStateWithLifecycle()
+    val state = if (selectedTab == 0) replyState else captionState
+    val replyScrollState = rememberScrollState()
+    val captionScrollState = rememberScrollState()
+    val scrollState = if (selectedTab == 0) replyScrollState else captionScrollState
     var localError by remember { mutableStateOf<String?>(null) }
+    var showHistorySheet by remember { mutableStateOf(false) }
+
+    LaunchedEffect(uiState.userId) {
+        aiViewModel.setActiveUser(uiState.userId)
+    }
     
     // Reply Form State
     var replyMessage by remember { mutableStateOf("") }
@@ -246,15 +272,14 @@ fun AiToolsScreen(
 
     val saaSColors = getSaaSColors()
 
-    LaunchedEffect(state) {
+    LaunchedEffect(selectedTab, state) {
         if (state is AiV3ScreenState.Success) {
+            withFrameNanos { }
             scrollState.animateScrollTo(scrollState.maxValue)
         }
     }
 
-    val isBusy = state is AiV3ScreenState.Loading ||
-        state is AiV3ScreenState.Refining ||
-        state is AiV3ScreenState.Reporting
+    val isBusy = replyState.isBusy() || captionState.isBusy()
     val limitReachedByCache = uiState.planUsage?.let { it.aiLimit > 0 && it.aiUsed >= it.aiLimit } == true
     val businessCurrency = uiState.businessSettings?.currency?.takeIf { it.isNotBlank() } ?: "SAR"
 
@@ -267,7 +292,9 @@ fun AiToolsScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
                 .verticalScroll(scrollState)
-                .padding(horizontal = 16.dp, vertical = 16.dp),
+                .padding(horizontal = 16.dp, vertical = 16.dp)
+                // The parent app shell overlays the bottom navigation above this page.
+                .padding(bottom = if (hideHeader) 88.dp else 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             if (!hideHeader) {
@@ -288,13 +315,28 @@ fun AiToolsScreen(
                 }
             )
 
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+            ) {
+                OutlinedButton(onClick = { showHistorySheet = true }) {
+                    Icon(
+                        imageVector = Icons.Filled.History,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(t("ai_history"))
+                }
+            }
+
             if (selectedTab == 0) {
                 // Reply Form Block
                 ReplyFormBlock(
                     replyMessage = replyMessage,
                     onReplyMessageChange = {
                         replyMessage = it.take(2000)
-                        aiViewModel.markEditing()
+                        aiViewModel.markReplyEditing()
                     },
                     replyQuickCase = replyQuickCase,
                     onQuickCaseChange = { replyQuickCase = it },
@@ -366,7 +408,7 @@ fun AiToolsScreen(
                     onProductOrServiceChange = {
                         captionProductId = null
                         productOrService = it.take(160)
-                        aiViewModel.markEditing()
+                        aiViewModel.markCaptionEditing()
                     },
                     primaryBenefit = primaryBenefit,
                     onPrimaryBenefitChange = { primaryBenefit = it.take(300) },
@@ -493,6 +535,118 @@ fun AiToolsScreen(
                     },
                     language = language
                 )
+            }
+        }
+
+        if (showHistorySheet) {
+            ModalBottomSheet(
+                onDismissRequest = { showHistorySheet = false },
+                containerColor = saaSColors.surface,
+                contentColor = saaSColors.textPrimary,
+            ) {
+                AiHistoryContent(
+                    entries = if (selectedTab == 0) replyHistory else captionHistory,
+                    isCaption = selectedTab == 1,
+                    language = language,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AiHistoryContent(
+    entries: List<AiGenerationHistoryEntity>,
+    isCaption: Boolean,
+    language: AppLanguage,
+) {
+    val clipboard = LocalClipboardManager.current
+    val context = LocalContext.current
+    val copiedMessage = t(if (isCaption) "caption_copied" else "reply_copied")
+    val dateFormatter = remember(language) {
+        SimpleDateFormat(
+            "dd/MM/yyyy  HH:mm",
+            if (language == AppLanguage.AR) Locale("ar") else Locale.ENGLISH,
+        )
+    }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .navigationBarsPadding()
+            .padding(horizontal = 20.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Text(
+            text = t(if (isCaption) "ai_caption_history" else "ai_reply_history"),
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+        )
+        if (entries.isEmpty()) {
+            Text(
+                text = t(if (isCaption) "ai_caption_history_empty" else "ai_reply_history_empty"),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 32.dp),
+            )
+        } else {
+            LazyColumn(
+                modifier = Modifier.heightIn(max = 560.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                items(entries, key = { it.id }) { entry ->
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                        ),
+                        shape = RoundedCornerShape(16.dp),
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = getLocalizedVariantLabel(entry.variantId, language),
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 13.sp,
+                                    )
+                                    Text(
+                                        text = dateFormatter.format(Date(entry.createdAt)),
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontSize = 11.sp,
+                                    )
+                                }
+                                IconButton(
+                                    onClick = {
+                                        clipboard.setText(AnnotatedString(entry.resultText))
+                                        Toast.makeText(
+                                            context,
+                                            copiedMessage,
+                                            Toast.LENGTH_SHORT,
+                                        ).show()
+                                    },
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.ContentCopy,
+                                        contentDescription = t("copy"),
+                                    )
+                                }
+                            }
+                            Text(
+                                text = entry.resultText,
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                        }
+                    }
+                }
             }
         }
     }
@@ -975,7 +1129,9 @@ private fun ResultBlock(
     success.notice?.let { InfoCard(it) }
 
     // Human-friendly collapsible analysis summary
-    AnalysisSummaryCollapsible(success.data, language)
+    if (success.generationType == "reply") {
+        AnalysisSummaryCollapsible(success.data, language)
+    }
 
     // Variant selector segmented switch
     if (success.data.variants.isNotEmpty()) {
@@ -1000,6 +1156,11 @@ private fun ResultBlock(
         }
     }
 }
+
+private fun AiV3ScreenState.isBusy(): Boolean =
+    this is AiV3ScreenState.Loading ||
+        this is AiV3ScreenState.Refining ||
+        this is AiV3ScreenState.Reporting
 
 @Composable
 private fun AnalysisSummaryCollapsible(data: AiV3ResponseData, language: AppLanguage) {
@@ -1515,10 +1676,11 @@ internal fun buildAiContextSnapshot(
     product = product?.let {
         AiV3ProductContextSnapshot(
             localId = it.id,
+            category = it.category.snapshotValue(80),
             name = it.name.snapshotValue(160),
             description = it.description.snapshotValue(500),
             price = it.price,
-            currency = currency.take(8),
+            currency = it.currency.take(8),
             stockQuantity = it.stockQuantity,
         )
     },

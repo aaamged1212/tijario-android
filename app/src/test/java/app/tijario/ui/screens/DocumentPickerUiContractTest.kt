@@ -16,6 +16,10 @@ class DocumentPickerUiContractTest {
         assertTrue(source.contains("showCountryNameInDialCode = false"))
         assertTrue(source.contains("Text(t(\"picker_new\"))"))
         assertTrue(source.contains("onNavigateToCreateProduct(rowIndex)"))
+        assertTrue(source.contains("isProductCurrencyCompatibleWithDocument"))
+        assertTrue(source.contains("remainingProductStockForPicker"))
+        assertTrue(source.contains("available_stock"))
+        assertTrue(source.contains("cannot_add_product_currency_mismatch"))
     }
 
     @Test
@@ -26,7 +30,21 @@ class DocumentPickerUiContractTest {
         assertTrue(source.contains("selectedDialCode = option.dialCode"))
         assertTrue(source.contains("normalizePhoneWithDialCode(activeDialCode, it)"))
         assertTrue(source.contains("filterDialCodeOptions(dialCodeQuery, language)"))
+        assertTrue(source.contains("search_dial_code_placeholder"))
         assertTrue(source.contains("ModalBottomSheet"))
+    }
+
+    @Test
+    fun countryAndCurrencyPickersUsePurposeSpecificSearchSheets() {
+        val componentSource = File("src/main/java/app/tijario/ui/components/TijarioComponents.kt").readText()
+        val formSource = File("src/main/java/app/tijario/ui/screens/FormScreens.kt").readText()
+        val onboardingSource = File("src/main/java/app/tijario/ui/screens/AuthScreens.kt").readText()
+
+        assertTrue(componentSource.contains("fun CountryPickerBottomSheet"))
+        assertTrue(componentSource.contains("search_country_placeholder"))
+        assertTrue(formSource.contains("search_currency_placeholder"))
+        assertTrue(formSource.contains("CountryPickerBottomSheet"))
+        assertTrue(onboardingSource.contains("CountryPickerBottomSheet"))
     }
 
     @Test

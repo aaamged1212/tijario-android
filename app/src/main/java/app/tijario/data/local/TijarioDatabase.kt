@@ -9,7 +9,7 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import java.math.BigDecimal
 
-const val TIJARIO_DATABASE_VERSION = 19
+const val TIJARIO_DATABASE_VERSION = 20
 
 @Database(
     entities = [
@@ -35,6 +35,7 @@ const val TIJARIO_DATABASE_VERSION = 19
         DeletedRecordEntity::class,
         AnnouncementEntity::class,
         AnnouncementReceiptOutboxEntity::class,
+        AiGenerationHistoryEntity::class,
     ],
     version = TIJARIO_DATABASE_VERSION,
     exportSchema = true,
@@ -574,6 +575,32 @@ abstract class TijarioDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_19_20 = object : Migration(19, 20) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS ai_generation_history (
+                        id TEXT NOT NULL,
+                        user_id TEXT NOT NULL,
+                        generation_type TEXT NOT NULL,
+                        generation_id TEXT NOT NULL,
+                        variant_id TEXT NOT NULL,
+                        variant_label TEXT NOT NULL,
+                        variant_order INTEGER NOT NULL,
+                        result_text TEXT NOT NULL,
+                        created_at INTEGER NOT NULL,
+                        PRIMARY KEY(id)
+                    )
+                    """.trimIndent(),
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_ai_generation_history_user_id ON ai_generation_history (user_id)")
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_ai_generation_history_user_id_generation_type_created_at " +
+                        "ON ai_generation_history (user_id, generation_type, created_at)",
+                )
+            }
+        }
+
         fun getInstance(context: Context): TijarioDatabase =
             instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
@@ -581,7 +608,7 @@ abstract class TijarioDatabase : RoomDatabase() {
                     TijarioDatabase::class.java,
                     "tijario-local-cache.db",
                 )
-                    .addMigrations(MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19)
+                    .addMigrations(MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20)
                     .build()
                     .also { instance = it }
             }

@@ -11,10 +11,17 @@ import app.tijario.data.remote.AiV3ReplyRequest
 import app.tijario.data.remote.AiV3ReportRequest
 import app.tijario.data.remote.AiV3RefineRequest
 import app.tijario.data.remote.AiV3ResponseData
+import app.tijario.data.repository.AI_HISTORY_TYPE_CAPTION
+import app.tijario.data.repository.AI_HISTORY_TYPE_REPLY
+import app.tijario.data.repository.AiHistoryRepository
 import app.tijario.domain.LocalizedErrorMapper
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.io.IOException
 import java.util.UUID
@@ -36,64 +43,121 @@ sealed interface AiV3ScreenState {
     data class LimitReached(val message: String) : AiV3ScreenState
 }
 
+internal enum class AiGenerationTarget {
+    Reply,
+    Caption,
+}
+
+/** Keeps reply and caption output independent while they share one screen. */
+internal class AiGenerationStateStore {
+    private val replyStateMutable = MutableStateFlow<AiV3ScreenState>(AiV3ScreenState.Idle)
+    private val captionStateMutable = MutableStateFlow<AiV3ScreenState>(AiV3ScreenState.Idle)
+
+    val replyState: StateFlow<AiV3ScreenState> = replyStateMutable.asStateFlow()
+    val captionState: StateFlow<AiV3ScreenState> = captionStateMutable.asStateFlow()
+
+    fun current(target: AiGenerationTarget): AiV3ScreenState = mutableStateFor(target).value
+
+    fun update(target: AiGenerationTarget, state: AiV3ScreenState) {
+        mutableStateFor(target).value = state
+    }
+
+    private fun mutableStateFor(target: AiGenerationTarget): MutableStateFlow<AiV3ScreenState> = when (target) {
+        AiGenerationTarget.Reply -> replyStateMutable
+        AiGenerationTarget.Caption -> captionStateMutable
+    }
+}
+
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class AiViewModel(
     private val repository: AiRepositoryV3,
+    private val historyRepository: AiHistoryRepository,
 ) : ViewModel() {
-    private val stateMutable = MutableStateFlow<AiV3ScreenState>(AiV3ScreenState.Idle)
-    val state: StateFlow<AiV3ScreenState> = stateMutable.asStateFlow()
+    private val generationStates = AiGenerationStateStore()
+    private val activeUserId = MutableStateFlow<String?>(null)
+    val replyState: StateFlow<AiV3ScreenState> = generationStates.replyState
+    val captionState: StateFlow<AiV3ScreenState> = generationStates.captionState
+    val replyHistory = activeUserId
+        .flatMapLatest { userId ->
+            userId?.let { historyRepository.observe(it, AI_HISTORY_TYPE_REPLY) }
+                ?: flowOf(emptyList())
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000L), emptyList())
+    val captionHistory = activeUserId
+        .flatMapLatest { userId ->
+            userId?.let { historyRepository.observe(it, AI_HISTORY_TYPE_CAPTION) }
+                ?: flowOf(emptyList())
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000L), emptyList())
 
-    fun markEditing() {
-        if (stateMutable.value is AiV3ScreenState.Idle) {
-            stateMutable.value = AiV3ScreenState.Editing
+    fun setActiveUser(userId: String?) {
+        activeUserId.value = userId?.trim()?.takeIf { it.isNotEmpty() }
+    }
+
+    fun markReplyEditing() = markEditing(AiGenerationTarget.Reply)
+
+    fun markCaptionEditing() = markEditing(AiGenerationTarget.Caption)
+
+    private fun markEditing(target: AiGenerationTarget) {
+        if (generationStates.current(target) is AiV3ScreenState.Idle) {
+            generationStates.update(target, AiV3ScreenState.Editing)
         }
     }
 
     fun generateReply(request: AiV3ReplyRequest, onSuccess: () -> Unit) {
-        stateMutable.value = AiV3ScreenState.Loading
+        generationStates.update(AiGenerationTarget.Reply, AiV3ScreenState.Loading)
         viewModelScope.launch {
             runCatching { repository.generateReply(request) }
                 .onSuccess { response ->
                     val data = response.data
                     when {
                         response.ok && data != null -> {
-                            stateMutable.value = AiV3ScreenState.Success("reply", data)
+                            generationStates.update(AiGenerationTarget.Reply, AiV3ScreenState.Success("reply", data))
+                            persistHistory(AI_HISTORY_TYPE_REPLY, data)
                             onSuccess()
                         }
 
                         response.code.equals("ai_limit_reached", ignoreCase = true) -> {
-                            stateMutable.value = AiV3ScreenState.LimitReached(localizedAiLimitReached())
+                            generationStates.update(AiGenerationTarget.Reply, AiV3ScreenState.LimitReached(localizedAiLimitReached()))
                         }
 
-                        else -> stateMutable.value = AiV3ScreenState.Error(responseFailureMessage(response.code, response.message, response.retryable, localizedReplyError()))
+                        else -> generationStates.update(
+                            AiGenerationTarget.Reply,
+                            AiV3ScreenState.Error(responseFailureMessage(response.code, response.message, response.retryable, localizedReplyError())),
+                        )
                     }
                 }
                 .onFailure { error ->
-                    stateMutable.value = mapFailure(error, localizedReplyError())
+                    generationStates.update(AiGenerationTarget.Reply, mapFailure(error, localizedReplyError()))
                 }
         }
     }
 
     fun generateCaption(request: AiV3CaptionRequest, onSuccess: () -> Unit) {
-        stateMutable.value = AiV3ScreenState.Loading
+        generationStates.update(AiGenerationTarget.Caption, AiV3ScreenState.Loading)
         viewModelScope.launch {
             runCatching { repository.generateCaption(request) }
                 .onSuccess { response ->
                     val data = response.data
                     when {
                         response.ok && data != null -> {
-                            stateMutable.value = AiV3ScreenState.Success("caption", data)
+                            generationStates.update(AiGenerationTarget.Caption, AiV3ScreenState.Success("caption", data))
+                            persistHistory(AI_HISTORY_TYPE_CAPTION, data)
                             onSuccess()
                         }
 
                         response.code.equals("ai_limit_reached", ignoreCase = true) -> {
-                            stateMutable.value = AiV3ScreenState.LimitReached(localizedAiLimitReached())
+                            generationStates.update(AiGenerationTarget.Caption, AiV3ScreenState.LimitReached(localizedAiLimitReached()))
                         }
 
-                        else -> stateMutable.value = AiV3ScreenState.Error(responseFailureMessage(response.code, response.message, response.retryable, localizedCaptionError()))
+                        else -> generationStates.update(
+                            AiGenerationTarget.Caption,
+                            AiV3ScreenState.Error(responseFailureMessage(response.code, response.message, response.retryable, localizedCaptionError())),
+                        )
                     }
                 }
                 .onFailure { error ->
-                    stateMutable.value = mapFailure(error, localizedCaptionError())
+                    generationStates.update(AiGenerationTarget.Caption, mapFailure(error, localizedCaptionError()))
                 }
         }
     }
@@ -106,7 +170,8 @@ class AiViewModel(
         language: String,
         onSuccess: () -> Unit,
     ) {
-        stateMutable.value = AiV3ScreenState.Refining(previous)
+        val target = targetFor(previous)
+        generationStates.update(target, AiV3ScreenState.Refining(previous))
         viewModelScope.launch {
             val request = AiV3RefineRequest(
                 clientRequestId = UUID.randomUUID().toString(),
@@ -121,19 +186,23 @@ class AiViewModel(
                     val data = response.data
                     when {
                         response.ok && data != null -> {
-                            stateMutable.value = AiV3ScreenState.Success(previous.generationType, data)
+                            generationStates.update(target, AiV3ScreenState.Success(previous.generationType, data))
+                            persistHistory(previous.generationType, data)
                             onSuccess()
                         }
 
                         response.code.equals("ai_limit_reached", ignoreCase = true) -> {
-                            stateMutable.value = AiV3ScreenState.LimitReached(localizedAiLimitReached())
+                            generationStates.update(target, AiV3ScreenState.LimitReached(localizedAiLimitReached()))
                         }
 
-                        else -> stateMutable.value = previous.copy(notice = responseFailureMessage(response.code, response.message, response.retryable, localizedRefineError()))
+                        else -> generationStates.update(
+                            target,
+                            previous.copy(notice = responseFailureMessage(response.code, response.message, response.retryable, localizedRefineError())),
+                        )
                     }
                 }
                 .onFailure { error ->
-                    stateMutable.value = previous.copy(notice = failureMessage(error, localizedRefineError()))
+                    generationStates.update(target, previous.copy(notice = failureMessage(error, localizedRefineError())))
                 }
         }
     }
@@ -145,7 +214,8 @@ class AiViewModel(
         note: String?,
         onDone: () -> Unit,
     ) {
-        stateMutable.value = AiV3ScreenState.Reporting(previous)
+        val target = targetFor(previous)
+        generationStates.update(target, AiV3ScreenState.Reporting(previous))
         viewModelScope.launch {
             val request = AiV3ReportRequest(
                 clientRequestId = UUID.randomUUID().toString(),
@@ -157,14 +227,33 @@ class AiViewModel(
             )
             runCatching { repository.report(request) }
                 .onSuccess { response ->
-                    stateMutable.value = previous.copy(
-                        notice = if (response.ok) localizedReportSuccess() else localizedReportError(),
+                    generationStates.update(
+                        target,
+                        previous.copy(
+                            notice = if (response.ok) localizedReportSuccess() else localizedReportError(),
+                        ),
                     )
                     onDone()
                 }
                 .onFailure { error ->
-                    stateMutable.value = previous.copy(notice = failureMessage(error, localizedReportError()))
+                    generationStates.update(target, previous.copy(notice = failureMessage(error, localizedReportError())))
                 }
+        }
+    }
+
+    private fun targetFor(success: AiV3ScreenState.Success): AiGenerationTarget =
+        if (success.generationType == "caption") AiGenerationTarget.Caption else AiGenerationTarget.Reply
+
+    private fun persistHistory(generationType: String, data: AiV3ResponseData) {
+        val userId = activeUserId.value ?: return
+        viewModelScope.launch {
+            runCatching {
+                historyRepository.saveGeneration(
+                    userId = userId,
+                    generationType = generationType,
+                    data = data,
+                )
+            }
         }
     }
 
@@ -236,9 +325,10 @@ class AiViewModel(
 
 class AiViewModelFactory(
     private val repository: AiRepositoryV3,
+    private val historyRepository: AiHistoryRepository,
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        return AiViewModel(repository) as T
+        return AiViewModel(repository, historyRepository) as T
     }
 }

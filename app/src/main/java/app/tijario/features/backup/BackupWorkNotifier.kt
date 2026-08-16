@@ -9,6 +9,8 @@ import android.content.pm.ServiceInfo
 import android.os.Build
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
+import androidx.core.graphics.drawable.toBitmap
 import androidx.work.ForegroundInfo
 import androidx.work.WorkManager
 import app.tijario.R
@@ -53,6 +55,12 @@ class BackupWorkNotifier(private val context: Context) {
         .setSmallIcon(R.drawable.ic_stat_tijario)
         .setContentTitle(title)
         .setContentText(detail)
+        .apply {
+            ContextCompat.getDrawable(context, R.drawable.tijario_notification_logo)
+                ?.let { drawable ->
+                    setLargeIcon(drawable.toBitmap(width = 128, height = 128))
+                }
+        }
         .setOnlyAlertOnce(true)
         .setOngoing(progress != null)
         .apply {

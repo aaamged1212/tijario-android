@@ -55,6 +55,7 @@ import androidx.compose.material3.TabRowDefaults.SecondaryIndicator
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material.icons.filled.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -86,6 +87,7 @@ import app.tijario.config.t
 import app.tijario.domain.DashboardDateRangePreset
 import app.tijario.domain.DashboardStatsCalculator
 import app.tijario.domain.newestDocuments
+import app.tijario.domain.filterDocumentsBySearch
 import app.tijario.domain.PaymentStatusMapper
 import app.tijario.domain.LocalizedErrorMapper
 import app.tijario.data.remote.localizedDisplayMessage
@@ -2270,6 +2272,8 @@ fun DocumentsScreen(
     val adaptive = LocalAdaptiveLayoutInfo.current
     var selectedSection by remember { mutableStateOf(0) } // 0 = Invoices, 1 = Quotes
     var selectedFilter by remember { mutableStateOf("all") } // "all", "unpaid", "paid", "partial"
+    var invoiceSearchQuery by rememberSaveable { mutableStateOf("") }
+    var quoteSearchQuery by rememberSaveable { mutableStateOf("") }
     var menuExpanded by remember { mutableStateOf(false) }
     var documentPendingDelete by remember { mutableStateOf<app.tijario.data.model.DocumentSummary?>(null) }
     var docForActions by remember { mutableStateOf<app.tijario.data.model.DocumentSummary?>(null) }
@@ -2306,9 +2310,13 @@ fun DocumentsScreen(
     val documents = uiState.documents
     val customers = uiState.customers
     val isLoading = uiState.isInitialLoading && documents.isEmpty()
+    val activeSearchQuery = if (selectedSection == 0) invoiceSearchQuery else quoteSearchQuery
+    val customerNamesById = remember(customers) {
+        customers.mapNotNull { customer -> customer.id?.let { it to customer.name } }.toMap()
+    }
 
     // Filter documents depending on selection and status filter
-    val filteredDocs = documents.filter { doc ->
+    val filteredByTypeAndStatus = documents.filter { doc ->
         val matchesTab = if (selectedSection == 0) doc.type == app.tijario.data.model.DocumentType.Invoice else doc.type == app.tijario.data.model.DocumentType.Quote
         val matchesFilter = if (selectedSection == 1) {
             true
@@ -2322,6 +2330,11 @@ fun DocumentsScreen(
         }
         matchesTab && matchesFilter
     }
+    val filteredDocs = filterDocumentsBySearch(
+        documents = filteredByTypeAndStatus,
+        customerNamesById = customerNamesById,
+        query = activeSearchQuery,
+    )
 
     val sortedDocs = remember(filteredDocs) {
         newestDocuments(filteredDocs)
@@ -2525,6 +2538,36 @@ fun DocumentsScreen(
                 }
             }
 
+            OutlinedTextField(
+                value = activeSearchQuery,
+                onValueChange = { query ->
+                    if (selectedSection == 0) invoiceSearchQuery = query else quoteSearchQuery = query
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp),
+                placeholder = {
+                    Text(
+                        text = t(
+                            if (selectedSection == 0) "search_invoices_placeholder"
+                            else "search_quotes_placeholder",
+                        ),
+                        fontSize = 12.sp,
+                        maxLines = 1,
+                    )
+                },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Filled.Search,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                },
+                singleLine = true,
+                shape = RoundedCornerShape(14.dp),
+                textStyle = MaterialTheme.typography.bodySmall,
+            )
+
             // Filtering Chips under Tabs - only show for Invoices
             if (selectedSection == 0) {
                 Row(
@@ -2629,16 +2672,22 @@ fun DocumentsScreen(
                             }
                         }
                         Text(
-                            t(if (selectedSection == 0) "no_invoices_yet" else "no_quotes_yet"),
+                            t(
+                                if (activeSearchQuery.isNotBlank()) "no_search_results"
+                                else if (selectedSection == 0) "no_invoices_yet"
+                                else "no_quotes_yet",
+                            ),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 14.sp,
                             textAlign = TextAlign.Center
                         )
-                        TijarioButton(
-                            text = t(if (selectedSection == 0) "btn_create_invoice" else "btn_create_quote"),
-                            onClick = if (selectedSection == 0) onNewInvoice else onNewQuote,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
+                        if (activeSearchQuery.isBlank()) {
+                            TijarioButton(
+                                text = t(if (selectedSection == 0) "btn_create_invoice" else "btn_create_quote"),
+                                onClick = if (selectedSection == 0) onNewInvoice else onNewQuote,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        }
                     }
                 }
             } else {
