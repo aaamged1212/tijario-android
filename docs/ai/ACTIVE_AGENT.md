@@ -203,6 +203,12 @@
 - **Safety**: No push, deployment, migration, Production write, external configuration change, or Google Play upload occurred. `.agents` remains local and excluded.
 
 ## 2026-08-16
+- **Current task**: Menu/profile polish, compact search/filter controls, notification refresh, and paid backup automation on `fix/android-runtime-critical-fixes`.
+- **State**: Complete locally and included in the requested commit. Free is manual/local-only; verified paid plans can schedule local backups and use Drive according to their signed policy.
+- **Validation**: Focused JVM tests, Debug Kotlin compilation, `assemblePlayQa`, `lintDebug`, and `git diff --check` passed. Physical visual and elapsed WorkManager QA remain pending.
+- **Safety**: Local commit authorized. No push, deployment, migration, Production write, Web change, external configuration change, or Google Play upload occurred. `.agents` remains local and excluded.
+
+## 2026-08-16
 - **Current task**: Android navigation branding, settings information architecture, backup-page organization, and splash-logo correction on `fix/android-runtime-critical-fixes`.
 - **State**: Core page headers use the Tijario mark; non-home titles are centered while Home shows `تجاريو / Tijario` at the language-aware start edge. Profile details are separated from account security, plan upgrade affordances follow the active plan, language/theme sheets are normalized, backup actions are grouped, and both splash layers use the approved transparent logo on a dark background.
 - **Validation**: 17 focused JVM tests, `assembleDebugAndroidTest`, `assembleDebug`, and `lintDebug` passed. Physical visual QA remains pending.

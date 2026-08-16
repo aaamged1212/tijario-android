@@ -232,6 +232,12 @@
 - **Validation**: 58 focused JVM tests and `assembleDebug` passed. Physical device verification remains pending.
 - **Safety**: No commit, push, deployment, migration, Production write, external configuration change, or Google Play upload occurred.
 
+## 2026-08-16 Menu and Paid Backup Automation Follow-up
+- **State**: The current Android change set restores profile avatar editing, renames Settings to Menu, adds language-aware menu motion, compacts pricing/search/filter UI, and adds notification pull-to-refresh.
+- **Backup policy**: Automatic local scheduling and Google Drive are enforced for verified paid plans; Free is normalized to manual local backup and Drive disabled. Scheduled local archives remain offline-capable and Drive stays a separate network transport.
+- **Validation**: Focused JVM tests, Debug Kotlin compilation, `assemblePlayQa`, `lintDebug`, and `git diff --check` passed. Physical UI and real elapsed WorkManager schedule verification remain pending.
+- **Safety**: Included in the requested local Android commit. No push, deployment, migration, Production write, Web change, external configuration change, or Google Play upload occurred.
+
 ## 2026-08-16 Navigation and Settings UI Follow-up
 - **State**: Local uncommitted Android UI changes apply Tijario branding to core headers, center child tab titles, separate personal profile editing from account security, add plan-aware upgrade controls, and make language/theme choices explicit and brand-colored.
 - **Backup and splash**: Backup actions are grouped into compact sections without changing repositories or workers. The system and Compose splash layers now share the exact transparent brand asset on a dark background with no white icon plate.

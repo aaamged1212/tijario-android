@@ -111,6 +111,7 @@ class BackupViewModel(
     }
 
     fun backupNowToGoogleDrive() {
+        if (!requireDriveBackupAccess()) return
         if (_uiState.value.driveConnectionState !is DriveConnectionState.Connected) {
             _uiState.value = _uiState.value.copy(messageKey = driveMessage(_uiState.value.driveConnectionState))
             return
@@ -290,7 +291,7 @@ class BackupViewModel(
     }
 
     fun connectGoogleDrive(changeAccount: Boolean = false) {
-        if (userId.isBlank() || _uiState.value.isBusy) return
+        if (userId.isBlank() || _uiState.value.isBusy || !requireDriveBackupAccess()) return
         viewModelScope.launch {
             if (changeAccount) BackupScheduler.cancelDriveUploads(getApplication(), userId)
             _uiState.value = _uiState.value.copy(isBusy = true, driveConnectionState = DriveConnectionState.Authorizing, messageKey = null)
@@ -312,7 +313,7 @@ class BackupViewModel(
     }
 
     fun completeGoogleDriveAuthorization(resultIntent: Intent?) {
-        if (userId.isBlank()) return
+        if (userId.isBlank() || !requireDriveBackupAccess()) return
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isBusy = true, messageKey = null)
             val state = BackupDriveContainer.completeAuthorization(getApplication(), userId, resultIntent)
@@ -334,7 +335,7 @@ class BackupViewModel(
     }
 
     fun requestOpenDriveFolder() {
-        if (_uiState.value.driveConnectionState !is DriveConnectionState.Connected) return
+        if (!requireDriveBackupAccess() || _uiState.value.driveConnectionState !is DriveConnectionState.Connected) return
         viewModelScope.launch {
             runCatching {
                 val client = driveClient()
@@ -349,12 +350,12 @@ class BackupViewModel(
     }
 
     fun restoreFromDrive(remote: DriveBackupFile) {
-        if (userId.isBlank() || _uiState.value.isBusy) return
+        if (userId.isBlank() || _uiState.value.isBusy || !requireDriveBackupAccess()) return
         BackupScheduler.enqueueDriveRestore(getApplication(), userId, remote)?.let(::observeRestoreWork)
     }
 
     fun deleteDriveBackup(remote: DriveBackupFile) {
-        if (userId.isBlank() || _uiState.value.isBusy) return
+        if (userId.isBlank() || _uiState.value.isBusy || !requireDriveBackupAccess()) return
         if (_uiState.value.driveBackups.firstOrNull()?.id == remote.id) {
             _uiState.value = _uiState.value.copy(messageKey = "backup_drive_keep_newest")
             return
@@ -375,6 +376,10 @@ class BackupViewModel(
     }
 
     fun updateFrequency(frequency: String) {
+        if (!_uiState.value.backupPlanPolicy.allows(frequency)) {
+            _uiState.value = _uiState.value.copy(messageKey = "backup_paid_feature_required")
+            return
+        }
         updateSettings { it.copy(frequency = frequency, updatedAt = System.currentTimeMillis()) }
     }
 
@@ -387,12 +392,13 @@ class BackupViewModel(
     }
 
     fun updateDriveEnabled(enabled: Boolean) {
+        if (enabled && !requireDriveBackupAccess()) return
         updateSettings { it.copy(driveEnabled = enabled, updatedAt = System.currentTimeMillis()) }
     }
 
     fun retryDriveUpload(backupId: String) {
         val settings = _uiState.value.settings ?: return
-        if (backupId.isBlank()) return
+        if (backupId.isBlank() || !requireDriveBackupAccess()) return
         viewModelScope.launch {
             val record = withContext(Dispatchers.IO) {
                 database.tijarioDao().getBackupRecords(userId).firstOrNull { it.id == backupId }
@@ -469,7 +475,7 @@ class BackupViewModel(
             }
             val driveState = runCatching { BackupDriveContainer.authorizationState(getApplication(), userId) }
                 .getOrDefault(DriveConnectionState.NotConfigured)
-            val driveBackups = if (driveState is DriveConnectionState.Connected) {
+            val driveBackups = if (planPolicy.driveBackupAllowed && driveState is DriveConnectionState.Connected) {
                 runCatching {
                     DriveBackupRepository(database, getApplication<Application>().filesDir, driveClient())
                         .list(userId)
@@ -497,6 +503,12 @@ class BackupViewModel(
             BackupScheduler.apply(getApplication(), settings)
             _uiState.value = _uiState.value.copy(settings = settings, messageKey = "backup_schedule_saved")
         }
+    }
+
+    private fun requireDriveBackupAccess(): Boolean {
+        if (_uiState.value.backupPlanPolicy.driveBackupAllowed) return true
+        _uiState.value = _uiState.value.copy(messageKey = "backup_paid_feature_required")
+        return false
     }
 
     private fun defaultSettings(): BackupSettingsEntity = BackupSettingsEntity(

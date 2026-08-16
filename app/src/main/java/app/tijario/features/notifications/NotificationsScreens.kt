@@ -48,6 +48,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -131,7 +132,9 @@ fun NotificationsScreen(
             )
         }
     ) { padding ->
-        Box(
+        PullToRefreshBox(
+            isRefreshing = state.isLoading,
+            onRefresh = { viewModel.refresh(force = true) },
             modifier = Modifier
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
@@ -151,8 +154,8 @@ fun NotificationsScreen(
                     ) {
                         Icon(Icons.Filled.Notifications, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                         Text(t("notifications_empty"), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        OutlinedButton(onClick = { state.userId?.let(viewModel::refresh) }) {
-                            Text(t("retry"))
+                        OutlinedButton(onClick = { viewModel.refresh(force = true) }) {
+                            Text(t("refresh"))
                         }
                     }
                 }

@@ -877,6 +877,13 @@
 - **Remote validation**: GitHub Actions Source Audit Scan and Android CI run `31327114193` both completed successfully. Android CI passed its compile/unit-test and lint/release-assembly jobs.
 - **Safety Status**: No deployment, migration, Production write, external configuration change, or Google Play upload occurred.
 
+## 2026-08-16 (Menu, compact discovery controls, and paid backup automation, local)
+- **Profile and navigation**: The personal-profile header again exposes an editable avatar with a pencil badge while retaining the current inline name editor and read-only email field. The app-header Settings action is now a localized Menu action with language-aware horizontal navigation motion.
+- **Discovery and notifications**: Customer, product, document, form-picker, and AI context searches use one compact search component. Existing customer/product/document filters open from a button beside the search field. Notifications support pull-to-refresh and use Refresh copy.
+- **Plans and backup**: The pricing hero and plan cards are compact; the annual 20% badge appears only on the annual choice. Automatic local backups and Google Drive are shown and enforced as paid-plan features. WorkManager keeps local creation network-independent and transports to Drive separately when enabled.
+- **Validation**: Focused JVM tests, Debug Kotlin compilation, `assemblePlayQa`, `lintDebug`, and `git diff --check` passed. Physical RTL/LTR, avatar picker, pull-to-refresh, and scheduled WorkManager timing QA remain required.
+- **Safety Status**: Included in the requested local Android commit. No push, deployment, migration, Production write, Web change, external configuration change, or Google Play upload occurred. `.agents` remains local and excluded.
+
 ## 2026-08-16 (Navigation, settings, backup, and splash polish, local)
 - **Navigation**: Home now displays the localized Tijario name beside the transparent brand mark. Documents, products, and customers use the mark with centered titles; Tijario AI keeps its AI icon and centered title.
 - **Settings**: The profile card opens a dedicated name/email screen with inline pencil/check editing. Account security and destructive actions remain in a compact separate screen. Option order is Business, Account, App, Payments, then Backup. Free/Starter plans show a gold upgrade action; Pro does not.

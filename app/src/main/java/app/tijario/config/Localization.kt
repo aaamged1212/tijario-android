@@ -208,6 +208,8 @@ object Localization {
         "save_product_error" to mapOf(AppLanguage.AR to "تعذر حفظ المنتج أو الخدمة. تحقق من البيانات وحاول مرة أخرى.", AppLanguage.EN to "Could not save product or service. Check data and try again."),
         "save_settings_error" to mapOf(AppLanguage.AR to "تعذر حفظ إعدادات المتجر. حاول مرة أخرى.", AppLanguage.EN to "Could not save business settings. Try again."),
         "settings" to mapOf(AppLanguage.AR to "الإعدادات", AppLanguage.EN to "Settings"),
+        "menu" to mapOf(AppLanguage.AR to "القائمة", AppLanguage.EN to "Menu"),
+        "filter" to mapOf(AppLanguage.AR to "تصفية", AppLanguage.EN to "Filter"),
         "invoice_notes" to mapOf(AppLanguage.AR to "ملاحظات إضافية", AppLanguage.EN to "Additional Notes"),
         
         // AI dialects, platforms, tones
@@ -357,6 +359,7 @@ object Localization {
         "business_plan" to mapOf(AppLanguage.AR to "خطة الأعمال", AppLanguage.EN to "Business Plan"),
         "ai_uses" to mapOf(AppLanguage.AR to "استخدامات AI", AppLanguage.EN to "AI Uses"),
         "retry" to mapOf(AppLanguage.AR to "إعادة المحاولة", AppLanguage.EN to "Retry"),
+        "refresh" to mapOf(AppLanguage.AR to "تحديث", AppLanguage.EN to "Refresh"),
         "store_settings" to mapOf(AppLanguage.AR to "النشاط التجاري", AppLanguage.EN to "Business"),
         "store_settings_desc" to mapOf(AppLanguage.AR to "الشعار، بيانات النشاط، العملة والدولة", AppLanguage.EN to "Logo, business info, currency and country"),
         "payments_subscriptions" to mapOf(AppLanguage.AR to "الدفع والاشتراكات", AppLanguage.EN to "Payments & Subscriptions"),
@@ -438,6 +441,7 @@ object Localization {
         "backup_restore_db_commit_failed" to mapOf(AppLanguage.AR to "تعذر إكمال استعادة البيانات بأمان.", AppLanguage.EN to "Could not safely finish restoring data."),
         "backup_restore_rollback_failed" to mapOf(AppLanguage.AR to "تعذر التراجع عن الاستعادة بأمان.", AppLanguage.EN to "Could not safely roll back the restore."),
         "backup_schedule" to mapOf(AppLanguage.AR to "جدولة النسخ المحلية", AppLanguage.EN to "Local backup schedule"),
+        "backup_paid_feature_required" to mapOf(AppLanguage.AR to "الجدولة التلقائية وGoogle Drive متاحان في Starter وPro.", AppLanguage.EN to "Automatic scheduling and Google Drive are available on Starter and Pro."),
         "backup_frequency_manual" to mapOf(AppLanguage.AR to "يدوي", AppLanguage.EN to "Manual"),
         "backup_frequency_daily" to mapOf(AppLanguage.AR to "يومي", AppLanguage.EN to "Daily"),
         "backup_frequency_weekly" to mapOf(AppLanguage.AR to "أسبوعي", AppLanguage.EN to "Weekly"),
@@ -478,6 +482,7 @@ object Localization {
         "backup_status_restore_completed" to mapOf(AppLanguage.AR to "استعادة مكتملة", AppLanguage.EN to "Restore completed"),
         "upgrade_plan" to mapOf(AppLanguage.AR to "ترقية الخطة", AppLanguage.EN to "Upgrade Plan"),
         "upgrade" to mapOf(AppLanguage.AR to "ترقية", AppLanguage.EN to "Upgrade"),
+        "edit_profile_photo" to mapOf(AppLanguage.AR to "تعديل صورة الملف الشخصي", AppLanguage.EN to "Edit profile photo"),
         "upgrade_plan_desc" to mapOf(AppLanguage.AR to "افتح حدود أعلى وميزات احترافية", AppLanguage.EN to "Unlock higher limits and pro features"),
         "rise_to_pro" to mapOf(AppLanguage.AR to "ارتق بتجاريو برو", AppLanguage.EN to "Upgrade to Tijario Pro"),
         "pro_benefits_desc" to mapOf(AppLanguage.AR to "حدود أعلى للمستندات والذكاء الاصطناعي وتجربة أعمال أكثر احترافية.", AppLanguage.EN to "Higher limits for documents, AI, and a more professional business experience."),

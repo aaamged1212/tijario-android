@@ -132,6 +132,7 @@ import app.tijario.ui.components.ModernDocumentPreview
 import app.tijario.ui.components.CountryPickerBottomSheet
 import app.tijario.ui.components.TijarioButton
 import app.tijario.ui.components.TijarioPhoneField
+import app.tijario.ui.components.TijarioSearchField
 import app.tijario.ui.components.TijarioTextField
 import app.tijario.ui.state.BusinessSettingsFormState
 import app.tijario.ui.state.CustomerFormState
@@ -4130,11 +4131,10 @@ fun DocumentFormScreen(
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TijarioTextField(
-                        label = t("search_placeholder"),
+                    TijarioSearchField(
+                        placeholder = t("search_placeholder"),
                         value = customerPickerQuery,
                         onValueChange = { customerPickerQuery = it },
-                        leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
                         modifier = Modifier.weight(1f),
                     )
                     OutlinedButton(
@@ -4204,11 +4204,10 @@ fun DocumentFormScreen(
             ) {
                 Text(t("select_product"), fontWeight = FontWeight.Bold, fontSize = 18.sp)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TijarioTextField(
-                        label = t("search_products"),
+                    TijarioSearchField(
+                        placeholder = t("search_products"),
                         value = productPickerQuery,
                         onValueChange = { productPickerQuery = it },
-                        leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
                         modifier = Modifier.weight(1f),
                     )
                     OutlinedButton(
@@ -4469,11 +4468,11 @@ fun CurrencyPickerDialog(
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp
                 )
-                TijarioTextField(
-                    label = t("search_currency_placeholder"),
+                TijarioSearchField(
+                    placeholder = t("search_currency_placeholder"),
                     value = query,
                     onValueChange = { query = it },
-                    leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+                    modifier = Modifier.fillMaxWidth(),
                 )
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(1),

@@ -1,5 +1,7 @@
 package app.tijario.ui
 
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
@@ -29,7 +31,7 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.People
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.ShoppingBag
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Description
@@ -617,8 +619,8 @@ private fun TijarioAppContent() {
                                                 .clip(CircleShape)
                                         ) {
                                             Icon(
-                                                imageVector = Icons.Filled.Settings,
-                                                contentDescription = t("settings"),
+                                                imageVector = Icons.Filled.Menu,
+                                                contentDescription = t("menu"),
                                                 tint = MaterialTheme.colorScheme.onSurface
                                             )
                                         }
@@ -1064,7 +1066,23 @@ private fun TijarioAppContent() {
                         onChangePassword = { navController.navigate("change-password") },
                     )
                 }
-                composable("settings") {
+                composable(
+                    route = "settings",
+                    enterTransition = {
+                        slideInHorizontally(
+                            initialOffsetX = {
+                                if (AppRuntimeState.currentLanguage == app.tijario.config.AppLanguage.AR) -it else it
+                            },
+                        )
+                    },
+                    popExitTransition = {
+                        slideOutHorizontally(
+                            targetOffsetX = {
+                                if (AppRuntimeState.currentLanguage == app.tijario.config.AppLanguage.AR) -it else it
+                            },
+                        )
+                    },
+                ) {
                     SettingsHomeScreen(
                         dataViewModel = dataViewModel,
                         onBack = { navController.safePopBackToMain() },
@@ -1148,6 +1166,7 @@ private fun TijarioAppContent() {
                     BackupSettingsScreen(
                         userId = app.tijario.config.Supabase.client.auth.currentUserOrNull()?.id.orEmpty(),
                         onBack = { navController.safePopBackToMain() },
+                        onUpgrade = { navController.navigateSingleTop("upgrade-plan") },
                     )
                 }
                 composable("payments-subscriptions") {

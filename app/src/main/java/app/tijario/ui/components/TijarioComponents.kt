@@ -21,6 +21,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AlertDialog
@@ -181,6 +182,43 @@ fun TijarioTextField(
     )
 }
 
+@Composable
+fun TijarioSearchField(
+    placeholder: String,
+    value: String,
+    onValueChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        modifier = modifier.height(50.dp),
+        placeholder = {
+            Text(
+                text = placeholder,
+                fontSize = 12.sp,
+                maxLines = 1,
+            )
+        },
+        leadingIcon = {
+            Icon(
+                imageVector = Icons.Filled.Search,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+            )
+        },
+        singleLine = true,
+        shape = RoundedCornerShape(14.dp),
+        textStyle = MaterialTheme.typography.bodySmall,
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = MaterialTheme.colorScheme.primary,
+            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+            focusedContainerColor = MaterialTheme.colorScheme.surface,
+            unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+        ),
+    )
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TijarioPhoneField(
@@ -287,10 +325,11 @@ fun TijarioPhoneField(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Text(t("country_code"), fontWeight = FontWeight.Bold)
-                TijarioTextField(
-                    label = t("search_dial_code_placeholder"),
+                TijarioSearchField(
+                    placeholder = t("search_dial_code_placeholder"),
                     value = dialCodeQuery,
                     onValueChange = { dialCodeQuery = it },
+                    modifier = Modifier.fillMaxWidth(),
                 )
                 LazyColumn(
                     modifier = Modifier.heightIn(max = 420.dp),
@@ -351,10 +390,11 @@ fun CountryPickerBottomSheet(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(t("country"), fontWeight = FontWeight.Bold)
-            TijarioTextField(
-                label = t("search_country_placeholder"),
+            TijarioSearchField(
+                placeholder = t("search_country_placeholder"),
                 value = query,
                 onValueChange = { query = it },
+                modifier = Modifier.fillMaxWidth(),
             )
             LazyColumn(
                 modifier = Modifier.heightIn(max = 460.dp),

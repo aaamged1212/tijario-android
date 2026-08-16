@@ -15,8 +15,8 @@ class BackupPlanPolicyTest {
     )
 
     @Test
-    fun freeWeeklyPolicyRejectsDailyAndKeepsWeeklyAvailable() {
-        val policy = BackupPlanPolicy("weekly", 0, 4, 0)
+    fun paidWeeklyPolicyRejectsDailyAndKeepsWeeklyAvailable() {
+        val policy = BackupPlanPolicy("weekly", 0, 4, 0, planCode = "starter", driveBackupAllowed = true)
 
         assertTrue(policy.allows("weekly"))
         assertFalse(policy.allows("daily"))
@@ -26,7 +26,7 @@ class BackupPlanPolicyTest {
 
     @Test
     fun paidDailyPolicyAllowsDailyWithoutOverridingManualPreference() {
-        val policy = BackupPlanPolicy("daily", 7, 4, 0)
+        val policy = BackupPlanPolicy("daily", 7, 4, 0, planCode = "pro", driveBackupAllowed = true)
 
         assertTrue(policy.allows("daily"))
         assertEquals("manual", policy.apply(settings.copy(frequency = "manual")).frequency)
@@ -35,7 +35,7 @@ class BackupPlanPolicyTest {
 
     @Test
     fun downgradeClampsFrequencyAndUsesSignedRetention() {
-        val policy = BackupPlanPolicy("weekly", 0, 4, 0)
+        val policy = BackupPlanPolicy("weekly", 0, 4, 0, planCode = "starter", driveBackupAllowed = true)
         val adjusted = policy.apply(settings)
 
         assertEquals("weekly", adjusted.frequency)
@@ -46,24 +46,46 @@ class BackupPlanPolicyTest {
 
     @Test
     fun policyUsesOnlyAStillValidPersistedSignedPayload() {
+        val entitlement = entitlement(planCode = "starter", backupFrequency = "daily")
+
+        val validPolicy = BackupPlanPolicy.from(entitlement, 1_700_000_000_000L)
+        assertEquals("daily", validPolicy.maximumFrequency)
+        assertTrue(validPolicy.automaticBackupAllowed)
+        assertTrue(validPolicy.driveBackupAllowed)
+        assertEquals("manual", BackupPlanPolicy.from(entitlement, 1_900_000_000_000L).maximumFrequency)
+    }
+
+    @Test
+    fun freePlanStaysManualAndDisablesDriveEvenIfLegacyClaimsAllowWeekly() {
+        val policy = BackupPlanPolicy.from(
+            entitlement(planCode = "free", backupFrequency = "weekly"),
+            1_700_000_000_000L,
+        )
+
+        val adjusted = policy.apply(settings.copy(frequency = "weekly", driveEnabled = true))
+        assertFalse(policy.automaticBackupAllowed)
+        assertFalse(policy.driveBackupAllowed)
+        assertFalse(policy.allows("weekly"))
+        assertEquals("manual", adjusted.frequency)
+        assertFalse(adjusted.driveEnabled)
+    }
+
+    private fun entitlement(planCode: String, backupFrequency: String): AccountEntitlementEntity {
         val payload = """{
-          "allowed_template_ids":[],"backup_frequency":"daily","backup_retention_daily":7,
+          "allowed_template_ids":[],"backup_frequency":"$backupFrequency","backup_retention_daily":7,
           "backup_retention_monthly":3,"backup_retention_weekly":4,"data_mode":"local_drive",
           "document_limit":100,"document_limit_scope":"billing_cycle","documents_used":0,
           "entitlement_version":1,"expires_at":"2026-12-01T00:00:00Z","installation_id":"device",
           "issued_at":"2026-01-01T00:00:00Z","key_id":"key",
-          "offline_credit_batch_size":10,"offline_entitlement_days":7,"plan_code":"starter",
+          "offline_credit_batch_size":10,"offline_entitlement_days":7,"plan_code":"$planCode",
           "remove_tijario_branding":false,"user_id":"user-1"
         }""".replace(Regex("\\s+"), "")
-        val entitlement = AccountEntitlementEntity(
-            userId = "user-1", planCode = "starter", dataMode = "local_drive",
+        return AccountEntitlementEntity(
+            userId = "user-1", planCode = planCode, dataMode = "local_drive",
             documentLimitScope = "billing_cycle", documentLimit = 100, documentsUsed = 0,
             customerLimit = null, productLimit = null, allowedTemplateIdsJson = "[]",
             removeTijarioBranding = false, entitlementVersion = 1, verifiedAt = 1,
             expiresAt = 1_800_000_000_000L, signedPayload = payload, signature = "signature",
         )
-
-        assertEquals("daily", BackupPlanPolicy.from(entitlement, 1_700_000_000_000L).maximumFrequency)
-        assertEquals("manual", BackupPlanPolicy.from(entitlement, 1_900_000_000_000L).maximumFrequency)
     }
 }

@@ -32,6 +32,8 @@ import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.WorkspacePremium
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -47,6 +49,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Switch
@@ -89,6 +92,7 @@ import java.util.Locale
 fun BackupSettingsScreen(
     userId: String,
     onBack: () -> Unit,
+    onUpgrade: () -> Unit,
 ) {
     val context = LocalContext.current
     val language = LocalLanguage.current
@@ -356,6 +360,9 @@ fun BackupSettingsScreen(
                             )
                         }
                     }
+                    if (!state.backupPlanPolicy.automaticBackupAllowed) {
+                        PaidBackupUpgradeHint(onUpgrade = onUpgrade)
+                    }
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -400,7 +407,10 @@ fun BackupSettingsScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     BackupSectionTitle(Icons.Filled.CloudDownload, t("backup_drive_title"))
-                    Text(
+                    if (!state.backupPlanPolicy.driveBackupAllowed) {
+                        PaidBackupUpgradeHint(onUpgrade = onUpgrade)
+                    } else {
+                        Text(
                         when (state.driveConnectionState) {
                             DriveConnectionState.NotConfigured -> t("backup_drive_not_configured")
                             DriveConnectionState.Disconnected -> t("backup_drive_disconnected")
@@ -503,14 +513,15 @@ fun BackupSettingsScreen(
                             }
                         }
                     }
-                    Button(
-                        onClick = { startTrackedOperation(backupViewModel::backupNowToGoogleDrive) },
-                        enabled = !state.isBusy && state.driveConnectionState is DriveConnectionState.Connected,
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Icon(Icons.Filled.Backup, contentDescription = null)
-                        Spacer(Modifier.padding(4.dp))
-                        Text(t("backup_drive_now"), fontWeight = FontWeight.Bold)
+                        Button(
+                            onClick = { startTrackedOperation(backupViewModel::backupNowToGoogleDrive) },
+                            enabled = !state.isBusy && state.driveConnectionState is DriveConnectionState.Connected,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Icon(Icons.Filled.Backup, contentDescription = null)
+                            Spacer(Modifier.padding(4.dp))
+                            Text(t("backup_drive_now"), fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
             }
@@ -689,6 +700,45 @@ fun BackupSettingsScreen(
                 TextButton(onClick = { showLegacyFolderChoice = false }) { Text(t("cancel")) }
             },
         )
+    }
+}
+
+@Composable
+private fun PaidBackupUpgradeHint(onUpgrade: () -> Unit) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f),
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(
+            modifier = Modifier.padding(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Lock,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                text = t("backup_paid_feature_required"),
+                modifier = Modifier.weight(1f),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodySmall,
+            )
+            OutlinedButton(
+                onClick = onUpgrade,
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.WorkspacePremium,
+                    contentDescription = null,
+                    modifier = Modifier.height(16.dp),
+                )
+                Spacer(Modifier.padding(2.dp))
+                Text(t("upgrade"), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            }
+        }
     }
 }
 

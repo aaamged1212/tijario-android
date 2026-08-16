@@ -619,3 +619,10 @@
 - Grouped backup/restore actions into compact sections while preserving all existing backup operations.
 - Replaced the clipped splash icon treatment with the approved transparent logo on a dark background in both system and Compose splash layers.
 - Focused JVM contracts, Debug/DebugAndroidTest assembly, and `lintDebug` pass; physical visual QA remains pending.
+
+# 2026-08-16 - Menu, profile, plan, search, and backup-policy follow-up
+- Restored the editable profile-photo treatment while preserving the current name and email fields; replaced the app-header Settings glyph/copy with a localized Menu and direction-aware slide transition.
+- Compact plan presentation now keeps the annual 20% badge on the annual selector only and lists automatic local backup plus Google Drive availability.
+- Free accounts are clamped to manual local backup with Drive disabled; verified paid entitlements can schedule offline local backups and optionally enqueue Drive upload as separate network work.
+- Consolidated search sizing and moved existing customer, product, and invoice filters behind a compact adjacent filter button. Notifications now support pull-to-refresh and Refresh copy.
+- Focused JVM tests, Debug compilation, `assemblePlayQa`, `lintDebug`, and `git diff --check` pass; physical UI and elapsed scheduler QA remain pending.

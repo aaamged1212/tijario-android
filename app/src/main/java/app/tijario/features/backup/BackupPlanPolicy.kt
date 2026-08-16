@@ -11,29 +11,53 @@ data class BackupPlanPolicy(
     val retentionDaily: Int,
     val retentionWeekly: Int,
     val retentionMonthly: Int,
+    val planCode: String = "unknown",
+    val automaticBackupAllowed: Boolean = normalize(maximumFrequency) != "manual",
+    val driveBackupAllowed: Boolean = planCode.lowercase() in PAID_BACKUP_PLANS,
 ) {
-    fun allows(frequency: String): Boolean = rank(normalize(frequency)) <= rank(maximumFrequency)
+    fun allows(frequency: String): Boolean {
+        val normalized = normalize(frequency)
+        if (normalized == "manual") return true
+        return automaticBackupAllowed && rank(normalized) <= rank(maximumFrequency)
+    }
 
     fun apply(settings: BackupSettingsEntity): BackupSettingsEntity = settings.copy(
         frequency = if (allows(settings.frequency)) normalize(settings.frequency) else maximumFrequency,
+        driveEnabled = settings.driveEnabled && driveBackupAllowed,
         retentionDaily = retentionDaily.coerceAtLeast(0),
         retentionWeekly = retentionWeekly.coerceAtLeast(0),
         retentionMonthly = retentionMonthly.coerceAtLeast(0),
     )
 
     companion object {
-        val ManualOnly = BackupPlanPolicy("manual", 0, 0, 0)
+        val ManualOnly = BackupPlanPolicy(
+            maximumFrequency = "manual",
+            retentionDaily = 0,
+            retentionWeekly = 0,
+            retentionMonthly = 0,
+            planCode = "free",
+            automaticBackupAllowed = false,
+            driveBackupAllowed = false,
+        )
 
         fun from(entitlement: AccountEntitlementEntity?, nowMillis: Long = System.currentTimeMillis()): BackupPlanPolicy {
             if (entitlement?.expiresAt?.let { it <= nowMillis } != false) return ManualOnly
             val payload = entitlement.signedPayload ?: return ManualOnly
             val signed = runCatching { json.decodeFromString<SignedEntitlementPayload>(payload) }.getOrNull()
                 ?: return ManualOnly
+            val planCode = signed.planCode.lowercase()
+            if (planCode !in PAID_BACKUP_PLANS) {
+                return ManualOnly.copy(planCode = planCode)
+            }
+            val maximumFrequency = normalize(signed.backupFrequency)
             return BackupPlanPolicy(
-                maximumFrequency = normalize(signed.backupFrequency),
+                maximumFrequency = maximumFrequency,
                 retentionDaily = signed.backupRetentionDaily,
                 retentionWeekly = signed.backupRetentionWeekly,
                 retentionMonthly = signed.backupRetentionMonthly,
+                planCode = planCode,
+                automaticBackupAllowed = maximumFrequency != "manual",
+                driveBackupAllowed = true,
             )
         }
 
@@ -50,5 +74,6 @@ data class BackupPlanPolicy(
         }
 
         private val json = Json { ignoreUnknownKeys = false }
+        private val PAID_BACKUP_PLANS = setOf("starter", "pro", "business")
     }
 }

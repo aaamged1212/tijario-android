@@ -8,6 +8,7 @@ import org.junit.Test
 class SettingsExperienceUiContractTest {
     private val settingsSource = File("src/main/java/app/tijario/ui/screens/SettingsScreens.kt").readText()
     private val formsSource = File("src/main/java/app/tijario/ui/screens/FormScreens.kt").readText()
+    private val appSource = File("src/main/java/app/tijario/ui/TijarioApp.kt").readText()
 
     @Test
     fun businessCurrency_usesSearchableBottomSheetInsteadOfDropdown() {
@@ -54,6 +55,29 @@ class SettingsExperienceUiContractTest {
     }
 
     @Test
+    fun personalProfileRestoresEditablePhotoCardWithoutReplacingNameOrEmailFields() {
+        val profile = settingsSource
+            .substringAfter("fun PersonalProfileScreen")
+            .substringBefore("fun AccountSettingsScreen")
+
+        assertTrue(profile.contains("ActivityResultContracts.GetContent()"))
+        assertTrue(profile.contains("photoPicker.launch(\"image/*\")"))
+        assertTrue(profile.contains("edit_profile_photo"))
+        assertTrue(profile.contains("profilePicFile.writeBytes"))
+        assertTrue(profile.contains("if (isEditingName) Icons.Filled.Check else Icons.Filled.Edit"))
+        assertTrue(profile.contains("label = { Text(t(\"email\")) }"))
+    }
+
+    @Test
+    fun menuUsesHamburgerLabelAndLanguageAwareSlideTransition() {
+        assertTrue(settingsSource.contains("title = { Text(t(\"menu\")"))
+        assertTrue(appSource.contains("imageVector = Icons.Filled.Menu"))
+        assertTrue(appSource.contains("contentDescription = t(\"menu\")"))
+        assertTrue(appSource.contains("slideInHorizontally"))
+        assertTrue(appSource.contains("AppRuntimeState.currentLanguage"))
+    }
+
+    @Test
     fun planBanner_showsUpgradeOnlyForFreeAndStarterPlans() {
         val planBanner = settingsSource
             .substringAfter("private fun SettingsPlanBanner")
@@ -78,5 +102,10 @@ class SettingsExperienceUiContractTest {
         assertTrue(pricingSection.contains("val isPro = plan.code == \"pro\""))
         assertTrue(pricingSection.contains("width = if (isPro) 2.dp else 1.dp"))
         assertFalse(pricingSection.contains("if (!billingState.isLoading && plans.isEmpty())"))
+        assertTrue(settingsSource.contains("val discountBadge"))
+        assertFalse(settingsSource.contains("Text(save"))
+        assertTrue(pricingSection.contains(".height(448.dp)"))
+        assertTrue(pricingSection.contains("Daily or weekly automatic local backup"))
+        assertTrue(pricingSection.contains("Google Drive backup and restore"))
     }
 }

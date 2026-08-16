@@ -105,6 +105,7 @@ import app.tijario.ui.components.LocalAdaptiveLayoutInfo
 import app.tijario.ui.state.TijarioDataViewModel
 import kotlinx.coroutines.launch
 import app.tijario.ui.components.TijarioTextField
+import app.tijario.ui.components.TijarioSearchField
 import io.github.jan.supabase.auth.auth
 
 @Composable
@@ -1410,91 +1411,26 @@ fun CustomersScreen(
                 }
             }
 
-            // Search Bar
-            TijarioTextField(
-                label = t("search_placeholder"),
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
-                leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) }
-            )
-
-            // Horizontal Filter Chips Row
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                // Ø§Ù„ÙƒÙ„ (All)
-                TijarioFilterChip(
-                    selected = selectedFilter == "all",
-                    onClick = { selectedFilter = "all" },
-                    label = t("filter_all"),
-                    horizontalPadding = 12.dp,
-                    verticalPadding = 6.dp,
-                    textFontSize = 12.sp,
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Filled.GridView,
-                            contentDescription = null,
-                            modifier = Modifier.size(14.dp),
-                            tint = if (selectedFilter == "all") Color.White else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                TijarioSearchField(
+                    placeholder = t("search_placeholder"),
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    modifier = Modifier.weight(1f),
                 )
-
-                // Ù†Ø´Ø· (Active)
-                TijarioFilterChip(
-                    selected = selectedFilter == "active",
-                    onClick = { selectedFilter = "active" },
-                    label = t("customer_active"), // Maps to active filter text
-                    horizontalPadding = 12.dp,
-                    verticalPadding = 6.dp,
-                    textFontSize = 12.sp,
-                    leadingIcon = {
-                        Box(
-                            modifier = Modifier
-                                .size(7.dp)
-                                .background(Color(0xFF22C55E), CircleShape)
-                        )
-                    }
-                )
-
-                // Ø¹Ù…ÙŠÙ„ Ø¬Ø¯ÙŠØ¯ (New Customer)
-                TijarioFilterChip(
-                    selected = selectedFilter == "new",
-                    onClick = { selectedFilter = "new" },
-                    label = t("new_customers"),
-                    horizontalPadding = 12.dp,
-                    verticalPadding = 6.dp,
-                    textFontSize = 12.sp,
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Filled.Description,
-                            contentDescription = null,
-                            modifier = Modifier.size(14.dp),
-                            tint = if (selectedFilter == "new") Color.White else Color(0xFF3B82F6)
-                        )
-                    }
-                )
-
-                // Ø£ÙƒØ«Ø± ØªØ¹Ø§Ù…Ù„Ø§Ù‹ (Top Customer)
-                TijarioFilterChip(
-                    selected = selectedFilter == "top",
-                    onClick = { selectedFilter = "top" },
-                    label = t("most_active_customers"),
-                    horizontalPadding = 12.dp,
-                    verticalPadding = 6.dp,
-                    textFontSize = 12.sp,
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Filled.Star,
-                            contentDescription = null,
-                            modifier = Modifier.size(14.dp),
-                            tint = if (selectedFilter == "top") Color.White else Color(0xFFFBBF24)
-                        )
-                    }
+                CompactFilterButton(
+                    selectedValue = selectedFilter,
+                    options = listOf(
+                        "all" to t("filter_all"),
+                        "active" to t("customer_active"),
+                        "new" to t("new_customers"),
+                        "top" to t("most_active_customers"),
+                    ),
+                    onSelect = { selectedFilter = it },
                 )
             }
 
@@ -1980,43 +1916,22 @@ fun ProductsScreen(
                 }
             }
 
-            TijarioTextField(
-                label = t("search_products"),
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
-                leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) }
-            )
-
-            // Category Filter
-            if (categories.isNotEmpty()) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    TijarioFilterChip(
-                        selected = selectedCategory == null,
-                        onClick = { selectedCategory = null },
-                        label = t("all_categories"),
-                        leadingIcon = {
-                            Icon(
-                                imageVector = Icons.Filled.GridView,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp),
-                                tint = if (selectedCategory == null) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    )
-                    categories.forEach { category ->
-                        TijarioFilterChip(
-                            selected = selectedCategory == category,
-                            onClick = { selectedCategory = category },
-                            label = category
-                        )
-                    }
-                }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                TijarioSearchField(
+                    placeholder = t("search_products"),
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    modifier = Modifier.weight(1f),
+                )
+                CompactFilterButton(
+                    selectedValue = selectedCategory.orEmpty(),
+                    options = listOf("" to t("all_categories")) + categories.map { it to it },
+                    onSelect = { selectedCategory = it.ifBlank { null } },
+                )
             }
 
             if (isLoading) {
@@ -2538,103 +2453,33 @@ fun DocumentsScreen(
                 }
             }
 
-            OutlinedTextField(
-                value = activeSearchQuery,
-                onValueChange = { query ->
-                    if (selectedSection == 0) invoiceSearchQuery = query else quoteSearchQuery = query
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp),
-                placeholder = {
-                    Text(
-                        text = t(
-                            if (selectedSection == 0) "search_invoices_placeholder"
-                            else "search_quotes_placeholder",
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                TijarioSearchField(
+                    placeholder = t(
+                        if (selectedSection == 0) "search_invoices_placeholder"
+                        else "search_quotes_placeholder",
+                    ),
+                    value = activeSearchQuery,
+                    onValueChange = { query ->
+                        if (selectedSection == 0) invoiceSearchQuery = query else quoteSearchQuery = query
+                    },
+                    modifier = Modifier.weight(1f),
+                )
+                if (selectedSection == 0) {
+                    CompactFilterButton(
+                        selectedValue = selectedFilter,
+                        options = listOf(
+                            "all" to t("filter_all"),
+                            "unpaid" to t("filter_unpaid"),
+                            "paid" to t("filter_paid"),
+                            "partial" to t("filter_partial"),
                         ),
-                        fontSize = 12.sp,
-                        maxLines = 1,
+                        onSelect = { selectedFilter = it },
                     )
-                },
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Filled.Search,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                    )
-                },
-                singleLine = true,
-                shape = RoundedCornerShape(14.dp),
-                textStyle = MaterialTheme.typography.bodySmall,
-            )
-
-            // Filtering Chips under Tabs - only show for Invoices
-            if (selectedSection == 0) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // All Filter
-                    TijarioFilterChip(
-                        selected = selectedFilter == "all",
-                        onClick = { selectedFilter = "all" },
-                        label = t("filter_all"),
-                        leadingIcon = {
-                            Icon(
-                                imageVector = Icons.Filled.GridView,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp),
-                                tint = if (selectedFilter == "all") Color.White else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    )
-
-                    // Unpaid Filter (only meaningful for invoices, but can show)
-                    TijarioFilterChip(
-                        selected = selectedFilter == "unpaid",
-                        onClick = { selectedFilter = "unpaid" },
-                        label = t("filter_unpaid"),
-                        leadingIcon = {
-                            Box(
-                                modifier = Modifier
-                                    .size(8.dp)
-                                    .background(Color(0xFFEF4444), CircleShape)
-                            )
-                        }
-                    )
-
-                    // Paid Filter
-                    TijarioFilterChip(
-                        selected = selectedFilter == "paid",
-                        onClick = { selectedFilter = "paid" },
-                        label = t("filter_paid"),
-                        leadingIcon = {
-                            Box(
-                                modifier = Modifier
-                                    .size(8.dp)
-                                    .background(Color(0xFF22C55E), CircleShape)
-                            )
-                        }
-                    )
-
-                    // Partial Filter
-                    TijarioFilterChip(
-                        selected = selectedFilter == "partial",
-                        onClick = { selectedFilter = "partial" },
-                        label = t("filter_partial"),
-                        leadingIcon = {
-                            Box(
-                                modifier = Modifier
-                                    .size(8.dp)
-                                    .background(Color(0xFFF97316), CircleShape)
-                            )
-                        }
-                    )
-
-
                 }
             }
 
@@ -3452,6 +3297,51 @@ private fun MiniStatItem(
                 fontWeight = FontWeight.Medium,
                 textAlign = TextAlign.Start
             )
+        }
+    }
+}
+
+@Composable
+private fun CompactFilterButton(
+    selectedValue: String,
+    options: List<Pair<String, String>>,
+    onSelect: (String) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Box(modifier = Modifier.size(50.dp)) {
+        OutlinedIconButton(
+            onClick = { expanded = true },
+            modifier = Modifier.fillMaxSize(),
+            shape = RoundedCornerShape(14.dp),
+        ) {
+            Icon(
+                imageVector = Icons.Filled.FilterList,
+                contentDescription = t("filter"),
+                tint = if (selectedValue.isNotBlank() && selectedValue != "all") {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+            )
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+        ) {
+            options.forEach { (value, label) ->
+                DropdownMenuItem(
+                    text = { Text(label, maxLines = 1) },
+                    onClick = {
+                        onSelect(value)
+                        expanded = false
+                    },
+                    trailingIcon = if (selectedValue == value) {
+                        { Icon(Icons.Filled.Check, contentDescription = null) }
+                    } else {
+                        null
+                    },
+                )
+            }
         }
     }
 }

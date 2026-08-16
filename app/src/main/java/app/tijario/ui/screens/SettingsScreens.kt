@@ -3,6 +3,8 @@
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -52,7 +54,6 @@ import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.ShoppingBag
 import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.outlined.BusinessCenter
 import androidx.compose.material.icons.outlined.CloudSync
 import androidx.compose.material.icons.outlined.CreditCard
@@ -167,7 +168,7 @@ fun SettingsHomeScreen(
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text(t("settings"), fontWeight = FontWeight.Bold) },
+                title = { Text(t("menu"), fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = t("btn_back"))
@@ -574,6 +575,17 @@ fun PersonalProfileScreen(
     val invalidName = t("edit_name_invalid")
     val nameUpdated = t("name_updated")
     val nameUpdateFailed = t("name_update_failed")
+    val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) {
+            runCatching {
+                context.contentResolver.openInputStream(uri)?.use { input ->
+                    profilePicFile.writeBytes(input.readBytes())
+                } ?: error("profile_photo_unavailable")
+                android.graphics.BitmapFactory.decodeFile(profilePicFile.absolutePath)
+                    ?: error("profile_photo_invalid")
+            }.onSuccess { profilePicBitmap = it }
+        }
+    }
 
     LaunchedEffect(Unit) {
         email = Supabase.client.auth.currentUserOrNull()?.email.orEmpty()
@@ -630,26 +642,83 @@ fun PersonalProfileScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Surface(
-                color = MaterialTheme.colorScheme.primaryContainer,
-                shape = CircleShape,
-                modifier = Modifier.size(72.dp),
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.Transparent),
             ) {
-                Box(contentAlignment = Alignment.Center) {
-                    if (profilePicBitmap != null) {
-                        Image(
-                            bitmap = profilePicBitmap!!.asImageBitmap(),
-                            contentDescription = null,
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop,
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            Brush.verticalGradient(
+                                listOf(Color(0xFF081C36), Color(0xFF0F2D54)),
+                            ),
                         )
-                    } else {
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                ) {
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
                         Text(
-                            text = profileFullName.trim().take(2).ifBlank { "T" },
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                            fontWeight = FontWeight.Black,
-                            fontSize = 22.sp,
+                            text = profileFullName.trim().ifBlank { unknownUser },
+                            color = Color.White,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
                         )
+                        Text(
+                            text = t("personal_account_desc"),
+                            color = Color.White.copy(alpha = 0.72f),
+                            fontSize = 11.sp,
+                            lineHeight = 15.sp,
+                        )
+                    }
+                    Box(
+                        modifier = Modifier.clickable { photoPicker.launch("image/*") },
+                    ) {
+                        Surface(
+                            color = Color(0xFF0D9488),
+                            shape = CircleShape,
+                            modifier = Modifier.size(68.dp),
+                            border = BorderStroke(2.dp, Color.White),
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                profilePicBitmap?.let { bitmap ->
+                                    Image(
+                                        bitmap = bitmap.asImageBitmap(),
+                                        contentDescription = t("edit_profile_photo"),
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = ContentScale.Crop,
+                                    )
+                                } ?: Text(
+                                    text = profileFullName.trim().take(2).ifBlank { "T" },
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 23.sp,
+                                )
+                            }
+                        }
+                        Surface(
+                            color = Color.White,
+                            shape = CircleShape,
+                            modifier = Modifier
+                                .size(24.dp)
+                                .align(Alignment.BottomStart)
+                                .offset(x = (-2).dp, y = 2.dp),
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Filled.Edit,
+                                    contentDescription = t("edit_profile_photo"),
+                                    tint = Color(0xFF081C36),
+                                    modifier = Modifier.size(12.dp),
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -1427,35 +1496,36 @@ private fun PricingHeroCard(
     }
     val monthly = if (isArabic) "شهري" else "Monthly"
     val annual = if (isArabic) "سنوي" else "Annual"
-    val save = if (isArabic) "خصم سنوي حتى $annualDiscountPercent%" else "Save up to $annualDiscountPercent% annually"
+    val discountBadge = if (isArabic) "$annualDiscountPercent% خصم" else "$annualDiscountPercent% OFF"
 
     Card(
-        shape = RoundedCornerShape(28.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(
-            modifier = Modifier.padding(22.dp),
+            modifier = Modifier.padding(14.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Surface(color = Color(0xFFE6FFFA), shape = CircleShape, modifier = Modifier.size(72.dp)) {
+            Surface(color = Color(0xFFE6FFFA), shape = CircleShape, modifier = Modifier.size(50.dp)) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
                         Icons.Filled.RocketLaunch,
                         contentDescription = null,
                         tint = Color(0xFF0F766E),
-                        modifier = Modifier.size(34.dp),
+                        modifier = Modifier.size(25.dp),
                     )
                 }
             }
-            Text(title, fontSize = 24.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center)
+            Text(title, fontSize = 19.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center)
             Text(
                 subtitle,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
-                lineHeight = 22.sp,
+                style = MaterialTheme.typography.bodySmall,
+                lineHeight = 18.sp,
             )
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -1467,13 +1537,29 @@ private fun PricingHeroCard(
                     onClick = { onToggleBilling(false) },
                 )
                 Spacer(modifier = Modifier.size(10.dp))
-                PricingToggleChip(
-                    label = annual,
-                    selected = annualBilling,
-                    onClick = { onToggleBilling(true) },
-                )
+                Box {
+                    PricingToggleChip(
+                        label = annual,
+                        selected = annualBilling,
+                        onClick = { onToggleBilling(true) },
+                    )
+                    Surface(
+                        color = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                        shape = RoundedCornerShape(999.dp),
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .offset(x = 6.dp, y = (-8).dp),
+                    ) {
+                        Text(
+                            text = discountBadge,
+                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
+                }
             }
-            Text(save, color = Color(0xFF0F766E), fontWeight = FontWeight.Bold, fontSize = 13.sp)
         }
     }
 }
@@ -1486,14 +1572,14 @@ private fun PricingToggleChip(
 ) {
     Button(
         onClick = onClick,
-        modifier = Modifier.height(44.dp),
+        modifier = Modifier.height(40.dp),
         shape = RoundedCornerShape(999.dp),
         colors = ButtonDefaults.buttonColors(
             containerColor = if (selected) Color(0xFF0D9488) else MaterialTheme.colorScheme.surfaceVariant,
             contentColor = if (selected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
         ),
     ) {
-        Text(label, fontWeight = FontWeight.Bold)
+        Text(label, fontWeight = FontWeight.Bold, fontSize = 13.sp)
     }
 }
 
@@ -1588,7 +1674,7 @@ private fun PricingPlansSection(
             state = pagerState,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(510.dp),
+                .height(448.dp),
             contentPadding = PaddingValues(horizontal = 10.dp),
             pageSpacing = 12.dp,
         ) { page ->
@@ -1670,26 +1756,29 @@ private fun SwipePricingPlanCard(
         else -> t("plans_price_from_play")
     }
     val canPurchase = plan.code != "free" && !isCurrent && !googlePlayPrice.isNullOrBlank() && !isPurchasing
+    val hasPaidBackup = plan.code != "free"
     val features = listOf(
-        if (isArabic) "مستندات شهرية: ${plan.monthlyDocumentLimit}" else "Documents/month: ${plan.monthlyDocumentLimit}",
-        if (isArabic) "عمليات AI شهرية: ${plan.monthlyAiLimit}" else "AI/month: ${plan.monthlyAiLimit}",
-        if (plan.customerLimit == null) {
+        (if (isArabic) "مستندات شهرية: ${plan.monthlyDocumentLimit}" else "Documents/month: ${plan.monthlyDocumentLimit}") to true,
+        (if (isArabic) "عمليات AI شهرية: ${plan.monthlyAiLimit}" else "AI/month: ${plan.monthlyAiLimit}") to true,
+        (if (plan.customerLimit == null) {
             if (isArabic) "العملاء: غير محدود" else "Customers: Unlimited"
         } else {
             if (isArabic) "العملاء: ${plan.customerLimit}" else "Customers: ${plan.customerLimit}"
-        },
-        if (plan.productLimit == null) {
+        }) to true,
+        (if (plan.productLimit == null) {
             if (isArabic) "المنتجات: غير محدود" else "Products: Unlimited"
         } else {
             if (isArabic) "المنتجات: ${plan.productLimit}" else "Products: ${plan.productLimit}"
-        },
-        if (isArabic) plan.templatesAr else plan.templatesEn,
-        if (isArabic) plan.supportAr else plan.supportEn,
+        }) to true,
+        (if (isArabic) plan.templatesAr else plan.templatesEn) to true,
+        (if (isArabic) "نسخ محلي تلقائي يومي أو أسبوعي" else "Daily or weekly automatic local backup") to hasPaidBackup,
+        (if (isArabic) "النسخ والاستعادة عبر Google Drive" else "Google Drive backup and restore") to hasPaidBackup,
+        (if (isArabic) plan.supportAr else plan.supportEn) to true,
     )
 
     Card(
         modifier = modifier,
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         border = BorderStroke(
             width = if (isPro) 2.dp else 1.dp,
@@ -1700,8 +1789,8 @@ private fun SwipePricingPlanCard(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+                .padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(7.dp),
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -1711,21 +1800,21 @@ private fun SwipePricingPlanCard(
                 Surface(
                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
                     shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.size(44.dp),
+                    modifier = Modifier.size(38.dp),
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
                             imageVector = if (plan.code == "free") Icons.Filled.Check else Icons.Filled.WorkspacePremium,
                             contentDescription = null,
                             tint = accent,
-                            modifier = Modifier.size(23.dp),
+                            modifier = Modifier.size(20.dp),
                         )
                     }
                 }
                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(
                         text = if (isArabic) plan.nameAr else plan.nameEn,
-                        fontSize = 20.sp,
+                        fontSize = 18.sp,
                         fontWeight = FontWeight.Black,
                     )
                     Text(
@@ -1753,25 +1842,25 @@ private fun SwipePricingPlanCard(
 
             Text(
                 text = priceLabel,
-                fontSize = if (googlePlayPrice.isNullOrBlank() && plan.code != "free") 14.sp else 27.sp,
+                fontSize = if (googlePlayPrice.isNullOrBlank() && plan.code != "free") 13.sp else 24.sp,
                 fontWeight = FontWeight.Black,
                 color = if (isPro) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
             )
 
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                features.forEach { feature ->
-                    PricingFeatureRow(text = feature, accent = accent)
+            Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                features.forEach { (feature, included) ->
+                    PricingFeatureRow(text = feature, accent = accent, included = included)
                 }
             }
 
-            Spacer(modifier = Modifier.weight(1f))
+            Spacer(modifier = Modifier.height(2.dp))
 
             Button(
                 onClick = onPurchase,
                 enabled = canPurchase,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(48.dp),
+                    .height(44.dp),
                 shape = RoundedCornerShape(14.dp),
             ) {
                 Text(
@@ -2043,7 +2132,12 @@ private fun PricingCompactChip(text: String, accent: Color) {
 }
 
 @Composable
-private fun PricingFeatureRow(text: String, accent: Color, textColor: Color = MaterialTheme.colorScheme.onSurfaceVariant) {
+private fun PricingFeatureRow(
+    text: String,
+    accent: Color,
+    textColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+    included: Boolean = true,
+) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -2052,14 +2146,19 @@ private fun PricingFeatureRow(text: String, accent: Color, textColor: Color = Ma
         Surface(color = accent.copy(alpha = 0.12f), shape = CircleShape, modifier = Modifier.size(22.dp)) {
             Box(contentAlignment = Alignment.Center) {
                 Icon(
-                    Icons.Filled.Check,
+                    if (included) Icons.Filled.Check else Icons.Filled.Lock,
                     contentDescription = null,
-                    tint = accent,
+                    tint = if (included) accent else MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(12.dp),
                 )
             }
         }
-        Text(text, fontSize = 13.sp, color = textColor)
+        Text(
+            text = text,
+            fontSize = 12.sp,
+            color = if (included) textColor else MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+        )
     }
 }
 
@@ -2187,6 +2286,36 @@ private fun PricingComparisonSection(isArabic: Boolean) {
                     featureEn = "Smart Caption",
                     freeAr = "متاح",
                     freeEn = "Included",
+                    starterAr = "متاح",
+                    starterEn = "Included",
+                    proAr = "متاح",
+                    proEn = "Included",
+                    businessAr = "متاح",
+                    businessEn = "Included",
+                ),
+            ),
+        ),
+        ComparisonGroup(
+            titleAr = "النسخ الاحتياطي والاستعادة",
+            titleEn = "Backup and restore",
+            rows = listOf(
+                ComparisonFeatureRow(
+                    featureAr = "نسخ محلي تلقائي يومي أو أسبوعي",
+                    featureEn = "Daily or weekly automatic local backup",
+                    freeAr = "مقفل",
+                    freeEn = "Locked",
+                    starterAr = "متاح",
+                    starterEn = "Included",
+                    proAr = "متاح",
+                    proEn = "Included",
+                    businessAr = "متاح",
+                    businessEn = "Included",
+                ),
+                ComparisonFeatureRow(
+                    featureAr = "Google Drive",
+                    featureEn = "Google Drive",
+                    freeAr = "مقفل",
+                    freeEn = "Locked",
                     starterAr = "متاح",
                     starterEn = "Included",
                     proAr = "متاح",

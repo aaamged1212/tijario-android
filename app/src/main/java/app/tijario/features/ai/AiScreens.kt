@@ -1458,7 +1458,7 @@ private fun CustomerSelectionContent(
             value = searchQuery,
             onValueChange = { searchQuery = it },
             placeholder = { Text(localized(language, "بحث باسم العميل...", "Search customer name..."), color = saaSColors.textSecondary) },
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().height(50.dp),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = saaSColors.primaryTeal,
                 unfocusedBorderColor = saaSColors.border,
@@ -1467,7 +1467,9 @@ private fun CustomerSelectionContent(
                 focusedTextColor = saaSColors.textPrimary,
                 unfocusedTextColor = saaSColors.textPrimary
             ),
-            shape = RoundedCornerShape(10.dp)
+            shape = RoundedCornerShape(14.dp),
+            singleLine = true,
+            textStyle = MaterialTheme.typography.bodySmall,
         )
 
         Spacer(modifier = Modifier.height(12.dp))
@@ -1529,7 +1531,7 @@ private fun ProductSelectionContent(
             value = searchQuery,
             onValueChange = { searchQuery = it },
             placeholder = { Text(localized(language, "بحث باسم المنتج...", "Search product name..."), color = saaSColors.textSecondary) },
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().height(50.dp),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = saaSColors.primaryTeal,
                 unfocusedBorderColor = saaSColors.border,
@@ -1538,7 +1540,9 @@ private fun ProductSelectionContent(
                 focusedTextColor = saaSColors.textPrimary,
                 unfocusedTextColor = saaSColors.textPrimary
             ),
-            shape = RoundedCornerShape(10.dp)
+            shape = RoundedCornerShape(14.dp),
+            singleLine = true,
+            textStyle = MaterialTheme.typography.bodySmall,
         )
 
         Spacer(modifier = Modifier.height(12.dp))

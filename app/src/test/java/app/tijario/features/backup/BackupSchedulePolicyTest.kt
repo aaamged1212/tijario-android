@@ -24,6 +24,8 @@ class BackupSchedulePolicyTest {
         val localRequest = scheduler.substringBefore("fun enqueueDriveUpload")
         assertFalse(localRequest.contains("setRequiredNetworkType"))
         assertTrue(worker.contains("allowNetwork = false"))
+        assertTrue(worker.contains("BackupPlanPolicy.from(dao.getAccountEntitlement(userId))"))
+        assertTrue(worker.contains("!planPolicy.automaticBackupAllowed"))
         assertFalse(worker.contains("Result.retry()"))
     }
 
@@ -55,11 +57,16 @@ class BackupSchedulePolicyTest {
     @Test
     fun scheduleUiHasAllLocalizedPolicyOptions() {
         val source = File("src/main/java/app/tijario/ui/screens/BackupSettingsScreen.kt").readText()
+        val viewModel = File("src/main/java/app/tijario/features/backup/BackupViewModel.kt").readText()
 
         assertTrue(source.contains("backup_frequency_manual"))
         assertTrue(source.contains("backup_frequency_daily"))
         assertTrue(source.contains("backup_frequency_weekly"))
         assertTrue(source.contains("backup_charging_only"))
+        assertTrue(source.contains("!state.backupPlanPolicy.automaticBackupAllowed"))
+        assertTrue(source.contains("!state.backupPlanPolicy.driveBackupAllowed"))
+        assertTrue(source.contains("PaidBackupUpgradeHint"))
+        assertTrue(viewModel.contains("requireDriveBackupAccess()"))
     }
 
     @Test

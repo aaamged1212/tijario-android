@@ -182,3 +182,10 @@ The counters migration is required to manage sequential document numbers without
 - Verify the profile card opens only name/email, inline pencil/check editing saves correctly, and Account Settings still exposes password, subscription sync, logout, and deletion.
 - Verify Free and Starter show the gold upgrade action, Pro does not, and tapping the surrounding plan card opens the current-plan page.
 - Verify Arabic/English and Device (Automatic)/Light/Dark bottom sheets, plus local/Drive backup actions, restore, sharing, scheduling, and history on a physical device.
+
+## 2026-08-16 Menu, Search, Notifications, and Backup QA Gate
+- Verify avatar selection and persistence, Menu title/icon, and the requested Arabic left-to-right versus English right-to-left entry motion on a device.
+- Verify compact searches and filter menus on Customers, Products, Invoices, Quotes, and form pickers in Arabic and English on a compact screen.
+- Verify notification pull-to-refresh shows its indicator, refreshes once, and keeps cached content usable offline.
+- With Free, Starter, and Pro test accounts, verify Free shows the upgrade lock and cannot schedule or use Drive, while paid accounts can select their signed daily/weekly policy and do not show the upgrade prompt.
+- Run an elapsed WorkManager test: create an automatic encrypted local archive offline, then reconnect and confirm optional Drive upload runs separately. Do not treat build-time policy tests as physical scheduler evidence.
