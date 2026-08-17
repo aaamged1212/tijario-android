@@ -45,7 +45,7 @@ import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.automirrored.filled.Label
 import androidx.compose.material.icons.filled.Settings
@@ -404,7 +404,7 @@ fun DashboardScreen(
         DashboardDateRangePreset.ThisMonth -> if (isArabic) "هذا الشهر" else "This month"
         DashboardDateRangePreset.LastMonth -> if (isArabic) "الشهر الماضي" else "Last month"
         DashboardDateRangePreset.Last7Days -> if (isArabic) "آخر 7 أيام" else "Last 7 days"
-        DashboardDateRangePreset.Last30Days -> if (isArabic) "آخر 30 يومًا" else "Last 30 days"
+        DashboardDateRangePreset.Last30Days -> if (isArabic) "آخر 30 يوماً" else "Last 30 days"
         DashboardDateRangePreset.Custom -> if (isArabic) "نطاق مخصص" else "Custom range"
     }
     val rangedDocuments = remember(uiState.documents, activeStartDate, activeEndDate, businessCurrency) {
@@ -474,7 +474,7 @@ fun DashboardScreen(
                         TijarioFilterChip(
                             selected = selectedRangePreset == DashboardDateRangePreset.Last30Days,
                             onClick = { selectedRangePreset = DashboardDateRangePreset.Last30Days },
-                            label = if (isArabic) "آخر 30 يومًا" else "Last 30 days",
+                            label = if (isArabic) "آخر 30 يوماً" else "Last 30 days",
                             textFontSize = 12.sp,
                         )
                     }
@@ -879,14 +879,13 @@ fun DashboardScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    // Arrow left icon second in the button Row so it renders on the left of text in RTL
+                    Text(t("view_all"), color = Color(0xFF0D9488), fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     Icon(
-                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                         contentDescription = null,
                         tint = Color(0xFF0D9488),
                         modifier = Modifier.size(16.dp)
                     )
-                    Text(t("view_all"), color = Color(0xFF0D9488), fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }

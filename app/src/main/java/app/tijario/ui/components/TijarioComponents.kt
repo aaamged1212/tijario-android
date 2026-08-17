@@ -226,6 +226,7 @@ fun TijarioPhoneField(
     onValueChange: (String) -> Unit,
     error: String? = null,
     modifier: Modifier = Modifier,
+    label: String = t("whatsapp_phone"),
     defaultDialCode: String = "+966",
     onDialCodeChange: ((String) -> Unit)? = null,
     onCountryCodeSelected: ((DialCodeOption) -> Unit)? = null,
@@ -277,7 +278,7 @@ fun TijarioPhoneField(
     }
     val numberField: @Composable (Modifier) -> Unit = { fieldModifier ->
         TijarioTextField(
-            label = t("whatsapp_phone"),
+            label = label,
             value = parts.localNumber,
             onValueChange = { onValueChange(normalizePhoneWithDialCode(activeDialCode, it)) },
             error = error,
@@ -302,7 +303,7 @@ fun TijarioPhoneField(
         Row(
             modifier = modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.Top,
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             dialCodeField(Modifier.weight(0.75f))
             numberField(Modifier.weight(1.25f))

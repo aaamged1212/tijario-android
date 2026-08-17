@@ -317,7 +317,7 @@ class AiViewModel(
     }
 
     private fun localizedOfflineMessage(): String = if (AppRuntimeState.currentLanguage == AppLanguage.AR) {
-        "الميزة تحتاج اتصالًا بالإنترنت. تحقق من الشبكة وحاول مرة أخرى."
+        "الميزة تحتاج اتصالاً بالإنترنت. تحقق من الشبكة وحاول مرة أخرى."
     } else {
         "This feature needs an internet connection. Check your network and try again."
     }

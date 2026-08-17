@@ -231,3 +231,9 @@
 - **State**: Local document creation uses cached entitlement/local quota validation and does not request a lease from the network. Customer, product/service, and document create/update route directly to Room in LocalDrive without operational outbox writes.
 - **Validation**: 47 focused JVM tests and `assembleDebug` passed. Physical offline QA remains pending.
 - **Safety**: No push, deployment, migration, Production write, external configuration change, or Google Play upload occurred. `.agents` remains local and excluded.
+
+## 2026-08-16
+- **Current task**: Arabic-copy and focused UI polish on `fix/android-runtime-critical-fixes`.
+- **State**: Fathatan placement is normalized and guarded; Business Information, appearance, and current-plan presentation match the requested copy; free-plan PDF branding is linked; View All and AI history actions are repositioned.
+- **Validation**: Focused JVM tests, `assemblePlayQa`, `lintDebug`, and `git diff --check` passed. Physical RTL/LTR and PDF-link QA remain pending.
+- **Safety**: No commit, push, deployment, migration, Production write, Web change, external configuration change, or Google Play upload occurred. `.agents` remains local and excluded.

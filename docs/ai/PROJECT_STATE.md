@@ -243,3 +243,9 @@
 - **Backup and splash**: Backup actions are grouped into compact sections without changing repositories or workers. The system and Compose splash layers now share the exact transparent brand asset on a dark background with no white icon plate.
 - **Validation**: 17 focused JVM tests, `assembleDebugAndroidTest`, `assembleDebug`, and `lintDebug` passed. Physical RTL/LTR and cold-start visual QA remains pending.
 - **Safety**: No commit, push, deployment, migration, Production write, external configuration change, or Google Play upload occurred.
+
+## 2026-08-16 Arabic Copy and Document Branding Follow-up
+- **State**: Local uncommitted Android changes normalize Arabic fathatan placement, refine business-information terminology and alignment, simplify the appearance icon, and make the plan banner more conversion-focused.
+- **Documents and navigation**: Free-plan PDF output includes compact linked Tijario branding, dashboard View All follows RTL/LTR correctly, and AI history is colocated with generation without changing persistence or generation behavior.
+- **Validation**: Focused JVM tests, `assemblePlayQa`, `lintDebug`, and `git diff --check` passed. Physical RTL/LTR and generated-PDF hyperlink QA remain pending.
+- **Safety**: No commit, push, deployment, migration, Production write, Web change, external configuration change, or Google Play upload occurred.

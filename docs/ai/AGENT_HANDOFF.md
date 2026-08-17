@@ -925,3 +925,10 @@
 - **Correction**: Android CI now runs lint, Debug assembly, and Release assembly as separate non-parallel Gradle invocations with stack traces. Checkout and Java setup use supported action major versions.
 - **Validation status**: Local Gradle gates remain successful for the unchanged application source. GitHub Actions Android CI run `31337272388` passed both jobs after this workflow-only correction.
 - **Safety Status**: No deployment, migration, Production write, external configuration change, or Google Play upload occurred.
+
+## 2026-08-16 (Arabic copy, business settings, plan, PDF branding, and AI actions, local)
+- **Arabic copy**: Source text no longer contains a fathatan immediately before a final alif; a JVM contract scans the Android main source to prevent that spelling form from returning.
+- **Business and settings UI**: Business information uses dedicated business-name, business-phone, and default-currency labels. The redundant header name editor is removed, phone controls align vertically, the application-appearance icon is larger and unboxed, and the plan banner uses the requested `Your current plan | Plan` conversion copy.
+- **Documents and AI**: Free-plan document branding now includes a compact Tijario mark and a green Play Store link. The dashboard View All action follows the active layout direction. AI history is an icon-only action beside the Reply/Caption generation button.
+- **Validation**: Focused JVM contracts, `assemblePlayQa`, `lintDebug`, and `git diff --check` passed. Physical Arabic/English layout and exported-PDF link QA remain required.
+- **Safety Status**: No commit, push, deployment, migration, Production write, Web change, external configuration change, or Google Play upload occurred. `.agents` remains local and excluded.

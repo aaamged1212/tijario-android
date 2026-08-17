@@ -99,7 +99,7 @@ class DocumentHtmlRenderer(
                 append("<div style=\"clear: both;\"></div>")
             }
             if (model.showTijarioBranding) {
-                append("<footer class=\"footer\">${labels.footer}</footer>")
+                append(brandingFooter(labels))
             }
             append("</main>")
         }
@@ -195,6 +195,14 @@ class DocumentHtmlRenderer(
             DocumentType.Quote -> if (model.language == AppLanguage.AR) "عرض سعر" else "Quote"
         }
 
+    private fun brandingFooter(labels: Labels): String = buildString {
+        append("<footer class=\"footer\">")
+        append("<img class=\"footer-logo\" src=\"file:///android_res/drawable/tijario_splash_logo.png\" alt=\"\">")
+        append("<span>${HtmlEscaper.escape(labels.footerPrefix)}</span>")
+        append("<a class=\"footer-brand\" href=\"$TIJARIO_PLAY_STORE_URL\">${HtmlEscaper.escape(labels.footerBrand)}</a>")
+        append("</footer>")
+    }
+
     private fun labels(language: AppLanguage): Labels =
         if (language == AppLanguage.AR) {
             Labels(
@@ -220,7 +228,8 @@ class DocumentHtmlRenderer(
                 invoiceNote = "ملاحظة الفاتورة",
                 documentNote = "ملاحظة",
                 terms = "الشروط والأحكام",
-                footer = "تم إنشاء هذا المستند عبر تجاريو",
+                footerPrefix = "تم إنشاء هذا المستند عبر",
+                footerBrand = "تجاريو",
             )
         } else {
             Labels(
@@ -246,7 +255,8 @@ class DocumentHtmlRenderer(
                 invoiceNote = "Invoice note",
                 documentNote = "Note",
                 terms = "Terms and conditions",
-                footer = "Created with Tijario",
+                footerPrefix = "Created with",
+                footerBrand = "Tijario",
             )
         }
 
@@ -375,10 +385,12 @@ class DocumentHtmlRenderer(
         val invoiceNote: String,
         val documentNote: String,
         val terms: String,
-        val footer: String,
+        val footerPrefix: String,
+        val footerBrand: String,
     )
 
     private companion object {
+        const val TIJARIO_PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=app.tijario"
         val SAFE_DATA_IMAGE = Regex("^data:image/(?:png|jpeg|jpg|webp);base64,[A-Za-z0-9+/=\\r\\n]+$", RegexOption.IGNORE_CASE)
     }
 }

@@ -182,7 +182,7 @@ private fun creationAllowanceMessage(
         }
     }
     CreationAllowance.PlanUnavailable -> if (language == app.tijario.config.AppLanguage.AR) {
-        "تعذر تحميل بيانات خطتك الآن. تحقق من الاتصال ثم حاول مجددًا."
+        "تعذر تحميل بيانات خطتك الآن. تحقق من الاتصال ثم حاول مجدداً."
     } else {
         "Your plan details are not available yet. Check your connection and try again."
     }

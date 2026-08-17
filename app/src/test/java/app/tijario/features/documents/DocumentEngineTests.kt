@@ -338,8 +338,13 @@ class DocumentEngineTests {
             )
         )
 
-        assertTrue(branded.contains("Created with Tijario"))
-        assertFalse(unbranded.contains("Created with Tijario"))
+        assertTrue(branded.contains("Created with"))
+        assertTrue(branded.contains("class=\"footer-logo\""))
+        assertTrue(branded.contains("class=\"footer-brand\""))
+        assertTrue(branded.contains("https://play.google.com/store/apps/details?id=app.tijario"))
+        assertTrue(branded.contains("file:///android_res/drawable/tijario_splash_logo.png"))
+        assertFalse(unbranded.contains("class=\"footer-logo\""))
+        assertFalse(unbranded.contains("https://play.google.com/store/apps/details?id=app.tijario"))
         assertFalse(unbranded.contains("تم إنشاء هذا المستند عبر تجاريو"))
         assertTrue(unbranded.contains("<main"))
     }

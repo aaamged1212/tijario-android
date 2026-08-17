@@ -8,6 +8,7 @@ import org.junit.Test
 class SettingsExperienceUiContractTest {
     private val settingsSource = File("src/main/java/app/tijario/ui/screens/SettingsScreens.kt").readText()
     private val formsSource = File("src/main/java/app/tijario/ui/screens/FormScreens.kt").readText()
+    private val componentsSource = File("src/main/java/app/tijario/ui/components/TijarioComponents.kt").readText()
     private val appSource = File("src/main/java/app/tijario/ui/TijarioApp.kt").readText()
 
     @Test
@@ -22,6 +23,23 @@ class SettingsExperienceUiContractTest {
         assertTrue(formsSource.contains("filterCurrencyOptions(query, language)"))
         assertFalse(businessSettings.contains("activeDialog = \"currency\""))
         assertFalse(businessSettings.contains("SettingsDropdownField(\n                                label = t(\"currency\")"))
+    }
+
+    @Test
+    fun businessInformationUsesDedicatedLabelsWithoutDuplicateHeaderEditAction() {
+        val businessSettings = formsSource
+            .substringAfter("fun BusinessSettingsScreen")
+            .substringBefore("val DocumentFormStateSaver")
+        val headerCard = businessSettings
+            .substringAfter("// Header store card")
+            .substringBefore("// Options card list")
+
+        assertTrue(businessSettings.contains("title = { Text(t(\"business_information\")"))
+        assertTrue(businessSettings.contains("title = t(\"business_name_title\")"))
+        assertTrue(businessSettings.contains("title = t(\"business_phone_title\")"))
+        assertTrue(businessSettings.contains("title = t(\"default_currency\")"))
+        assertFalse(headerCard.contains("activeDialog = \"name\""))
+        assertTrue(componentsSource.contains("verticalAlignment = Alignment.CenterVertically"))
     }
 
     @Test
@@ -86,7 +104,22 @@ class SettingsExperienceUiContractTest {
         assertTrue(planBanner.contains("planCode == \"free\" || planCode == \"starter\""))
         assertTrue(planBanner.contains("if (canUpgrade)"))
         assertTrue(planBanner.contains("onUpgrade"))
+        assertTrue(planBanner.contains("your_current_plan"))
+        assertTrue(planBanner.contains("text = \"|\""))
+        assertTrue(planBanner.contains("plan_upgrade_pitch"))
+        assertTrue(planBanner.contains("fontSize = 16.sp"))
         assertFalse(planBanner.contains("Icons.AutoMirrored.Filled.KeyboardArrowRight"))
+    }
+
+    @Test
+    fun appAppearanceUsesLargeUnboxedSystemAppearanceIcon() {
+        val appSettings = settingsSource
+            .substringAfter("fun AppSettingsScreen")
+            .substringBefore("private fun LocalNotificationSettingsSection")
+
+        assertTrue(appSettings.contains("SettingsSelectionOption(AppThemeMode.SYSTEM, t(\"theme_system\"), Icons.Filled.SettingsBrightness)"))
+        assertTrue(appSettings.contains("showIconContainer = false"))
+        assertTrue(appSettings.contains("iconSize = 28.dp"))
     }
 
     @Test

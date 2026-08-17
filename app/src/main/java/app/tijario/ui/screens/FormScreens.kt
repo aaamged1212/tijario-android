@@ -1281,13 +1281,13 @@ fun BusinessSettingsScreen(
     if (activeDialog != null) {
         AlertDialog(
             onDismissRequest = { activeDialog = null },
-            title = { Text(t("tab_store_account"), fontWeight = FontWeight.Bold) },
+            title = { Text(t("business_information"), fontWeight = FontWeight.Bold) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     when (activeDialog) {
                         "name" -> {
                             TijarioTextField(
-                                label = t("shop_name"),
+                                label = t("business_name_title"),
                                 value = form.businessName,
                                 onValueChange = { form = form.copy(businessName = it) },
                                 error = if (form.businessName.isNotEmpty()) form.businessNameError else null,
@@ -1300,6 +1300,7 @@ fun BusinessSettingsScreen(
                                 value = form.whatsapp,
                                 onValueChange = { form = form.copy(whatsapp = it) },
                                 error = if (form.whatsapp.isNotEmpty()) form.whatsappError else null,
+                                label = t("business_phone_title"),
                                 defaultDialCode = form.whatsapp
                                     .takeIf { it.isNotBlank() }
                                     ?.let { splitPhoneNumber(it).dialCode }
@@ -1396,7 +1397,7 @@ fun BusinessSettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(t("tab_store_account"), fontWeight = FontWeight.Bold) },
+                title = { Text(t("store_settings"), fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Filled.ArrowBack, contentDescription = t("btn_back"))
@@ -1518,19 +1519,6 @@ fun BusinessSettingsScreen(
                         }
                     }
 
-                    // Edit Icon
-                    Surface(
-                        color = Color.Transparent,
-                        shape = CircleShape,
-                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.4f)),
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clickable { activeDialog = "name" }
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(Icons.Filled.Edit, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
-                        }
-                    }
                 }
             }
 
@@ -1548,7 +1536,7 @@ fun BusinessSettingsScreen(
                     // Row 1: اسم المتجر / النشاط التجاري
                     SettingsItemRow(
                         icon = Icons.Filled.Storefront,
-                        title = t("shop_name"),
+                        title = t("business_name_title"),
                         value = form.businessName.ifBlank { t("app_name") },
                         onClick = { activeDialog = "name" }
                     )
@@ -1559,7 +1547,7 @@ fun BusinessSettingsScreen(
                     // Row 3: رقم التواصل
                     SettingsItemRow(
                         icon = Icons.Filled.Phone,
-                        title = t("contact_phone"),
+                        title = t("business_phone_title"),
                         value = form.whatsapp,
                         onClick = { activeDialog = "phone" }
                     )
@@ -1610,7 +1598,7 @@ fun BusinessSettingsScreen(
                     // Row 6: العملة
                     SettingsItemRow(
                         icon = Icons.Filled.AttachMoney,
-                        title = t("currency"),
+                        title = t("default_currency"),
                         value = CurrencyCatalog.display(form.currency, language),
                         onClick = { showCurrencyPicker = true }
                     )

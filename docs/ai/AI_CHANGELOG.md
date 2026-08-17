@@ -626,3 +626,9 @@
 - Free accounts are clamped to manual local backup with Drive disabled; verified paid entitlements can schedule offline local backups and optionally enqueue Drive upload as separate network work.
 - Consolidated search sizing and moved existing customer, product, and invoice filters behind a compact adjacent filter button. Notifications now support pull-to-refresh and Refresh copy.
 - Focused JVM tests, Debug compilation, `assemblePlayQa`, `lintDebug`, and `git diff --check` pass; physical UI and elapsed scheduler QA remain pending.
+
+# 2026-08-16 - Arabic copy and focused UI polish
+- Normalized Arabic fathatan placement across Android main-source text and added a regression scan for the rejected pre-alif sequence.
+- Refined Business Information labels and phone alignment, removed the duplicate business-name edit affordance, and simplified the application-appearance icon treatment.
+- Reworked the current-plan banner copy, corrected the dashboard View All arrow order/direction, and moved AI history into an icon action beside generation.
+- Added linked Tijario logo branding to free-plan document output. Focused JVM tests, `assemblePlayQa`, `lintDebug`, and `git diff --check` pass; exported-PDF and compact-device visual QA remain pending.

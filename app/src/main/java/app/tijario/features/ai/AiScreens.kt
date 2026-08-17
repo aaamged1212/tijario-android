@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -315,21 +316,6 @@ fun AiToolsScreen(
                 }
             )
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
-            ) {
-                OutlinedButton(onClick = { showHistorySheet = true }) {
-                    Icon(
-                        imageVector = Icons.Filled.History,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                    )
-                    Spacer(Modifier.width(6.dp))
-                    Text(t("ai_history"))
-                }
-            }
-
             if (selectedTab == 0) {
                 // Reply Form Block
                 ReplyFormBlock(
@@ -361,6 +347,7 @@ fun AiToolsScreen(
                     showAdvanced = showReplyAdvanced,
                     onToggleAdvanced = { showReplyAdvanced = !showReplyAdvanced },
                     enabled = !isBusy && !limitReachedByCache,
+                    onHistoryClick = { showHistorySheet = true },
                     onSubmit = {
                         if (replyMessage.isBlank() && replyQuickCase == null) {
                             localError = localized(language, "أدخل رسالة العميل أو اختر حالة سريعة.", "Paste a customer message or choose a quick case.")
@@ -427,9 +414,10 @@ fun AiToolsScreen(
                     showAdvanced = showCaptionAdvanced,
                     onToggleAdvanced = { showCaptionAdvanced = !showCaptionAdvanced },
                     enabled = !isBusy && !limitReachedByCache,
+                    onHistoryClick = { showHistorySheet = true },
                     onSubmit = {
                         if (captionProductId == null && productOrService.isBlank()) {
-                            localError = localized(language, "اختر منتجًا محفوظًا أو اكتب اسم المنتج/الخدمة.", "Choose a saved product or type the product/service name.")
+                            localError = localized(language, "اختر منتجاً محفوظاً أو اكتب اسم المنتج/الخدمة.", "Choose a saved product or type the product/service name.")
                             return@CaptionFormBlock
                         }
                         localError = null
@@ -776,6 +764,7 @@ private fun ReplyFormBlock(
     showAdvanced: Boolean,
     onToggleAdvanced: () -> Unit,
     enabled: Boolean,
+    onHistoryClick: () -> Unit,
     onSubmit: () -> Unit,
     language: AppLanguage
 ) {
@@ -892,22 +881,12 @@ private fun ReplyFormBlock(
                 )
             }
 
-            Button(
-                onClick = onSubmit,
+            AiGenerateActionRow(
+                label = t("btn_generate_reply"),
                 enabled = enabled,
-                modifier = Modifier.fillMaxWidth().height(48.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = saaSColors.primaryTeal,
-                    contentColor = Color.White, // Keep text light inside button
-                    disabledContainerColor = saaSColors.border,
-                    disabledContentColor = saaSColors.textSecondary
-                )
-            ) {
-                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(t("btn_generate_reply"), fontWeight = FontWeight.Bold)
-            }
+                onGenerate = onSubmit,
+                onHistoryClick = onHistoryClick,
+            )
         }
     }
 }
@@ -938,6 +917,7 @@ private fun CaptionFormBlock(
     showAdvanced: Boolean,
     onToggleAdvanced: () -> Unit,
     enabled: Boolean,
+    onHistoryClick: () -> Unit,
     onSubmit: () -> Unit,
     language: AppLanguage
 ) {
@@ -1053,22 +1033,57 @@ private fun CaptionFormBlock(
                 ChipGroupSlider(localized(language, "الطول", "Length"), lengthOptions(language), length, onLengthChange)
             }
 
-            Button(
-                onClick = onSubmit,
+            AiGenerateActionRow(
+                label = t("ai_btn_gen_caption"),
                 enabled = enabled,
-                modifier = Modifier.fillMaxWidth().height(48.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = saaSColors.primaryTeal,
-                    contentColor = Color.White, // Keep text light inside button
-                    disabledContainerColor = saaSColors.border,
-                    disabledContentColor = saaSColors.textSecondary
-                )
-            ) {
-                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(t("ai_btn_gen_caption"), fontWeight = FontWeight.Bold)
-            }
+                onGenerate = onSubmit,
+                onHistoryClick = onHistoryClick,
+            )
+        }
+    }
+}
+
+@Composable
+private fun AiGenerateActionRow(
+    label: String,
+    enabled: Boolean,
+    onGenerate: () -> Unit,
+    onHistoryClick: () -> Unit,
+) {
+    val colors = getSaaSColors()
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        OutlinedButton(
+            onClick = onHistoryClick,
+            modifier = Modifier.size(48.dp),
+            contentPadding = PaddingValues(0.dp),
+            shape = RoundedCornerShape(12.dp),
+        ) {
+            Icon(
+                imageVector = Icons.Filled.History,
+                contentDescription = t("ai_history"),
+                tint = colors.primaryTeal,
+                modifier = Modifier.size(20.dp),
+            )
+        }
+        Button(
+            onClick = onGenerate,
+            enabled = enabled,
+            modifier = Modifier.weight(1f).height(48.dp),
+            shape = RoundedCornerShape(12.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = colors.primaryTeal,
+                contentColor = Color.White,
+                disabledContainerColor = colors.border,
+                disabledContentColor = colors.textSecondary,
+            ),
+        ) {
+            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(label, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -1200,7 +1215,7 @@ private fun AnalysisSummaryCollapsible(data: AiV3ResponseData, language: AppLang
             val localizedObjection = data.analysis.objection?.let { translateAiTerm(it, language) }
             val localizedStage = translateAiTerm(data.analysis.buyingStage, language)
             val briefMeaning = if (localizedObjection != null) {
-                localized(language, "العميل مهتم ولكنه يواجه اعتراضًا: $localizedObjection", "Customer is interested but has an objection: $localizedObjection")
+                localized(language, "العميل مهتم ولكنه يواجه اعتراضاً: $localizedObjection", "Customer is interested but has an objection: $localizedObjection")
             } else {
                 localized(language, "العميل يبدو في وضع: $localizedStage", "Customer seems to be in: $localizedStage")
             }
@@ -1754,7 +1769,7 @@ private fun platformOptions(language: AppLanguage) = listOf(
 private fun captionTypeOptions(language: AppLanguage) = listOf(
     "product_post" to localized(language, "منشور منتج", "Product post"),
     "offer_post" to localized(language, "منشور عرض", "Offer post"),
-    "new_arrival" to localized(language, "وصل حديثًا", "New arrival"),
+    "new_arrival" to localized(language, "وصل حديثاً", "New arrival"),
     "service_promo" to localized(language, "ترويج خدمة", "Service promo"),
     "story_caption" to localized(language, "ستوري", "Story"),
 )
@@ -1762,7 +1777,7 @@ private fun captionTypeOptions(language: AppLanguage) = listOf(
 private fun refineOptions(language: AppLanguage) = listOf(
     "shorter" to localized(language, "أقصر", "Shorter"),
     "more_professional" to localized(language, "أكثر احترافية", "More professional"),
-    "more_persuasive" to localized(language, "أكثر إقناعًا", "More persuasive"),
+    "more_persuasive" to localized(language, "أكثر إقناعاً", "More persuasive"),
     "less_salesy" to localized(language, "أقل بيعية", "Less salesy"),
     "add_cta" to localized(language, "إضافة CTA", "Add CTA"),
     "remove_cta" to localized(language, "إزالة CTA", "Remove CTA"),

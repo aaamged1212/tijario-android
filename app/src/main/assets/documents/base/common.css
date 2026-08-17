@@ -362,10 +362,26 @@ tbody tr:nth-child(even) {
   margin-top: 20px;
   padding-top: 10px;
   border-top: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
   text-align: center;
   font-size: 12px;
   break-inside: avoid;
   page-break-inside: avoid;
+}
+
+.footer-logo {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+}
+
+.footer-brand {
+  color: #0d9488;
+  font-weight: 800;
+  text-decoration: none;
 }
 
 .muted {

@@ -757,7 +757,7 @@ fun VerifyEmailScreen(
             if (app.tijario.BuildConfig.DEBUG) {
                 Log.e("VerifyEmailScreen", "operation=verification_bootstrap result=failed error=${bootstrapResult.exceptionOrNull()?.javaClass?.simpleName ?: "unknown"}")
             }
-            errorMessage = if (language == AppLanguage.AR) "نجح التحقق ولكن فشل إعداد الحساب، يرجى المحاولة لاحقًا" else "Verification succeeded but account setup failed"
+            errorMessage = if (language == AppLanguage.AR) "نجح التحقق ولكن فشل إعداد الحساب، يرجى المحاولة لاحقاً" else "Verification succeeded but account setup failed"
             awaitingBootstrapRetry = true
             return false
         }

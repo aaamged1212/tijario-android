@@ -257,13 +257,14 @@ private fun SettingsPlanBanner(
     val canUpgrade = planCode == "free" || planCode == "starter"
     val planName = when (state) {
         is PlanUsageState.Success -> when (state.value.planCode.lowercase()) {
-            "free" -> t("free_plan")
-            "starter" -> t("starter_plan")
-            "pro", "business" -> t("pro_plan")
+            "free" -> t("free_plan_short")
+            "starter" -> t("starter_plan_short")
+            "pro", "business" -> t("pro_plan_short")
             else -> state.value.planName
         }
         else -> t("current_plan")
     }
+    val planPitch = if (canUpgrade) t("plan_upgrade_pitch") else t("plan_active_pitch")
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -293,17 +294,34 @@ private fun SettingsPlanBanner(
                     )
                 }
             }
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(5.dp),
+                ) {
+                    Text(
+                        text = t("your_current_plan"),
+                        color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.82f),
+                        fontSize = 12.sp,
+                    )
+                    Text(
+                        text = "|",
+                        color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.52f),
+                        fontSize = 12.sp,
+                    )
+                    Text(
+                        text = planName,
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        fontWeight = FontWeight.Black,
+                        fontSize = 16.sp,
+                    )
+                }
                 Text(
-                    text = t("current_plan"),
-                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.76f),
-                    fontSize = 11.sp,
-                )
-                Text(
-                    text = planName,
-                    color = MaterialTheme.colorScheme.onPrimary,
-                    fontWeight = FontWeight.Black,
-                    fontSize = 17.sp,
+                    text = planPitch,
+                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.78f),
+                    fontSize = 10.sp,
+                    lineHeight = 14.sp,
+                    maxLines = 2,
                 )
             }
             if (canUpgrade) {
@@ -1075,6 +1093,8 @@ fun AppSettingsScreen(onBack: () -> Unit) {
                             AppThemeMode.DARK -> t("theme_dark")
                         },
                         onClick = { showThemeSheet = true },
+                        showIconContainer = false,
+                        iconSize = 28.dp,
                     )
 
                     LocalNotificationSettingsSection()
@@ -1247,7 +1267,7 @@ fun UpgradePlanScreen(
             },
             confirmButton = {
                 TextButton(onClick = { upgradeRefreshFailed = false }) {
-                    Text(if (isArabic) "حسنًا" else "OK")
+                    Text(if (isArabic) "حسناً" else "OK")
                 }
             }
         )
@@ -1462,9 +1482,9 @@ private fun defaultPlanNameEn(code: String): String =
 
 private fun defaultPlanDescriptionAr(code: String): String =
     when (code.lowercase()) {
-        "free" -> "ابدأ مجانًا مع الأساسيات."
+        "free" -> "ابدأ مجاناً مع الأساسيات."
         "starter" -> "للمتاجر التي بدأت تكبر."
-        "pro" -> "الخطة الأكثر توازنًا للمتاجر النشطة."
+        "pro" -> "الخطة الأكثر توازناً للمتاجر النشطة."
         "business" -> "للاستخدام المرتفع والمتاجر النشطة."
         else -> ""
     }
@@ -1490,7 +1510,7 @@ private fun PricingHeroCard(
 ) {
     val title = if (isArabic) "خطة تناسب كل مرحلة من نمو متجرك" else "A plan for every stage of your store"
     val subtitle = if (isArabic) {
-        "ابدأ مجانًا ثم قم بالترقية عندما يكبر عملك."
+        "ابدأ مجاناً ثم قم بالترقية عندما يكبر عملك."
     } else {
         "Start free, then upgrade as your documents, customers, products, and AI usage grow."
     }
@@ -1747,9 +1767,9 @@ private fun SwipePricingPlanCard(
         plan.code == "free" -> if (isArabic) "مجاني" else "Free"
         !googlePlayPrice.isNullOrBlank() -> {
             val period = if (annualBilling) {
-                if (isArabic) " / سنويًا" else " / year"
+                if (isArabic) " / سنوياً" else " / year"
             } else {
-                if (isArabic) " / شهريًا" else " / month"
+                if (isArabic) " / شهرياً" else " / month"
             }
             "$googlePlayPrice$period"
         }
@@ -1869,8 +1889,8 @@ private fun SwipePricingPlanCard(
                         plan.code == "free" -> if (isArabic) "الخطة المجانية" else "Free plan"
                         isPurchasing -> if (isArabic) "جارٍ فتح Google Play..." else "Opening Google Play..."
                         googlePlayPrice.isNullOrBlank() -> if (isArabic) "السعر غير متاح الآن" else "Price unavailable"
-                        annualBilling -> if (isArabic) "اشترك سنويًا" else "Subscribe yearly"
-                        else -> if (isArabic) "اشترك شهريًا" else "Subscribe monthly"
+                        annualBilling -> if (isArabic) "اشترك سنوياً" else "Subscribe yearly"
+                        else -> if (isArabic) "اشترك شهرياً" else "Subscribe monthly"
                     },
                     fontWeight = FontWeight.Bold,
                 )
@@ -1902,9 +1922,9 @@ private fun PricingPlanCard(
         if (isArabic) "مجاني" else "Free"
     } else if (!googlePlayPrice.isNullOrBlank()) {
         val period = if (annualBilling) {
-            if (isArabic) " / سنويًا" else " / year"
+            if (isArabic) " / سنوياً" else " / year"
         } else {
-            if (isArabic) " / شهريًا" else " / month"
+            if (isArabic) " / شهرياً" else " / month"
         }
         "$googlePlayPrice$period"
     } else if (isBillingLoading) {
@@ -1961,7 +1981,7 @@ private fun PricingPlanCard(
                         if (plan.featured) {
                             Surface(color = if (isCurrent && isDarkTheme) Color(0xFFF3F4F6) else Color(0xFFE0F2FE), shape = RoundedCornerShape(999.dp)) {
                                 Text(
-                                    text = if (isArabic) "الأكثر اختيارًا" else "Most chosen",
+                                    text = if (isArabic) "الأكثر اختياراً" else "Most chosen",
                                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                                     color = if (isCurrent && isDarkTheme) Color(0xFF111827) else Color(0xFF075985),
                                     fontSize = 12.sp,
@@ -2062,9 +2082,9 @@ private fun PricingPlanCard(
                         isPurchasing -> if (isArabic) "جارٍ فتح Google Play..." else "Opening Google Play..."
                         googlePlayPrice.isNullOrBlank() -> if (isArabic) "غير متاح الآن" else "Unavailable"
                         else -> if (annualBilling) {
-                            if (isArabic) "اشترك سنويًا" else "Subscribe yearly"
+                            if (isArabic) "اشترك سنوياً" else "Subscribe yearly"
                         } else {
-                            if (isArabic) "اشترك شهريًا" else "Subscribe monthly"
+                            if (isArabic) "اشترك شهرياً" else "Subscribe monthly"
                         }
                     },
                     fontWeight = FontWeight.Bold,
@@ -2573,7 +2593,7 @@ private fun PricingFaqSection(isArabic: Boolean) {
     val items = if (isArabic) {
         listOf(
             "متى تتجدد حدود الاستخدام؟" to
-                "تتجدد حدود المستندات والذكاء الاصطناعي شهريًا حسب تاريخ بدء اشتراكك. وفي الاشتراك السنوي يتم الدفع سنويًا، بينما تتجدد حدود الاستخدام كل شهر حسب تاريخ بدء الاشتراك.",
+                "تتجدد حدود المستندات والذكاء الاصطناعي شهرياً حسب تاريخ بدء اشتراكك. وفي الاشتراك السنوي يتم الدفع سنوياً، بينما تتجدد حدود الاستخدام كل شهر حسب تاريخ بدء الاشتراك.",
             "هل تنتقل الحدود غير المستخدمة؟" to
                 "لا. تبدأ كل دورة شهرية بالحد الكامل للخطة، ولا تُضاف إليها الحدود المتبقية من الدورة السابقة.",
             "ماذا يحدث عند ترقية الخطة؟" to
@@ -2583,7 +2603,7 @@ private fun PricingFaqSection(isArabic: Boolean) {
             "ماذا يحدث عند إلغاء أو انتهاء الاشتراك؟" to
                 "يستمر اشتراكك حتى نهاية الفترة المدفوعة. بعد انتهائها يعود الحساب إلى الخطة المجانية، وتخضع العمليات الجديدة لحدودها.",
             "دفعت ولم تظهر خطتي، ماذا أفعل؟" to
-                "يحدّث التطبيق خطتك تلقائيًا بعد الدفع. وإذا لم تظهر، استخدم خيار مزامنة الاشتراك من إعدادات الحساب، دون خصم مبلغ جديد.",
+                "يحدّث التطبيق خطتك تلقائياً بعد الدفع. وإذا لم تظهر، استخدم خيار مزامنة الاشتراك من إعدادات الحساب، دون خصم مبلغ جديد.",
             "هل أفقد بياناتي عند انتهاء الاشتراك؟" to
                 "لا. تبقى مستنداتك وعملاؤك ومنتجاتك محفوظة، لكن إنشاء عمليات جديدة يخضع لحدود الخطة الحالية.",
             "كيف أدير أو ألغي اشتراكي؟" to
@@ -2796,6 +2816,8 @@ private fun CompactSettingsRow(
     iconTint: Color = MaterialTheme.colorScheme.onSurface,
     onClick: () -> Unit,
     trailing: (@Composable () -> Unit)? = null,
+    showIconContainer: Boolean = true,
+    iconSize: androidx.compose.ui.unit.Dp = 18.dp,
 ) {
     Row(
         modifier = Modifier
@@ -2807,17 +2829,31 @@ private fun CompactSettingsRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Surface(
-            color = MaterialTheme.colorScheme.surface,
-            shape = RoundedCornerShape(9.dp),
-            modifier = Modifier.size(34.dp),
-        ) {
-            Box(contentAlignment = Alignment.Center) {
+        if (showIconContainer) {
+            Surface(
+                color = MaterialTheme.colorScheme.surface,
+                shape = RoundedCornerShape(9.dp),
+                modifier = Modifier.size(34.dp),
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        icon,
+                        contentDescription = null,
+                        tint = iconTint,
+                        modifier = Modifier.size(iconSize),
+                    )
+                }
+            }
+        } else {
+            Box(
+                modifier = Modifier.size(34.dp),
+                contentAlignment = Alignment.Center,
+            ) {
                 Icon(
                     icon,
                     contentDescription = null,
                     tint = iconTint,
-                    modifier = Modifier.size(18.dp),
+                    modifier = Modifier.size(iconSize),
                 )
             }
         }

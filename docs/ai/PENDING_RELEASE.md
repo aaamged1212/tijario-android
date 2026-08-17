@@ -189,3 +189,10 @@ The counters migration is required to manage sequential document numbers without
 - Verify notification pull-to-refresh shows its indicator, refreshes once, and keeps cached content usable offline.
 - With Free, Starter, and Pro test accounts, verify Free shows the upgrade lock and cannot schedule or use Drive, while paid accounts can select their signed daily/weekly policy and do not show the upgrade prompt.
 - Run an elapsed WorkManager test: create an automatic encrypted local archive offline, then reconnect and confirm optional Drive upload runs separately. Do not treat build-time policy tests as physical scheduler evidence.
+
+## 2026-08-16 Arabic Copy and PDF Branding QA Gate
+- Verify representative fathatan words, including `عميلاً`, render with the mark on the final alif in Arabic screens.
+- Verify Business Information has no duplicate name-edit icon, the dial code and phone fields share one baseline, and the application/device appearance icons have the requested unboxed treatment.
+- Verify the current-plan banner on Free, Starter, and Pro in Arabic and English without compact-screen clipping.
+- Generate a branded Free-plan PDF and confirm the small logo renders, Tijario is green, and its link opens `https://play.google.com/store/apps/details?id=app.tijario`.
+- Verify dashboard View All ordering/direction in RTL and LTR and confirm the AI history icon remains aligned beside both generation actions.
