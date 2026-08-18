@@ -50,6 +50,10 @@ import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.automirrored.filled.Label
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.outlined.Receipt
+import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.PersonAdd
+import androidx.compose.material.icons.outlined.BusinessCenter
 import androidx.compose.material3.*
 import androidx.compose.material3.TabRowDefaults.SecondaryIndicator
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
@@ -802,61 +806,45 @@ fun DashboardScreen(
             color = MaterialTheme.colorScheme.onBackground
         )
 
-        FlowRow(
+        val currentLang = LocalLanguage.current
+        Column(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(adaptive.cardSpacing),
-            verticalArrangement = Arrangement.spacedBy(adaptive.cardSpacing),
-            maxItemsInEachRow = if (adaptive.isCompact) 2 else 3,
+            verticalArrangement = Arrangement.spacedBy(adaptive.cardSpacing)
         ) {
-            QuickActionButton(
-                title = t("quick_invoice_short"),
-                icon = Icons.Filled.Receipt,
-                backgroundColor = Color(0xFFE6F4EA),
-                iconColor = Color(0xFF137333),
-                showPlus = true,
-                onClick = { if (isDocLimitReached) showLimitAlert = true else onNewInvoice() },
-                modifier = Modifier
-                    .weight(1f)
-            )
-            QuickActionButton(
-                title = t("quick_quote_short"),
-                icon = Icons.Filled.Description,
-                backgroundColor = Color(0xFFE8F0FE),
-                iconColor = Color(0xFF1A73E8),
-                showPlus = true,
-                onClick = { if (isDocLimitReached) showLimitAlert = true else onNewQuote() },
-                modifier = Modifier
-                    .weight(1f)
-            )
-            QuickActionButton(
-                title = t("quick_customer_short"),
-                icon = Icons.Filled.PersonAdd,
-                backgroundColor = Color(0xFFFCE8E6),
-                iconColor = Color(0xFFC5221F),
-                showPlus = true,
-                onClick = onCustomers,
-                modifier = Modifier
-                    .weight(1f)
-            )
-            QuickActionButton(
-                title = t("quick_product_short"),
-                icon = Icons.Filled.BusinessCenter,
-                backgroundColor = Color(0xFFE4F7EB),
-                iconColor = Color(0xFF0F9D58),
-                showPlus = true,
-                onClick = onAddProduct,
-                modifier = Modifier
-                    .weight(1f)
-            )
-            QuickActionButton(
-                title = t("quick_ai_short"),
-                icon = Icons.Filled.AutoAwesome,
-                backgroundColor = Color(0xFFF3E8FF),
-                iconColor = Color(0xFF9333EA),
-                onClick = onAiTools,
-                modifier = Modifier
-                    .weight(1f)
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(adaptive.cardSpacing)
+            ) {
+                QuickActionItem(
+                    title = if (currentLang == AppLanguage.AR) "إضافة فاتورة" else "Add Invoice",
+                    icon = Icons.Outlined.Receipt,
+                    onClick = { if (isDocLimitReached) showLimitAlert = true else onNewInvoice() },
+                    modifier = Modifier.weight(1f)
+                )
+                QuickActionItem(
+                    title = if (currentLang == AppLanguage.AR) "إضافة عرض سعر" else "Add Quote",
+                    icon = Icons.Outlined.Description,
+                    onClick = { if (isDocLimitReached) showLimitAlert = true else onNewQuote() },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(adaptive.cardSpacing)
+            ) {
+                QuickActionItem(
+                    title = if (currentLang == AppLanguage.AR) "إضافة عميل جديد" else "Add Customer",
+                    icon = Icons.Outlined.PersonAdd,
+                    onClick = onCustomers,
+                    modifier = Modifier.weight(1f)
+                )
+                QuickActionItem(
+                    title = if (currentLang == AppLanguage.AR) "إضافة منتج/خدمة" else "Add Product/Service",
+                    icon = Icons.Outlined.BusinessCenter,
+                    onClick = onAddProduct,
+                    modifier = Modifier.weight(1f)
+                )
+            }
         }
 
         // Latest Invoices / Quotes list Header
@@ -1126,6 +1114,45 @@ private fun StatsSmall(label: String, value: String, icon: ImageVector) {
         Column {
             Text(label, color = Color.White.copy(alpha = 0.7f), fontSize = 11.sp)
             Text(value, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
+private fun QuickActionItem(
+    title: String,
+    icon: ImageVector,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier
+            .height(52.dp)
+            .clickable { onClick() },
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, Color(0xFF1E293B)),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A).copy(alpha = 0.4f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = title,
+                color = Color.White,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = Color(0xFF10B981),
+                modifier = Modifier.size(20.dp)
+            )
         }
     }
 }

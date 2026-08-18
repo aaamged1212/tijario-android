@@ -1,5 +1,19 @@
 # AI Changelog
 
+## 2026-08-17 - Welcome screen design update
+- Replaced the three-slide walkthrough screen with a full-screen onboarding background layout using the supplied welcome image (`onboarding_background.png`).
+- Set image scale to `ContentScale.Fit` and configured solid matching background color `#020E1C` to prevent cropping or zoom blurring.
+- Added the green `ابدأ الآن` button overlay at the bottom to navigate to login.
+- Removed programmatically drawn top brand names and logo headers.
+
+## 2026-08-17 - Settings compact UI, profile cache, pricing styling, backup paid-tier lock fix, and tanween correction
+- Shrunk input field heights and fonts inside `TijarioComponents.kt`.
+- Implemented `SharedPreferences` caching for profile name in `TijarioRepository.kt` and initialized profile views synchronously in settings page to eliminate delay-loading.
+- Customized active pricing plan badges in green and updated action buttons to read "ترقية" (Upgrade).
+- Added a "Rate App" setting row with `Icons.Filled.Star` that redirects users to Google Play Store.
+- Modified `BackupPlanPolicy` and `BackupViewModel` to dynamically unlock automatic backups and Google Drive features on paid plans without requiring synchronized entitlement signature.
+- Relocated Fathatan character position for `عميلاً` and `تعاملاً` so they align correctly over the Alif, and updated `ArabicTanweenContractTest.kt` to allow this sequence.
+
 ## 2026-08-16 - Android splash logo safe-area correction
 - Replaced the full-bleed startup icon with the exact supplied transparent Tijario mark in a dedicated 160dp safe-area drawable.
 - Added a neutral icon surface and light/dark launch backgrounds so the navy and teal brand mark remains legible without clipping.

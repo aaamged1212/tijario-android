@@ -466,7 +466,8 @@ class BackupViewModel(
         viewModelScope.launch {
             val (records, persistedSettings, planPolicy) = withContext(Dispatchers.IO) {
                 val dao = database.tijarioDao()
-                val policy = BackupPlanPolicy.from(dao.getAccountEntitlement(userId))
+                val activePlanCode = app.tijario.config.AppPreferences.getPlanUsage(getApplication(), userId)?.planCode
+                val policy = BackupPlanPolicy.from(dao.getAccountEntitlement(userId), activePlanCode)
                 Triple(dao.getBackupRecords(userId), dao.getBackupSettings(userId) ?: defaultSettings(), policy)
             }
             val settings = planPolicy.apply(persistedSettings)

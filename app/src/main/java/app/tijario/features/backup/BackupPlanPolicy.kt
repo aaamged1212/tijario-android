@@ -40,25 +40,64 @@ data class BackupPlanPolicy(
             driveBackupAllowed = false,
         )
 
-        fun from(entitlement: AccountEntitlementEntity?, nowMillis: Long = System.currentTimeMillis()): BackupPlanPolicy {
-            if (entitlement?.expiresAt?.let { it <= nowMillis } != false) return ManualOnly
-            val payload = entitlement.signedPayload ?: return ManualOnly
-            val signed = runCatching { json.decodeFromString<SignedEntitlementPayload>(payload) }.getOrNull()
-                ?: return ManualOnly
-            val planCode = signed.planCode.lowercase()
-            if (planCode !in PAID_BACKUP_PLANS) {
-                return ManualOnly.copy(planCode = planCode)
+        fun from(
+            entitlement: AccountEntitlementEntity?,
+            activePlanCode: String? = null,
+            nowMillis: Long = System.currentTimeMillis()
+        ): BackupPlanPolicy {
+            val resolvedPlanCode = activePlanCode?.lowercase() ?: "free"
+            val isPaidPlan = resolvedPlanCode != "free" && resolvedPlanCode != "unknown"
+            
+            val basePolicy = if (entitlement?.expiresAt?.let { it <= nowMillis } != false) {
+                if (isPaidPlan) null else return ManualOnly
+            } else {
+                val payload = entitlement.signedPayload ?: if (isPaidPlan) null else return ManualOnly
+                val signed = payload?.let { runCatching { json.decodeFromString<SignedEntitlementPayload>(it) }.getOrNull() }
+                if (signed == null && !isPaidPlan) return ManualOnly
+                signed?.let {
+                    val planCode = it.planCode.lowercase()
+                    if (planCode !in PAID_BACKUP_PLANS) {
+                        ManualOnly.copy(planCode = planCode)
+                    } else {
+                        val maximumFrequency = normalize(it.backupFrequency)
+                        BackupPlanPolicy(
+                            maximumFrequency = maximumFrequency,
+                            retentionDaily = it.backupRetentionDaily,
+                            retentionWeekly = it.backupRetentionWeekly,
+                            retentionMonthly = it.backupRetentionMonthly,
+                            planCode = planCode,
+                            automaticBackupAllowed = maximumFrequency != "manual",
+                            driveBackupAllowed = true,
+                        )
+                    }
+                }
             }
-            val maximumFrequency = normalize(signed.backupFrequency)
-            return BackupPlanPolicy(
-                maximumFrequency = maximumFrequency,
-                retentionDaily = signed.backupRetentionDaily,
-                retentionWeekly = signed.backupRetentionWeekly,
-                retentionMonthly = signed.backupRetentionMonthly,
-                planCode = planCode,
-                automaticBackupAllowed = maximumFrequency != "manual",
-                driveBackupAllowed = true,
-            )
+
+            if (basePolicy != null) return basePolicy
+
+            return if (resolvedPlanCode == "pro" || resolvedPlanCode == "business") {
+                BackupPlanPolicy(
+                    maximumFrequency = "daily",
+                    retentionDaily = 7,
+                    retentionWeekly = 4,
+                    retentionMonthly = 3,
+                    planCode = resolvedPlanCode,
+                    automaticBackupAllowed = true,
+                    driveBackupAllowed = true,
+                )
+            } else if (isPaidPlan) {
+                BackupPlanPolicy(
+                    maximumFrequency = "weekly",
+                    retentionDaily = 0,
+                    retentionWeekly = 4,
+                    retentionMonthly = 0,
+                    planCode = resolvedPlanCode,
+                    automaticBackupAllowed = true,
+                    driveBackupAllowed = true,
+                )
+            } else {
+                ManualOnly
+            }
         }
 
         fun normalize(value: String): String = when (value.lowercase()) {

@@ -820,7 +820,7 @@ private fun ReplyFormBlock(
                 // Customer Button
                 ContextSelectorButton(
                     label = customers.find { it.id == selectedCustomerId }?.name 
-                        ?: localized(language, "اختر عميلاً", "Select Customer"),
+                        ?: localized(language, "اختر عميلًا", "Select Customer"),
                     isSelected = selectedCustomerId != null,
                     onClick = onCustomerClick,
                     onClear = onCustomerClear,
@@ -1462,7 +1462,7 @@ private fun CustomerSelectionContent(
             .padding(16.dp)
     ) {
         Text(
-            text = localized(language, "اختر عميلاً للرد", "Select customer context"),
+            text = localized(language, "اختر عميلًا للرد", "Select customer context"),
             fontWeight = FontWeight.Bold,
             fontSize = 15.sp,
             color = saaSColors.textPrimary,

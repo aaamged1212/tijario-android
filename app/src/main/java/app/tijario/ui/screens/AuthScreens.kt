@@ -77,6 +77,7 @@ import kotlinx.coroutines.launch
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.Canvas
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.ui.geometry.Offset
@@ -1420,180 +1421,44 @@ private fun openExternalPage(context: android.content.Context, url: String) {
     }
 }
 
-data class IntroSlide(
-    val title: String,
-    val description: String,
-    val icon: androidx.compose.ui.graphics.vector.ImageVector,
-    val iconColor: Color
-)
-
 @Composable
 fun IntroWalkthroughScreen(onFinished: () -> Unit) {
-    val language = LocalLanguage.current
-    val slides = listOf(
-        IntroSlide(
-            title = if (language == AppLanguage.AR) "أدر تجارتك بسهولة" else "Run your business easily",
-            description = if (language == AppLanguage.AR) "تتبع فواتيرك، عملائك، ومنتجاتك في تطبيق واحد متكامل ومصمم بذكاء." else "Track your invoices, customers, and products in one integrated app built for speed.",
-            icon = Icons.Filled.Business,
-            iconColor = Color(0xFF0F766E)
-        ),
-        IntroSlide(
-            title = if (language == AppLanguage.AR) "فواتير وعروض أسعار سريعة" else "Fast quotes and invoices",
-            description = if (language == AppLanguage.AR) "أصدر مستنداتك وشاركها مباشرة مع عملائك عبر واتساب في ثوانٍ معدودة." else "Create documents and share them with customers over WhatsApp in seconds.",
-            icon = Icons.Filled.Phone,
-            iconColor = Color(0xFF2563EB)
-        ),
-        IntroSlide(
-            title = if (language == AppLanguage.AR) "تجاريو AI ومساعدك الذكي" else "Tijario AI and your smart assistant",
-            description = if (language == AppLanguage.AR) "صياغة ردود ذكية لعملائك وكتابة كابشن لمنتجاتك بلمح البصر لمبيعات أكثر." else "Generate smart replies and product captions instantly to drive more sales.",
-            icon = Icons.Filled.Person,
-            iconColor = Color(0xFF7C3AED)
-        )
-    )
-
-    var currentSlide by remember { mutableStateOf(0) }
-
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        Color(0xFF0F766E),
-                        Color(0xFF0F766E),
-                        Color(0xFF064E3B)
-                    )
-                )
-            )
+            .background(Color(0xFF020E1C))
     ) {
-        Column(
+        Image(
+            painter = painterResource(id = app.tijario.R.drawable.onboarding_background),
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Fit
+        )
+
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.SpaceBetween
+                .navigationBarsPadding()
+                .padding(bottom = 40.dp, start = 24.dp, end = 24.dp),
+            contentAlignment = Alignment.BottomCenter
         ) {
-            // Top Bar: App name, centered skip action, and separated language control.
-            Box(
+            Button(
+                onClick = onFinished,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 16.dp)
-                    .heightIn(min = 48.dp),
+                    .height(54.dp),
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF0FA36E),
+                    contentColor = Color.White
+                ),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
             ) {
                 Text(
-                    text = if (language == AppLanguage.AR) "تجاريو" else "Tijario",
-                    color = Color.White,
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.align(Alignment.CenterStart),
+                    text = "ابدأ الآن",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
                 )
-                TextButton(
-                    onClick = onFinished,
-                    modifier = Modifier.align(Alignment.Center),
-                ) {
-                    Text(
-                        text = if (language == AppLanguage.AR) "تجاوز" else "Skip",
-                        color = Color.White.copy(alpha = 0.88f),
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        textDecoration = TextDecoration.Underline,
-                    )
-                }
-                AuthLanguageToggle(
-                    modifier = Modifier.align(Alignment.CenterEnd),
-                )
-            }
-
-            // Slide Content Card
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-                    .padding(vertical = 32.dp),
-                shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-            ) {
-                val slide = slides[currentSlide]
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    Surface(
-                        modifier = Modifier.size(100.dp),
-                        shape = RoundedCornerShape(28.dp),
-                        color = slide.iconColor.copy(alpha = 0.12f)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = slide.icon,
-                                contentDescription = null,
-                                tint = slide.iconColor,
-                                modifier = Modifier.size(48.dp)
-                            )
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(28.dp))
-                    Text(
-                        text = slide.title,
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        textAlign = TextAlign.Center
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        text = slide.description,
-                        fontSize = 15.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center,
-                        lineHeight = 22.sp
-                    )
-                }
-            }
-
-            // Bottom controls: Indicators and Next button
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Indicators (dots)
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    slides.forEachIndexed { index, _ ->
-                        val active = index == currentSlide
-                        Box(
-                            modifier = Modifier
-                                .size(width = if (active) 18.dp else 8.dp, height = 8.dp)
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(if (active) Color.White else Color.White.copy(alpha = 0.4f))
-                        )
-                    }
-                }
-
-                // Next / Finish Button
-                Button(
-                    onClick = {
-                        if (currentSlide < slides.size - 1) {
-                            currentSlide++
-                        } else {
-                            onFinished()
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color(0xFF0F766E)),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text(
-                        text = if (currentSlide == slides.size - 1) { if (language == AppLanguage.AR) "ابدأ الآن" else "Get Started" } else { if (language == AppLanguage.AR) "التالي" else "Next" },
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp
-                    )
-                }
             }
         }
     }

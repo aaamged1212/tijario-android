@@ -146,10 +146,11 @@ fun TijarioTextField(
     var passwordVisible by remember { mutableStateOf(false) }
 
     OutlinedTextField(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth().then(if (error == null) Modifier.height(52.dp) else Modifier),
         value = value,
         onValueChange = onValueChange,
-        label = { Text(label) },
+        label = { Text(label, fontSize = 13.sp) },
+        textStyle = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
         isError = error != null,
         supportingText = error?.let { { Text(it) } },
         singleLine = singleLine,
@@ -161,7 +162,8 @@ fun TijarioTextField(
                 IconButton(onClick = { passwordVisible = !passwordVisible }) {
                     Icon(
                         imageVector = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
-                        contentDescription = if (passwordVisible) t("hide_password") else t("show_password")
+                        contentDescription = if (passwordVisible) t("hide_password") else t("show_password"),
+                        modifier = Modifier.size(20.dp)
                     )
                 }
             }

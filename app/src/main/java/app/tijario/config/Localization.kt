@@ -119,6 +119,8 @@ object Localization {
         "limit_docs" to mapOf(AppLanguage.AR to "عروض الأسعار والفواتير المتبقية", AppLanguage.EN to "Remaining Quotes & Invoices"),
         "limit_ai" to mapOf(AppLanguage.AR to "عمليات الذكاء الاصطناعي (AI)", AppLanguage.EN to "AI Operations"),
         "store_premium" to mapOf(AppLanguage.AR to "متجر تجاريو الفاخر", AppLanguage.EN to "Tijario Premium Store"),
+        "rate_app" to mapOf(AppLanguage.AR to "قيم التطبيق", AppLanguage.EN to "Rate App"),
+        "app_version" to mapOf(AppLanguage.AR to "اصدار التطبيق", AppLanguage.EN to "App Version"),
 
         // Form Screens
         "form_client_info" to mapOf(AppLanguage.AR to "بيانات العميل المستهدف", AppLanguage.EN to "Target Customer Details"),
@@ -353,7 +355,7 @@ object Localization {
         "total_customers" to mapOf(AppLanguage.AR to "إجمالي العملاء", AppLanguage.EN to "Total Customers"),
         "active_customers" to mapOf(AppLanguage.AR to "عملاء نشطين", AppLanguage.EN to "Active Customers"),
         "new_customers" to mapOf(AppLanguage.AR to "عملاء جدد", AppLanguage.EN to "New Customers"),
-        "most_active_customers" to mapOf(AppLanguage.AR to "أكثر تعاملاً", AppLanguage.EN to "Top Customers"),
+        "most_active_customers" to mapOf(AppLanguage.AR to "أكثر تعاملًا", AppLanguage.EN to "Top Customers"),
         "dark_mode_label" to mapOf(AppLanguage.AR to "الوضع الداكن", AppLanguage.EN to "Dark Mode"),
         "light_mode_label" to mapOf(AppLanguage.AR to "الوضع الفاتح", AppLanguage.EN to "Light Mode"),
         "current_plan" to mapOf(AppLanguage.AR to "الخطة الحالية", AppLanguage.EN to "Current Plan"),
@@ -668,7 +670,7 @@ object Localization {
         "field_required" to mapOf(AppLanguage.AR to "هذا الحقل مطلوب", AppLanguage.EN to "This field is required"),
         "ai_validation_msg" to mapOf(AppLanguage.AR to "يرجى تعبئة الحقول المطلوبة والتأكد من صحة البيانات.", AppLanguage.EN to "Please fill in the required fields and ensure data correctness."),
         "ai_msg_or_case_required" to mapOf(AppLanguage.AR to "يجب إدخال رسالة العميل أو اختيار نوع الحالة.", AppLanguage.EN to "You must enter a customer message or select a case type."),
-        "select_customer_first" to mapOf(AppLanguage.AR to "اختر عميلاً أولاً.", AppLanguage.EN to "Select a customer first."),
+        "select_customer_first" to mapOf(AppLanguage.AR to "اختر عميلًا أولاً.", AppLanguage.EN to "Select a customer first."),
         "add_one_item_min" to mapOf(AppLanguage.AR to "أضف بنداً واحداً على الأقل.", AppLanguage.EN to "Add at least one item first."),
         "enter_item_details_correctly" to mapOf(AppLanguage.AR to "أدخل تفاصيل البند بشكل صحيح.", AppLanguage.EN to "Enter item details correctly."),
         "validation_required" to mapOf(AppLanguage.AR to "%s مطلوب", AppLanguage.EN to "%s is required"),

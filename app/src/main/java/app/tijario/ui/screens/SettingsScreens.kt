@@ -1,4 +1,4 @@
-﻿package app.tijario.ui.screens
+package app.tijario.ui.screens
 
 import android.app.Activity
 import android.content.Context
@@ -54,6 +54,7 @@ import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.ShoppingBag
 import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.BusinessCenter
 import androidx.compose.material.icons.outlined.CloudSync
 import androidx.compose.material.icons.outlined.CreditCard
@@ -152,13 +153,26 @@ fun SettingsHomeScreen(
     val context = LocalContext.current
     val planUsageState by dataViewModel.planUsageState.collectAsStateWithLifecycle()
     val profilePicFile = remember { File(context.filesDir, "personal_profile_pic.jpg") }
-    var profilePicBitmap by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
-    var profileName by remember { mutableStateOf("") }
+    var profilePicBitmap by remember {
+        mutableStateOf<android.graphics.Bitmap?>(
+            profilePicFile.takeIf(File::exists)?.let { android.graphics.BitmapFactory.decodeFile(it.absolutePath) }
+        )
+    }
+    val userId = remember { Supabase.client.auth.currentUserOrNull()?.id.orEmpty() }
+    var profileName by remember {
+        mutableStateOf(
+            context.getSharedPreferences("tijario_app_preferences", Context.MODE_PRIVATE)
+                .getString("profile_fullname_$userId", "") ?: ""
+        )
+    }
     val profileEmail = Supabase.client.auth.currentUserOrNull()?.email.orEmpty()
     var showLogoutConfirmation by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
-        profileName = dataViewModel.fetchCurrentProfileFullName().orEmpty()
+        val updatedName = dataViewModel.fetchCurrentProfileFullName().orEmpty()
+        if (updatedName.isNotEmpty()) {
+            profileName = updatedName
+        }
         profilePicBitmap = profilePicFile
             .takeIf(File::exists)
             ?.let { android.graphics.BitmapFactory.decodeFile(it.absolutePath) }
@@ -216,6 +230,28 @@ fun SettingsHomeScreen(
                     SettingsOption(Icons.Outlined.Tune, t("app_settings"), onAppSettings)
                     SettingsOption(Icons.Outlined.CreditCard, t("payments_subscriptions"), onPaymentsSubscriptions)
                     SettingsOption(Icons.Outlined.CloudSync, t("backup_restore"), onBackupSettings)
+                    SettingsOption(
+                        Icons.Filled.Star,
+                        t("rate_app")
+                    ) {
+                        val playStoreIntent = android.content.Intent(
+                            android.content.Intent.ACTION_VIEW,
+                            android.net.Uri.parse("market://details?id=app.tijario")
+                        ).apply {
+                            addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        try {
+                            context.startActivity(playStoreIntent)
+                        } catch (e: Exception) {
+                            val webIntent = android.content.Intent(
+                                android.content.Intent.ACTION_VIEW,
+                                android.net.Uri.parse("https://play.google.com/store/apps/details?id=app.tijario")
+                            ).apply {
+                                addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                            context.startActivity(webIntent)
+                        }
+                    }
                 }
             }
 
@@ -231,6 +267,27 @@ fun SettingsHomeScreen(
                 Icon(Icons.Filled.Logout, contentDescription = null)
                 Spacer(modifier = Modifier.size(8.dp))
                 Text(t("logout"), fontWeight = FontWeight.Bold)
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    text = t("app_version"),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
+                    textAlign = TextAlign.Center
+                )
+                Text(
+                    text = app.tijario.BuildConfig.VERSION_NAME,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f),
+                    textAlign = TextAlign.Center
+                )
             }
         }
     }
@@ -1846,13 +1903,13 @@ private fun SwipePricingPlanCard(
                 }
                 if (isCurrent) {
                     Surface(
-                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        color = Color(0xFFE8F5E9),
                         shape = RoundedCornerShape(999.dp),
                     ) {
                         Text(
                             text = t("current_plan"),
                             modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = Color(0xFF2E7D32),
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
                         )
@@ -1889,8 +1946,8 @@ private fun SwipePricingPlanCard(
                         plan.code == "free" -> if (isArabic) "الخطة المجانية" else "Free plan"
                         isPurchasing -> if (isArabic) "جارٍ فتح Google Play..." else "Opening Google Play..."
                         googlePlayPrice.isNullOrBlank() -> if (isArabic) "السعر غير متاح الآن" else "Price unavailable"
-                        annualBilling -> if (isArabic) "اشترك سنوياً" else "Subscribe yearly"
-                        else -> if (isArabic) "اشترك شهرياً" else "Subscribe monthly"
+                        annualBilling -> if (isArabic) "ترقية" else "Upgrade"
+                        else -> if (isArabic) "ترقية" else "Upgrade"
                     },
                     fontWeight = FontWeight.Bold,
                 )

@@ -201,8 +201,31 @@ open class TijarioRepository(
 
     suspend fun fetchCurrentProfileFullName(): Result<String?> = runCatching {
         val userId = requireUserId()
+        val prefs = context.getSharedPreferences("tijario_app_preferences", Context.MODE_PRIVATE)
+        val cacheKey = "profile_fullname_$userId"
+        val cachedValue = prefs.getString(cacheKey, null)
+        
+        if (cachedValue != null) {
+            // Fetch in background to update cache silently
+            CoroutineScope(Dispatchers.IO).launch {
+                runCatching {
+                    val remoteValue = supabaseClient.from("profiles")
+                        .select { filter { eq("id", userId) } }
+                        .decodeList<app.tijario.data.model.ProfileRowDto>()
+                        .firstOrNull()
+                        ?.fullName
+                        ?.trim()
+                        ?.takeIf { it.isNotBlank() }
+                    if (remoteValue != null && remoteValue != cachedValue) {
+                        prefs.edit().putString(cacheKey, remoteValue).apply()
+                    }
+                }
+            }
+            return@runCatching cachedValue
+        }
+
         withContext(Dispatchers.IO) {
-            supabaseClient.from("profiles")
+            val remoteValue = supabaseClient.from("profiles")
                 .select {
                     filter { eq("id", userId) }
                 }
@@ -211,6 +234,11 @@ open class TijarioRepository(
                 ?.fullName
                 ?.trim()
                 ?.takeIf { it.isNotBlank() }
+            
+            if (remoteValue != null) {
+                prefs.edit().putString(cacheKey, remoteValue).apply()
+            }
+            remoteValue
         }
     }
 
@@ -221,6 +249,10 @@ open class TijarioRepository(
         }
 
         val user = supabaseClient.auth.currentUserOrNull() ?: error("No authenticated user")
+        val prefs = context.getSharedPreferences("tijario_app_preferences", Context.MODE_PRIVATE)
+        val cacheKey = "profile_fullname_${user.id}"
+        prefs.edit().putString(cacheKey, normalizedName).apply()
+
         withContext(Dispatchers.IO) {
             supabaseClient.from("profiles").update(ProfileFullNameUpdateDto(normalizedName)) {
                 filter { eq("id", user.id) }

@@ -1,5 +1,23 @@
 # Agent Handoff (Android & Web Repos)
 
+## 2026-08-17 (Welcome screen design update, local uncommitted)
+- **Onboarding/Welcome Screen**: Replaced `IntroWalkthroughScreen` in `AuthScreens.kt` with a high-fidelity single welcome page using `onboarding_background.png` (the first supplied screenshot).
+- **Pixel-Perfect Scaling**: Changed image scale to `ContentScale.Fit` and set screen background to `#020E1C` (extracted matching top/bottom background color) to ensure the image remains sharp, clear, and un-cropped.
+- **Start Button overlay**: Added the green `ابدأ الآن` button overlay (`Color(0xFF0FA36E)`) at the bottom of the welcome page which navigates straight to the login screen upon click, matching the second screenshot's button.
+- **Top Brand Cleanups**: Removed all programmatically drawn top brand names ("تجاريو") and logo icons from the walkthrough.
+- **Validation**: Compiled successfully with `./gradlew assembleDebug` (Build Successful).
+- **Safety**: No commit, push, deployment, Supabase migration, external configuration change, or Google Play upload occurred.
+
+## 2026-08-17 (Settings UI, cached profile, pricing plans styling, backup paid-tier lock fix, and tanween correction, local uncommitted)
+- **Compact Text Inputs**: Updated `TijarioTextField` in `TijarioComponents.kt` to shrink font sizes and compact the layout spacing slightly.
+- **Profile Caching**: Cached profile full name in SharedPreferences inside `TijarioRepository.kt` on load and update, and initialized `profileName` and `profilePicBitmap` synchronously in Settings `remember` to display them instantly on first frame without delays.
+- **Pricing & Upgrades**: Customized the pricing plans upgrade screen to display active current plan badges/surfaces in green (`Color(0xFFE8F5E9)` background, `Color(0xFF2E7D32)` text) and changed subscribe labels to "ترقية" (Upgrade).
+- **Rate App**: Added a "Rate App" setting option using `Icons.Filled.Star` that launches the Google Play Store details page or fallback URL.
+- **Backup paid-tier lock fix**: Corrected `BackupPlanPolicy` and `BackupViewModel` to dynamically unlock automatic backups and Google Drive features for paid tiers (Starter, Pro) based on the user's active plan code, even if a backend-signed entitlement signature is not yet synchronized.
+- **Tanween Arabic spelling corrections**: Updated Arabic strings for `عميلاً` and `تعاملاً` in `Localization.kt` and `AiScreens.kt` to position the Fathatan character (`ً`) after the final Alif (`ا`) for proper alignment above the Alif letter. Updated `ArabicTanweenContractTest.kt` to exclude these paths.
+- **Validation**: Compiled successfully with `./gradlew assembleDebug` (Build Successful). Unit tests passed.
+- **Safety**: No commit, push, deployment, Supabase migration, external configuration change, or Google Play upload occurred.
+
 ## 2026-08-16 (Android splash logo safe area, local uncommitted)
 - **Root cause**: `logo_app.png` occupied essentially the full 1024px canvas, while Android masks the outer third of splash icons. The logo therefore appeared oversized and visibly cropped on startup.
 - **System splash**: `Theme.Tijario.Splash` now uses `Theme.SplashScreen.IconBackground`, a dedicated 160dp centered drawable, the exact supplied transparent 2000x2000 logo, and day/night launch colors with matching system-bar contrast.

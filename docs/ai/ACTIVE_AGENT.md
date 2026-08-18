@@ -1,5 +1,17 @@
 # Active Agent Status
 
+## 2026-08-17
+- **Current task**: Replace default walkthrough screen with a full-screen welcome image and a green "ابدأ الآن" button to navigate to the auth screen.
+- **State**: The welcome page displays `onboarding_background.png` (from the first screenshot) and overlays the green `ابدأ الآن` button. Removed top brand names and logo headers from walkthrough.
+- **Validation**: Compiled successfully with `./gradlew assembleDebug` (Build Successful).
+- **Safety**: No commit, push, deployment, Supabase migration, external configuration change, or Google Play upload occurred.
+
+## 2026-08-17
+- **Current task**: Implement settings screen version footer, "Rate App" setting row, compact Auth icons/inputs layout, profile cache, pricing plan green layout, paid-tier backup unlock fallback, and Arabic tanween character relocations.
+- **State**: All requested fixes are completed locally. The app footer shows the app version, rate app opens Google Play Store, profile is cached for instant rendering, pricing card displays green active indicators with "ترقية" buttons, paid backup settings are unlocked using preference fallbacks, and tanween position is corrected above the final Alif.
+- **Validation**: Compiled successfully with `./gradlew assembleDebug` (Build Successful). Unit tests passed.
+- **Safety**: No commit, push, deployment, Supabase migration, external configuration change, or Google Play upload occurred.
+
 ## 2026-08-16
 - **Current task**: Correct the Android startup splash logo scale and presentation on `fix/android-runtime-critical-fixes`.
 - **State**: The system splash uses the exact supplied transparent Tijario mark inside Android's 160dp safe area with a dedicated light icon surface and light/dark launch backgrounds. The in-app Compose splash uses the same unclipped asset, `ContentScale.Fit`, and theme-aware colors.
