@@ -21,6 +21,9 @@ data class CountryOption(
             .orEmpty()
 
     fun name(language: AppLanguage): String {
+        if (countryCode.uppercase(Locale.ROOT) == "US") {
+            return if (language == AppLanguage.AR) "أمريكا" else "USA"
+        }
         val locale = if (language == AppLanguage.AR) Locale.forLanguageTag("ar") else Locale.ENGLISH
         return localeForCountry(countryCode).getDisplayCountry(locale).takeIf { it.isNotBlank() } ?: storageName
     }
@@ -100,7 +103,37 @@ object CountryCatalog {
         .sortedWith(compareBy<DialCodeOption> { it.nameEn }.thenBy { it.dialCode })
 
     fun defaultCountry(): CountryOption =
-        find(Locale.getDefault().country) ?: find("SA") ?: allCountries.first()
+        find("US") ?: allCountries.first()
+
+    fun detectCountry(context: android.content.Context): CountryOption {
+        val telephonyManager = context.getSystemService(android.content.Context.TELEPHONY_SERVICE) as? android.telephony.TelephonyManager
+        val simCountry = telephonyManager?.simCountryIso?.uppercase(Locale.ROOT)
+        if (!simCountry.isNullOrEmpty()) {
+            find(simCountry)?.let { return it }
+        }
+        val networkCountry = telephonyManager?.networkCountryIso?.uppercase(Locale.ROOT)
+        if (!networkCountry.isNullOrEmpty()) {
+            find(networkCountry)?.let { return it }
+        }
+        val localeCountry = context.resources.configuration.locales.takeIf { !it.isEmpty }?.get(0)?.country?.uppercase(Locale.ROOT)
+        if (!localeCountry.isNullOrEmpty()) {
+            find(localeCountry)?.let { return it }
+        }
+        val defaultLocaleCountry = Locale.getDefault().country.uppercase(Locale.ROOT)
+        if (!defaultLocaleCountry.isNullOrEmpty()) {
+            find(defaultLocaleCountry)?.let { return it }
+        }
+        return find("US") ?: allCountries.first()
+    }
+
+    fun detectCurrency(countryCode: String): String {
+        return try {
+            val locale = Locale("", countryCode)
+            java.util.Currency.getInstance(locale).currencyCode
+        } catch (e: Exception) {
+            "USD"
+        }
+    }
 
     fun find(value: String?): CountryOption? {
         val normalized = value?.trim().orEmpty()

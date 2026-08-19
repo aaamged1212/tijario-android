@@ -132,6 +132,7 @@ import app.tijario.ui.state.TijarioDataViewModel
 import app.tijario.ui.state.PlanUsageState
 import app.tijario.ui.components.LocalAdaptiveLayoutInfo
 import app.tijario.ui.components.LogoutConfirmationDialog
+import app.tijario.ui.components.RatingBottomSheet
 import io.github.jan.supabase.auth.auth
 import kotlinx.coroutines.launch
 
@@ -167,6 +168,7 @@ fun SettingsHomeScreen(
     }
     val profileEmail = Supabase.client.auth.currentUserOrNull()?.email.orEmpty()
     var showLogoutConfirmation by remember { mutableStateOf(false) }
+    var showRatingSheet by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         val updatedName = dataViewModel.fetchCurrentProfileFullName().orEmpty()
@@ -234,25 +236,47 @@ fun SettingsHomeScreen(
                         Icons.Filled.Star,
                         t("rate_app")
                     ) {
-                        val playStoreIntent = android.content.Intent(
-                            android.content.Intent.ACTION_VIEW,
-                            android.net.Uri.parse("market://details?id=app.tijario")
-                        ).apply {
-                            addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-                        }
-                        try {
-                            context.startActivity(playStoreIntent)
-                        } catch (e: Exception) {
-                            val webIntent = android.content.Intent(
+                        showRatingSheet = true
+                    }
+                }
+            }
+
+            if (showRatingSheet) {
+                RatingBottomSheet(
+                    onDismissRequest = { showRatingSheet = false },
+                    onRateSubmitted = { rating ->
+                        showRatingSheet = false
+                        context.getSharedPreferences("tijario_app_preferences", Context.MODE_PRIVATE)
+                            .edit()
+                            .putBoolean("has_rated_app", true)
+                            .apply()
+                        if (rating >= 4) {
+                            val playStoreIntent = android.content.Intent(
                                 android.content.Intent.ACTION_VIEW,
-                                android.net.Uri.parse("https://play.google.com/store/apps/details?id=app.tijario")
+                                android.net.Uri.parse("market://details?id=app.tijario")
                             ).apply {
                                 addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
                             }
-                            context.startActivity(webIntent)
+                            try {
+                                context.startActivity(playStoreIntent)
+                            } catch (e: Exception) {
+                                val webIntent = android.content.Intent(
+                                    android.content.Intent.ACTION_VIEW,
+                                    android.net.Uri.parse("https://play.google.com/store/apps/details?id=app.tijario")
+                                ).apply {
+                                    addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                                runCatching { context.startActivity(webIntent) }
+                            }
+                        } else {
+                            android.widget.Toast.makeText(
+                                context,
+                                if (java.util.Locale.getDefault().language == "ar") "شكراً لتقييمك!" else "Thank you for your feedback!",
+                                android.widget.Toast.LENGTH_SHORT
+                            ).show()
                         }
                     }
-                }
+                )
             }
 
             Button(

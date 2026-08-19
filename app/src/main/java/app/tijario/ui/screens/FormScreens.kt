@@ -134,6 +134,7 @@ import app.tijario.ui.components.TijarioButton
 import app.tijario.ui.components.TijarioPhoneField
 import app.tijario.ui.components.TijarioSearchField
 import app.tijario.ui.components.TijarioTextField
+import app.tijario.ui.components.CurrencyBottomSheet
 import app.tijario.ui.state.BusinessSettingsFormState
 import app.tijario.ui.state.CustomerFormState
 import app.tijario.ui.state.DocumentFormState
@@ -1384,13 +1385,12 @@ fun BusinessSettingsScreen(
     }
 
     if (showCurrencyPicker) {
-        CurrencyPickerDialog(
-            currentCurrency = form.currency,
+        CurrencyBottomSheet(
             onDismiss = { showCurrencyPicker = false },
-            onSelect = { currency ->
+            onSelected = { currency ->
                 form = form.copy(currency = currency)
-                showCurrencyPicker = false
             },
+            language = language
         )
     }
 
@@ -1541,8 +1541,13 @@ fun BusinessSettingsScreen(
                         onClick = { activeDialog = "name" }
                     )
 
-
-
+                    // Row 4: الدولة
+                    SettingsItemRow(
+                        icon = Icons.Filled.Public,
+                        title = t("country"),
+                        value = form.country.ifBlank { if (language == AppLanguage.AR) "اليمن" else "Yemen" },
+                        onClick = { showCountryPicker = true }
+                    )
 
                     // Row 3: رقم التواصل
                     SettingsItemRow(
@@ -1550,15 +1555,6 @@ fun BusinessSettingsScreen(
                         title = t("business_phone_title"),
                         value = form.whatsapp,
                         onClick = { activeDialog = "phone" }
-                    )
-
-
-                    // Row 4: الدولة
-                    SettingsItemRow(
-                        icon = Icons.Filled.Public,
-                        title = t("country"),
-                        value = form.country.ifBlank { if (language == AppLanguage.AR) "اليمن" else "Yemen" },
-                        onClick = { showCountryPicker = true }
                     )
 
 

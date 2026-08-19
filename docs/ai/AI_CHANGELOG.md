@@ -1,5 +1,19 @@
 # AI Changelog
 
+## 2026-08-19 - Customer stats formatting, country & currency auto-detection, spam warning
+- Restructured `CustomersScreen` stats summary indicators into a compact horizontal Row layout, removing the redundant "customers" / "العملاء" word and placing counts directly below their labels.
+- Relocated the Country selection field to come directly after the Business Name field in both `OnboardingScreen` and `BusinessSettingsScreen`.
+- Implemented automatic country code and dial code detection on startup via SIM/network ISO and system configuration, defaulting to USA (`US`).
+- Overrode USA country display name to "أمريكا" (Arabic) and "USA" (English) for cleaner representation.
+- Implemented automatic default currency detection based on the detected country, defaulting to `USD` on failure.
+- Converted dropdown currency selectors in onboarding and settings into a premium, searchable `CurrencyBottomSheet`.
+- Added a detailed notice on the OTP verification screen urging users to check their Spam/Junk folder if the email is missing.
+- Added experimental material 3 API annotations to form block Composables in `AiScreens.kt`.
+
+## 2026-08-19 - Onboarding welcome screen localization
+- Configured welcome screen background image to load dynamically based on the system locale (`onboarding_background_ar.png` for Arabic, `onboarding_background_en.png` for English).
+- Localized the button action label ("ابدأ الآن" for Arabic and "Start Now" for English) and configured it to use `MaterialTheme.typography.labelLarge` to inherit the application's font family (Almarai/Gilmer).
+
 ## 2026-08-17 - Welcome screen design update
 - Replaced the three-slide walkthrough screen with a full-screen onboarding background layout using the supplied welcome image (`onboarding_background.png`).
 - Set image scale to `ContentScale.Fit` and configured solid matching background color `#020E1C` to prevent cropping or zoom blurring.

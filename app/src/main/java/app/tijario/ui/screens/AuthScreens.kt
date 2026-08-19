@@ -58,6 +58,7 @@ import app.tijario.ui.components.TijarioPhoneField
 import app.tijario.ui.components.clearBusinessLogoCache
 import app.tijario.ui.components.TijarioButton
 import app.tijario.ui.components.TijarioTextField
+import app.tijario.ui.components.CurrencyBottomSheet
 import app.tijario.ui.state.BusinessSettingsFormState
 import app.tijario.ui.state.TijarioDataViewModel
 import app.tijario.ui.state.AccountInitializationState
@@ -829,6 +830,16 @@ fun VerifyEmailScreen(
                         onValueChange = { token = app.tijario.domain.OtpValidator.sanitize(it) },
                     )
 
+                    Text(
+                        text = if (language == AppLanguage.AR) 
+                            "* إذا لم يظهر الرمز في البريد الوارد، يرجى التحقق من مجلد الرسائل المهملة (Spam/Junk)." 
+                        else 
+                            "* If you cannot find the code in your inbox, please check your Spam/Junk folder.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                        fontSize = 11.sp,
+                        lineHeight = 15.sp
+                    )
+
                     errorMessage?.let {
                         Text(it, color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
                     }
@@ -1070,10 +1081,14 @@ fun OnboardingScreen(
     val initializationState by dataViewModel.accountInitializationState.collectAsState()
     val currencies = CurrencyCatalog.options
 
+    val context = LocalContext.current
     var form by remember(language) {
+        val detectedCountry = CountryCatalog.detectCountry(context)
+        val detectedCurrency = CountryCatalog.detectCurrency(detectedCountry.countryCode)
         mutableStateOf(
             BusinessSettingsFormState(
-                country = CountryCatalog.defaultCountry().storageName,
+                country = detectedCountry.storageName,
+                currency = detectedCurrency,
                 lang = language
             )
         )
@@ -1082,14 +1097,13 @@ fun OnboardingScreen(
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var selectedLogoUri by remember { mutableStateOf<Uri?>(null) }
     val scope = rememberCoroutineScope()
-    val context = LocalContext.current
 
     LaunchedEffect(Unit) {
         dataViewModel.initializeAccount()
     }
 
     var showCountryPicker by remember { mutableStateOf(false) }
-    var currencyMenuExpanded by remember { mutableStateOf(false) }
+    var showCurrencyPicker by remember { mutableStateOf(false) }
     val logoPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) {
             selectedLogoUri = uri
@@ -1164,16 +1178,6 @@ fun OnboardingScreen(
                         }
                     )
 
-                    TijarioPhoneField(
-                        value = form.whatsapp,
-                        onValueChange = { form = form.copy(whatsapp = it) },
-                        error = if (form.whatsapp.isNotEmpty()) form.whatsappError else null,
-                        defaultDialCode = CountryCatalog.dialCodeFor(form.country),
-                        onCountryCodeSelected = { option ->
-                            form = form.copy(country = CountryCatalog.find(option.countryCode)?.storageName ?: form.country)
-                        },
-                    )
-
                     Box(modifier = Modifier.fillMaxWidth()) {
                         TijarioTextField(
                             label = t("country"),
@@ -1194,6 +1198,21 @@ fun OnboardingScreen(
                                 .clickable { showCountryPicker = true },
                         )
                     }
+
+                    TijarioPhoneField(
+                        value = form.whatsapp,
+                        onValueChange = { form = form.copy(whatsapp = it) },
+                        error = if (form.whatsapp.isNotEmpty()) form.whatsappError else null,
+                        defaultDialCode = CountryCatalog.dialCodeFor(form.country),
+                        onCountryCodeSelected = { option ->
+                            val resolvedCountry = CountryCatalog.find(option.countryCode)
+                            val resolvedCurrency = CountryCatalog.detectCurrency(option.countryCode)
+                            form = form.copy(
+                                country = resolvedCountry?.storageName ?: form.country,
+                                currency = resolvedCurrency
+                            )
+                        },
+                    )
 
                     TijarioTextField(
                         label = t("city"),
@@ -1234,40 +1253,36 @@ fun OnboardingScreen(
                     )
 
                     // Currency Dropdown
+                    // Currency Picker Bottom Sheet Trigger
                     Box(modifier = Modifier.fillMaxWidth()) {
-                        ExposedDropdownMenuBox(
-                            expanded = currencyMenuExpanded,
-                            onExpandedChange = { currencyMenuExpanded = !currencyMenuExpanded }
-                        ) {
-                            TijarioTextField(
-                                label = t("currency"),
-                                value = CurrencyCatalog.display(form.currency, language),
-                                onValueChange = {},
-                                error = if (form.currency.isNotEmpty()) form.currencyError else null,
-                                leadingIcon = {
-                                    Icon(Icons.Filled.MonetizationOn, contentDescription = null, tint = Color(0xFF64748B))
-                                },
-                                trailingIcon = {
-                                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = currencyMenuExpanded)
-                                },
-                                modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable),
-                                readOnly = true
-                            )
-                            ExposedDropdownMenu(
-                                expanded = currencyMenuExpanded,
-                                onDismissRequest = { currencyMenuExpanded = false }
-                            ) {
-                                currencies.forEach { currency ->
-                                    DropdownMenuItem(
-                                        text = { Text(CurrencyCatalog.display(currency.code, language)) },
-                                        onClick = {
-                                            form = form.copy(currency = currency.code)
-                                            currencyMenuExpanded = false
-                                        }
-                                    )
-                                }
-                            }
-                        }
+                        TijarioTextField(
+                            label = t("currency"),
+                            value = CurrencyCatalog.display(form.currency, language),
+                            onValueChange = {},
+                            error = if (form.currency.isNotEmpty()) form.currencyError else null,
+                            leadingIcon = {
+                                Icon(Icons.Filled.MonetizationOn, contentDescription = null, tint = Color(0xFF64748B))
+                            },
+                            trailingIcon = {
+                                Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
+                            },
+                            readOnly = true
+                        )
+                        Box(
+                            modifier = Modifier
+                                .matchParentSize()
+                                .clickable { showCurrencyPicker = true }
+                        )
+                    }
+
+                    if (showCurrencyPicker) {
+                        CurrencyBottomSheet(
+                            onDismiss = { showCurrencyPicker = false },
+                            onSelected = { selectedCode ->
+                                form = form.copy(currency = selectedCode)
+                            },
+                            language = language
+                        )
                     }
 
                     errorMessage?.let {
@@ -1423,13 +1438,24 @@ private fun openExternalPage(context: android.content.Context, url: String) {
 
 @Composable
 fun IntroWalkthroughScreen(onFinished: () -> Unit) {
+    val systemLocale = java.util.Locale.getDefault()
+    val isArabic = systemLocale.language == "ar"
+
+    val backgroundImage = if (isArabic) {
+        app.tijario.R.drawable.onboarding_background_ar
+    } else {
+        app.tijario.R.drawable.onboarding_background_en
+    }
+
+    val buttonText = if (isArabic) "ابدأ الآن" else "Start Now"
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFF020E1C))
     ) {
         Image(
-            painter = painterResource(id = app.tijario.R.drawable.onboarding_background),
+            painter = painterResource(id = backgroundImage),
             contentDescription = null,
             modifier = Modifier.fillMaxSize(),
             contentScale = ContentScale.Fit
@@ -1455,9 +1481,11 @@ fun IntroWalkthroughScreen(onFinished: () -> Unit) {
                 elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
             ) {
                 Text(
-                    text = "ابدأ الآن",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold
+                    text = buttonText,
+                    style = MaterialTheme.typography.labelLarge.copy(
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold
+                    )
                 )
             }
         }

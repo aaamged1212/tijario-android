@@ -1,5 +1,24 @@
 # Agent Handoff (Android & Web Repos)
 
+## 2026-08-19 (Customer stats format, Onboarding & Business settings country/currency auto-detection, local uncommitted)
+- **Customer Stats Formatting**: Restructured the 4 indicators in `CustomersScreen` (`CoreScreens.kt`) into a compact horizontal Row. Placed labels next to icons (removing the word "customers" or "العملاء" for a smaller footprint) and the count directly below them.
+- **Onboarding & Business Settings Country Field Position**: Placed the Country selection field immediately after the Business Name field in both `OnboardingScreen` (`AuthScreens.kt`) and `BusinessSettingsScreen` (`FormScreens.kt`).
+- **Country & Dial Code Auto-Detection**: Dynamically detect the customer's country code on startup/onboarding using the device's sim/network ISO and system locale configurations. If detection fails, it defaults cleanly to USA (`US`). Automatically updates the phone dial code when a country is selected.
+- **USA Name Override**: Overrode the display name of USA (country code `US`) to simply read "أمريكا" (Arabic) and "USA" (English) instead of Samoa or minor outlying islands references.
+- **Currency Auto-Detection**: Dynamically detects the official currency based on the detected country, falling back to `USD` (instead of `SAR`) on failure.
+- **Currency Bottom Sheet Selection**: Replaced the currency selection dropdown menus in both `OnboardingScreen` and `BusinessSettingsScreen` with a fast-loading premium `CurrencyBottomSheet` (in `TijarioComponents.kt`).
+- **Email Verification / Spam Folder Warning**: Added a prominent notice beneath the verification code text input field in `VerifyEmailScreen` (`AuthScreens.kt`) alerting users to check their Spam/Junk folder if they do not receive the email in their main Inbox.
+- **AI Advanced Settings Experimental Opt-In**: Annotated `ReplyFormBlock` and `CaptionFormBlock` in `AiScreens.kt` with `@OptIn(ExperimentalMaterial3Api::class)` to address experimental warnings for ModalBottomSheet.
+- **Validation**: Compiled successfully with `./gradlew compileDebugKotlin` (Build Successful).
+- **Safety**: No commit, push, deployment, Supabase migration, external configuration change, or Google Play upload occurred.
+
+## 2026-08-19 (Onboarding welcome screen localization, local uncommitted)
+- **Onboarding Welcome Screen Language Integration**: Modified `IntroWalkthroughScreen` in `AuthScreens.kt` to dynamically read system language (`java.util.Locale.getDefault().language`).
+- **Dynamic Assets**: Displays `onboarding_background_ar.png` (Arabic welcome image) or `onboarding_background_en.png` (English welcome image) based on the locale.
+- **Button Localization & Fonts**: Displays "ابدأ الآن" for Arabic and "Start Now" for English on the action button. The text now uses `MaterialTheme.typography.labelLarge` to inherit the application's font family (Almarai/Gilmer).
+- **Validation**: Compiled successfully with `./gradlew compileDebugKotlin` (Build Successful).
+- **Safety**: No commit, push, deployment, Supabase migration, external configuration change, or Google Play upload occurred.
+
 ## 2026-08-17 (Welcome screen design update, local uncommitted)
 - **Onboarding/Welcome Screen**: Replaced `IntroWalkthroughScreen` in `AuthScreens.kt` with a high-fidelity single welcome page using `onboarding_background.png` (the first supplied screenshot).
 - **Pixel-Perfect Scaling**: Changed image scale to `ContentScale.Fit` and set screen background to `#020E1C` (extracted matching top/bottom background color) to ensure the image remains sharp, clear, and un-cropped.

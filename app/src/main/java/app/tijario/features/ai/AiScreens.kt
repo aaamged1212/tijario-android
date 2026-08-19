@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.MoreVert
@@ -736,7 +737,7 @@ private fun SegmentedControl(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
 private fun ReplyFormBlock(
     replyMessage: String,
@@ -846,39 +847,78 @@ private fun ReplyFormBlock(
                 modifier = Modifier.align(Alignment.CenterHorizontally)
             ) {
                 Text(
-                    text = if (showAdvanced) localized(language, "إخفاء الإعدادات المتقدمة", "Hide advanced settings") else localized(language, "إعدادات متقدمة", "Advanced settings"),
+                    text = localized(language, "إعدادات متقدمة", "Advanced settings"),
                     color = saaSColors.primaryTeal,
                     fontWeight = FontWeight.Bold,
                     fontSize = 13.sp
                 )
                 Icon(
-                    imageVector = if (showAdvanced) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                    imageVector = Icons.Filled.Tune,
                     contentDescription = null,
-                    tint = saaSColors.primaryTeal
+                    tint = saaSColors.primaryTeal,
+                    modifier = Modifier.size(16.dp)
                 )
             }
 
             if (showAdvanced) {
-                ChipGroupSlider(localized(language, "اللهجة", "Dialect"), dialectOptions(language), dialect, onDialectChange)
-                ChipGroupSlider(localized(language, "الطول", "Length"), lengthOptions(language), length, onLengthChange)
-                ChipGroupSlider(localized(language, "الهدف", "Goal"), goalOptions(language), goal, onGoalChange)
-                
-                OutlinedTextField(
-                    value = extra,
-                    onValueChange = onExtraChange,
-                    placeholder = { Text(t("ai_notes_label"), color = saaSColors.textSecondary) },
-                    minLines = 2,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = saaSColors.primaryTeal,
-                        unfocusedBorderColor = saaSColors.border,
-                        focusedContainerColor = saaSColors.background,
-                        unfocusedContainerColor = saaSColors.background,
-                        focusedTextColor = saaSColors.textPrimary,
-                        unfocusedTextColor = saaSColors.textPrimary
-                    ),
-                    shape = RoundedCornerShape(12.dp)
-                )
+                ModalBottomSheet(
+                    onDismissRequest = onToggleAdvanced,
+                    containerColor = saaSColors.surface
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .navigationBarsPadding()
+                            .verticalScroll(rememberScrollState())
+                            .padding(24.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Text(
+                            text = localized(language, "الإعدادات المتقدمة للرد الذكي", "Smart Reply Advanced Settings"),
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = saaSColors.textPrimary
+                        )
+
+                        ChipGroupSlider(localized(language, "اللهجة", "Dialect"), dialectOptions(language), dialect, onDialectChange)
+                        ChipGroupSlider(localized(language, "الطول", "Length"), lengthOptions(language), length, onLengthChange)
+                        ChipGroupSlider(localized(language, "الهدف", "Goal"), goalOptions(language), goal, onGoalChange)
+                        
+                        OutlinedTextField(
+                            value = extra,
+                            onValueChange = onExtraChange,
+                            placeholder = { Text(t("ai_notes_label"), color = saaSColors.textSecondary) },
+                            minLines = 2,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = saaSColors.primaryTeal,
+                                unfocusedBorderColor = saaSColors.border,
+                                focusedContainerColor = saaSColors.background,
+                                unfocusedContainerColor = saaSColors.background,
+                                focusedTextColor = saaSColors.textPrimary,
+                                unfocusedTextColor = saaSColors.textPrimary
+                            ),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+
+                        Button(
+                            onClick = onToggleAdvanced,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(48.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = saaSColors.primaryTeal,
+                                contentColor = Color.White
+                            )
+                        ) {
+                            Text(
+                                text = localized(language, "حفظ وإغلاق", "Save & Close"),
+                                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
+                            )
+                        }
+                    }
+                }
             }
 
             AiGenerateActionRow(
@@ -891,7 +931,7 @@ private fun ReplyFormBlock(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
 private fun CaptionFormBlock(
     products: List<Product>,
@@ -1014,23 +1054,62 @@ private fun CaptionFormBlock(
                 modifier = Modifier.align(Alignment.CenterHorizontally)
             ) {
                 Text(
-                    text = if (showAdvanced) localized(language, "إخفاء الإعدادات المتقدمة", "Hide advanced settings") else localized(language, "إعدادات متقدمة", "Advanced settings"),
+                    text = localized(language, "إعدادات متقدمة", "Advanced settings"),
                     color = saaSColors.primaryTeal,
                     fontWeight = FontWeight.Bold,
                     fontSize = 13.sp
                 )
                 Icon(
-                    imageVector = if (showAdvanced) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                    imageVector = Icons.Filled.Tune,
                     contentDescription = null,
-                    tint = saaSColors.primaryTeal
+                    tint = saaSColors.primaryTeal,
+                    modifier = Modifier.size(16.dp)
                 )
             }
 
             if (showAdvanced) {
-                ChipGroupSlider(localized(language, "نوع الكابشن", "Caption type"), captionTypeOptions(language), captionType, onCaptionTypeChange)
-                ChipGroupSlider(localized(language, "اللهجة", "Dialect"), dialectOptions(language), dialect, onDialectChange)
-                ChipGroupSlider(localized(language, "الأسلوب", "Style"), captionStyleOptions(language), style, onStyleChange)
-                ChipGroupSlider(localized(language, "الطول", "Length"), lengthOptions(language), length, onLengthChange)
+                ModalBottomSheet(
+                    onDismissRequest = onToggleAdvanced,
+                    containerColor = saaSColors.surface
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .navigationBarsPadding()
+                            .verticalScroll(rememberScrollState())
+                            .padding(24.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Text(
+                            text = localized(language, "الإعدادات المتقدمة للكابشن الذكي", "Smart Caption Advanced Settings"),
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = saaSColors.textPrimary
+                        )
+
+                        ChipGroupSlider(localized(language, "نوع الكابشن", "Caption type"), captionTypeOptions(language), captionType, onCaptionTypeChange)
+                        ChipGroupSlider(localized(language, "اللهجة", "Dialect"), dialectOptions(language), dialect, onDialectChange)
+                        ChipGroupSlider(localized(language, "الأسلوب", "Style"), captionStyleOptions(language), style, onStyleChange)
+                        ChipGroupSlider(localized(language, "الطول", "Length"), lengthOptions(language), length, onLengthChange)
+
+                        Button(
+                            onClick = onToggleAdvanced,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(48.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = saaSColors.primaryTeal,
+                                contentColor = Color.White
+                            )
+                        ) {
+                            Text(
+                                text = localized(language, "حفظ وإغلاق", "Save & Close"),
+                                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
+                            )
+                        }
+                    }
+                }
             }
 
             AiGenerateActionRow(

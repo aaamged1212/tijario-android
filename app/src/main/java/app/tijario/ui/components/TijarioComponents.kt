@@ -17,6 +17,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -59,9 +60,12 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.tijario.config.LocalLanguage
+import app.tijario.config.AppLanguage
+import androidx.compose.material.icons.filled.Star
 import app.tijario.config.t
 import app.tijario.domain.DialCodeOption
 import app.tijario.domain.CountryCatalog
+import app.tijario.domain.CurrencyCatalog
 import app.tijario.domain.CountryOption
 import app.tijario.domain.MvpDialCodeOptions
 import app.tijario.domain.filterCountryOptions
@@ -510,6 +514,164 @@ fun TijarioButton(
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold
                 )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun RatingBottomSheet(
+    onDismissRequest: () -> Unit,
+    onRateSubmitted: (Int) -> Unit
+) {
+    var rating by remember { mutableStateOf(0) }
+    val currentLang = LocalLanguage.current
+
+    ModalBottomSheet(
+        onDismissRequest = onDismissRequest,
+        containerColor = MaterialTheme.colorScheme.surface
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text(
+                text = if (currentLang == AppLanguage.AR) "هل يعجبك تطبيق تجاريو؟" else "Do you like Tijario?",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = if (currentLang == AppLanguage.AR) 
+                    "يسعدنا تقييمك للتطبيق بخمس نجوم لدعمنا في الاستمرار وتقديم الأفضل!" 
+                else 
+                    "We would love it if you could rate us 5 stars to support our continued improvements!",
+                style = MaterialTheme.typography.bodyMedium,
+                textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(vertical = 8.dp)
+            ) {
+                (1..5).forEach { index ->
+                    val isSelected = index <= rating
+                    IconButton(
+                        onClick = { rating = index },
+                        modifier = Modifier.size(44.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Star,
+                            contentDescription = null,
+                            tint = if (isSelected) Color(0xFFFFB300) else Color.LightGray.copy(alpha = 0.6f),
+                            modifier = Modifier.size(36.dp)
+                        )
+                    }
+                }
+            }
+
+            Button(
+                onClick = {
+                    if (rating > 0) {
+                        onRateSubmitted(rating)
+                    }
+                },
+                enabled = rating > 0,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF0FA36E),
+                    contentColor = Color.White
+                )
+            ) {
+                Text(
+                    text = if (currentLang == AppLanguage.AR) "تقديم التقييم" else "Submit Rating",
+                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CurrencyBottomSheet(
+    onDismiss: () -> Unit,
+    onSelected: (String) -> Unit,
+    language: AppLanguage
+) {
+    val currencies = remember { CurrencyCatalog.options.distinctBy { it.code } }
+    var searchQuery by remember { mutableStateOf("") }
+    
+    val filteredCurrencies = remember(searchQuery) {
+        currencies.filter { currency ->
+            currency.code.contains(searchQuery, ignoreCase = true) ||
+                    CurrencyCatalog.display(currency.code, language).contains(searchQuery, ignoreCase = true)
+        }
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.surface
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(16.dp)
+        ) {
+            Text(
+                text = if (language == AppLanguage.AR) "اختر العملة" else "Select Currency",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 12.dp)
+            )
+
+            TijarioSearchField(
+                placeholder = if (language == AppLanguage.AR) "بحث عن عملة..." else "Search currency...",
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
+            )
+
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 300.dp)
+            ) {
+                items(filteredCurrencies) { currency ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                onSelected(currency.code)
+                                onDismiss()
+                            }
+                            .padding(vertical = 12.dp, horizontal = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = CurrencyCatalog.display(currency.code, language),
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                        Text(
+                            text = currency.code,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
             }
         }
     }

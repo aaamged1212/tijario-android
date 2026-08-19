@@ -1,5 +1,17 @@
 # Active Agent Status
 
+## 2026-08-19
+- **Current task**: Improve Customer stats layout, Onboarding/Business Settings country/currency auto-detection with US fallback, override US name, replace currency dropdown with bottom sheet, and add email spam OTP warning.
+- **State**: Restructured customer stats into horizontal icons/labels with counts below. Swapped Country field position in onboarding/settings forms. Integrated SIM/network/locale-based country detection with default US fallback, and overrode the US label to "أمريكا" / "USA". Implemented currency detection with a USD fallback, and replaced currency dropdowns with a premium `CurrencyBottomSheet`. Added a clear spam inbox warning to `VerifyEmailScreen`.
+- **Validation**: Compiled successfully with `./gradlew compileDebugKotlin` (Build Successful).
+- **Safety**: No commit, push, deployment, Supabase migration, external configuration change, or Google Play upload occurred.
+
+## 2026-08-19
+- **Current task**: Localize onboarding welcome screen background image and button text based on system language.
+- **State**: The welcome page dynamically checks the system language (`Locale.getDefault().language`) to display `onboarding_background_ar.png` with "ابدأ الآن" for Arabic users, and `onboarding_background_en.png` with "Start Now" for English users. The button text inherits the correct font family (Almarai/Gilmer).
+- **Validation**: Compiled successfully with `./gradlew compileDebugKotlin` (Build Successful).
+- **Safety**: No commit, push, deployment, Supabase migration, external configuration change, or Google Play upload occurred.
+
 ## 2026-08-17
 - **Current task**: Replace default walkthrough screen with a full-screen welcome image and a green "ابدأ الآن" button to navigate to the auth screen.
 - **State**: The welcome page displays `onboarding_background.png` (from the first screenshot) and overlays the green `ابدأ الآن` button. Removed top brand names and logo headers from walkthrough.
