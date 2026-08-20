@@ -141,6 +141,9 @@ import app.tijario.features.billing.GooglePlayBillingRepository
 import app.tijario.features.notifications.NotificationTopicManager
 import app.tijario.ui.state.TijarioDataViewModel
 import app.tijario.ui.state.PlanUsageState
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
 import app.tijario.ui.components.LocalAdaptiveLayoutInfo
 import app.tijario.ui.components.LogoutConfirmationDialog
 import app.tijario.ui.components.RatingBottomSheet
@@ -197,6 +200,7 @@ fun SettingsHomeScreen(
 
     if (showFeedbackScreen) {
         FeedbackScreen(
+            dataViewModel = dataViewModel,
             userEmail = profileEmail,
             userName = profileName,
             onBack = { showFeedbackScreen = false }
@@ -3195,6 +3199,7 @@ private tailrec fun Context.findActivity(): Activity? =
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FeedbackScreen(
+    dataViewModel: app.tijario.ui.state.TijarioDataViewModel,
     userEmail: String,
     userName: String,
     onBack: () -> Unit
@@ -3202,6 +3207,8 @@ fun FeedbackScreen(
     val language = LocalLanguage.current
     val isArabic = language == AppLanguage.AR
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    var isSubmitting by remember { mutableStateOf(false) }
     
     var selectedSubject by remember { mutableStateOf(if (isArabic) "عام" else "General") }
     var showSubjectDropdown by remember { mutableStateOf(false) }
@@ -3227,7 +3234,7 @@ fun FeedbackScreen(
             CenterAlignedTopAppBar(
                 title = { Text(if (isArabic) "إرسال ملاحظة" else "Send Feedback", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = onBack, enabled = !isSubmitting) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = t("btn_back"))
                     }
                 },
@@ -3265,7 +3272,7 @@ fun FeedbackScreen(
             Box(modifier = Modifier.fillMaxWidth()) {
                 ExposedDropdownMenuBox(
                     expanded = showSubjectDropdown,
-                    onExpandedChange = { showSubjectDropdown = !showSubjectDropdown }
+                    onExpandedChange = { if (!isSubmitting) showSubjectDropdown = !showSubjectDropdown }
                 ) {
                     TijarioTextField(
                         label = "",
@@ -3304,6 +3311,7 @@ fun FeedbackScreen(
                 value = messageText,
                 onValueChange = { if (it.length <= 4000) messageText = it },
                 placeholder = { Text(if (isArabic) "اكتب ملاحظاتك هنا..." else "Write your feedback here...") },
+                enabled = !isSubmitting,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(150.dp),
@@ -3336,7 +3344,7 @@ fun FeedbackScreen(
                     Surface(
                         modifier = Modifier
                             .size(72.dp)
-                            .clickable { imagePicker.launch("image/*") },
+                            .clickable(enabled = !isSubmitting) { imagePicker.launch("image/*") },
                         color = Color(0xFF0F2537),
                         shape = RoundedCornerShape(12.dp),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
@@ -3386,7 +3394,7 @@ fun FeedbackScreen(
                                 .offset(x = 4.dp, y = (-4).dp)
                                 .size(20.dp)
                                 .background(Color.Red, CircleShape)
-                                .clickable { selectedImages = selectedImages.toMutableList().apply { removeAt(index) } },
+                                .clickable(enabled = !isSubmitting) { selectedImages = selectedImages.toMutableList().apply { removeAt(index) } },
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
@@ -3411,45 +3419,61 @@ fun FeedbackScreen(
             // Submit Button
             Button(
                 onClick = {
-                    val subject = "[Tijario Feedback] $selectedSubject"
-                    val body = """
-                        From: $userName ($userEmail)
-                        Subject: $selectedSubject
-                        
-                        Message:
-                        $messageText
-                    """.trimIndent()
-                    
-                    val intent = android.content.Intent(android.content.Intent.ACTION_SEND_MULTIPLE).apply {
-                        type = "message/rfc822"
-                        putExtra(android.content.Intent.EXTRA_EMAIL, arrayOf("support@tijario.site"))
-                        putExtra(android.content.Intent.EXTRA_SUBJECT, subject)
-                        putExtra(android.content.Intent.EXTRA_TEXT, body)
-                        if (selectedImages.isNotEmpty()) {
-                            val uris = ArrayList<android.net.Uri>(selectedImages)
-                            putParcelableArrayListExtra(android.content.Intent.EXTRA_STREAM, uris)
-                            addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    if (messageText.isBlank()) return@Button
+                    isSubmitting = true
+                    coroutineScope.launch {
+                        val base64Images = withContext(Dispatchers.IO) {
+                            selectedImages.mapNotNull { uri ->
+                                try {
+                                    context.contentResolver.openInputStream(uri)?.use { inputStream ->
+                                        val bytes = inputStream.readBytes()
+                                        android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
+                                    }
+                                } catch (e: Exception) {
+                                    null
+                                }
+                            }
                         }
-                        addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-                    }
-                    try {
-                        context.startActivity(android.content.Intent.createChooser(intent, if (isArabic) "إرسال البريد" else "Send Email"))
-                        onBack()
-                    } catch (e: Exception) {
-                        android.widget.Toast.makeText(context, if (isArabic) "لم يتم العثور على تطبيق بريد" else "No email client found", android.widget.Toast.LENGTH_SHORT).show()
+                        
+                        val result = dataViewModel.submitUserFeedback(
+                            subject = selectedSubject,
+                            message = messageText,
+                            images = base64Images
+                        )
+                        
+                        isSubmitting = false
+                        if (result.isSuccess) {
+                            android.widget.Toast.makeText(
+                                context,
+                                if (isArabic) "تم إرسال الملاحظة بنجاح!" else "Feedback sent successfully!",
+                                android.widget.Toast.LENGTH_LONG
+                            ).show()
+                            onBack()
+                        } else {
+                            android.widget.Toast.makeText(
+                                context,
+                                if (isArabic) "حدث خطأ أثناء الإرسال. تأكد من اتصال الإنترنت." else "Error sending feedback. Please check your internet connection.",
+                                android.widget.Toast.LENGTH_LONG
+                            ).show()
+                        }
                     }
                 },
+                enabled = !isSubmitting && messageText.isNotBlank(),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(48.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0FA36E))
             ) {
-                Text(
-                    text = if (isArabic) "إرسال الملاحظات" else "Submit Feedback",
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
+                if (isSubmitting) {
+                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
+                } else {
+                    Text(
+                        text = if (isArabic) "إرسال الملاحظات" else "Submit Feedback",
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                }
             }
         }
     }

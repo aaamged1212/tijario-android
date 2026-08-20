@@ -447,6 +447,12 @@ class TijarioDataViewModel(
 
     suspend fun getDocumentMetadata(documentId: String): app.tijario.data.local.LocalDocumentMetadataEntity? = repository.getDocumentMetadata(documentId)
     suspend fun upsertDocumentMetadata(metadata: app.tijario.data.local.LocalDocumentMetadataEntity) = repository.upsertDocumentMetadata(metadata)
+
+    suspend fun submitUserFeedback(
+        subject: String,
+        message: String,
+        images: List<String>
+    ): Result<Unit> = repository.submitUserFeedback(subject, message, images)
 }
 
 class TijarioDataViewModelFactory(

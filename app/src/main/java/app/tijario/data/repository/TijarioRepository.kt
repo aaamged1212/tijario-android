@@ -2653,6 +2653,29 @@ open class TijarioRepository(
             pendingDocumentEvents = pendingDocs,
         )
     }
+
+    suspend fun submitUserFeedback(
+        subject: String,
+        message: String,
+        images: List<String>
+    ): Result<Unit> = runCatching {
+        val user = supabaseClient.auth.currentUserOrNull() ?: error("No authenticated user")
+        val userEmail = user.email.orEmpty()
+        val userName = fetchCurrentProfileFullName().getOrNull().orEmpty().ifBlank { userEmail.substringBefore("@") }
+        
+        val dto = UserFeedbackInsertDto(
+            userId = user.id,
+            userName = userName,
+            userEmail = userEmail,
+            subject = subject,
+            message = message,
+            images = images
+        )
+        
+        withContext(Dispatchers.IO) {
+            supabaseClient.from("user_feedbacks").insert(dto)
+        }
+    }
 }
 
 internal fun buildProductSyncPayload(product: Product): kotlinx.serialization.json.JsonElement =
@@ -2710,3 +2733,13 @@ internal fun buildDocumentSyncPayload(
             }
         }
     }
+
+@kotlinx.serialization.Serializable
+data class UserFeedbackInsertDto(
+    @kotlinx.serialization.SerialName("user_id") val userId: String,
+    @kotlinx.serialization.SerialName("user_name") val userName: String,
+    @kotlinx.serialization.SerialName("user_email") val userEmail: String,
+    val subject: String,
+    val message: String,
+    val images: List<String>
+)
