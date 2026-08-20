@@ -24,8 +24,8 @@ android {
         applicationId = "app.tijario"
         minSdk = 26
         targetSdk = 36
-        versionCode = 19
-        versionName = "1.1.9"
+        versionCode = 20
+        versionName = "0.0.20"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
