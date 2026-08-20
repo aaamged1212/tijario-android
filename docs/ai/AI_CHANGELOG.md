@@ -1,5 +1,14 @@
 # AI Changelog
 
+## 2026-08-20 - In-app review, Share app, Feedback form screen, and Catalog cleanups
+- Integrated Google Play In-App Review API when submitting ratings of 4 stars or higher in both Dashboard and Settings.
+- Colored quick action icons light sky blue (`Color(0xFF38BDF8)`) to align with financial summary card.
+- Compacted layout paddings, text sizes, and indicator icon boxes inside the Financial Summary Card.
+- Overrode USA country display name to "الولايات المتحدة الأمريكية" / "United States" and filtered out other `+1` dial code countries.
+- Appended a comprehensive `FeedbackScreen` containing a subject picker, 4000-char message limit, and image attachments, sending to `support@tijario.site`.
+- Integrated "Share App" with predefined localized texts inside system share sheet.
+- Created `supabase_smtp_guide.md` to resolve OTP emails landing in spam.
+
 ## 2026-08-19 - Customer stats formatting, country & currency auto-detection, spam warning
 - Restructured `CustomersScreen` stats summary indicators into a compact horizontal Row layout, removing the redundant "customers" / "العملاء" word and placing counts directly below their labels.
 - Relocated the Country selection field to come directly after the Business Name field in both `OnboardingScreen` and `BusinessSettingsScreen`.

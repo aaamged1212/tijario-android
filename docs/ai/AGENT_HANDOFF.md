@@ -1,5 +1,16 @@
 # Agent Handoff (Android & Web Repos)
 
+## 2026-08-20 (In-App Review, Share App, Feedback Screen, and Catalog Dial Code polish, local uncommitted)
+- **In-App Review API Integration**: Replaced Google Play redirects with Google Play In-App Review API inside both `CoreScreens.kt` (Dashboard) and `SettingsScreens.kt` (Settings rating row) for ratings of 4 stars or higher.
+- **Quick Action Icon Colors**: Changed quick action icon tint to light sky blue (`Color(0xFF38BDF8)`) to align with financial summary card icon colors.
+- **Financial Summary Card Footprint Compaction**: Reduced card vertical/horizontal padding to `16.dp` and inner spacing to `10.dp`, shrinking total sales numbers text to `24.sp` and indicators text sizes to match.
+- **Country Catalog US name & Dial Code cleanup**: Reset USA name override to "الولايات المتحدة الأمريكية" (AR) and "United States" (EN). Filtered out all non-US countries sharing the `+1` dial code from the country catalogs to leave a single `+1` option.
+- **Report a Problem / Send Feedback Screen**: Created a comprehensive `FeedbackScreen` in `SettingsScreens.kt` containing subject dropdown options ("عام", "مشكلة", "اقتراح ميزة", "الفوترة", "أخرى"), message input box (max 4000 chars), up to 3 image attachments, and direct email client submission to `support@tijario.site`. Added navigation toggle in settings menu card.
+- **Share App integration**: Appended a "(شارك التطبيق)" / "Share App" row in settings option list that opens system share sheet prefilled with localized marketing copies and Play Store link.
+- **Email OTP Spam Folder resolution**: Written a complete Arabic configuration guide [`supabase_smtp_guide.md`](file:///C:/Users/BBOY%20AMG/.gemini/antigravity/brain/74a84f97-ad40-4aef-bcc7-1ab6dac8b48d/supabase_smtp_guide.md) outlining SMTP setup steps.
+- **Validation**: Compiled successfully with `./gradlew compileDebugKotlin` (Build Successful).
+- **Safety**: Committed previous changes locally. No push, deploy, Supabase production migration, or Google Play store upload occurred.
+
 ## 2026-08-19 (Customer stats format, Onboarding & Business settings country/currency auto-detection, local uncommitted)
 - **Customer Stats Formatting**: Restructured the 4 indicators in `CustomersScreen` (`CoreScreens.kt`) into a compact horizontal Row. Placed labels next to icons (removing the word "customers" or "العملاء" for a smaller footprint) and the count directly below them.
 - **Onboarding & Business Settings Country Field Position**: Placed the Country selection field immediately after the Business Name field in both `OnboardingScreen` (`AuthScreens.kt`) and `BusinessSettingsScreen` (`FormScreens.kt`).

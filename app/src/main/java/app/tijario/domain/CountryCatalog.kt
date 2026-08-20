@@ -22,7 +22,7 @@ data class CountryOption(
 
     fun name(language: AppLanguage): String {
         if (countryCode.uppercase(Locale.ROOT) == "US") {
-            return if (language == AppLanguage.AR) "أمريكا" else "USA"
+            return if (language == AppLanguage.AR) "الولايات المتحدة الأمريكية" else "United States"
         }
         val locale = if (language == AppLanguage.AR) Locale.forLanguageTag("ar") else Locale.ENGLISH
         return localeForCountry(countryCode).getDisplayCountry(locale).takeIf { it.isNotBlank() } ?: storageName
@@ -86,6 +86,7 @@ object CountryCatalog {
                     storageName = if (countryCode == "XK") "Kosovo" else localeForCountry(countryCode).getDisplayCountry(Locale.ENGLISH),
                 )
             }
+            .filterNot { it.dialCode == "+1" && it.countryCode != "US" }
             .sortedBy { it.storageName }
 
     val dialCodeOptions: List<DialCodeOption> = allCountries

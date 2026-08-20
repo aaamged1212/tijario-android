@@ -644,11 +644,11 @@ fun DashboardScreen(
                             colors = listOf(Color(0xFF081C36), Color(0xFF0F2D54))
                         )
                     )
-                    .padding(24.dp)
+                    .padding(16.dp)
             ) {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -656,8 +656,8 @@ fun DashboardScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(horizontalAlignment = Alignment.Start) {
-                            Text(t("financial_summary"), color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                            Text(t("all_amounts_in").replace("%s", currencyName), color = Color.White.copy(alpha = 0.6f), fontSize = 11.sp)
+                            Text(t("financial_summary"), color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            Text(t("all_amounts_in").replace("%s", currencyName), color = Color.White.copy(alpha = 0.6f), fontSize = 9.sp)
                         }
 
                         // Button (Ù‡Ø°Ø§ Ø§Ù„Ø´Ù‡Ø±)
@@ -712,22 +712,22 @@ fun DashboardScreen(
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Medium
                         )
-                        Row(
+                         Row(
                             verticalAlignment = Alignment.Bottom,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
                             Text(
                                 text = String.format(java.util.Locale.US, "%,.2f", totalAmount),
                                 color = Color.White,
-                                fontSize = 32.sp,
+                                fontSize = 24.sp,
                                 fontWeight = FontWeight.Black
                             )
                             Text(
                                 text = businessCurrency,
                                 color = Color(0xFF38BDF8),
-                                fontSize = 14.sp,
+                                fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(bottom = 4.dp)
+                                modifier = Modifier.padding(bottom = 2.dp)
                             )
                         }
                     }
@@ -744,32 +744,32 @@ fun DashboardScreen(
                         Row(
                             modifier = Modifier.weight(1f),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             Surface(
                                 color = Color.White.copy(alpha = 0.08f),
-                                shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier.size(40.dp)
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.size(32.dp)
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
                                     Icon(
                                         imageVector = Icons.Filled.AccountBalanceWallet,
                                         contentDescription = null,
                                         tint = Color(0xFF38BDF8),
-                                        modifier = Modifier.size(18.dp)
+                                        modifier = Modifier.size(15.dp)
                                     )
                                 }
                             }
                             Column(horizontalAlignment = Alignment.End) {
-                                Text(t("uncollected_amounts"), color = Color.White.copy(alpha = 0.7f), fontSize = 11.sp)
-                                Row(horizontalArrangement = Arrangement.spacedBy(3.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text(t("uncollected_amounts"), color = Color.White.copy(alpha = 0.7f), fontSize = 10.sp)
+                                Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
                                     Text(
                                         text = String.format(java.util.Locale.US, "%,.2f", unpaidAmount),
                                         color = Color.White,
-                                        fontSize = 14.sp,
+                                        fontSize = 12.sp,
                                         fontWeight = FontWeight.Bold
                                     )
-                                    Text(text = businessCurrency, color = Color(0xFF38BDF8), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                    Text(text = businessCurrency, color = Color(0xFF38BDF8), fontSize = 8.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
                         }
@@ -778,32 +778,32 @@ fun DashboardScreen(
                         Row(
                             modifier = Modifier.weight(1f),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             Surface(
                                 color = Color.White.copy(alpha = 0.08f),
-                                shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier.size(40.dp)
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.size(32.dp)
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
                                     Icon(
                                         imageVector = Icons.Filled.LocalOffer,
                                         contentDescription = null,
                                         tint = Color(0xFF38BDF8),
-                                        modifier = Modifier.size(18.dp)
+                                        modifier = Modifier.size(15.dp)
                                     )
                                 }
                             }
                             Column(horizontalAlignment = Alignment.End) {
-                                Text(t("open_quotes"), color = Color.White.copy(alpha = 0.7f), fontSize = 11.sp)
-                                Row(horizontalArrangement = Arrangement.spacedBy(3.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text(t("open_quotes"), color = Color.White.copy(alpha = 0.7f), fontSize = 10.sp)
+                                Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
                                     Text(
                                         text = String.format(java.util.Locale.US, "%,.2f", openQuotesAmount),
                                         color = Color.White,
-                                        fontSize = 14.sp,
+                                        fontSize = 12.sp,
                                         fontWeight = FontWeight.Bold
                                     )
-                                    Text(text = businessCurrency, color = Color(0xFF38BDF8), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                    Text(text = businessCurrency, color = Color(0xFF38BDF8), fontSize = 8.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
                         }
@@ -1125,13 +1125,22 @@ fun DashboardScreen(
                         .putBoolean("has_rated_app", true)
                         .apply()
                     if (rating >= 4) {
-                        val playStoreIntent = android.content.Intent(
-                            android.content.Intent.ACTION_VIEW,
-                            android.net.Uri.parse("market://details?id=app.tijario")
-                        ).apply {
-                            addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                        val manager = com.google.android.play.core.review.ReviewManagerFactory.create(context)
+                        val request = manager.requestReviewFlow()
+                        request.addOnCompleteListener { task ->
+                            if (task.isSuccessful) {
+                                val reviewInfo = task.result
+                                (context as? android.app.Activity)?.let { activity ->
+                                    manager.launchReviewFlow(activity, reviewInfo)
+                                }
+                            } else {
+                                android.widget.Toast.makeText(
+                                    context,
+                                    if (isArabic) "شكراً لتقييمك!" else "Thank you for your feedback!",
+                                    android.widget.Toast.LENGTH_SHORT
+                                ).show()
+                            }
                         }
-                        runCatching { context.startActivity(playStoreIntent) }
                     } else {
                         android.widget.Toast.makeText(
                             context,
@@ -1192,7 +1201,7 @@ private fun QuickActionItem(
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = Color(0xFF10B981),
+                tint = Color(0xFF38BDF8),
                 modifier = Modifier.size(20.dp)
             )
         }
@@ -3337,31 +3346,31 @@ private fun MiniStatItem(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 12.dp),
+                .padding(horizontal = 6.dp, vertical = 8.dp),
             horizontalAlignment = Alignment.Start,
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+            verticalArrangement = Arrangement.spacedBy(3.dp)
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
                     tint = Color(0xFF2DD4BF),
-                    modifier = Modifier.size(16.dp)
+                    modifier = Modifier.size(13.dp)
                 )
                 Text(
                     text = count.toString(),
                     color = Color.White,
-                    fontSize = 16.sp,
+                    fontSize = 13.sp,
                     fontWeight = FontWeight.Bold
                 )
             }
             Text(
                 text = label,
                 color = Color.White.copy(alpha = 0.6f),
-                fontSize = 11.sp,
+                fontSize = 9.sp,
                 fontWeight = FontWeight.Medium,
                 textAlign = TextAlign.Start
             )

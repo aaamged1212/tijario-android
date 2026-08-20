@@ -55,11 +55,15 @@ import androidx.compose.material.icons.filled.ShoppingBag
 import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.BusinessCenter
 import androidx.compose.material.icons.outlined.CloudSync
 import androidx.compose.material.icons.outlined.CreditCard
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Tune
+import androidx.compose.material.icons.outlined.Feedback
+import androidx.compose.material.icons.outlined.Share
 import androidx.compose.ui.platform.LocalContext
 import java.io.File
 import androidx.compose.foundation.Image
@@ -99,6 +103,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.produceState
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.MenuAnchorType
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import app.tijario.ui.components.TijarioTextField
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -152,6 +163,8 @@ fun SettingsHomeScreen(
 ) {
     val adaptive = LocalAdaptiveLayoutInfo.current
     val context = LocalContext.current
+    val appLanguage = LocalLanguage.current
+    val isAr = appLanguage == AppLanguage.AR
     val planUsageState by dataViewModel.planUsageState.collectAsStateWithLifecycle()
     val profilePicFile = remember { File(context.filesDir, "personal_profile_pic.jpg") }
     var profilePicBitmap by remember {
@@ -169,6 +182,7 @@ fun SettingsHomeScreen(
     val profileEmail = Supabase.client.auth.currentUserOrNull()?.email.orEmpty()
     var showLogoutConfirmation by remember { mutableStateOf(false) }
     var showRatingSheet by remember { mutableStateOf(false) }
+    var showFeedbackScreen by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         val updatedName = dataViewModel.fetchCurrentProfileFullName().orEmpty()
@@ -181,7 +195,14 @@ fun SettingsHomeScreen(
         dataViewModel.refreshPlanUsage(force = false)
     }
 
-    Scaffold(
+    if (showFeedbackScreen) {
+        FeedbackScreen(
+            userEmail = profileEmail,
+            userName = profileName,
+            onBack = { showFeedbackScreen = false }
+        )
+    } else {
+        Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
                 title = { Text(t("menu"), fontWeight = FontWeight.Bold) },
@@ -233,10 +254,65 @@ fun SettingsHomeScreen(
                     SettingsOption(Icons.Outlined.CreditCard, t("payments_subscriptions"), onPaymentsSubscriptions)
                     SettingsOption(Icons.Outlined.CloudSync, t("backup_restore"), onBackupSettings)
                     SettingsOption(
+                        Icons.Outlined.Feedback,
+                        if (isAr) "إرسال ملاحظة أو إبلاغ عن مشكلة" else "Send Feedback / Report Problem"
+                    ) {
+                        showFeedbackScreen = true
+                    }
+                    SettingsOption(
                         Icons.Filled.Star,
                         t("rate_app")
                     ) {
                         showRatingSheet = true
+                    }
+                    SettingsOption(
+                        Icons.Outlined.Share,
+                        if (isAr) "شارك التطبيق" else "Share App"
+                    ) {
+                        val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(
+                                android.content.Intent.EXTRA_TEXT,
+                                if (isAr) {
+                                    """
+                                    🚀 تجاريو — كل أدوات تجارتك في مكان واحد
+                                    
+                                    نظّم أعمالك بسهولة، وأنشئ الفواتير وعروض الأسعار، وأدر العملاء والمنتجات والخدمات، واستفد من تجاريو AI لصياغة الردود والكابشنات بسرعة واحتراف.
+                                    
+                                    ✅ فواتير وعروض أسعار احترافية
+                                    ✅ إدارة العملاء والمنتجات
+                                    ✅ متابعة أعمالك ومبيعاتك
+                                    ✅ مشاركة المستندات بسهولة
+                                    ✅ أدوات AI ذكية تساعدك في عملك اليومي
+                                    ✅ واجهة عربية بسيطة وسريعة
+                                    
+                                    إذا كنت صاحب متجر، مشروع صغير، مقدم خدمة أو تعمل بشكل مستقل، تجاريو يساعدك تنجز أكثر وبوقت أقل.
+                                    
+                                    📲 حمّل تجاريو من Google Play:
+                                    https://play.google.com/store/apps/details?id=app.tijario
+                                    """.trimIndent()
+                                } else {
+                                    """
+                                    🚀 Tijario — All your business tools in one place
+                                    
+                                    Manage your business with ease, create professional invoices and quotations, organize customers, products, and services, and use Tijario AI to generate smart replies and captions faster.
+                                    
+                                    ✅ Professional invoices and quotations
+                                    ✅ Customer and product management
+                                    ✅ Track your business and sales
+                                    ✅ Easily share your documents
+                                    ✅ Smart AI tools for your daily work
+                                    ✅ Clean, simple, and fast English interface
+                                    
+                                    Whether you run a store, small business, provide services, or work independently, Tijario helps you get more done in less time.
+                                    
+                                    📲 Download Tijario on Google Play:
+                                    https://play.google.com/store/apps/details?id=app.tijario
+                                    """.trimIndent()
+                                }
+                            )
+                        }
+                        context.startActivity(android.content.Intent.createChooser(shareIntent, if (isAr) "مشاركة التطبيق" else "Share App"))
                     }
                 }
             }
@@ -251,22 +327,21 @@ fun SettingsHomeScreen(
                             .putBoolean("has_rated_app", true)
                             .apply()
                         if (rating >= 4) {
-                            val playStoreIntent = android.content.Intent(
-                                android.content.Intent.ACTION_VIEW,
-                                android.net.Uri.parse("market://details?id=app.tijario")
-                            ).apply {
-                                addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-                            }
-                            try {
-                                context.startActivity(playStoreIntent)
-                            } catch (e: Exception) {
-                                val webIntent = android.content.Intent(
-                                    android.content.Intent.ACTION_VIEW,
-                                    android.net.Uri.parse("https://play.google.com/store/apps/details?id=app.tijario")
-                                ).apply {
-                                    addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                            val manager = com.google.android.play.core.review.ReviewManagerFactory.create(context)
+                            val request = manager.requestReviewFlow()
+                            request.addOnCompleteListener { task ->
+                                if (task.isSuccessful) {
+                                    val reviewInfo = task.result
+                                    (context as? android.app.Activity)?.let { activity ->
+                                        manager.launchReviewFlow(activity, reviewInfo)
+                                    }
+                                } else {
+                                    android.widget.Toast.makeText(
+                                        context,
+                                        if (java.util.Locale.getDefault().language == "ar") "شكراً لتقييمك!" else "Thank you for your feedback!",
+                                        android.widget.Toast.LENGTH_SHORT
+                                    ).show()
                                 }
-                                runCatching { context.startActivity(webIntent) }
                             }
                         } else {
                             android.widget.Toast.makeText(
@@ -316,15 +391,16 @@ fun SettingsHomeScreen(
         }
     }
 
-    if (showLogoutConfirmation) {
-        LogoutConfirmationDialog(
-            visible = true,
-            onDismiss = { showLogoutConfirmation = false },
-            onConfirm = {
-                showLogoutConfirmation = false
-                onLogout()
-            },
-        )
+        if (showLogoutConfirmation) {
+            LogoutConfirmationDialog(
+                visible = true,
+                onDismiss = { showLogoutConfirmation = false },
+                onConfirm = {
+                    showLogoutConfirmation = false
+                    onLogout()
+                },
+            )
+        }
     }
 }
 
@@ -3115,3 +3191,266 @@ private tailrec fun Context.findActivity(): Activity? =
         is ContextWrapper -> baseContext.findActivity()
         else -> null
     }
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun FeedbackScreen(
+    userEmail: String,
+    userName: String,
+    onBack: () -> Unit
+) {
+    val language = LocalLanguage.current
+    val isArabic = language == AppLanguage.AR
+    val context = LocalContext.current
+    
+    var selectedSubject by remember { mutableStateOf(if (isArabic) "عام" else "General") }
+    var showSubjectDropdown by remember { mutableStateOf(false) }
+    var messageText by remember { mutableStateOf("") }
+    var selectedImages by remember { mutableStateOf<List<android.net.Uri>>(emptyList()) }
+    
+    val imagePicker = rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.GetMultipleContents()
+    ) { uris ->
+        if (uris != null) {
+            selectedImages = (selectedImages + uris).take(3)
+        }
+    }
+
+    val subjects = if (isArabic) {
+        listOf("عام", "مشكلة", "اقتراح ميزة", "الفوترة", "أخرى")
+    } else {
+        listOf("General", "Problem", "Feature Suggestion", "Billing", "Other")
+    }
+
+    Scaffold(
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = { Text(if (isArabic) "إرسال ملاحظة" else "Send Feedback", fontWeight = FontWeight.Bold) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = t("btn_back"))
+                    }
+                },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
+            )
+        }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+                .padding(paddingValues)
+                .verticalScroll(rememberScrollState())
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text(
+                text = if (isArabic) "أخبرنا بما حدث" else "Tell us what happened",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+            Text(
+                text = if (isArabic) "شاركن الأخطاء أو الاقتراحات أو أي شيء يساعدنا على تحسين مساعد." else "Share bugs, suggestions, or anything that helps us improve.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            // Subject Selector
+            Text(
+                text = if (isArabic) "الموضوع" else "Subject",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+            Box(modifier = Modifier.fillMaxWidth()) {
+                ExposedDropdownMenuBox(
+                    expanded = showSubjectDropdown,
+                    onExpandedChange = { showSubjectDropdown = !showSubjectDropdown }
+                ) {
+                    TijarioTextField(
+                        label = "",
+                        value = selectedSubject,
+                        onValueChange = {},
+                        readOnly = true,
+                        trailingIcon = {
+                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = showSubjectDropdown)
+                        },
+                        modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                    )
+                    ExposedDropdownMenu(
+                        expanded = showSubjectDropdown,
+                        onDismissRequest = { showSubjectDropdown = false }
+                    ) {
+                        for (subject in subjects) {
+                            DropdownMenuItem(
+                                text = { Text(subject) },
+                                onClick = {
+                                    selectedSubject = subject
+                                    showSubjectDropdown = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Message Body
+            Text(
+                text = if (isArabic) "الرسالة" else "Message",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+            OutlinedTextField(
+                value = messageText,
+                onValueChange = { if (it.length <= 4000) messageText = it },
+                placeholder = { Text(if (isArabic) "اكتب ملاحظاتك هنا..." else "Write your feedback here...") },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(150.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                )
+            )
+            Text(
+                text = "${messageText.length}/4000",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.align(Alignment.End)
+            )
+
+            // Image Attachments Selector
+            Text(
+                text = if (isArabic) "الصور (اختياري)" else "Images (Optional)",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+            
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                if (selectedImages.size < 3) {
+                    Surface(
+                        modifier = Modifier
+                            .size(72.dp)
+                            .clickable { imagePicker.launch("image/*") },
+                        color = Color(0xFF0F2537),
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Image,
+                                contentDescription = null,
+                                tint = Color(0xFF0FA36E)
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = if (isArabic) "إضافة صور" else "Add image",
+                                fontSize = 10.sp,
+                                color = Color.White
+                            )
+                        }
+                    }
+                }
+                
+                selectedImages.forEachIndexed { index, uri ->
+                    Box(modifier = Modifier.size(72.dp)) {
+                        val bitmapState = produceState<android.graphics.Bitmap?>(initialValue = null, key1 = uri) {
+                            value = try {
+                                val source = android.graphics.ImageDecoder.createSource(context.contentResolver, uri)
+                                android.graphics.ImageDecoder.decodeBitmap(source)
+                            } catch (e: Exception) {
+                                null
+                            }
+                        }
+                        bitmapState.value?.let { bmp ->
+                            Image(
+                                bitmap = bmp.asImageBitmap(),
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clip(RoundedCornerShape(12.dp)),
+                                contentScale = ContentScale.Crop
+                            )
+                        }
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .offset(x = 4.dp, y = (-4).dp)
+                                .size(20.dp)
+                                .background(Color.Red, CircleShape)
+                                .clickable { selectedImages = selectedImages.toMutableList().apply { removeAt(index) } },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Close,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(12.dp)
+                            )
+                        }
+                    }
+                }
+            }
+            
+            Text(
+                text = if (isArabic) "أضف حتى 3 صور، بحجم أقصى 5 ميجابايت لكل صورة." else "Add up to 3 images, max 5MB per image.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Submit Button
+            Button(
+                onClick = {
+                    val subject = "[Tijario Feedback] $selectedSubject"
+                    val body = """
+                        From: $userName ($userEmail)
+                        Subject: $selectedSubject
+                        
+                        Message:
+                        $messageText
+                    """.trimIndent()
+                    
+                    val intent = android.content.Intent(android.content.Intent.ACTION_SEND_MULTIPLE).apply {
+                        type = "message/rfc822"
+                        putExtra(android.content.Intent.EXTRA_EMAIL, arrayOf("support@tijario.site"))
+                        putExtra(android.content.Intent.EXTRA_SUBJECT, subject)
+                        putExtra(android.content.Intent.EXTRA_TEXT, body)
+                        if (selectedImages.isNotEmpty()) {
+                            val uris = ArrayList<android.net.Uri>(selectedImages)
+                            putParcelableArrayListExtra(android.content.Intent.EXTRA_STREAM, uris)
+                            addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        }
+                        addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    try {
+                        context.startActivity(android.content.Intent.createChooser(intent, if (isArabic) "إرسال البريد" else "Send Email"))
+                        onBack()
+                    } catch (e: Exception) {
+                        android.widget.Toast.makeText(context, if (isArabic) "لم يتم العثور على تطبيق بريد" else "No email client found", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0FA36E))
+            ) {
+                Text(
+                    text = if (isArabic) "إرسال الملاحظات" else "Submit Feedback",
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+            }
+        }
+    }
+}
