@@ -1176,13 +1176,19 @@ private fun QuickActionItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val isDark = androidx.compose.foundation.isSystemInDarkTheme()
+    val containerColor = if (isDark) Color(0xFF0F172A).copy(alpha = 0.4f) else MaterialTheme.colorScheme.surface
+    val borderColor = if (isDark) Color(0xFF1E293B) else MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
+    val textColor = if (isDark) Color.White else MaterialTheme.colorScheme.onSurface
+    val iconColor = if (isDark) Color(0xFF38BDF8) else Color(0xFF0D9488)
+
     Card(
         modifier = modifier
             .height(52.dp)
             .clickable { onClick() },
         shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, Color(0xFF1E293B)),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A).copy(alpha = 0.4f)),
+        border = BorderStroke(1.dp, borderColor),
+        colors = CardDefaults.cardColors(containerColor = containerColor),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(
@@ -1194,14 +1200,14 @@ private fun QuickActionItem(
         ) {
             Text(
                 text = title,
-                color = Color.White,
+                color = textColor,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold
             )
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = Color(0xFF38BDF8),
+                tint = iconColor,
                 modifier = Modifier.size(20.dp)
             )
         }
