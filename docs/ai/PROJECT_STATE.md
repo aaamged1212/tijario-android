@@ -1,5 +1,10 @@
 # Project State (Android & Web Repos)
 
+## 2026-08-21 - Authenticated mobile feedback delivery
+- The Android feedback form now calls the authenticated support API rather than writing directly to PostgREST. Images are locally bounded before submission; support recipient, user identity lookup, private Storage access, and mail delivery remain server-side.
+- Android commit `8ceddf2337fed5c3cf5ba9ffb9780240686dffd4` is published on `fix/android-runtime-critical-fixes`; compatible Web API and database contract are deployed separately.
+- `assembleDebug` passed. The focused feedback contract test cannot start because three unrelated `BackupPlanPolicyTest` type errors fail test source compilation first. Physical delivery verification remains pending; no Android artifact was uploaded to Google Play.
+
 ## 2026-08-16 - Android startup branding
 - The Android system splash no longer renders the full-bleed launcher bitmap. It uses the approved transparent brand mark inside the platform's 160dp safe area with an icon background that preserves contrast.
 - Startup background and system-bar contrast follow Android day/night resources. The Compose fallback splash uses the same source asset without clipping and follows the active Material color scheme.

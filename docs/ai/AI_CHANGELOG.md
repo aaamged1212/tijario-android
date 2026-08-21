@@ -1,5 +1,10 @@
 # AI Changelog
 
+## 2026-08-21 - Authenticated in-app support feedback client published
+- Replaced direct feedback-table insertion and external-email intent with authenticated `POST /api/mobile/feedback` delivery.
+- Bounded selected image payloads before upload and kept account identity, recipient, Storage access, and mail-provider credentials server-side.
+- Published commit `8ceddf2337fed5c3cf5ba9ffb9780240686dffd4` on `fix/android-runtime-critical-fixes`. No APK/AAB, Google Play upload, signing, or external configuration change occurred.
+
 ## 2026-08-20 - In-app review, Share app, Feedback form screen, and Catalog cleanups
 - Integrated Google Play In-App Review API when submitting ratings of 4 stars or higher in both Dashboard and Settings.
 - Colored quick action icons light sky blue (`Color(0xFF38BDF8)`) to align with financial summary card.

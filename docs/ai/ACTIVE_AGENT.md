@@ -1,5 +1,11 @@
 # Active Agent Status
 
+## 2026-08-21
+- **Current task**: Android feedback submission now uses the authenticated Tijario support API instead of direct PostgREST writes or an external email client.
+- **State**: Commit `8ceddf2337fed5c3cf5ba9ffb9780240686dffd4` is pushed to `origin/fix/android-runtime-critical-fixes`. The compatible Web API and private feedback Storage contract are deployed separately; physical device delivery QA remains pending.
+- **Validation**: `assembleDebug` passed. Focused test execution remains blocked before test execution by three pre-existing `BackupPlanPolicyTest` compilation errors unrelated to feedback.
+- **Safety**: No Android deployment, Google Play upload, signing change, or external configuration change occurred. `.agents/` remains untracked and excluded.
+
 ## 2026-08-20
 - **Current task**: Integrate In-App Review, recolor quick actions icons, reduce financial summary card size, clean up country dial codes (+1 US), add feedback reporting form screen, and share app action.
 - **State**: Replaced manual redirects with Google Play In-App Review API. Remapped USA to "الولايات المتحدة الأمريكية" and filtered out non-US +1 countries. Compacted financial summary card sizing and adjusted Quick Action icon tints. Appended the full `FeedbackScreen` and "Share App" features to the Settings options list.

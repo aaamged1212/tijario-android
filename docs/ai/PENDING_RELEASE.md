@@ -1,5 +1,10 @@
 # Pending Release
 
+## 2026-08-21 authenticated feedback device QA gate
+- Android source commit `8ceddf2337fed5c3cf5ba9ffb9780240686dffd4` and its compatible Web API are published. No Android build has been uploaded to Google Play.
+- From a real Android session, send Arabic and English reports with no image and one JPEG/PNG image. Confirm a support email arrives at `support@tijario.site`, the authenticated account email is Reply-To, and attachment links are private.
+- If delivery is unavailable, verify the user sees the safe localized error only; never expose provider data, tokens, or internal exception text.
+
 ## 2026-08-16 Android splash visual QA gate
 - Cold-launch the app on Android 12 or newer in both light and dark system themes. Confirm the full Tijario mark is centered, none of its four segments is cropped, and the neutral icon surface separates both brand colors from the background.
 - Cold-launch on one pre-Android-12 device or emulator to verify the SplashScreen compatibility implementation uses the same scale and background.

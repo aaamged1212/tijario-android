@@ -1,5 +1,11 @@
 # Agent Handoff (Android & Web Repos)
 
+## 2026-08-21 (Authenticated support feedback client, published)
+- **Root cause**: The Android feedback form wrote directly to a non-existent `user_feedbacks` table, so reports could neither persist nor reach support.
+- **Correction**: Android now validates and bounds image attachments locally, then submits to authenticated `POST /api/mobile/feedback`. It no longer sends feedback through PostgREST or an external email client and never receives mail-provider credentials.
+- **Publication**: Commit `8ceddf2337fed5c3cf5ba9ffb9780240686dffd4` is pushed to `origin/fix/android-runtime-critical-fixes`. The Web counterpart is deployed in Vercel Production, with a private Storage bucket and service-role-only delivery audit table.
+- **Remaining QA**: Test Arabic and English reports with no image and with one image on a physical device. Verify delivery to `support@tijario.site`, reply routing to the account email, private attachment access, and safe failure messaging if the mail sender is unavailable.
+
 ## 2026-08-20 (In-App Review, Share App, Feedback Screen, and Catalog Dial Code polish, local uncommitted)
 - **In-App Review API Integration**: Replaced Google Play redirects with Google Play In-App Review API inside both `CoreScreens.kt` (Dashboard) and `SettingsScreens.kt` (Settings rating row) for ratings of 4 stars or higher.
 - **Quick Action Icon Colors**: Changed quick action icon tint to light sky blue (`Color(0xFF38BDF8)`) to align with financial summary card icon colors.
