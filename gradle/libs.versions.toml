@@ -63,6 +63,7 @@ firebase-messaging = { module = "com.google.firebase:firebase-messaging" }
 google-play-billing-ktx = { module = "com.android.billingclient:billing-ktx", version.ref = "billing" }
 google-play-services-auth = { module = "com.google.android.gms:play-services-auth", version.ref = "playServicesAuth" }
 google-play-review = { module = "com.google.android.play:review-ktx", version = "2.0.2" }
+google-play-app-update = { module = "com.google.android.play:app-update-ktx", version = "2.1.0" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

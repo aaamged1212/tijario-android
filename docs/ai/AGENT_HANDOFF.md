@@ -946,6 +946,11 @@
 - **Validation**: 17 focused JVM tests, both Debug/DebugAndroidTest assemblies, and `lintDebug` passed. Run physical RTL/LTR, compact-screen, and cold-launch visual QA before release.
 - **Safety Status**: No commit, push, deployment, migration, Production write, external configuration change, or Google Play upload occurred. `.agents` remains local and excluded.
 
+## 2026-08-22 (Version 0.0.21 preparation)
+- **Version**: Android is prepared as `versionCode 21` and `versionName 0.0.21` for the completed Google Play flexible-update and native-review changes.
+- **Validation**: The Android Debug build and final Kotlin compilation passed. The focused JVM test source set remains blocked by the pre-existing `BackupPlanPolicyTest.kt` Long-to-String type errors.
+- **Release boundary**: A Play-track device test is still required to observe the official update/review dialogs. This task does not upload an APK/AAB or change any Google Play setting.
+
 ## 2026-08-16 (Document preview currency and AI context follow-up, local)
 - **Preview logo**: The pre-save WebView now reads the same shared business-logo cache used by the PDF flow, prefers the explicit business owner cache, and safely caches a verified remote image when it is first reachable. This keeps a previously cached logo available offline without exposing credentials.
 - **Document currency and stock**: The item picker disables products whose saved currency differs from the document currency and explains why; route-return and save-time guards enforce the same rule. Tracked products also show their remaining stock after any quantities already reserved in the current invoice.
@@ -1001,3 +1006,9 @@
 - **Validation**: `assembleDebug` passed after the API-contract change. The focused JVM test remains blocked before execution by three pre-existing `BackupPlanPolicyTest.kt` Long-to-String mismatches.
 - **Release dependency**: Do not release Android until the compatible backend is deployed after applying `20260821174314_create_mobile_feedback_delivery.sql` and configuring server-only `RESEND_API_KEY` plus `FEEDBACK_EMAIL_FROM`.
 - **Safety**: No commit, push, deployment, migration, Production write, external configuration change, or Google Play upload occurred. `.agents` remains local and excluded.
+
+## 2026-08-21 (Google Play update and review prompts, local)
+- **State**: The app now uses Google Play's official flexible in-app update flow when a newer Play version is available. A downloaded flexible update exposes a restart action, while the user can continue using the app during download.
+- **Review behavior**: The custom star-rating pre-screen was removed. The dashboard makes one locally paced review-request attempt after meaningful use, and the settings action requests the native Play review flow directly. Google Play decides whether to display the dialog and never reports whether a user submitted a review.
+- **Validation**: `assembleDebug` passed. The focused JVM test source set is blocked before execution by three pre-existing Long-to-String errors in `BackupPlanPolicyTest.kt`; the new policy test is present but not executable until those errors are fixed.
+- **Safety Status**: No commit, push, deployment, migration, Production write, external configuration change, or Google Play upload occurred. `.agents` remains local and excluded.

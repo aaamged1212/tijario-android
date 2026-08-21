@@ -686,3 +686,11 @@
 - Shortened customer metric labels, placed them beside their icons, and moved the count beneath; quick-action cards now obey the app-selected theme rather than the device theme.
 - Added a focused source-contract test. Debug assembly passed; Debug unit tests remain blocked by pre-existing `BackupPlanPolicyTest.kt` type errors.
 - No commit, push, deployment, migration, Production write, external configuration change, or Google Play upload occurred.
+
+# 2026-08-21 - Google Play update and review prompts
+- Added the official Play Core flexible-update integration with a one-day local attempt interval and a restart action after download.
+- Replaced the app-owned rating pre-screen with direct Google Play in-app review requests. The app records only local request pacing, never ratings or review-submission state.
+- Debug assembly passed. JVM test compilation remains blocked by pre-existing `BackupPlanPolicyTest.kt` type errors.
+
+# 2026-08-22 - Version 0.0.21 preparation
+- Raised Android `versionCode` to `21` and `versionName` to `0.0.21` for the completed Google Play update and review prompt work.

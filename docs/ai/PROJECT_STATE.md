@@ -267,3 +267,13 @@
 - **Validation**: Debug assembly passed. New focused UI-contract coverage is pending execution until the existing `BackupPlanPolicyTest.kt` compile mismatches are resolved.
 - **Release dependency**: The Android feedback path requires the compatible Web route, the pending feedback storage migration, and server-only email configuration before it can deliver support messages.
 - **Safety**: Local source only; no commit, push, deployment, migration, Production write, external configuration change, or Google Play upload.
+
+## 2026-08-21 Google Play engagement prompts
+- **Current task**: Local Android implementation of native Google Play flexible updates and in-app review on `fix/android-runtime-critical-fixes`.
+- **State**: Flexible updates are checked only for authenticated users and are locally paced to one attempt per 24 hours. Review requests occur after meaningful dashboard use or an explicit Settings action; Google Play owns display and review submission.
+- **Validation**: `assembleDebug` passed. Focused JVM execution is pending because the existing Debug test source set does not compile due to three unrelated `BackupPlanPolicyTest.kt` type mismatches.
+- **Safety**: No commit, push, deployment, migration, Production write, external configuration change, or Google Play upload occurred. `.agents` remains untracked and excluded.
+
+## 2026-08-22 Android version preparation
+- **Version**: The current Android source is version `0.0.21` / code `21` and includes the completed native Google Play flexible-update and review prompt work.
+- **Remaining QA**: Verify official dialogs only from a Play-installed test-track build; a sideloaded Debug APK cannot prove that integration.

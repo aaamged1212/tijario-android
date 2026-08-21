@@ -211,3 +211,12 @@ The counters migration is required to manage sequential document numbers without
 - Apply the compatible Web migration `20260821174314_create_mobile_feedback_delivery.sql`; do not apply it independently of the mobile feedback API deployment.
 - Configure server-only `RESEND_API_KEY` and a verified `FEEDBACK_EMAIL_FROM` sender in the Web deployment environment. Keep both values out of Android and source control.
 - On a physical device, submit an Arabic and English feedback message with and without an image. Confirm the support mailbox receives it, reply reaches the authenticated user email, and the attachment link works without exposing the storage bucket publicly.
+
+## 2026-08-21 Google Play update and review QA gate
+- Install the app from the intended Google Play testing track, then publish a higher version in that same track. Verify the official flexible-update sheet appears after the app becomes authenticated, permits continued use during download, and shows the in-app restart action after download.
+- Trigger the Settings rating action and a meaningful Dashboard session on a Play-installed build. Google Play may suppress the review dialog due to its quota; that outcome is expected and must not be treated as an app failure.
+- Resolve the unrelated `BackupPlanPolicyTest.kt` Long-to-String compilation errors before treating the new prompt-policy JVM tests as executed.
+- No release, deployment, Google Play upload, migration, or production configuration change is authorized by this local task.
+
+## 2026-08-22 Version 0.0.21 release note
+- The next Android release candidate is `versionCode 21` / `versionName 0.0.21`. Before any Play upload, run the existing Play-track update/review QA gate and resolve the unrelated `BackupPlanPolicyTest.kt` compile errors if JVM test execution is required.

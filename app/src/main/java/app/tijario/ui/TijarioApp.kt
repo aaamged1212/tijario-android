@@ -47,6 +47,9 @@ import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.Button
 import androidx.compose.material3.AlertDialog
@@ -121,6 +124,7 @@ import app.tijario.features.notifications.NotificationsScreen
 import app.tijario.features.notifications.NotificationsViewModel
 import app.tijario.features.notifications.NotificationsViewModelFactory
 import app.tijario.features.notifications.StartupAnnouncementDialog
+import app.tijario.features.play.GooglePlayEngagementPrompter
 import app.tijario.config.AppPreferences
 import app.tijario.domain.LocalizedErrorMapper
 import app.tijario.domain.CreationAllowance
@@ -203,14 +207,14 @@ private val rootTabs = listOf(
 )
 
 @Composable
-fun TijarioApp() {
+fun TijarioApp(playStorePrompter: GooglePlayEngagementPrompter) {
     ProvideAdaptiveLayout {
-        TijarioAppContent()
+        TijarioAppContent(playStorePrompter)
     }
 }
 
 @Composable
-private fun TijarioAppContent() {
+private fun TijarioAppContent(playStorePrompter: GooglePlayEngagementPrompter) {
     val config = loadAppConfig()
     if (!config.isComplete) {
         ConfigurationRequiredScreen()
@@ -298,6 +302,7 @@ private fun TijarioAppContent() {
             ) {
                 dataViewModel.refreshPlanUsage(force = false)
                 notificationsViewModel.syncTopic(AppRuntimeState.currentLanguage)
+                playStorePrompter.maybeStartFlexibleUpdate()
             }
         }
 
@@ -440,6 +445,33 @@ private fun TijarioAppContent() {
             var showNotificationPrompt by remember {
                 mutableStateOf(!AppPreferences.wasNotificationExplained(context))
             }
+            val updateSnackbarHostState = remember { SnackbarHostState() }
+            val flexibleUpdateDownloaded by playStorePrompter.flexibleUpdateDownloaded.collectAsStateWithLifecycle()
+
+            LaunchedEffect(Unit) {
+                playStorePrompter.maybeStartFlexibleUpdate()
+            }
+
+            LaunchedEffect(flexibleUpdateDownloaded) {
+                if (flexibleUpdateDownloaded) {
+                    val result = updateSnackbarHostState.showSnackbar(
+                        message = if (AppRuntimeState.currentLanguage == app.tijario.config.AppLanguage.AR) {
+                            "التحديث جاهز للتثبيت"
+                        } else {
+                            "Update ready to install"
+                        },
+                        actionLabel = if (AppRuntimeState.currentLanguage == app.tijario.config.AppLanguage.AR) {
+                            "إعادة التشغيل"
+                        } else {
+                            "Restart"
+                        },
+                        withDismissAction = true,
+                    )
+                    if (result == SnackbarResult.ActionPerformed) {
+                        playStorePrompter.completeFlexibleUpdate()
+                    }
+                }
+            }
 
             fun requestCreation(target: CreationTarget, route: String) {
                 scope.launch {
@@ -529,6 +561,7 @@ private fun TijarioAppContent() {
                         pagerScope.launch { pagerState.animateScrollToPage(0) }
                     }
                     Scaffold(
+                        snackbarHost = { SnackbarHost(updateSnackbarHostState) },
                         topBar = {
                             val currentPage = pagerState.currentPage
                             val titleText = when (currentPage) {
@@ -742,6 +775,7 @@ private fun TijarioAppContent() {
                                         onDocumentClick = { documentId ->
                                             navController.navigate("document-detail?documentId=$documentId")
                                         },
+                                        onMaybeRequestReview = playStorePrompter::maybeRequestReview,
                                         hideHeader = true
                                     )
                                     1 -> DocumentsScreen(
@@ -1093,6 +1127,7 @@ private fun TijarioAppContent() {
                         onAccountSettings = { navController.navigateSingleTop("account-settings") },
                         onAppSettings = { navController.navigateSingleTop("app-settings") },
                         onBackupSettings = { navController.navigateSingleTop("backup-settings") },
+                        onRequestReview = playStorePrompter::requestReviewFromUserAction,
                         onLogout = {
                             notificationsViewModel.logout()
                             authViewModel.logout()

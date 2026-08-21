@@ -110,7 +110,6 @@ import app.tijario.ui.state.TijarioDataViewModel
 import kotlinx.coroutines.launch
 import app.tijario.ui.components.TijarioTextField
 import app.tijario.ui.components.TijarioSearchField
-import app.tijario.ui.components.RatingBottomSheet
 import io.github.jan.supabase.auth.auth
 
 @Composable
@@ -320,26 +319,24 @@ fun DashboardScreen(
     onBusinessSettings: () -> Unit,
     onViewAllDocuments: (app.tijario.data.model.DocumentType) -> Unit,
     onDocumentClick: (String) -> Unit,
+    onMaybeRequestReview: (hasMeaningfulUse: Boolean) -> Unit,
     hideHeader: Boolean = false,
 ) {
     val uiState by dataViewModel.uiState.collectAsStateWithLifecycle()
     val language = LocalLanguage.current
     val adaptive = LocalAdaptiveLayoutInfo.current
     val isArabic = language == AppLanguage.AR
-    val context = LocalContext.current
-    var showPeriodicRatingSheet by remember { mutableStateOf(false) }
-
     LaunchedEffect(Unit) {
         dataViewModel.refreshAll()
-        
-        val prefs = context.getSharedPreferences("tijario_app_preferences", android.content.Context.MODE_PRIVATE)
-        val hasRated = prefs.getBoolean("has_rated_app", false)
-        val lastPrompt = prefs.getLong("last_rate_prompt_time", 0L)
-        val currentTime = System.currentTimeMillis()
-        
-        if (!hasRated && (lastPrompt == 0L || (currentTime - lastPrompt > 5 * 24 * 60 * 60 * 1000L))) {
-            prefs.edit().putLong("last_rate_prompt_time", currentTime).apply()
-            showPeriodicRatingSheet = true
+    }
+
+    val hasMeaningfulUse = uiState.customers.isNotEmpty() ||
+        uiState.products.isNotEmpty() ||
+        uiState.documents.isNotEmpty()
+    LaunchedEffect(hasMeaningfulUse) {
+        if (hasMeaningfulUse) {
+            kotlinx.coroutines.delay(10_000L)
+            onMaybeRequestReview(true)
         }
     }
 
@@ -1114,43 +1111,6 @@ fun DashboardScreen(
         }
 
         Spacer(modifier = Modifier.height(20.dp))
-
-        if (showPeriodicRatingSheet) {
-            RatingBottomSheet(
-                onDismissRequest = { showPeriodicRatingSheet = false },
-                onRateSubmitted = { rating ->
-                    showPeriodicRatingSheet = false
-                    context.getSharedPreferences("tijario_app_preferences", android.content.Context.MODE_PRIVATE)
-                        .edit()
-                        .putBoolean("has_rated_app", true)
-                        .apply()
-                    if (rating >= 4) {
-                        val manager = com.google.android.play.core.review.ReviewManagerFactory.create(context)
-                        val request = manager.requestReviewFlow()
-                        request.addOnCompleteListener { task ->
-                            if (task.isSuccessful) {
-                                val reviewInfo = task.result
-                                (context as? android.app.Activity)?.let { activity ->
-                                    manager.launchReviewFlow(activity, reviewInfo)
-                                }
-                            } else {
-                                android.widget.Toast.makeText(
-                                    context,
-                                    if (isArabic) "شكراً لتقييمك!" else "Thank you for your feedback!",
-                                    android.widget.Toast.LENGTH_SHORT
-                                ).show()
-                            }
-                        }
-                    } else {
-                        android.widget.Toast.makeText(
-                            context,
-                            if (isArabic) "شكراً لتقييمك!" else "Thank you for your feedback!",
-                            android.widget.Toast.LENGTH_SHORT
-                        ).show()
-                    }
-                }
-            )
-        }
     }
 }
 

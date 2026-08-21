@@ -146,7 +146,6 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
 import app.tijario.ui.components.LocalAdaptiveLayoutInfo
 import app.tijario.ui.components.LogoutConfirmationDialog
-import app.tijario.ui.components.RatingBottomSheet
 import io.github.jan.supabase.auth.auth
 import kotlinx.coroutines.launch
 
@@ -162,6 +161,7 @@ fun SettingsHomeScreen(
     onAccountSettings: () -> Unit,
     onAppSettings: () -> Unit,
     onBackupSettings: () -> Unit,
+    onRequestReview: () -> Unit,
     onLogout: () -> Unit,
 ) {
     val adaptive = LocalAdaptiveLayoutInfo.current
@@ -184,7 +184,6 @@ fun SettingsHomeScreen(
     }
     val profileEmail = Supabase.client.auth.currentUserOrNull()?.email.orEmpty()
     var showLogoutConfirmation by remember { mutableStateOf(false) }
-    var showRatingSheet by remember { mutableStateOf(false) }
     var showFeedbackScreen by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
@@ -265,7 +264,7 @@ fun SettingsHomeScreen(
                         Icons.Filled.Star,
                         t("rate_app")
                     ) {
-                        showRatingSheet = true
+                        onRequestReview()
                     }
                     SettingsOption(
                         Icons.Outlined.Share,
@@ -317,43 +316,6 @@ fun SettingsHomeScreen(
                         context.startActivity(android.content.Intent.createChooser(shareIntent, if (isAr) "مشاركة التطبيق" else "Share App"))
                     }
                 }
-            }
-
-            if (showRatingSheet) {
-                RatingBottomSheet(
-                    onDismissRequest = { showRatingSheet = false },
-                    onRateSubmitted = { rating ->
-                        showRatingSheet = false
-                        context.getSharedPreferences("tijario_app_preferences", Context.MODE_PRIVATE)
-                            .edit()
-                            .putBoolean("has_rated_app", true)
-                            .apply()
-                        if (rating >= 4) {
-                            val manager = com.google.android.play.core.review.ReviewManagerFactory.create(context)
-                            val request = manager.requestReviewFlow()
-                            request.addOnCompleteListener { task ->
-                                if (task.isSuccessful) {
-                                    val reviewInfo = task.result
-                                    (context as? android.app.Activity)?.let { activity ->
-                                        manager.launchReviewFlow(activity, reviewInfo)
-                                    }
-                                } else {
-                                    android.widget.Toast.makeText(
-                                        context,
-                                        if (java.util.Locale.getDefault().language == "ar") "شكراً لتقييمك!" else "Thank you for your feedback!",
-                                        android.widget.Toast.LENGTH_SHORT
-                                    ).show()
-                                }
-                            }
-                        } else {
-                            android.widget.Toast.makeText(
-                                context,
-                                if (java.util.Locale.getDefault().language == "ar") "شكراً لتقييمك!" else "Thank you for your feedback!",
-                                android.widget.Toast.LENGTH_SHORT
-                            ).show()
-                        }
-                    }
-                )
             }
 
             Button(

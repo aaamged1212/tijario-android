@@ -262,6 +262,10 @@
 - **Evidence**: Focused JVM suites and Debug assembly passed. `lintDebug` is pending after exceeding the local command timeout. No connected device was used.
 - **Safety**: No commit, push, deployment, migration, Production write, external configuration change, or Google Play upload occurred. `.agents` remains untracked and excluded.
 
+## 2026-08-22
+- **Current task**: Prepare and publish the local Android Google Play prompt work on `fix/android-runtime-critical-fixes` as version `0.0.21` / code `21`.
+- **Safety**: No deployment, migration, external configuration change, or Google Play upload is part of this task.
+
 ## 2026-08-13
 - **Current task**: LocalDrive offline CRUD recovery on `fix/android-runtime-critical-fixes`.
 - **State**: Local document creation uses cached entitlement/local quota validation and does not request a lease from the network. Customer, product/service, and document create/update route directly to Room in LocalDrive without operational outbox writes.
@@ -286,3 +290,9 @@
 - **State**: Source changes complete and `assembleDebug` passes. The focused test is present but the test source set remains blocked by pre-existing `BackupPlanPolicyTest.kt` type mismatches.
 - **Handoff note**: Feedback now uses the authenticated mobile API contract rather than direct PostgREST. It compresses image attachments locally before upload. The compatible Web route and pending migration are local-only; Android must not contain mail credentials.
 - **Safety**: No commit, push, deployment, migration, Production write, external configuration change, or Google Play upload. `.agents` remains untracked and excluded.
+
+## 2026-08-21
+- **Current task**: Local Google Play flexible-update and native-review integration on `fix/android-runtime-critical-fixes`.
+- **State**: Official Play UI is now used for updates and reviews; the app stores only one-day request pacing and does not pre-screen or record user ratings.
+- **Validation**: `assembleDebug` passed. The focused JVM test task is blocked at the pre-existing `BackupPlanPolicyTest.kt` compile errors.
+- **Safety**: No commit, push, deployment, migration, Production write, external configuration change, or Google Play upload occurred. `.agents` remains untracked and excluded.

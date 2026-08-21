@@ -24,8 +24,8 @@ android {
         applicationId = "app.tijario"
         minSdk = 26
         targetSdk = 36
-        versionCode = 20
-        versionName = "0.0.20"
+        versionCode = 21
+        versionName = "0.0.21"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -145,6 +145,7 @@ dependencies {
     implementation(libs.firebase.messaging)
     implementation(libs.google.play.billing.ktx)
     implementation(libs.google.play.review)
+    implementation(libs.google.play.app.update)
     implementation("com.github.GoMarketMe:gomarketme-kotlin:5.0.2")
 
     debugImplementation(libs.androidx.compose.ui.tooling)
