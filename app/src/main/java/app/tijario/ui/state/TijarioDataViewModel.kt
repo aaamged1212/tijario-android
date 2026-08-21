@@ -451,7 +451,7 @@ class TijarioDataViewModel(
     suspend fun submitUserFeedback(
         subject: String,
         message: String,
-        images: List<String>
+        images: List<app.tijario.data.remote.MobileFeedbackImage>,
     ): Result<Unit> = repository.submitUserFeedback(subject, message, images)
 }
 

@@ -92,6 +92,9 @@ class BackendApiClient(
     suspend fun uploadBusinessLogo(request: UploadLogoRequest): ApiResult<UploadLogoResponse> =
         authorizedPost("api/mobile/business-settings/logo", request).decodeApiResult()
 
+    suspend fun submitMobileFeedback(request: MobileFeedbackRequest): ApiResult<MobileFeedbackResponse> =
+        authorizedPost("api/mobile/feedback", request).decodeApiResult()
+
     suspend fun requestPasswordReset(request: ResetPasswordRequest): ApiResult<ResetPasswordResponse> =
         publicPost("api/mobile/auth/reset-password", request).decodeApiResult()
 

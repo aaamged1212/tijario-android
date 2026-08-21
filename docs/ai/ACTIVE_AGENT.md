@@ -274,3 +274,9 @@
 - **Validation**: Dependency insight retained Billing `9.1.0`; forced `assembleDebug` passed. The focused unit-test task is blocked by three pre-existing `BackupPlanPolicyTest.kt` type errors.
 - **Pending**: Physical cold-start/offline/purchase attribution QA and Google Play Data Safety review before release.
 - **Safety**: No push, deployment, migration, Production write, external configuration change, or Google Play upload occurred. `.agents` remains local and excluded.
+
+## 2026-08-21
+- **Current task**: Local feedback copy/theme cleanup, customer metric layout, and dashboard quick-action theme consistency on `fix/android-runtime-critical-fixes`.
+- **State**: Source changes complete and `assembleDebug` passes. The focused test is present but the test source set remains blocked by pre-existing `BackupPlanPolicyTest.kt` type mismatches.
+- **Handoff note**: Feedback now uses the authenticated mobile API contract rather than direct PostgREST. It compresses image attachments locally before upload. The compatible Web route and pending migration are local-only; Android must not contain mail credentials.
+- **Safety**: No commit, push, deployment, migration, Production write, external configuration change, or Google Play upload. `.agents` remains untracked and excluded.

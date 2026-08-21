@@ -1176,7 +1176,8 @@ private fun QuickActionItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val isDark = androidx.compose.foundation.isSystemInDarkTheme()
+    // Use the app-selected theme, not the system theme, so manual light mode is respected.
+    val isDark = AppRuntimeState.isDarkMode
     val containerColor = if (isDark) Color(0xFF0F172A).copy(alpha = 0.4f) else MaterialTheme.colorScheme.surface
     val borderColor = if (isDark) Color(0xFF1E293B) else MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
     val textColor = if (isDark) Color.White else MaterialTheme.colorScheme.onSurface
@@ -1536,10 +1537,9 @@ fun CustomersScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier.weight(1f)
                     ) {
-                        Icon(Icons.Filled.People, contentDescription = null, tint = Color(0xFF6B7280), modifier = Modifier.size(18.dp))
+                        CustomerStatLabel(Icons.Filled.People, Color(0xFF6B7280), t("total_customers"))
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(customers.size.toString(), fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                        Text(t("total_customers"), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
 
                     Box(modifier = Modifier.width(1.dp).height(32.dp).background(MaterialTheme.colorScheme.outlineVariant))
@@ -1549,10 +1549,9 @@ fun CustomersScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier.weight(1f)
                     ) {
-                        Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = Color(0xFF10B981), modifier = Modifier.size(18.dp))
+                        CustomerStatLabel(Icons.Filled.CheckCircle, Color(0xFF10B981), t("active_customers"))
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(activeCustomersCount.toString(), fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                        Text(t("active_customers"), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
 
                     Box(modifier = Modifier.width(1.dp).height(32.dp).background(MaterialTheme.colorScheme.outlineVariant))
@@ -1562,10 +1561,9 @@ fun CustomersScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier.weight(1f)
                     ) {
-                        Icon(Icons.Filled.Description, contentDescription = null, tint = Color(0xFF3B82F6), modifier = Modifier.size(18.dp))
+                        CustomerStatLabel(Icons.Filled.Description, Color(0xFF3B82F6), t("new_customers"))
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(newCustomersCount.toString(), fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                        Text(t("new_customers"), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
 
                     Box(modifier = Modifier.width(1.dp).height(32.dp).background(MaterialTheme.colorScheme.outlineVariant))
@@ -1575,10 +1573,9 @@ fun CustomersScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier.weight(1f)
                     ) {
-                        Icon(Icons.Filled.Star, contentDescription = null, tint = Color(0xFFFBBF24), modifier = Modifier.size(18.dp))
+                        CustomerStatLabel(Icons.Filled.Star, Color(0xFFFBBF24), t("most_active_customers"))
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(topCustomersCount.toString(), fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                        Text(t("most_active_customers"), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
@@ -1874,6 +1871,18 @@ fun CustomersScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun CustomerStatLabel(icon: ImageVector, iconTint: Color, label: String) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
+    ) {
+        Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(18.dp))
+        Spacer(modifier = Modifier.width(4.dp))
+        Text(label, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

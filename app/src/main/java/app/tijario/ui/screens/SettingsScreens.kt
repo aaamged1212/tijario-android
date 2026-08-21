@@ -201,8 +201,6 @@ fun SettingsHomeScreen(
     if (showFeedbackScreen) {
         FeedbackScreen(
             dataViewModel = dataViewModel,
-            userEmail = profileEmail,
-            userName = profileName,
             onBack = { showFeedbackScreen = false }
         )
     } else {
@@ -3200,8 +3198,6 @@ private tailrec fun Context.findActivity(): Activity? =
 @Composable
 fun FeedbackScreen(
     dataViewModel: app.tijario.ui.state.TijarioDataViewModel,
-    userEmail: String,
-    userName: String,
     onBack: () -> Unit
 ) {
     val language = LocalLanguage.current
@@ -3209,8 +3205,11 @@ fun FeedbackScreen(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     var isSubmitting by remember { mutableStateOf(false) }
-    
-    var selectedSubject by remember { mutableStateOf(if (isArabic) "عام" else "General") }
+    val defaultSubject = t("feedback_subject_general")
+    val feedbackSuccessMessage = t("feedback_success")
+    val feedbackErrorMessage = t("feedback_error")
+
+    var selectedSubject by remember(defaultSubject) { mutableStateOf(defaultSubject) }
     var showSubjectDropdown by remember { mutableStateOf(false) }
     var messageText by remember { mutableStateOf("") }
     var selectedImages by remember { mutableStateOf<List<android.net.Uri>>(emptyList()) }
@@ -3223,16 +3222,18 @@ fun FeedbackScreen(
         }
     }
 
-    val subjects = if (isArabic) {
-        listOf("عام", "مشكلة", "اقتراح ميزة", "الفوترة", "أخرى")
-    } else {
-        listOf("General", "Problem", "Feature Suggestion", "Billing", "Other")
-    }
+    val subjects = listOf(
+        t("feedback_subject_general"),
+        t("feedback_subject_problem"),
+        t("feedback_subject_feature"),
+        t("feedback_subject_billing"),
+        t("feedback_subject_other"),
+    )
 
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text(if (isArabic) "إرسال ملاحظة" else "Send Feedback", fontWeight = FontWeight.Bold) },
+                title = { Text(t("feedback_title"), fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack, enabled = !isSubmitting) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = t("btn_back"))
@@ -3252,13 +3253,13 @@ fun FeedbackScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text(
-                text = if (isArabic) "أخبرنا بما حدث" else "Tell us what happened",
+                text = t("feedback_heading"),
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground
             )
             Text(
-                text = if (isArabic) "شاركن الأخطاء أو الاقتراحات أو أي شيء يساعدنا على تحسين مساعد." else "Share bugs, suggestions, or anything that helps us improve.",
+                text = t("feedback_description"),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -3310,7 +3311,7 @@ fun FeedbackScreen(
             OutlinedTextField(
                 value = messageText,
                 onValueChange = { if (it.length <= 4000) messageText = it },
-                placeholder = { Text(if (isArabic) "اكتب ملاحظاتك هنا..." else "Write your feedback here...") },
+                placeholder = { Text(t("feedback_message_placeholder")) },
                 enabled = !isSubmitting,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -3345,7 +3346,7 @@ fun FeedbackScreen(
                         modifier = Modifier
                             .size(72.dp)
                             .clickable(enabled = !isSubmitting) { imagePicker.launch("image/*") },
-                        color = Color(0xFF0F2537),
+                        color = MaterialTheme.colorScheme.surfaceVariant,
                         shape = RoundedCornerShape(12.dp),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                     ) {
@@ -3355,14 +3356,14 @@ fun FeedbackScreen(
                         ) {
                             Icon(
                                 imageVector = Icons.Filled.Image,
-                                contentDescription = null,
-                                tint = Color(0xFF0FA36E)
+                                contentDescription = t("feedback_add_image"),
+                                tint = MaterialTheme.colorScheme.primary
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = if (isArabic) "إضافة صور" else "Add image",
+                                text = t("feedback_add_image"),
                                 fontSize = 10.sp,
-                                color = Color.White
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
@@ -3422,37 +3423,32 @@ fun FeedbackScreen(
                     if (messageText.isBlank()) return@Button
                     isSubmitting = true
                     coroutineScope.launch {
-                        val base64Images = withContext(Dispatchers.IO) {
+                        val feedbackImages = withContext(Dispatchers.IO) {
                             selectedImages.mapNotNull { uri ->
-                                try {
-                                    context.contentResolver.openInputStream(uri)?.use { inputStream ->
-                                        val bytes = inputStream.readBytes()
-                                        android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
-                                    }
-                                } catch (e: Exception) {
-                                    null
-                                }
+                                runCatching {
+                                    app.tijario.data.remote.FeedbackImageEncoder.encode(context.contentResolver, uri)
+                                }.getOrNull()
                             }
                         }
                         
                         val result = dataViewModel.submitUserFeedback(
                             subject = selectedSubject,
                             message = messageText,
-                            images = base64Images
+                            images = feedbackImages
                         )
                         
                         isSubmitting = false
                         if (result.isSuccess) {
                             android.widget.Toast.makeText(
                                 context,
-                                if (isArabic) "تم إرسال الملاحظة بنجاح!" else "Feedback sent successfully!",
+                                feedbackSuccessMessage,
                                 android.widget.Toast.LENGTH_LONG
                             ).show()
                             onBack()
                         } else {
                             android.widget.Toast.makeText(
                                 context,
-                                if (isArabic) "حدث خطأ أثناء الإرسال. تأكد من اتصال الإنترنت." else "Error sending feedback. Please check your internet connection.",
+                                feedbackErrorMessage,
                                 android.widget.Toast.LENGTH_LONG
                             ).show()
                         }
@@ -3469,7 +3465,7 @@ fun FeedbackScreen(
                     CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
                 } else {
                     Text(
-                        text = if (isArabic) "إرسال الملاحظات" else "Submit Feedback",
+                        text = t("feedback_title"),
                         fontWeight = FontWeight.Bold,
                         color = Color.White
                     )

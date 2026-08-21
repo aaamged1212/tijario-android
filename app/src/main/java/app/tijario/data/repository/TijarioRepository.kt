@@ -2657,23 +2657,18 @@ open class TijarioRepository(
     suspend fun submitUserFeedback(
         subject: String,
         message: String,
-        images: List<String>
+        images: List<app.tijario.data.remote.MobileFeedbackImage>,
     ): Result<Unit> = runCatching {
-        val user = supabaseClient.auth.currentUserOrNull() ?: error("No authenticated user")
-        val userEmail = user.email.orEmpty()
-        val userName = fetchCurrentProfileFullName().getOrNull().orEmpty().ifBlank { userEmail.substringBefore("@") }
-        
-        val dto = UserFeedbackInsertDto(
-            userId = user.id,
-            userName = userName,
-            userEmail = userEmail,
-            subject = subject,
-            message = message,
-            images = images
+        val result = backendApiClient.submitMobileFeedback(
+            app.tijario.data.remote.MobileFeedbackRequest(
+                subject = subject,
+                message = message,
+                images = images,
+            ),
         )
-        
-        withContext(Dispatchers.IO) {
-            supabaseClient.from("user_feedbacks").insert(dto)
+
+        if (!result.ok) {
+            error(result.code ?: "feedback_delivery_failed")
         }
     }
 }
@@ -2733,13 +2728,3 @@ internal fun buildDocumentSyncPayload(
             }
         }
     }
-
-@kotlinx.serialization.Serializable
-data class UserFeedbackInsertDto(
-    @kotlinx.serialization.SerialName("user_id") val userId: String,
-    @kotlinx.serialization.SerialName("user_name") val userName: String,
-    @kotlinx.serialization.SerialName("user_email") val userEmail: String,
-    val subject: String,
-    val message: String,
-    val images: List<String>
-)

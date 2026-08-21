@@ -414,6 +414,24 @@ data class UploadLogoResponse(
 )
 
 @Serializable
+data class MobileFeedbackImage(
+    @SerialName("mime_type") val mimeType: String,
+    @SerialName("data_base64") val dataBase64: String,
+)
+
+@Serializable
+data class MobileFeedbackRequest(
+    val subject: String,
+    val message: String,
+    val images: List<MobileFeedbackImage> = emptyList(),
+)
+
+@Serializable
+data class MobileFeedbackResponse(
+    @SerialName("feedback_id") val feedbackId: String,
+)
+
+@Serializable
 data class ResetPasswordRequest(
     val email: String,
     val source: String = "android",

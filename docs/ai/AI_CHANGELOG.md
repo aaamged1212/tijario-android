@@ -674,3 +674,10 @@
 - Added the official GoMarketMe Kotlin SDK as an optional, application-context sidecar. The API key is read only from the local user-level Gradle property into BuildConfig and is never committed or logged.
 - The billing repository requests a best-effort transaction sync only after server-side Google Play verification succeeds and before acknowledgement. The call is asynchronous, locally deduplicated by an in-memory SHA-256 purchase fingerprint, and cannot change Tijario purchase completion behavior.
 - Gradle retained Billing `9.1.0` over GoMarketMe's requested `8.3.0`. The SDK adds no Android permissions and needs no application R8 rules. Play Data Safety disclosure must be reviewed before release because the SDK source handles attribution/device and purchase transaction information.
+
+# 2026-08-21 - Feedback and light-theme UI polish
+- Replaced the feedback-screen Mosaed wording with Tijario Arabic/English copy and made the attachment tile theme-aware in light and dark modes.
+- Replaced the direct `user_feedbacks` PostgREST insert with the authenticated `/api/mobile/feedback` contract. The server, not Android, resolves the account email and sends the support email; Android only provides bounded feedback content and compressed image attachments.
+- Shortened customer metric labels, placed them beside their icons, and moved the count beneath; quick-action cards now obey the app-selected theme rather than the device theme.
+- Added a focused source-contract test. Debug assembly passed; Debug unit tests remain blocked by pre-existing `BackupPlanPolicyTest.kt` type errors.
+- No commit, push, deployment, migration, Production write, external configuration change, or Google Play upload occurred.

@@ -255,3 +255,10 @@
 - **Purchase flow**: Only a server-verified Google Play purchase requests one best-effort asynchronous SDK transaction sync. Failure cannot block acknowledgement or Tijario purchase completion.
 - **Validation**: Billing resolves to `9.1.0`; forced Debug assembly passed. The focused JVM task is currently blocked by pre-existing compile errors in `BackupPlanPolicyTest.kt`.
 - **Release gate**: Google Play Data Safety review and a physical test purchase/attribution check are required before release. No external system changed.
+
+## 2026-08-21 Feedback and dashboard light-theme follow-up
+- **Current state**: Feedback uses Tijario-specific copy, compacts optional attachments, and sends a bearer-authenticated request to the mobile backend. Customer metric labels are compact, and dashboard quick-action colors honor the selected app theme.
+- **Delivery contract**: Android cannot and does not use a user's mailbox or provider credential. The compatible Web backend identifies the account from the bearer token and sets the authenticated email as the support message reply-to.
+- **Validation**: Debug assembly passed. New focused UI-contract coverage is pending execution until the existing `BackupPlanPolicyTest.kt` compile mismatches are resolved.
+- **Release dependency**: The Android feedback path requires the compatible Web route, the pending feedback storage migration, and server-only email configuration before it can deliver support messages.
+- **Safety**: Local source only; no commit, push, deployment, migration, Production write, external configuration change, or Google Play upload.

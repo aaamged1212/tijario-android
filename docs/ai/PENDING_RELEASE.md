@@ -201,3 +201,8 @@ The counters migration is required to manage sequential document numbers without
 - Before a Google Play release, review the GoMarketMe SDK's device/install attribution and Google Play transaction handling in the Play Data Safety form. The current source supports device/install identifiers, affiliate attribution data, installer metadata, and current purchase transaction reporting; do not infer any additional categories without vendor confirmation.
 - On a physical test device, verify cold start, login, offline Room CRUD, and a Google Play test subscription. The Tijario purchase must still verify and acknowledge when GoMarketMe is unavailable; confirm attribution/transaction visibility only in the GoMarketMe dashboard after a successful test purchase.
 - The focused GoMarketMe JVM test is not yet executable because unrelated `BackupPlanPolicyTest.kt` compile errors currently block the Debug unit-test source set.
+
+## 2026-08-21 Feedback Delivery Release Gate
+- Apply the compatible Web migration `20260821174314_create_mobile_feedback_delivery.sql`; do not apply it independently of the mobile feedback API deployment.
+- Configure server-only `RESEND_API_KEY` and a verified `FEEDBACK_EMAIL_FROM` sender in the Web deployment environment. Keep both values out of Android and source control.
+- On a physical device, submit an Arabic and English feedback message with and without an image. Confirm the support mailbox receives it, reply reaches the authenticated user email, and the attachment link works without exposing the storage bucket publicly.
