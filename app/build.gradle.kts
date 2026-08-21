@@ -33,11 +33,18 @@ android {
         val supabaseAnonKey = providers.gradleProperty("TIJARIO_SUPABASE_ANON_KEY").orElse("").get()
         val apiBaseUrl = providers.gradleProperty("TIJARIO_API_BASE_URL").orElse("").get()
         val googleWebClientId = providers.gradleProperty("TIJARIO_GOOGLE_WEB_CLIENT_ID").orElse("").get()
+        val goMarketMeApiKey = providers.gradleProperty("GOMARKETME_API_KEY").orElse("").get()
+        val escapedGoMarketMeApiKey = goMarketMeApiKey
+            .replace("\\", "\\\\")
+            .replace("\"", "\\\"")
+            .replace("\n", "\\n")
+            .replace("\r", "\\r")
 
         buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"$supabaseAnonKey\"")
         buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
         buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$googleWebClientId\"")
+        buildConfigField("String", "GOMARKETME_API_KEY", "\"$escapedGoMarketMeApiKey\"")
     }
 
     signingConfigs {
@@ -138,6 +145,7 @@ dependencies {
     implementation(libs.firebase.messaging)
     implementation(libs.google.play.billing.ktx)
     implementation(libs.google.play.review)
+    implementation("com.github.GoMarketMe:gomarketme-kotlin:5.0.2")
 
     debugImplementation(libs.androidx.compose.ui.tooling)
     testImplementation(libs.junit)

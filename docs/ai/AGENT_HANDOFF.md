@@ -980,3 +980,10 @@
 - **Documents and AI**: Free-plan document branding now includes a compact Tijario mark and a green Play Store link. The dashboard View All action follows the active layout direction. AI history is an icon-only action beside the Reply/Caption generation button.
 - **Validation**: Focused JVM contracts, `assemblePlayQa`, `lintDebug`, and `git diff --check` passed. Physical Arabic/English layout and exported-PDF link QA remain required.
 - **Safety Status**: No commit, push, deployment, migration, Production write, Web change, external configuration change, or Google Play upload occurred. `.agents` remains local and excluded.
+
+## 2026-08-21 (GoMarketMe affiliate attribution sidecar, local)
+- **Integration**: Added the official stable `com.github.GoMarketMe:gomarketme-kotlin:5.0.2` dependency through JitPack. `MainActivity` requests one best-effort SDK initialization using only the local Gradle `GOMARKETME_API_KEY` BuildConfig field.
+- **Billing boundary**: A verified Google Play purchase requests an asynchronous, in-memory-deduplicated transaction sync before Tijario acknowledges the purchase. Any attribution failure is swallowed and cannot delay server verification, acknowledgement, entitlement UI, Room, login, or offline CRUD.
+- **Compatibility and manifest**: Gradle resolves Tijario Billing `9.1.0` over the SDK's transitive `8.3.0`; no downgrade occurred. The SDK AAR contributes only `minSdk 24`, no permissions, and empty consumer rules. Existing AD_ID and Install Referrer manifest entries are from pre-existing dependencies.
+- **Validation**: Dependency insight and forced `assembleDebug` passed. The focused unit-test task is blocked by three pre-existing type errors in `BackupPlanPolicyTest.kt`, before any tests can execute. Physical purchase/attribution QA and Google Play Data Safety review remain required.
+- **Safety Status**: No push, deployment, migration, Production write, Web change, external configuration change, or Google Play upload occurred. `.agents` remains local and excluded.

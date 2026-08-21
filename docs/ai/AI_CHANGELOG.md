@@ -669,3 +669,8 @@
 - Refined Business Information labels and phone alignment, removed the duplicate business-name edit affordance, and simplified the application-appearance icon treatment.
 - Reworked the current-plan banner copy, corrected the dashboard View All arrow order/direction, and moved AI history into an icon action beside generation.
 - Added linked Tijario logo branding to free-plan document output. Focused JVM tests, `assemblePlayQa`, `lintDebug`, and `git diff --check` pass; exported-PDF and compact-device visual QA remain pending.
+
+# 2026-08-21 - GoMarketMe affiliate attribution sidecar
+- Added the official GoMarketMe Kotlin SDK as an optional, application-context sidecar. The API key is read only from the local user-level Gradle property into BuildConfig and is never committed or logged.
+- The billing repository requests a best-effort transaction sync only after server-side Google Play verification succeeds and before acknowledgement. The call is asynchronous, locally deduplicated by an in-memory SHA-256 purchase fingerprint, and cannot change Tijario purchase completion behavior.
+- Gradle retained Billing `9.1.0` over GoMarketMe's requested `8.3.0`. The SDK adds no Android permissions and needs no application R8 rules. Play Data Safety disclosure must be reviewed before release because the SDK source handles attribution/device and purchase transaction information.

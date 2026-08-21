@@ -249,3 +249,9 @@
 - **Documents and navigation**: Free-plan PDF output includes compact linked Tijario branding, dashboard View All follows RTL/LTR correctly, and AI history is colocated with generation without changing persistence or generation behavior.
 - **Validation**: Focused JVM tests, `assemblePlayQa`, `lintDebug`, and `git diff --check` passed. Physical RTL/LTR and generated-PDF hyperlink QA remain pending.
 - **Safety**: No commit, push, deployment, migration, Production write, Web change, external configuration change, or Google Play upload occurred.
+
+## 2026-08-21 GoMarketMe Affiliate Attribution
+- **State**: Android now has an optional GoMarketMe SDK sidecar initialized from `MainActivity`. It is independent of login, Room, LocalDrive CRUD, business settings, AI, and entitlement decisions.
+- **Purchase flow**: Only a server-verified Google Play purchase requests one best-effort asynchronous SDK transaction sync. Failure cannot block acknowledgement or Tijario purchase completion.
+- **Validation**: Billing resolves to `9.1.0`; forced Debug assembly passed. The focused JVM task is currently blocked by pre-existing compile errors in `BackupPlanPolicyTest.kt`.
+- **Release gate**: Google Play Data Safety review and a physical test purchase/attribution check are required before release. No external system changed.

@@ -13,6 +13,7 @@ import app.tijario.config.AuthDeepLinkPolicy
 import app.tijario.config.AppLanguage
 import app.tijario.config.AppRuntimeState
 import app.tijario.config.LocalLanguage
+import app.tijario.features.affiliate.GoMarketMeAffiliate
 import app.tijario.features.notifications.NotificationDeepLinkState
 import app.tijario.features.notifications.ensureAnnouncementNotificationChannel
 import app.tijario.features.backup.ensureBackupNotificationChannel
@@ -27,6 +28,7 @@ class MainActivity : ComponentActivity() {
         ensureAnnouncementNotificationChannel(applicationContext)
         ensureBackupNotificationChannel(applicationContext)
         app.tijario.analytics.TijarioAnalytics.initialize(applicationContext)
+        GoMarketMeAffiliate.initialize(applicationContext)
         NotificationDeepLinkState.handleUri(intent?.data)
         handleAuthDeepLink(intent)
         WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)

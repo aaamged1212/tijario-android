@@ -5,6 +5,7 @@ import android.content.Context
 import app.tijario.data.remote.BackendApiClient
 import app.tijario.data.remote.BillingPlanDto
 import app.tijario.data.remote.GooglePlayVerifyRequest
+import app.tijario.features.affiliate.GoMarketMeAffiliate
 import com.android.billingclient.api.AcknowledgePurchaseParams
 import com.android.billingclient.api.BillingClient
 import com.android.billingclient.api.BillingClientStateListener
@@ -178,6 +179,9 @@ class GooglePlayBillingRepository(
             )
             return
         }
+
+        // Attribution reporting is optional and must never delay Tijario's verified purchase flow.
+        GoMarketMeAffiliate.syncTransactionsForPurchase(purchase.purchaseToken)
 
         if (response.data?.acknowledge == true && !purchase.isAcknowledged) {
             acknowledgePurchase(purchase.purchaseToken)

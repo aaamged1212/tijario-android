@@ -63,10 +63,13 @@ class BillingFoundationTests {
         ).readText()
 
         val verification = source.indexOf("backendApiClient.verifyGooglePlayPurchase")
+        val affiliateSync = source.indexOf("GoMarketMeAffiliate.syncTransactionsForPurchase")
         val acknowledgement = source.indexOf("acknowledgePurchase(purchase.purchaseToken)")
         val verifiedEvent = source.indexOf("BillingPurchaseEvent.Verified")
 
         assertTrue(verification >= 0)
+        assertTrue(affiliateSync > verification)
+        assertTrue(affiliateSync < acknowledgement)
         assertTrue(acknowledgement > verification)
         assertTrue(verifiedEvent > acknowledgement)
         assertFalse(source.contains("Log."))

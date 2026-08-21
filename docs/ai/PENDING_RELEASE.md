@@ -196,3 +196,8 @@ The counters migration is required to manage sequential document numbers without
 - Verify the current-plan banner on Free, Starter, and Pro in Arabic and English without compact-screen clipping.
 - Generate a branded Free-plan PDF and confirm the small logo renders, Tijario is green, and its link opens `https://play.google.com/store/apps/details?id=app.tijario`.
 - Verify dashboard View All ordering/direction in RTL and LTR and confirm the AI history icon remains aligned beside both generation actions.
+
+## 2026-08-21 GoMarketMe Attribution Release Gate
+- Before a Google Play release, review the GoMarketMe SDK's device/install attribution and Google Play transaction handling in the Play Data Safety form. The current source supports device/install identifiers, affiliate attribution data, installer metadata, and current purchase transaction reporting; do not infer any additional categories without vendor confirmation.
+- On a physical test device, verify cold start, login, offline Room CRUD, and a Google Play test subscription. The Tijario purchase must still verify and acknowledge when GoMarketMe is unavailable; confirm attribution/transaction visibility only in the GoMarketMe dashboard after a successful test purchase.
+- The focused GoMarketMe JVM test is not yet executable because unrelated `BackupPlanPolicyTest.kt` compile errors currently block the Debug unit-test source set.

@@ -267,3 +267,10 @@
 - **State**: Fathatan placement is normalized and guarded; Business Information, appearance, and current-plan presentation match the requested copy; free-plan PDF branding is linked; View All and AI history actions are repositioned.
 - **Validation**: Focused JVM tests, `assemblePlayQa`, `lintDebug`, and `git diff --check` passed. Physical RTL/LTR and PDF-link QA remain pending.
 - **Safety**: No commit, push, deployment, migration, Production write, Web change, external configuration change, or Google Play upload occurred. `.agents` remains local and excluded.
+
+## 2026-08-21
+- **Current task**: Local GoMarketMe affiliate attribution integration on `fix/android-runtime-critical-fixes`.
+- **State**: The SDK is an optional asynchronous sidecar initialized from `MainActivity`; successful server-verified Google Play purchases request a non-blocking, in-memory-deduplicated transaction sync before acknowledgement. No Room, login, entitlement, backend, or release configuration changed.
+- **Validation**: Dependency insight retained Billing `9.1.0`; forced `assembleDebug` passed. The focused unit-test task is blocked by three pre-existing `BackupPlanPolicyTest.kt` type errors.
+- **Pending**: Physical cold-start/offline/purchase attribution QA and Google Play Data Safety review before release.
+- **Safety**: No push, deployment, migration, Production write, external configuration change, or Google Play upload occurred. `.agents` remains local and excluded.
