@@ -277,6 +277,12 @@
 - **Evidence**: Focused JVM suites and Debug assembly passed. `lintDebug` is pending after exceeding the local command timeout. No connected device was used.
 - **Safety**: No commit, push, deployment, migration, Production write, external configuration change, or Google Play upload occurred. `.agents` remains untracked and excluded.
 
+## 2026-08-24 - Yemen payments and administrator dashboard published
+- **Published**: Commit `9f3fe99` is pushed to `codex/yemen-payment-methods`.
+- **Backend dependency**: The matching Production schema migration `20260824123000_admin_account_management.sql` is applied, but the compatible Web API is not deployed yet.
+- **Administrator state**: Only the existing Auth account for `aaamged1212@gmail.com` is configured as an administrator. The requested `tijario.site@gmail.com` address has no Auth account.
+- **Remaining gate**: Deploy compatible Web/API and run physical admin/non-admin, receipt-preview, and manual-payment submission QA. No Android release or Google Play upload occurred.
+
 ## 2026-08-22
 - **Current task**: Prepare and publish the local Android Google Play prompt work on `fix/android-runtime-critical-fixes` as version `0.0.21` / code `21`.
 - **Safety**: No deployment, migration, external configuration change, or Google Play upload is part of this task.

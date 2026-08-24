@@ -298,3 +298,8 @@
 - **Local UI**: The Yemen payment screens show full receipt preview, explicit monthly/yearly selection context, annual pricing after the 20% discount, and localized payment account labels.
 - **Admin visibility**: The new dashboard is hidden unless the backend reports the authenticated account is an `app_admins` member. All actions depend on the compatible Web API and its pending admin migration.
 - **Release dependency**: Do not release the Android dashboard until `20260824123000_admin_account_management.sql` is applied with compatible Web source and at least one authorized administrator has been configured.
+
+## 2026-08-24 Yemen payment and admin dashboard publication
+- Commit `9f3fe99` is published to `origin/codex/yemen-payment-methods`.
+- The matching Production migration is applied, and the intended existing Auth account is configured as an administrator. The Web/API source remains undeployed, so the dashboard must not be treated as live yet.
+- Physical QA and an Android release remain separate actions; no Google Play upload occurred.

@@ -713,3 +713,8 @@
 - Added complete receipt thumbnail preview, annual Yemen pricing with the 20% twelve-month discount, Arabic account-value labels, and clearer verification/activation messaging.
 - Added the admin-only Settings entry, account search/cards, and bottom-sheet account actions. The UI relies on authenticated backend authorization rather than local role state.
 - Debug assembly passed; targeted JVM execution remains blocked by existing `BackupPlanPolicyTest.kt` compile errors outside this change.
+
+# 2026-08-24 - Yemen payment and administrator dashboard publication
+- Published Android commit `9f3fe99` on `codex/yemen-payment-methods`.
+- The matching administrator schema is now applied in Production; app visibility and mutations remain protected by server-side `app_admins` checks and require the compatible API deployment.
+- No Android artifact, Google Play upload, Web deployment, or external configuration change occurred.

@@ -963,6 +963,12 @@
 - **Validation**: 17 focused JVM tests, both Debug/DebugAndroidTest assemblies, and `lintDebug` passed. Run physical RTL/LTR, compact-screen, and cold-launch visual QA before release.
 - **Safety Status**: No commit, push, deployment, migration, Production write, external configuration change, or Google Play upload occurred. `.agents` remains local and excluded.
 
+## 2026-08-24 (Yemen payment and administrator publication)
+- **Android**: Commit `9f3fe99` was pushed to `codex/yemen-payment-methods`; no APK/AAB or Google Play upload occurred.
+- **Backend dependency**: `20260824123000_admin_account_management.sql` is applied on Production, but the compatible API deployment remains pending.
+- **Admin state**: `aaamged1212@gmail.com` is the configured administrator. `tijario.site@gmail.com` was not configured because no Auth account exists for that email.
+- **Next gate**: Deploy Web/API, then perform physical administrator, non-administrator, receipt preview, and payment-email QA.
+
 ## 2026-08-24 (Yemen payment polish and admin UI, local)
 - **Manual payment**: The Yemen payment flow now displays the selected receipt as a complete thumbnail, marks the required receipt indicator in red, shows Arabic currency/contact labels, and reflects the selected monthly or yearly plan price. Yearly pricing applies twelve months less 20%.
 - **User notice**: Local payment-request notifications state the selected billing interval and set the one-to-two-hour verification expectation with in-app and email activation notice.
