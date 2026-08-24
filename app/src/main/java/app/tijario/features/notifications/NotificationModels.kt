@@ -64,7 +64,7 @@ fun AnnouncementDto.toEntity(userId: String, existing: AnnouncementEntity?, sync
         isRead = existing?.isRead == true || isRead,
         isSeen = existing?.isSeen == true || isSeen,
         isDismissed = existing?.isDismissed == true || isDismissed,
-        isLocal = false,
+        isLocal = isLocal,
         lastSyncedAt = syncedAt,
     )
 

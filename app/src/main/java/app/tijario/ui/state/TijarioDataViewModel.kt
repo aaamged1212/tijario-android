@@ -457,8 +457,10 @@ class TijarioDataViewModel(
     suspend fun submitManualPayment(
         planCode: String,
         paymentMethod: String,
+        billingInterval: String,
+        locale: String,
         receipt: app.tijario.data.remote.MobileFeedbackImage,
-    ): Result<String> = repository.submitManualPayment(planCode, paymentMethod, receipt)
+    ): Result<String> = repository.submitManualPayment(planCode, paymentMethod, billingInterval, locale, receipt)
 
     suspend fun isCurrentUserAdmin(): Boolean = repository.isCurrentUserAdmin()
 

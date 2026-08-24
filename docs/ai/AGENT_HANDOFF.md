@@ -1,5 +1,10 @@
 # Agent Handoff (Android & Web Repos)
 
+## 2026-08-24 (Localized manual-payment and plan renewal support, local uncommitted)
+- Android now sends the selected billing interval and app locale with each authenticated manual-payment proof request. This allows the server to send a matching Arabic/English support message with the selected plan, duration, and price.
+- The entitlement response's `current_period_end` is persisted in the cached plan usage and rendered as a concise renewal date in Payments & Subscriptions.
+- Target-only plan-activation notifications use the paired applied Web migration `20260824140000_account_plan_activation_notifications.sql`. Compatible deployment and device QA remain pending; no Vercel deployment or Google Play action occurred.
+
 ## 2026-08-24 (Yemen manual payment proof flow, published source)
 - **Commit**: `8575db40768df0d071df2e9baebf3db6260e3ccd` is pushed to `origin/codex/yemen-payment-methods`.
 - **Release state**: Source publication only. No APK/AAB upload, Google Play action, Supabase migration, deployment, Production write, or external configuration change occurred.

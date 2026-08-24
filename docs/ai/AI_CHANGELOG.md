@@ -1,5 +1,10 @@
 # AI Changelog
 
+## 2026-08-24 - Localized manual-payment and renewal-date contracts
+- Added interval and locale fields to manual-payment requests and cached `current_period_end` for the payment subscription card.
+- Added Android mapping for targeted plan notices supplied by the Web notification bootstrap.
+- Gradle validation is inconclusive because local output cleanup and worker execution blocked the targeted task; the paired database migration is applied, while deployment and device QA remain pending.
+
 ## 2026-08-24 - Yemen payment proof source published
 - Published the Android payment-method and receipt-proof flow as `8575db4` on `codex/yemen-payment-methods`; physical device QA and compatible API deployment remain pending.
 

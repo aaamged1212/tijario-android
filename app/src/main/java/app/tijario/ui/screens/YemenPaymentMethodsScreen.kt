@@ -342,7 +342,13 @@ fun YemenPaymentProofScreen(
                             isSubmitting = false
                             return@launch
                         }
-                        val result = dataViewModel.submitManualPayment(planCode.lowercase(), method.id, receipt)
+                        val result = dataViewModel.submitManualPayment(
+                            planCode = planCode.lowercase(),
+                            paymentMethod = method.id,
+                            billingInterval = interval.lowercase(),
+                            locale = if (isArabic) "ar" else "en",
+                            receipt = receipt,
+                        )
                         isSubmitting = false
                         if (result.isSuccess) {
                             notificationsViewModel.recordManualPaymentRequest(

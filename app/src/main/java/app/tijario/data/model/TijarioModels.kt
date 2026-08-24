@@ -135,6 +135,7 @@ data class UserPlanUsage(
     val productsUsed: Int = 0,
     val productsLimit: Int? = null,
     val resetAt: String? = null,
+    val renewalAt: String? = null,
     val allowedTemplateIds: List<String> = emptyList(),
     val removeTijarioBranding: Boolean = false,
 )

@@ -1,5 +1,10 @@
 # Project State (Android & Web Repos)
 
+## 2026-08-24 - Localized manual-payment and plan renewal support (local)
+- The manual-payment API contract sends `billing_interval` and `locale`, while the entitlement contract carries `current_period_end` for a cached renewal-date display.
+- Target-user plan activation notices are supplied by the paired Web/API implementation after its forward migration was applied; Android maps them as local notification-cache entries so global announcement receipts are never sent for them.
+- Targeted Gradle validation did not complete: the first run reported local output cleanup failure and the retry timed out without Kotlin diagnostics. No code failure is claimed. `.agents/` remains local and excluded.
+
 ## 2026-08-24 - Yemen manual payment proof workflow (source published)
 - Commit `8575db40768df0d071df2e9baebf3db6260e3ccd` is pushed to `origin/codex/yemen-payment-methods`.
 - The publication did not create or upload an Android artifact, change Google Play, deploy Web/API, apply a Supabase migration, or change external configuration. Physical device QA remains pending.

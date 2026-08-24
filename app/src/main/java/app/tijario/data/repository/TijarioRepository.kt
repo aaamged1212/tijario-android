@@ -1370,6 +1370,7 @@ open class TijarioRepository(
                     productsUsed = usage.productsUsed,
                     productsLimit = signed.productLimit,
                     resetAt = usage.resetAt,
+                    renewalAt = usage.currentPeriodEnd,
                     allowedTemplateIds = signed.allowedTemplateIds,
                     removeTijarioBranding = signed.removeTijarioBranding,
                 )
@@ -2675,10 +2676,14 @@ open class TijarioRepository(
     suspend fun submitManualPayment(
         planCode: String,
         paymentMethod: String,
+        billingInterval: String,
+        locale: String,
         receipt: app.tijario.data.remote.MobileFeedbackImage,
     ): Result<String> = runCatching {
         val result = backendApiClient.submitManualPayment(
             app.tijario.data.remote.ManualPaymentRequest(
+                billingInterval = billingInterval,
+                locale = locale,
                 planCode = planCode,
                 paymentMethod = paymentMethod,
                 receipt = receipt,

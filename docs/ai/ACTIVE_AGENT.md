@@ -1,6 +1,11 @@
 # Active Agent Status
 
 ## 2026-08-24
+- **Current task**: Android contract support for localized manual-payment proofs and concise plan renewal dates is implemented locally on `codex/yemen-payment-methods`.
+- **Dependency**: The paired Web migration is applied. Compatible Web/API deployment and Android release remain separate steps.
+- **Validation**: Targeted Gradle execution remains inconclusive due a local output cleanup failure followed by a worker hang. The approved database migration was applied; no deployment or Google Play upload occurred. `.agents/` remains untracked and excluded.
+
+## 2026-08-24
 - **Published**: Yemen payment proof flow is committed and pushed as `8575db4` on `codex/yemen-payment-methods`. No Android artifact or Google Play release was produced.
 
 ## 2026-08-24

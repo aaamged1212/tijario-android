@@ -22,6 +22,7 @@ private const val KEY_CUSTOMERS_LIMIT = "customers_limit"
 private const val KEY_PRODUCTS_USED = "products_used"
 private const val KEY_PRODUCTS_LIMIT = "products_limit"
 private const val KEY_RESET_AT = "reset_at"
+private const val KEY_RENEWAL_AT = "renewal_at"
 private const val KEY_ALLOWED_TEMPLATE_IDS = "allowed_template_ids"
 private const val KEY_REMOVE_TIJARIO_BRANDING = "remove_tijario_branding"
 private const val KEY_PLAN_USAGE_UPDATED_AT = "plan_usage_updated_at"
@@ -174,6 +175,7 @@ object AppPreferences {
         val productsUsed = prefs.getInt(planKey(userId, KEY_PRODUCTS_USED), 0)
         val productsLimitRaw = prefs.getInt(planKey(userId, KEY_PRODUCTS_LIMIT), -1)
         val resetAt = prefs.getString(planKey(userId, KEY_RESET_AT), null)
+        val renewalAt = prefs.getString(planKey(userId, KEY_RENEWAL_AT), null)
         val allowedTemplateIds = prefs
             .getString(planKey(userId, KEY_ALLOWED_TEMPLATE_IDS), "")
             .orEmpty()
@@ -196,6 +198,7 @@ object AppPreferences {
             productsUsed = productsUsed,
             productsLimit = productsLimitRaw.takeIf { it >= 0 },
             resetAt = resetAt,
+            renewalAt = renewalAt,
             allowedTemplateIds = allowedTemplateIds,
             removeTijarioBranding = removeTijarioBranding,
         )
@@ -216,6 +219,7 @@ object AppPreferences {
             .putInt(planKey(userId, KEY_PRODUCTS_USED), usage.productsUsed)
             .putInt(planKey(userId, KEY_PRODUCTS_LIMIT), usage.productsLimit ?: -1)
             .putString(planKey(userId, KEY_RESET_AT), usage.resetAt)
+            .putString(planKey(userId, KEY_RENEWAL_AT), usage.renewalAt)
             .putString(planKey(userId, KEY_ALLOWED_TEMPLATE_IDS), usage.allowedTemplateIds.joinToString("|"))
             .putBoolean(planKey(userId, KEY_REMOVE_TIJARIO_BRANDING), usage.removeTijarioBranding)
             .putLong(planKey(userId, KEY_PLAN_USAGE_UPDATED_AT), System.currentTimeMillis())

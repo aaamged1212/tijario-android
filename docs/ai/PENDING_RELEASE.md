@@ -1,5 +1,10 @@
 # Pending Release
 
+## 2026-08-24 - Localized payment and plan notification release gate
+- The paired Web migration `20260824140000_account_plan_activation_notifications.sql` is applied. Ship the Android contract only with the compatible Web/API deployment.
+- Device QA: submit Arabic and English Yemen payment proofs for monthly and yearly intervals, verify the support email contains the requested plan/interval/prices, and verify the renewal date appears for a paid plan.
+- Then verify a manually activated target account alone receives the in-app plan activation notice and email. No release action occurred in this task.
+
 ## 2026-08-24 Yemen manual payment proof release gate
 - Source commit `8575db40768df0d071df2e9baebf3db6260e3ccd` is published on `codex/yemen-payment-methods`.
 - Install a build only after the compatible Web endpoint is deployed. Verify Arabic/English, Yemen/non-Yemen eligibility, image selection, submitted local notification, and support-mail delivery. No automatic plan activation is allowed.

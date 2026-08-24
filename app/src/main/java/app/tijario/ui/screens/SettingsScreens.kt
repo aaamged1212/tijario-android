@@ -688,6 +688,7 @@ private fun CurrentPlanUsageCard(
                 }
                 is PlanUsageState.Success -> {
                     val usage = state.value
+                    val language = LocalLanguage.current
                     val displayPlanName = when (usage.planCode.lowercase()) {
                         "free" -> t("free_plan")
                         "pro" -> "Pro"
@@ -718,6 +719,13 @@ private fun CurrentPlanUsageCard(
                             }
                         }
                     }
+                    formatRenewalDate(usage.renewalAt, language)?.let { renewalDate ->
+                        Text(
+                            text = if (language == AppLanguage.AR) "تتجدد خطتك في $renewalDate" else "Your plan renews on $renewalDate",
+                            color = Color.White.copy(alpha = 0.82f),
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
                     UsageLine(t("documents"), usage.documentsUsed, usage.documentsLimit, Icons.Filled.Description, Color(0xFFCCFBF1))
                     UsageLine(t("ai_uses"), usage.aiUsed, usage.aiLimit, Icons.Filled.AutoAwesome, Color(0xFFBAE6FD))
                     UsageLine(t("tab_customers"), usage.customersUsed, usage.customersLimit, Icons.Filled.Person, Color(0xFFFDE68A))
@@ -727,6 +735,12 @@ private fun CurrentPlanUsageCard(
         }
     }
 }
+
+private fun formatRenewalDate(value: String?, language: AppLanguage): String? = runCatching {
+    val date = java.time.Instant.parse(value).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+    val locale = if (language == AppLanguage.AR) java.util.Locale("ar", "SA") else java.util.Locale.US
+    java.time.format.DateTimeFormatter.ofPattern("d MMM yyyy", locale).format(date)
+}.getOrNull()
 
 @Composable
 private fun PlanUsageSkeleton() {

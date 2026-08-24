@@ -229,6 +229,8 @@ data class AccountUsageData(
     @SerialName("product_limit") val productLimit: Int? = null,
     @SerialName("products_used") val productsUsed: Int = 0,
     @SerialName("reset_at") val resetAt: String? = null,
+    @SerialName("billing_interval") val billingInterval: String? = null,
+    @SerialName("current_period_end") val currentPeriodEnd: String? = null,
     @SerialName("allowed_template_ids") val allowedTemplateIds: List<String> = emptyList(),
     @SerialName("template_access") val templateAccess: String? = null,
     @SerialName("remove_tijario_branding") val removeTijarioBranding: Boolean = false,
@@ -433,6 +435,8 @@ data class MobileFeedbackResponse(
 
 @Serializable
 data class ManualPaymentRequest(
+    @SerialName("billing_interval") val billingInterval: String,
+    val locale: String,
     @SerialName("plan_code") val planCode: String,
     @SerialName("payment_method") val paymentMethod: String,
     val receipt: MobileFeedbackImage,
@@ -536,6 +540,7 @@ data class AnnouncementDto(
     @SerialName("is_read") val isRead: Boolean = false,
     @SerialName("is_seen") val isSeen: Boolean = false,
     @SerialName("is_dismissed") val isDismissed: Boolean = false,
+    @SerialName("is_local") val isLocal: Boolean = false,
 )
 
 @Serializable
