@@ -1,5 +1,9 @@
 # Agent Handoff (Android & Web Repos)
 
+## 2026-08-24 (Yemen manual payment proof flow, published source)
+- **Commit**: `8575db40768df0d071df2e9baebf3db6260e3ccd` is pushed to `origin/codex/yemen-payment-methods`.
+- **Release state**: Source publication only. No APK/AAB upload, Google Play action, Supabase migration, deployment, Production write, or external configuration change occurred.
+
 ## 2026-08-24 (Yemen manual payment proof workflow, local uncommitted)
 - **Flow**: The Yemen tab now selects a payment method first, then opens a separate receipt-proof screen. It displays only the supplied Al-Kuraimi, Jeeb, and internal-transfer account data, with the requested plan price reference and copy controls.
 - **Safety**: Submitting one bounded receipt sends an authenticated manual-review request to the server and records a local in-app notification. It never changes a subscription, entitlement, or billing state.

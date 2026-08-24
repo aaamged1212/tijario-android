@@ -1,5 +1,8 @@
 # AI Changelog
 
+## 2026-08-24 - Yemen payment proof source published
+- Published the Android payment-method and receipt-proof flow as `8575db4` on `codex/yemen-payment-methods`; physical device QA and compatible API deployment remain pending.
+
 ## 2026-08-24 - Yemen manual payment proof workflow
 - Refined the Yemen payment path into method selection and a separate receipt-proof screen.
 - Added a local persistent notification after a successful manual payment request; manual verification remains a support operation only.

@@ -1,6 +1,9 @@
 # Active Agent Status
 
 ## 2026-08-24
+- **Published**: Yemen payment proof flow is committed and pushed as `8575db4` on `codex/yemen-payment-methods`. No Android artifact or Google Play release was produced.
+
+## 2026-08-24
 - **Current task**: Yemen manual-payment UI and receipt submission are implemented locally on `codex/yemen-payment-methods` and await compatible Web source publication plus device QA.
 - **Boundary**: The request is a support review record only; it does not grant an entitlement or change a plan.
 - **Safety**: No commit, push, deployment, migration, production write, external configuration change, or Google Play upload was performed.

@@ -1,5 +1,9 @@
 # Project State (Android & Web Repos)
 
+## 2026-08-24 - Yemen manual payment proof workflow (source published)
+- Commit `8575db40768df0d071df2e9baebf3db6260e3ccd` is pushed to `origin/codex/yemen-payment-methods`.
+- The publication did not create or upload an Android artifact, change Google Play, deploy Web/API, apply a Supabase migration, or change external configuration. Physical device QA remains pending.
+
 ## 2026-08-24 - Yemen manual payment proof workflow (local)
 - The Yemen payment tab now shows only the supported payment methods. Selecting Al-Kuraimi, Jeeb, or internal transfer opens a dedicated proof screen with the requested Starter/Pro price reference, copyable account details, receipt-image selection, and a confirm action.
 - A successful request calls the authenticated server-only manual-payment support endpoint and adds a durable local notification stating that verification is in progress. It does not alter the plan, grant entitlement, or call a billing webhook.

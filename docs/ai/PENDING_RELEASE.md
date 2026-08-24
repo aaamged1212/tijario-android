@@ -1,5 +1,9 @@
 # Pending Release
 
+## 2026-08-24 Yemen manual payment proof release gate
+- Source commit `8575db40768df0d071df2e9baebf3db6260e3ccd` is published on `codex/yemen-payment-methods`.
+- Install a build only after the compatible Web endpoint is deployed. Verify Arabic/English, Yemen/non-Yemen eligibility, image selection, submitted local notification, and support-mail delivery. No automatic plan activation is allowed.
+
 ## 2026-08-24 Yemen manual payment verification QA gate
 - Deploy the compatible authenticated Web endpoint before releasing this Android source. Confirm that one JPEG/PNG/WebP receipt reaches `support@tijario.site` with the authenticated sender name/email and the receipt attached, then verify no plan changes until staff manually approve it.
 - On Android, test Arabic/English and light/dark Yemen flows: select each method, copy supplied account values, submit one receipt, confirm the success dialog, and verify the local request notice appears in Notifications after a restart. Confirm a non-Yemen user stays on the existing Google Play purchase path.
