@@ -1,5 +1,18 @@
 # Agent Handoff (Android & Web Repos)
 
+## 2026-08-24 (Yemen manual payment proof workflow, local uncommitted)
+- **Flow**: The Yemen tab now selects a payment method first, then opens a separate receipt-proof screen. It displays only the supplied Al-Kuraimi, Jeeb, and internal-transfer account data, with the requested plan price reference and copy controls.
+- **Safety**: Submitting one bounded receipt sends an authenticated manual-review request to the server and records a local in-app notification. It never changes a subscription, entitlement, or billing state.
+- **Storage**: Room 20-to-21 adds `announcements_cache.is_local`; refresh retains these local payment notices and notification read/dismiss actions do not create server receipts for them.
+- **Validation**: `compileDebugKotlin` passed. Focused JVM execution is blocked at existing `BackupPlanPolicyTest.kt` Long-to-String test-source errors before any selected test can run. No commit, push, deployment, migration, Production write, external configuration change, or Google Play upload occurred.
+
+## 2026-08-24 (Yemen payment-method selection, local uncommitted)
+- **Scope**: On `codex/yemen-payment-methods`, a paid-plan upgrade routes Yemen-eligible users to a localized, theme-aware payment-method screen. It offers Global Google Play and Yemen tabs, shows the requested static Starter/Pro price references, and copies supplied Al-Kuraimi, Jeeb, and internal-transfer values without exposing or collecting any extra data.
+- **Eligibility**: The client uses the saved business country or current device country (`YE`) only. It does not perform IP lookup or send location data. Non-Yemen users retain the existing direct Google Play purchase flow.
+- **Boundary**: No receipt upload, manual-payment verification, plan mutation, or entitlement bypass was added. A payment-operation/backend contract is required before local transfer payment can activate a subscription.
+- **Validation**: `compileDebugKotlin` passed. The focused `YemenPaymentEligibilityTest` task is blocked before executing tests by existing unrelated `BackupPlanPolicyTest.kt` Long-to-String compilation errors.
+- **Safety**: No commit, push, deployment, migration, Production write, Web change, external configuration change, or Google Play upload occurred. `.agents/` remains local and excluded.
+
 ## 2026-08-21 (Authenticated support feedback client, published)
 - **Root cause**: The Android feedback form wrote directly to a non-existent `user_feedbacks` table, so reports could neither persist nor reach support.
 - **Correction**: Android now validates and bounds image attachments locally, then submits to authenticated `POST /api/mobile/feedback`. It no longer sends feedback through PostgREST or an external email client and never receives mail-provider credentials.

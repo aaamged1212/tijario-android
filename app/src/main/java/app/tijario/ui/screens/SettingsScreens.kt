@@ -138,9 +138,11 @@ import app.tijario.features.billing.BillingUiState
 import app.tijario.features.billing.BillingUiEffect
 import app.tijario.features.billing.BillingViewModel
 import app.tijario.features.billing.GooglePlayBillingRepository
+import app.tijario.features.billing.YemenPaymentEligibility
 import app.tijario.features.notifications.NotificationTopicManager
 import app.tijario.ui.state.TijarioDataViewModel
 import app.tijario.ui.state.PlanUsageState
+import app.tijario.domain.CountryCatalog
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
@@ -185,6 +187,7 @@ fun SettingsHomeScreen(
     val profileEmail = Supabase.client.auth.currentUserOrNull()?.email.orEmpty()
     var showLogoutConfirmation by remember { mutableStateOf(false) }
     var showFeedbackScreen by remember { mutableStateOf(false) }
+    var showSupportContact by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         val updatedName = dataViewModel.fetchCurrentProfileFullName().orEmpty()
@@ -254,11 +257,29 @@ fun SettingsHomeScreen(
                     SettingsOption(Icons.Outlined.Tune, t("app_settings"), onAppSettings)
                     SettingsOption(Icons.Outlined.CreditCard, t("payments_subscriptions"), onPaymentsSubscriptions)
                     SettingsOption(Icons.Outlined.CloudSync, t("backup_restore"), onBackupSettings)
+                }
+            }
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            ) {
+                Column(
+                    modifier = Modifier.padding(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
                     SettingsOption(
                         Icons.Outlined.Feedback,
                         if (isAr) "إرسال ملاحظة أو إبلاغ عن مشكلة" else "Send Feedback / Report Problem"
                     ) {
                         showFeedbackScreen = true
+                    }
+                    SettingsOption(
+                        Icons.Filled.MailOutline,
+                        if (isAr) "تواصل معنا" else "Contact us",
+                    ) {
+                        showSupportContact = true
                     }
                     SettingsOption(
                         Icons.Filled.Star,
@@ -362,6 +383,36 @@ fun SettingsHomeScreen(
                 onConfirm = {
                     showLogoutConfirmation = false
                     onLogout()
+                },
+            )
+        }
+
+        if (showSupportContact) {
+            AlertDialog(
+                onDismissRequest = { showSupportContact = false },
+                icon = { Icon(Icons.Filled.MailOutline, contentDescription = null) },
+                title = { Text(if (isAr) "تواصل مع تجاريو" else "Contact Tijario") },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(if (isAr) "راسل فريق الدعم عبر البريد التالي:" else "Contact support at:")
+                        Text("support@tijario.site", fontWeight = FontWeight.Bold)
+                    }
+                },
+                confirmButton = {
+                    Button(onClick = {
+                        val intent = android.content.Intent(android.content.Intent.ACTION_SENDTO).apply {
+                            data = android.net.Uri.parse("mailto:support@tijario.site")
+                        }
+                        runCatching { context.startActivity(intent) }
+                    }) { Text(if (isAr) "فتح البريد" else "Open email") }
+                },
+                dismissButton = {
+                    TextButton(onClick = {
+                        context.getSystemService(android.content.ClipboardManager::class.java)
+                            ?.setPrimaryClip(android.content.ClipData.newPlainText("Tijario support", "support@tijario.site"))
+                        android.widget.Toast.makeText(context, if (isAr) "تم النسخ" else "Copied", android.widget.Toast.LENGTH_SHORT).show()
+                        showSupportContact = false
+                    }) { Text(if (isAr) "نسخ البريد" else "Copy email") }
                 },
             )
         }
@@ -1274,12 +1325,14 @@ private fun LocalNotificationSettingsSection() {
 fun UpgradePlanScreen(
     dataViewModel: TijarioDataViewModel,
     onBack: () -> Unit,
+    onOpenYemenPaymentMethods: (planCode: String, interval: String) -> Unit,
 ) {
     val language = LocalLanguage.current
     val isArabic = language == AppLanguage.AR
     val context = LocalContext.current
     val activity = remember(context) { context.findActivity() }
     val planUsageState by dataViewModel.planUsageState.collectAsStateWithLifecycle()
+    val dataUiState by dataViewModel.uiState.collectAsStateWithLifecycle()
     val currentUserId = Supabase.client.auth.currentUserOrNull()?.id.orEmpty()
     val billingViewModel: BillingViewModel = viewModel(
         factory = remember(context) {
@@ -1298,6 +1351,12 @@ fun UpgradePlanScreen(
     )
     val billingState by billingViewModel.state.collectAsStateWithLifecycle()
     val annualBilling = billingState.selectedInterval == BillingCatalog.INTERVAL_YEARLY
+    val yemenPaymentEligible = remember(dataUiState.businessSettings?.country, context) {
+        YemenPaymentEligibility.isEligible(
+            businessCountry = dataUiState.businessSettings?.country,
+            deviceCountryCode = CountryCatalog.detectCountry(context).countryCode,
+        )
+    }
     var upgradedPlanCode by remember { mutableStateOf<String?>(null) }
     var upgradeRefreshFailed by remember { mutableStateOf(false) }
 
@@ -1434,11 +1493,16 @@ fun UpgradePlanScreen(
                 billingState = billingState,
                 onRetry = { billingViewModel.load() },
                 onPurchase = { planCode ->
-                    val purchaseActivity = activity ?: return@PricingPlansSection
-                    if (currentUserId.isNotBlank()) {
-                        billingViewModel.purchase(purchaseActivity, currentUserId, planCode)
+                    if (yemenPaymentEligible) {
+                        onOpenYemenPaymentMethods(planCode, billingState.selectedInterval)
+                    } else {
+                        val purchaseActivity = activity ?: return@PricingPlansSection
+                        if (currentUserId.isNotBlank()) {
+                            billingViewModel.purchase(purchaseActivity, currentUserId, planCode)
+                        }
                     }
                 },
+                manualPaymentEligible = yemenPaymentEligible,
             )
 
             PricingComparisonSection(isArabic = isArabic)
@@ -1789,6 +1853,7 @@ private fun PricingPlansSection(
     billingState: BillingUiState,
     onRetry: () -> Unit,
     onPurchase: (String) -> Unit,
+    manualPaymentEligible: Boolean,
 ) {
     val plans = remember(billingState.backendPlans) {
         resolvedPricingPlans(billingState.backendPlans)
@@ -1829,6 +1894,7 @@ private fun PricingPlansSection(
                 googlePlayPrice = billingState.offerFor(plan.code, interval)?.formattedPrice,
                 isPurchasing = billingState.isPurchasing,
                 onPurchase = { onPurchase(plan.code) },
+                manualPaymentEligible = manualPaymentEligible,
             )
         }
         Row(
@@ -1880,6 +1946,7 @@ private fun SwipePricingPlanCard(
     googlePlayPrice: String?,
     isPurchasing: Boolean,
     onPurchase: () -> Unit,
+    manualPaymentEligible: Boolean,
 ) {
     val isCurrent = plan.code == currentPlanCode
     val isPro = plan.code == "pro"
@@ -1896,7 +1963,8 @@ private fun SwipePricingPlanCard(
         }
         else -> t("plans_price_from_play")
     }
-    val canPurchase = plan.code != "free" && !isCurrent && !googlePlayPrice.isNullOrBlank() && !isPurchasing
+    val canPurchase = plan.code != "free" && !isCurrent && !isPurchasing &&
+        (manualPaymentEligible || !googlePlayPrice.isNullOrBlank())
     val hasPaidBackup = plan.code != "free"
     val features = listOf(
         (if (isArabic) "مستندات شهرية: ${plan.monthlyDocumentLimit}" else "Documents/month: ${plan.monthlyDocumentLimit}") to true,
@@ -2009,6 +2077,7 @@ private fun SwipePricingPlanCard(
                         isCurrent -> if (isArabic) "الخطة الحالية" else "Current plan"
                         plan.code == "free" -> if (isArabic) "الخطة المجانية" else "Free plan"
                         isPurchasing -> if (isArabic) "جارٍ فتح Google Play..." else "Opening Google Play..."
+                        manualPaymentEligible -> if (isArabic) "طرق الدفع" else "Payment methods"
                         googlePlayPrice.isNullOrBlank() -> if (isArabic) "السعر غير متاح الآن" else "Price unavailable"
                         annualBilling -> if (isArabic) "ترقية" else "Upgrade"
                         else -> if (isArabic) "ترقية" else "Upgrade"

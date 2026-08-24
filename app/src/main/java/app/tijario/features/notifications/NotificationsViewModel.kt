@@ -119,6 +119,12 @@ class NotificationsViewModel(
         }
     }
 
+    fun recordManualPaymentRequest(userId: String, planName: String, paymentMethod: String) {
+        viewModelScope.launch {
+            repository.recordManualPaymentRequest(userId, planName, paymentMethod)
+        }
+    }
+
     fun syncTopic(language: app.tijario.config.AppLanguage) {
         viewModelScope.launch {
             runCatching { topicManager.syncForLanguage(language) }

@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import java.util.UUID
+import java.time.Instant
 
 class NotificationsRepository(
     private val context: Context,
@@ -46,7 +47,7 @@ class NotificationsRepository(
                 if (entities.isNotEmpty()) {
                     dao.pruneMissingAnnouncements(userId, entities.map { it.id })
                 } else {
-                    dao.deleteAnnouncementsForUser(userId)
+                    dao.pruneMissingAnnouncements(userId, listOf("__no_remote_announcements__"))
                 }
             }
         }
@@ -58,18 +59,55 @@ class NotificationsRepository(
         withContext(Dispatchers.IO) { dao.getStartupAnnouncement(userId)?.toAnnouncement() }
 
     suspend fun markSeen(userId: String, announcementId: String, openedFrom: String = "startup") {
+        val isLocal = withContext(Dispatchers.IO) { dao.getAnnouncement(userId, announcementId)?.isLocal == true }
         withContext(Dispatchers.IO) { dao.markSeenLocal(userId, announcementId) }
+        if (isLocal) return
         sendReceiptOrQueue(userId, announcementId, "seen", openedFrom)
     }
 
     suspend fun markRead(userId: String, announcementId: String, openedFrom: String = "inbox") {
+        val isLocal = withContext(Dispatchers.IO) { dao.getAnnouncement(userId, announcementId)?.isLocal == true }
         withContext(Dispatchers.IO) { dao.markReadLocal(userId, announcementId) }
+        if (isLocal) return
         sendReceiptOrQueue(userId, announcementId, "read", openedFrom)
     }
 
     suspend fun dismiss(userId: String, announcementId: String) {
+        val isLocal = withContext(Dispatchers.IO) { dao.getAnnouncement(userId, announcementId)?.isLocal == true }
         withContext(Dispatchers.IO) { dao.markDismissedLocal(userId, announcementId) }
+        if (isLocal) return
         sendReceiptOrQueue(userId, announcementId, "dismissed", "startup")
+    }
+
+    suspend fun recordManualPaymentRequest(
+        userId: String,
+        planName: String,
+        paymentMethod: String,
+    ) {
+        val now = Instant.now().toString()
+        withContext(Dispatchers.IO) {
+            dao.upsertAnnouncement(
+                app.tijario.data.local.AnnouncementEntity(
+                    userId = userId,
+                    id = "manual-payment-${UUID.randomUUID()}",
+                    titleAr = "تم رفع طلب الدفع",
+                    bodyAr = "تم استلام إثبات الدفع لخطة $planName عبر $paymentMethod. جاري التحقق وتفعيل الاشتراك.",
+                    titleEn = "Payment request submitted",
+                    bodyEn = "Your $planName payment proof via $paymentMethod was received. Verification is in progress.",
+                    actionLabelAr = null,
+                    actionLabelEn = null,
+                    deepLink = null,
+                    priority = 0,
+                    publishedAt = now,
+                    expiresAt = null,
+                    isRead = false,
+                    isSeen = true,
+                    isDismissed = false,
+                    isLocal = true,
+                    lastSyncedAt = System.currentTimeMillis(),
+                ),
+            )
+        }
     }
 
     suspend fun markAllRead(userId: String) {

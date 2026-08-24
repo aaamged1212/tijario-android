@@ -432,6 +432,18 @@ data class MobileFeedbackResponse(
 )
 
 @Serializable
+data class ManualPaymentRequest(
+    @SerialName("plan_code") val planCode: String,
+    @SerialName("payment_method") val paymentMethod: String,
+    val receipt: MobileFeedbackImage,
+)
+
+@Serializable
+data class ManualPaymentResponse(
+    @SerialName("request_id") val requestId: String,
+)
+
+@Serializable
 data class ResetPasswordRequest(
     val email: String,
     val source: String = "android",

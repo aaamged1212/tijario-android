@@ -30,6 +30,7 @@ data class AnnouncementEntity(
     @ColumnInfo(name = "is_read") val isRead: Boolean,
     @ColumnInfo(name = "is_seen") val isSeen: Boolean,
     @ColumnInfo(name = "is_dismissed") val isDismissed: Boolean,
+    @ColumnInfo(name = "is_local") val isLocal: Boolean = false,
     @ColumnInfo(name = "last_synced_at") val lastSyncedAt: Long,
 )
 

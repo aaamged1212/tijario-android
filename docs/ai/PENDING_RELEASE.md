@@ -1,5 +1,15 @@
 # Pending Release
 
+## 2026-08-24 Yemen manual payment verification QA gate
+- Deploy the compatible authenticated Web endpoint before releasing this Android source. Confirm that one JPEG/PNG/WebP receipt reaches `support@tijario.site` with the authenticated sender name/email and the receipt attached, then verify no plan changes until staff manually approve it.
+- On Android, test Arabic/English and light/dark Yemen flows: select each method, copy supplied account values, submit one receipt, confirm the success dialog, and verify the local request notice appears in Notifications after a restart. Confirm a non-Yemen user stays on the existing Google Play purchase path.
+- The local Room 20-to-21 migration requires device upgrade QA. Do not treat the receipt request as an automated payment confirmation.
+
+## 2026-08-24 Yemen payment-method QA and operating decision
+- Test with a Yemen business country and with a Yemen device country: paid Starter/Pro actions must open the payment-method screen, show the requested three-currency price reference, copy every supplied name/account/wallet/phone value correctly, and retain readable Arabic RTL and English LTR layouts in light and dark themes.
+- Test with a non-Yemen business and device country: paid upgrades must open the existing Google Play flow directly, without exposing Yemen payment details.
+- This local UI does not verify transfer payments or activate subscriptions. Before presenting local transfer as a completed upgrade path, define the approved support/verification workflow and implement an authorized server-side payment status contract. Do not treat copied account data as entitlement proof.
+
 ## 2026-08-21 authenticated feedback device QA gate
 - Android source commit `8ceddf2337fed5c3cf5ba9ffb9780240686dffd4` and its compatible Web API are published. No Android build has been uploaded to Google Play.
 - From a real Android session, send Arabic and English reports with no image and one JPEG/PNG image. Confirm a support email arrives at `support@tijario.site`, the authenticated account email is Reply-To, and attachment links are private.

@@ -95,6 +95,9 @@ class BackendApiClient(
     suspend fun submitMobileFeedback(request: MobileFeedbackRequest): ApiResult<MobileFeedbackResponse> =
         authorizedPost("api/mobile/feedback", request).decodeApiResult()
 
+    suspend fun submitManualPayment(request: ManualPaymentRequest): ApiResult<ManualPaymentResponse> =
+        authorizedPost("api/mobile/payments/manual-request", request).decodeApiResult()
+
     suspend fun requestPasswordReset(request: ResetPasswordRequest): ApiResult<ResetPasswordResponse> =
         publicPost("api/mobile/auth/reset-password", request).decodeApiResult()
 

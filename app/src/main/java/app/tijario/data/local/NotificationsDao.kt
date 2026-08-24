@@ -23,8 +23,11 @@ interface NotificationsDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAnnouncements(items: List<AnnouncementEntity>)
 
-    @Query("DELETE FROM announcements_cache WHERE user_id = :userId AND id NOT IN (:remoteIds)")
+    @Query("DELETE FROM announcements_cache WHERE user_id = :userId AND is_local = 0 AND id NOT IN (:remoteIds)")
     suspend fun pruneMissingAnnouncements(userId: String, remoteIds: List<String>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAnnouncement(item: AnnouncementEntity)
 
     @Query("DELETE FROM announcements_cache WHERE user_id = :userId")
     suspend fun deleteAnnouncementsForUser(userId: String)

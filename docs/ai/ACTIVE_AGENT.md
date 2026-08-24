@@ -1,5 +1,17 @@
 # Active Agent Status
 
+## 2026-08-24
+- **Current task**: Yemen manual-payment UI and receipt submission are implemented locally on `codex/yemen-payment-methods` and await compatible Web source publication plus device QA.
+- **Boundary**: The request is a support review record only; it does not grant an entitlement or change a plan.
+- **Safety**: No commit, push, deployment, migration, production write, external configuration change, or Google Play upload was performed.
+
+## 2026-08-24
+- **Current task**: Add a Yemen-only local payment-method choice to the Android plan upgrade journey on `codex/yemen-payment-methods`.
+- **State**: Yemen eligibility is resolved locally from the saved business country or device country only; no IP location is collected or sent. Eligible users can choose Global Google Play or view copy-enabled Al-Kuraimi, Jeeb, and internal-transfer details. External-transfer details remain informational because no recipient details were supplied.
+- **Boundary**: This UI does not upload receipts, verify a bank transfer, or alter a subscription entitlement. Google Play remains the active purchase path, including the Global tab.
+- **Validation**: `compileDebugKotlin` passed. The focused JVM task is blocked before execution by three pre-existing `BackupPlanPolicyTest.kt` Long-to-String type mismatches.
+- **Safety**: No commit, push, deployment, migration, Production write, external configuration change, or Google Play upload occurred. `.agents/` remains untracked and excluded.
+
 ## 2026-08-21
 - **Current task**: Android feedback submission now uses the authenticated Tijario support API instead of direct PostgREST writes or an external email client.
 - **State**: Commit `8ceddf2337fed5c3cf5ba9ffb9780240686dffd4` is pushed to `origin/fix/android-runtime-critical-fixes`. The compatible Web API and private feedback Storage contract are deployed separately; physical device delivery QA remains pending.

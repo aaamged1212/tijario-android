@@ -1,5 +1,16 @@
 # AI Changelog
 
+## 2026-08-24 - Yemen manual payment proof workflow
+- Refined the Yemen payment path into method selection and a separate receipt-proof screen.
+- Added a local persistent notification after a successful manual payment request; manual verification remains a support operation only.
+- Added a contact-support action in Settings with copy and mail-client actions, and separated support actions into their own compact group.
+
+## 2026-08-24 - Yemen payment-method selection
+- Added a local Yemen eligibility policy based on saved business country or device country, with no network geolocation.
+- Yemen paid-plan upgrades now open a localized Global/Yemen payment-method page. Global retains Google Play; Yemen shows copy-enabled Al-Kuraimi, Jeeb, and internal-transfer values plus an informational external-transfer option.
+- Added focused eligibility tests. Debug Kotlin compilation passed; unit-test execution remains blocked by existing unrelated `BackupPlanPolicyTest.kt` type errors.
+- No receipt upload, transfer verification, subscription mutation, commit, push, deployment, migration, Production write, external configuration, or Google Play upload occurred.
+
 ## 2026-08-21 - Authenticated in-app support feedback client published
 - Replaced direct feedback-table insertion and external-email intent with authenticated `POST /api/mobile/feedback` delivery.
 - Bounded selected image payloads before upload and kept account identity, recipient, Storage access, and mail-provider credentials server-side.

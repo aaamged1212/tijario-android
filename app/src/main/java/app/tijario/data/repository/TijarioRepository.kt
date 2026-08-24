@@ -2671,6 +2671,25 @@ open class TijarioRepository(
             error(result.code ?: "feedback_delivery_failed")
         }
     }
+
+    suspend fun submitManualPayment(
+        planCode: String,
+        paymentMethod: String,
+        receipt: app.tijario.data.remote.MobileFeedbackImage,
+    ): Result<String> = runCatching {
+        val result = backendApiClient.submitManualPayment(
+            app.tijario.data.remote.ManualPaymentRequest(
+                planCode = planCode,
+                paymentMethod = paymentMethod,
+                receipt = receipt,
+            ),
+        )
+
+        if (!result.ok || result.data == null) {
+            error(result.code ?: "manual_payment_delivery_failed")
+        }
+        result.data.requestId
+    }
 }
 
 internal fun buildProductSyncPayload(product: Product): kotlinx.serialization.json.JsonElement =

@@ -453,6 +453,12 @@ class TijarioDataViewModel(
         message: String,
         images: List<app.tijario.data.remote.MobileFeedbackImage>,
     ): Result<Unit> = repository.submitUserFeedback(subject, message, images)
+
+    suspend fun submitManualPayment(
+        planCode: String,
+        paymentMethod: String,
+        receipt: app.tijario.data.remote.MobileFeedbackImage,
+    ): Result<String> = repository.submitManualPayment(planCode, paymentMethod, receipt)
 }
 
 class TijarioDataViewModelFactory(

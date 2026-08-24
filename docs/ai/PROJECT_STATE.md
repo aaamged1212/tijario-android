@@ -1,5 +1,17 @@
 # Project State (Android & Web Repos)
 
+## 2026-08-24 - Yemen manual payment proof workflow (local)
+- The Yemen payment tab now shows only the supported payment methods. Selecting Al-Kuraimi, Jeeb, or internal transfer opens a dedicated proof screen with the requested Starter/Pro price reference, copyable account details, receipt-image selection, and a confirm action.
+- A successful request calls the authenticated server-only manual-payment support endpoint and adds a durable local notification stating that verification is in progress. It does not alter the plan, grant entitlement, or call a billing webhook.
+- Room schema version 21 keeps locally-created payment-request notices through announcement refreshes and prevents them from producing remote announcement receipts.
+- `compileDebugKotlin` passed. Focused JVM task remains blocked before execution by three unrelated `BackupPlanPolicyTest.kt` Long-to-String errors. No commit, push, deployment, migration, external configuration change, or Google Play action occurred.
+
+## 2026-08-24 - Yemen payment-method selection (local)
+- The Android upgrade experience now has a local Yemen-only payment-method route. A user with saved business country Yemen or a Yemen device country sees Global Google Play and Yemen payment tabs; all other users continue directly to the existing Google Play purchase flow.
+- The Yemen page is fully Arabic/English and Material-theme aware. It provides the requested static price references and copyable payment details without storing a receipt, changing a plan, or making a backend request for transfer payment.
+- `compileDebugKotlin` passed. Focused unit-test execution is currently blocked before test execution by existing `BackupPlanPolicyTest.kt` Long-to-String mismatches. Physical RTL/LTR and Yemen/non-Yemen device QA remain pending.
+- No Web/API, Supabase, migration, deployment, external configuration, or Google Play action occurred.
+
 ## 2026-08-21 - Authenticated mobile feedback delivery
 - The Android feedback form now calls the authenticated support API rather than writing directly to PostgREST. Images are locally bounded before submission; support recipient, user identity lookup, private Storage access, and mail delivery remain server-side.
 - Android commit `8ceddf2337fed5c3cf5ba9ffb9780240686dffd4` is published on `fix/android-runtime-critical-fixes`; compatible Web API and database contract are deployed separately.
