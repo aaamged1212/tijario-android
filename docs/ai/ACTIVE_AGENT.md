@@ -287,6 +287,9 @@
 - **State**: Android and Web source are local and uncommitted. The required Web migration is applied.
 - **Next authorized action**: Publish and deploy the compatible API, then perform physical Android admin QA.
 
+## 2026-08-24 - Publication status
+- **Android**: Commit `78ff73ae549e2dd50dd88df0b55051f07fcb1367` is pushed; Android distribution remains pending.
+
 ## 2026-08-24 - Yemen payments and administrator dashboard published
 - **Published**: Commit `9f3fe99` is pushed to `codex/yemen-payment-methods`.
 - **Backend dependency**: The matching Production schema migration `20260824123000_admin_account_management.sql` is applied, but the compatible Web API is not deployed yet.

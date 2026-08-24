@@ -257,3 +257,6 @@ The counters migration is required to manage sequential document numbers without
 
 ## 2026-08-24 Administrator control center post-migration QA
 - The schema migration is applied. Deploy the compatible Web/API source, then test plan changes, allowance grants, per-user campaign delivery, and permission denial with actual administrator and non-administrator accounts.
+
+## 2026-08-24 Administrator control center application gate
+- Install a build containing commit `78ff73ae549e2dd50dd88df0b55051f07fcb1367` only after the compatible Web/API deployment is verified. No Google Play upload is authorized by this task.

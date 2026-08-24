@@ -730,3 +730,6 @@
 
 # 2026-08-24 - Administrator control center backend gate completed
 - The required backend migration is applied and verified. Android runtime QA still requires the compatible Web/API deployment.
+
+# 2026-08-24 - Administrator control center source publication
+- Published Android commit `78ff73ae549e2dd50dd88df0b55051f07fcb1367` to `codex/yemen-payment-methods`.

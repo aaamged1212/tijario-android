@@ -316,3 +316,6 @@
 
 ## 2026-08-24 Administrator control center migration applied
 - The required Production schema correction is applied. Android source remains dependent on the matching Web/API deployment before administrator mutations can be tested from the app.
+
+## 2026-08-24 Administrator control center source published
+- Commit `78ff73ae549e2dd50dd88df0b55051f07fcb1367` is pushed to `origin/codex/yemen-payment-methods`; no Android artifact was published.

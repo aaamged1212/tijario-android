@@ -979,6 +979,10 @@
 - **Backend prerequisite**: `20260824150000_admin_control_center_and_plan_cycle_fix.sql` is now applied and verified in Production.
 - **Next gate**: Deploy the compatible Web/API source before validating Android plan changes, allowances, account details, analytics, and campaigns against a real administrator account.
 
+## 2026-08-24 (Administrator control center source published)
+- **Published**: Android commit `78ff73ae549e2dd50dd88df0b55051f07fcb1367` is pushed to `origin/codex/yemen-payment-methods`.
+- **Not performed**: No Android artifact or Google Play upload occurred. Runtime validation remains blocked on the compatible Web/API deployment.
+
 ## 2026-08-24 (Yemen payment and administrator publication)
 - **Android**: Commit `9f3fe99` was pushed to `codex/yemen-payment-methods`; no APK/AAB or Google Play upload occurred.
 - **Backend dependency**: `20260824123000_admin_account_management.sql` is applied on Production, but the compatible API deployment remains pending.
