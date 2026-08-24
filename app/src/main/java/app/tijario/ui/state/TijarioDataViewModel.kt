@@ -459,6 +459,16 @@ class TijarioDataViewModel(
         paymentMethod: String,
         receipt: app.tijario.data.remote.MobileFeedbackImage,
     ): Result<String> = repository.submitManualPayment(planCode, paymentMethod, receipt)
+
+    suspend fun isCurrentUserAdmin(): Boolean = repository.isCurrentUserAdmin()
+
+    suspend fun getAdminAccounts(query: String): Result<List<app.tijario.data.remote.AdminAccountDto>> =
+        repository.getAdminAccounts(query)
+
+    suspend fun applyAdminAccountAction(
+        userId: String,
+        request: app.tijario.data.remote.AdminAccountActionRequest,
+    ): Result<Unit> = repository.applyAdminAccountAction(userId, request)
 }
 
 class TijarioDataViewModelFactory(

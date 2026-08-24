@@ -293,3 +293,8 @@
 ## 2026-08-22 Android version preparation
 - **Version**: The current Android source is version `0.0.21` / code `21` and includes the completed native Google Play flexible-update and review prompt work.
 - **Remaining QA**: Verify official dialogs only from a Play-installed test-track build; a sideloaded Debug APK cannot prove that integration.
+
+## 2026-08-24 Yemen payment and admin dashboard state
+- **Local UI**: The Yemen payment screens show full receipt preview, explicit monthly/yearly selection context, annual pricing after the 20% discount, and localized payment account labels.
+- **Admin visibility**: The new dashboard is hidden unless the backend reports the authenticated account is an `app_admins` member. All actions depend on the compatible Web API and its pending admin migration.
+- **Release dependency**: Do not release the Android dashboard until `20260824123000_admin_account_management.sql` is applied with compatible Web source and at least one authorized administrator has been configured.

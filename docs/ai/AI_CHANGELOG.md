@@ -708,3 +708,8 @@
 
 # 2026-08-22 - Version 0.0.21 preparation
 - Raised Android `versionCode` to `21` and `versionName` to `0.0.21` for the completed Google Play update and review prompt work.
+
+# 2026-08-24 - Yemen payment polish and administrator dashboard
+- Added complete receipt thumbnail preview, annual Yemen pricing with the 20% twelve-month discount, Arabic account-value labels, and clearer verification/activation messaging.
+- Added the admin-only Settings entry, account search/cards, and bottom-sheet account actions. The UI relies on authenticated backend authorization rather than local role state.
+- Debug assembly passed; targeted JVM execution remains blocked by existing `BackupPlanPolicyTest.kt` compile errors outside this change.

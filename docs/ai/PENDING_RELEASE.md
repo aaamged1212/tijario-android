@@ -234,3 +234,8 @@ The counters migration is required to manage sequential document numbers without
 
 ## 2026-08-22 Version 0.0.21 release note
 - The next Android release candidate is `versionCode 21` / `versionName 0.0.21`. Before any Play upload, run the existing Play-track update/review QA gate and resolve the unrelated `BackupPlanPolicyTest.kt` compile errors if JVM test execution is required.
+
+## 2026-08-24 Yemen payment and admin release gate
+- Deploy the compatible Web/API source and apply `20260824123000_admin_account_management.sql` together before testing the administrator dashboard. Do not expose it based on a client-side email check.
+- Configure the administrator through a trusted `public.app_admins` row, then verify that the intended admin can list and mutate accounts while a non-admin cannot see the entry or call the API.
+- On a physical Android device, select a receipt image and verify its full preview, then submit a disposable manual-payment proof and confirm the notification states the verification timeframe.

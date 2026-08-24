@@ -5,6 +5,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.ContextWrapper
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -17,6 +18,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -56,6 +58,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -81,6 +86,7 @@ import io.github.jan.supabase.auth.auth
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.Locale
 
 enum class YemenPaymentMethod(
     val id: String,
@@ -91,19 +97,19 @@ enum class YemenPaymentMethod(
     Kuraimi(
         id = "kuraimi",
         accountName = "أمجد حامد عبده الحمادي",
-        accountValues = listOf("YER" to "3001047999", "SAR" to "3107287174", "USD" to "3104501043"),
+        accountValues = listOf("yer" to "3001047999", "sar" to "3107287174", "usd" to "3104501043"),
         iconRes = R.drawable.ic_payment_kuraimi,
     ),
     Jeeb(
         id = "jeeb",
         accountName = "أمجد حامد الحمادي",
-        accountValues = listOf("Wallet" to "86248"),
+        accountValues = listOf("wallet" to "86248"),
         iconRes = R.drawable.ic_payment_jeeb,
     ),
     InternalTransfer(
         id = "internal_transfer",
         accountName = "أمجد حامد عبده احمد الحمادي",
-        accountValues = listOf("Mobile" to "779400097"),
+        accountValues = listOf("mobile" to "779400097"),
         iconRes = R.drawable.ic_payment_internal,
     ),
 }
@@ -117,7 +123,19 @@ private fun YemenPaymentMethod.localized(isArabic: Boolean) = when (this) {
 private fun YemenPaymentMethod.localizedDescription(isArabic: Boolean) = when (this) {
     YemenPaymentMethod.Kuraimi -> if (isArabic) "حسابات تحويل بالريال اليمني والسعودي والدولار." else "Transfer accounts in YER, SAR, and USD."
     YemenPaymentMethod.Jeeb -> if (isArabic) "محفظة شخصية داخل اليمن." else "Personal wallet in Yemen."
-    YemenPaymentMethod.InternalTransfer -> if (isArabic) "تحويل داخل اليمن إلى رقم الجوال." else "Transfer inside Yemen to a mobile number."
+    YemenPaymentMethod.InternalTransfer -> if (isArabic) "تحويل عبر شبكات الصرافة المحلية إلى اسم المستلم." else "Transfer through local exchange networks to the recipient."
+}
+
+private fun YemenPaymentMethod.recipientLabel(isArabic: Boolean) =
+    if (isArabic) "اسم المستلم" else "Recipient name"
+
+private fun localizedPaymentValueLabel(label: String, isArabic: Boolean) = when (label) {
+    "yer" -> if (isArabic) "ريال يمني" else "Yemeni rial"
+    "sar" -> if (isArabic) "ريال سعودي" else "Saudi riyal"
+    "usd" -> if (isArabic) "دولار أمريكي" else "US dollar"
+    "wallet" -> if (isArabic) "رقم المحفظة" else "Wallet number"
+    "mobile" -> if (isArabic) "رقم الجوال" else "Mobile number"
+    else -> label
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -145,7 +163,7 @@ fun YemenPaymentMethodsScreen(
     )
     val billingState by billingViewModel.state.collectAsStateWithLifecycle()
     var selectedTab by remember { mutableIntStateOf(0) }
-    val price = planPrice(planCode, isArabic)
+    val price = planPrice(planCode, interval, isArabic)
 
     LaunchedEffect(interval) {
         billingViewModel.selectInterval(interval.takeIf { it in BillingCatalog.supportedIntervals } ?: BillingCatalog.INTERVAL_MONTHLY)
@@ -160,7 +178,7 @@ fun YemenPaymentMethodsScreen(
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text(if (isArabic) "طرق الدفع" else "Payment methods", fontWeight = FontWeight.Bold) },
+                title = { Text(if (isArabic) "اختيار الخطة" else "Choose plan", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = if (isArabic) "رجوع" else "Back")
@@ -173,10 +191,20 @@ fun YemenPaymentMethodsScreen(
             modifier = Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            PlanPriceCard(planCode, price, isArabic)
+            PlanPriceCard(planCode, price, interval, isArabic)
             TabRow(selectedTabIndex = selectedTab) {
-                Tab(selected = selectedTab == 0, onClick = { selectedTab = 0 }, text = { Text(if (isArabic) "عالمي" else "Global") }, icon = { Icon(Icons.Filled.Public, null) })
-                Tab(selected = selectedTab == 1, onClick = { selectedTab = 1 }, text = { Text(if (isArabic) "اليمن" else "Yemen") }, icon = { Icon(Icons.Filled.Language, null) })
+                PaymentRegionTab(
+                    selected = selectedTab == 0,
+                    onClick = { selectedTab = 0 },
+                    label = if (isArabic) "عالمي" else "Global",
+                    icon = Icons.Filled.Public,
+                )
+                PaymentRegionTab(
+                    selected = selectedTab == 1,
+                    onClick = { selectedTab = 1 },
+                    label = if (isArabic) "اليمن" else "Yemen",
+                    icon = Icons.Filled.Language,
+                )
             }
             if (selectedTab == 0) {
                 PaymentMethodCard(
@@ -200,7 +228,7 @@ fun YemenPaymentMethodsScreen(
                         subtitle = method.localizedDescription(isArabic),
                         iconRes = method.iconRes,
                         onClick = { onOpenProof(method) },
-                        footer = { Text(if (isArabic) "متابعة" else "Continue") },
+                    footer = { Text(if (isArabic) "اضغط للمتابعة" else "Tap to continue") },
                     )
                 }
             }
@@ -212,6 +240,7 @@ fun YemenPaymentMethodsScreen(
 @Composable
 fun YemenPaymentProofScreen(
     planCode: String,
+    interval: String,
     methodId: String,
     dataViewModel: TijarioDataViewModel,
     notificationsViewModel: NotificationsViewModel,
@@ -224,10 +253,21 @@ fun YemenPaymentProofScreen(
     val scope = rememberCoroutineScope()
     val currentUserId = Supabase.client.auth.currentUserOrNull()?.id.orEmpty()
     var receiptUri by remember { mutableStateOf<Uri?>(null) }
+    var receiptPreview by remember { mutableStateOf<ImageBitmap?>(null) }
     var isSubmitting by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var submitted by remember { mutableStateOf(false) }
     val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { receiptUri = it }
+
+    LaunchedEffect(receiptUri) {
+        receiptPreview = withContext(Dispatchers.IO) {
+            receiptUri?.let { uri ->
+                context.contentResolver.openInputStream(uri)?.use { stream ->
+                    BitmapFactory.decodeStream(stream)?.asImageBitmap()
+                }
+            }
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -241,7 +281,7 @@ fun YemenPaymentProofScreen(
             modifier = Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            PlanPriceCard(planCode, planPrice(planCode, isArabic), isArabic)
+            PlanPriceCard(planCode, planPrice(planCode, interval, isArabic), interval, isArabic)
             Text(if (isArabic) "طريقة الدفع المختارة" else "Selected payment method", color = MaterialTheme.colorScheme.onSurfaceVariant)
             PaymentMethodCard(method.localized(isArabic), method.localizedDescription(isArabic), method.iconRes, onClick = {}, footer = {})
             Card(
@@ -250,13 +290,29 @@ fun YemenPaymentProofScreen(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             ) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    CopyableValue(if (isArabic) "اسم الحساب" else "Account name", method.accountName, isArabic)
+                    CopyableValue(method.recipientLabel(isArabic), method.accountName, isArabic)
                     method.accountValues.forEach { (label, value) ->
-                        CopyableValue(label, value, isArabic)
+                        CopyableValue(localizedPaymentValueLabel(label, isArabic), value, isArabic)
                     }
                 }
             }
-            Text(if (isArabic) "صورة إثبات الدفع *" else "Payment receipt image *", fontWeight = FontWeight.Bold)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(if (isArabic) "صورة إثبات الدفع" else "Payment receipt image", fontWeight = FontWeight.Bold)
+                Text(" *", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+            }
+            receiptPreview?.let { preview ->
+                Card(
+                    modifier = Modifier.fillMaxWidth().height(180.dp),
+                    shape = RoundedCornerShape(16.dp),
+                ) {
+                    Image(
+                        bitmap = preview,
+                        contentDescription = if (isArabic) "معاينة الإيصال" else "Receipt preview",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Fit,
+                    )
+                }
+            }
             OutlinedButton(
                 onClick = { imagePicker.launch("image/*") },
                 modifier = Modifier.fillMaxWidth(),
@@ -266,7 +322,7 @@ fun YemenPaymentProofScreen(
                 Text(if (receiptUri == null) if (isArabic) "رفع صورة الإيصال" else "Upload receipt image" else if (isArabic) "تم اختيار الإيصال" else "Receipt selected")
             }
             Text(
-                if (isArabic) "سيصل الطلب إلى فريق تجاريو للمراجعة، ولن يتم تفعيل الاشتراك تلقائيًا." else "Tijario support will review this request. The subscription is not activated automatically.",
+                if (isArabic) "تستغرق المراجعة والتفعيل عادةً من ساعة إلى ساعتين خلال أوقات الدوام. سيصلك إشعار التفعيل داخل التطبيق وعبر البريد الإلكتروني." else "Verification and activation usually take one to two hours during business hours. You will be notified in the app and by email.",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodySmall,
             )
@@ -289,7 +345,12 @@ fun YemenPaymentProofScreen(
                         val result = dataViewModel.submitManualPayment(planCode.lowercase(), method.id, receipt)
                         isSubmitting = false
                         if (result.isSuccess) {
-                            notificationsViewModel.recordManualPaymentRequest(currentUserId, if (planCode.equals("starter", true)) if (isArabic) "المبتدئ" else "Starter" else "Pro", method.localized(isArabic))
+                            notificationsViewModel.recordManualPaymentRequest(
+                                userId = currentUserId,
+                                planName = if (planCode.equals("starter", true)) if (isArabic) "المبتدئ" else "Starter" else "Pro",
+                                paymentMethod = method.localized(isArabic),
+                                interval = interval,
+                            )
                             submitted = true
                         } else {
                             errorMessage = if (isArabic) "تعذر إرسال طلب الدفع الآن. تحقق من الاتصال وحاول مرة أخرى." else "The payment request could not be sent. Check your connection and try again."
@@ -309,14 +370,14 @@ fun YemenPaymentProofScreen(
         AlertDialog(
             onDismissRequest = onCompleted,
             title = { Text(if (isArabic) "تم رفع الطلب" else "Request submitted") },
-            text = { Text(if (isArabic) "تم رفع إثبات الدفع وجارٍ التحقق وتفعيل اشتراكك. ستجد هذا الطلب أيضًا في الإشعارات." else "Your payment proof was submitted and is being verified. This request is also available in notifications.") },
+            text = { Text(if (isArabic) "تم رفع إثبات الدفع. تستغرق المراجعة والتفعيل عادةً من ساعة إلى ساعتين خلال أوقات الدوام، وسيصلك إشعار التفعيل داخل التطبيق وعبر البريد الإلكتروني." else "Your payment proof was submitted. Verification and activation usually take one to two hours during business hours, and you will be notified in the app and by email.") },
             confirmButton = { Button(onClick = onCompleted) { Text(if (isArabic) "عرض الإشعارات" else "View notifications") } },
         )
     }
 }
 
 @Composable
-private fun PlanPriceCard(planCode: String, price: String, isArabic: Boolean) {
+private fun PlanPriceCard(planCode: String, price: String, interval: String, isArabic: Boolean) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
@@ -325,6 +386,15 @@ private fun PlanPriceCard(planCode: String, price: String, isArabic: Boolean) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
             Text(if (isArabic) "الخطة المختارة" else "Selected plan", color = MaterialTheme.colorScheme.onPrimaryContainer, fontSize = 13.sp)
             Text(if (planCode.equals(BillingCatalog.PLAN_STARTER, true)) if (isArabic) "خطة المبتدئ" else "Starter plan" else if (isArabic) "خطة برو" else "Pro plan", color = MaterialTheme.colorScheme.onPrimaryContainer, fontWeight = FontWeight.Black, fontSize = 22.sp)
+            Text(
+                if (interval.equals(BillingCatalog.INTERVAL_YEARLY, true)) {
+                    if (isArabic) "اشتراك سنوي - خصم 20%" else "Yearly subscription - 20% off"
+                } else {
+                    if (isArabic) "اشتراك شهري" else "Monthly subscription"
+                },
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                style = MaterialTheme.typography.bodySmall,
+            )
             Text(price, color = MaterialTheme.colorScheme.onPrimaryContainer, fontWeight = FontWeight.SemiBold)
         }
     }
@@ -346,8 +416,13 @@ private fun PaymentMethodCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
     ) {
         Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = RoundedCornerShape(14.dp), modifier = Modifier.size(50.dp)) {
-                Image(painterResource(iconRes), contentDescription = null, modifier = Modifier.padding(7.dp), contentScale = ContentScale.Fit)
+            Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = RoundedCornerShape(14.dp), modifier = Modifier.size(58.dp)) {
+                Image(
+                    painterResource(iconRes),
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(14.dp)),
+                    contentScale = ContentScale.Crop,
+                )
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(title, fontWeight = FontWeight.Bold, fontSize = 17.sp)
@@ -373,12 +448,42 @@ private fun CopyableValue(label: String, value: String, isArabic: Boolean) {
     }
 }
 
-private fun planPrice(planCode: String, isArabic: Boolean): String =
-    if (planCode.equals(BillingCatalog.PLAN_STARTER, true)) {
-        if (isArabic) "2,900 ريال يمني - 19 ريال سعودي - 4.99 دولار أمريكي" else "2,900 YER - 19 SAR - 4.99 USD"
+internal fun planPrice(planCode: String, interval: String, isArabic: Boolean): String {
+    val monthly = if (planCode.equals(BillingCatalog.PLAN_STARTER, true)) {
+        Triple(2_900.0, 19.0, 4.99)
     } else {
-        if (isArabic) "4,900 ريال يمني - 35 ريال سعودي - 9.99 دولار أمريكي" else "4,900 YER - 35 SAR - 9.99 USD"
+        Triple(4_900.0, 35.0, 9.99)
     }
+    val factor = if (interval.equals(BillingCatalog.INTERVAL_YEARLY, true)) 9.6 else 1.0
+    val (yer, sar, usd) = Triple(monthly.first * factor, monthly.second * factor, monthly.third * factor)
+    val yerValue = String.format(Locale.US, "%,.0f", yer)
+    val sarValue = String.format(Locale.US, "%,.2f", sar).removeSuffix(".00")
+    val usdValue = String.format(Locale.US, "%.2f", usd)
+    return if (isArabic) {
+        "$yerValue ريال يمني - $sarValue ريال سعودي - $usdValue دولار أمريكي"
+    } else {
+        "YER $yerValue - SAR $sarValue - USD $usdValue"
+    }
+}
+
+@Composable
+private fun PaymentRegionTab(
+    selected: Boolean,
+    onClick: () -> Unit,
+    label: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+) {
+    Tab(
+        selected = selected,
+        onClick = onClick,
+        text = {
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface)
+                Text(label, color = MaterialTheme.colorScheme.onSurface)
+            }
+        },
+    )
+}
 
 private tailrec fun Context.findActivityForPayments(): Activity? = when (this) {
     is Activity -> this

@@ -163,6 +163,7 @@ fun SettingsHomeScreen(
     onAccountSettings: () -> Unit,
     onAppSettings: () -> Unit,
     onBackupSettings: () -> Unit,
+    onAdminDashboard: () -> Unit,
     onRequestReview: () -> Unit,
     onLogout: () -> Unit,
 ) {
@@ -178,6 +179,9 @@ fun SettingsHomeScreen(
         )
     }
     val userId = remember { Supabase.client.auth.currentUserOrNull()?.id.orEmpty() }
+    val isAdmin by produceState(initialValue = false, key1 = userId) {
+        value = userId.isNotBlank() && runCatching { dataViewModel.isCurrentUserAdmin() }.getOrDefault(false)
+    }
     var profileName by remember {
         mutableStateOf(
             context.getSharedPreferences("tijario_app_preferences", Context.MODE_PRIVATE)
@@ -257,6 +261,9 @@ fun SettingsHomeScreen(
                     SettingsOption(Icons.Outlined.Tune, t("app_settings"), onAppSettings)
                     SettingsOption(Icons.Outlined.CreditCard, t("payments_subscriptions"), onPaymentsSubscriptions)
                     SettingsOption(Icons.Outlined.CloudSync, t("backup_restore"), onBackupSettings)
+                    if (isAdmin) {
+                        SettingsOption(Icons.Filled.Shield, if (isAr) "لوحة تحكم المشرف" else "Admin dashboard", onAdminDashboard)
+                    }
                 }
             }
 
@@ -2077,7 +2084,7 @@ private fun SwipePricingPlanCard(
                         isCurrent -> if (isArabic) "الخطة الحالية" else "Current plan"
                         plan.code == "free" -> if (isArabic) "الخطة المجانية" else "Free plan"
                         isPurchasing -> if (isArabic) "جارٍ فتح Google Play..." else "Opening Google Play..."
-                        manualPaymentEligible -> if (isArabic) "طرق الدفع" else "Payment methods"
+                        manualPaymentEligible -> if (isArabic) "اختيار الخطة" else "Choose plan"
                         googlePlayPrice.isNullOrBlank() -> if (isArabic) "السعر غير متاح الآن" else "Price unavailable"
                         annualBilling -> if (isArabic) "ترقية" else "Upgrade"
                         else -> if (isArabic) "ترقية" else "Upgrade"

@@ -83,6 +83,7 @@ class NotificationsRepository(
         userId: String,
         planName: String,
         paymentMethod: String,
+        interval: String,
     ) {
         val now = Instant.now().toString()
         withContext(Dispatchers.IO) {
@@ -91,9 +92,9 @@ class NotificationsRepository(
                     userId = userId,
                     id = "manual-payment-${UUID.randomUUID()}",
                     titleAr = "تم رفع طلب الدفع",
-                    bodyAr = "تم استلام إثبات الدفع لخطة $planName عبر $paymentMethod. جاري التحقق وتفعيل الاشتراك.",
+                    bodyAr = "تم استلام إثبات الدفع لخطة $planName (${if (interval.equals("yearly", true)) "سنوية" else "شهرية"}) عبر $paymentMethod. تستغرق المراجعة والتفعيل عادةً من ساعة إلى ساعتين خلال أوقات الدوام. سيصلك إشعار التفعيل داخل التطبيق وعبر البريد الإلكتروني.",
                     titleEn = "Payment request submitted",
-                    bodyEn = "Your $planName payment proof via $paymentMethod was received. Verification is in progress.",
+                    bodyEn = "Your $planName ${if (interval.equals("yearly", true)) "yearly" else "monthly"} payment proof via $paymentMethod was received. Verification and activation usually take one to two hours during business hours. You will be notified in the app and by email.",
                     actionLabelAr = null,
                     actionLabelEn = null,
                     deepLink = null,

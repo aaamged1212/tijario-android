@@ -963,6 +963,13 @@
 - **Validation**: 17 focused JVM tests, both Debug/DebugAndroidTest assemblies, and `lintDebug` passed. Run physical RTL/LTR, compact-screen, and cold-launch visual QA before release.
 - **Safety Status**: No commit, push, deployment, migration, Production write, external configuration change, or Google Play upload occurred. `.agents` remains local and excluded.
 
+## 2026-08-24 (Yemen payment polish and admin UI, local)
+- **Manual payment**: The Yemen payment flow now displays the selected receipt as a complete thumbnail, marks the required receipt indicator in red, shows Arabic currency/contact labels, and reflects the selected monthly or yearly plan price. Yearly pricing applies twelve months less 20%.
+- **User notice**: Local payment-request notifications state the selected billing interval and set the one-to-two-hour verification expectation with in-app and email activation notice.
+- **Admin UI**: Settings obtains authenticated admin status and only then exposes the administrator dashboard. The dashboard searches account name, email, and UID, and submits plan, allowance, block/unblock, or deletion actions only to protected backend endpoints.
+- **Validation**: `assembleDebug` passed. The focused JVM test source set remains blocked before execution by three pre-existing `BackupPlanPolicyTest.kt` Long-to-String compile mismatches.
+- **Safety**: No commit, push, deployment, migration, Production write, Web change, external configuration change, or Google Play upload occurred. `.agents` remains local and excluded.
+
 ## 2026-08-22 (Version 0.0.21 preparation)
 - **Version**: Android is prepared as `versionCode 21` and `versionName 0.0.21` for the completed Google Play flexible-update and native-review changes.
 - **Validation**: The Android Debug build and final Kotlin compilation passed. The focused JVM test source set remains blocked by the pre-existing `BackupPlanPolicyTest.kt` Long-to-String type errors.

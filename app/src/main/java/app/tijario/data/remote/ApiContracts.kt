@@ -444,6 +444,60 @@ data class ManualPaymentResponse(
 )
 
 @Serializable
+data class AdminStatusData(
+    @SerialName("is_admin") val isAdmin: Boolean = false,
+)
+
+@Serializable
+data class AdminStatusResponse(
+    val ok: Boolean,
+    val data: AdminStatusData? = null,
+    val code: String? = null,
+)
+
+@Serializable
+data class AdminAccountDto(
+    @SerialName("user_id") val userId: String,
+    val email: String? = null,
+    @SerialName("full_name") val fullName: String? = null,
+    @SerialName("business_name") val businessName: String? = null,
+    @SerialName("plan_code") val planCode: String = "free",
+    @SerialName("plan_status") val planStatus: String = "active",
+    @SerialName("current_period_end") val currentPeriodEnd: String? = null,
+    @SerialName("is_blocked") val isBlocked: Boolean = false,
+    @SerialName("created_at") val createdAt: String? = null,
+)
+
+@Serializable
+data class AdminAccountsData(
+    val accounts: List<AdminAccountDto> = emptyList(),
+)
+
+@Serializable
+data class AdminAccountsResponse(
+    val ok: Boolean,
+    val data: AdminAccountsData? = null,
+    val code: String? = null,
+)
+
+@Serializable
+data class AdminAccountActionRequest(
+    val action: String,
+    @SerialName("plan_code") val planCode: String? = null,
+    @SerialName("duration_months") val durationMonths: Int? = null,
+    val documents: Int? = null,
+    val customers: Int? = null,
+    val products: Int? = null,
+    @SerialName("ai_generations") val aiGenerations: Int? = null,
+)
+
+@Serializable
+data class AdminAccountActionResponse(
+    val ok: Boolean,
+    val code: String? = null,
+)
+
+@Serializable
 data class ResetPasswordRequest(
     val email: String,
     val source: String = "android",

@@ -98,6 +98,18 @@ class BackendApiClient(
     suspend fun submitManualPayment(request: ManualPaymentRequest): ApiResult<ManualPaymentResponse> =
         authorizedPost("api/mobile/payments/manual-request", request).decodeApiResult()
 
+    suspend fun getAdminStatus(): AdminStatusResponse =
+        authorizedGet("api/mobile/admin/status").decodeJsonResponse()
+
+    suspend fun getAdminAccounts(query: String, offset: Int = 0): AdminAccountsResponse =
+        authorizedGet("api/mobile/admin/users?query=${java.net.URLEncoder.encode(query, Charsets.UTF_8.name())}&offset=$offset").decodeJsonResponse()
+
+    suspend fun applyAdminAccountAction(
+        userId: String,
+        request: AdminAccountActionRequest,
+    ): AdminAccountActionResponse =
+        authorizedPost("api/mobile/admin/users/$userId", request).decodeJsonResponse()
+
     suspend fun requestPasswordReset(request: ResetPasswordRequest): ApiResult<ResetPasswordResponse> =
         publicPost("api/mobile/auth/reset-password", request).decodeApiResult()
 

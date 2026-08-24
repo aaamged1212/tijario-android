@@ -119,9 +119,9 @@ class NotificationsViewModel(
         }
     }
 
-    fun recordManualPaymentRequest(userId: String, planName: String, paymentMethod: String) {
+    fun recordManualPaymentRequest(userId: String, planName: String, paymentMethod: String, interval: String) {
         viewModelScope.launch {
-            repository.recordManualPaymentRequest(userId, planName, paymentMethod)
+            repository.recordManualPaymentRequest(userId, planName, paymentMethod, interval)
         }
     }
 

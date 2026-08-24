@@ -2690,6 +2690,23 @@ open class TijarioRepository(
         }
         result.data.requestId
     }
+
+    suspend fun isCurrentUserAdmin(): Boolean =
+        backendApiClient.getAdminStatus().data?.isAdmin == true
+
+    suspend fun getAdminAccounts(query: String): Result<List<app.tijario.data.remote.AdminAccountDto>> = runCatching {
+        val result = backendApiClient.getAdminAccounts(query)
+        if (!result.ok || result.data == null) error(result.code ?: "admin_action_failed")
+        result.data.accounts
+    }
+
+    suspend fun applyAdminAccountAction(
+        userId: String,
+        request: app.tijario.data.remote.AdminAccountActionRequest,
+    ): Result<Unit> = runCatching {
+        val result = backendApiClient.applyAdminAccountAction(userId, request)
+        if (!result.ok) error(result.code ?: "admin_action_failed")
+    }
 }
 
 internal fun buildProductSyncPayload(product: Product): kotlinx.serialization.json.JsonElement =

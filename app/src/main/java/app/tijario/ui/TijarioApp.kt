@@ -114,6 +114,7 @@ import app.tijario.ui.screens.BackupSettingsScreen
 import app.tijario.ui.screens.UpgradePlanScreen
 import app.tijario.ui.screens.YemenPaymentMethodsScreen
 import app.tijario.ui.screens.YemenPaymentProofScreen
+import app.tijario.ui.screens.AdminDashboardScreen
 import app.tijario.ui.state.TijarioDataViewModel
 import app.tijario.ui.state.TijarioDataViewModelFactory
 import app.tijario.ui.state.AuthViewModel
@@ -1129,6 +1130,7 @@ private fun TijarioAppContent(playStorePrompter: GooglePlayEngagementPrompter) {
                         onAccountSettings = { navController.navigateSingleTop("account-settings") },
                         onAppSettings = { navController.navigateSingleTop("app-settings") },
                         onBackupSettings = { navController.navigateSingleTop("backup-settings") },
+                        onAdminDashboard = { navController.navigateSingleTop("admin-dashboard") },
                         onRequestReview = playStorePrompter::requestReviewFromUserAction,
                         onLogout = {
                             notificationsViewModel.logout()
@@ -1213,6 +1215,12 @@ private fun TijarioAppContent(playStorePrompter: GooglePlayEngagementPrompter) {
                         onUpgrade = { navController.navigateSingleTop("upgrade-plan") },
                     )
                 }
+                composable("admin-dashboard") {
+                    AdminDashboardScreen(
+                        dataViewModel = dataViewModel,
+                        onBack = { navController.safePopBackToMain() },
+                    )
+                }
                 composable("upgrade-plan") {
                     UpgradePlanScreen(
                         dataViewModel = dataViewModel,
@@ -1240,20 +1248,24 @@ private fun TijarioAppContent(playStorePrompter: GooglePlayEngagementPrompter) {
                         interval = backStackEntry.arguments?.getString("interval").orEmpty(),
                         dataViewModel = dataViewModel,
                         onOpenProof = { method ->
-                            navController.navigate("yemen-payment-proof?planCode=${backStackEntry.arguments?.getString("planCode").orEmpty()}&method=${method.id}")
+                            navController.navigate(
+                                "yemen-payment-proof?planCode=${backStackEntry.arguments?.getString("planCode").orEmpty()}&interval=${backStackEntry.arguments?.getString("interval").orEmpty()}&method=${method.id}",
+                            )
                         },
                         onBack = { navController.popBackStack() },
                     )
                 }
                 composable(
-                    route = "yemen-payment-proof?planCode={planCode}&method={method}",
+                    route = "yemen-payment-proof?planCode={planCode}&interval={interval}&method={method}",
                     arguments = listOf(
                         navArgument("planCode") { type = NavType.StringType; defaultValue = "starter" },
+                        navArgument("interval") { type = NavType.StringType; defaultValue = "monthly" },
                         navArgument("method") { type = NavType.StringType; defaultValue = "kuraimi" },
                     ),
                 ) { backStackEntry ->
                     YemenPaymentProofScreen(
                         planCode = backStackEntry.arguments?.getString("planCode").orEmpty(),
+                        interval = backStackEntry.arguments?.getString("interval").orEmpty(),
                         methodId = backStackEntry.arguments?.getString("method").orEmpty(),
                         dataViewModel = dataViewModel,
                         notificationsViewModel = notificationsViewModel,
