@@ -450,6 +450,7 @@ data class ManualPaymentResponse(
 @Serializable
 data class AdminStatusData(
     @SerialName("is_admin") val isAdmin: Boolean = false,
+    val role: String? = null,
 )
 
 @Serializable
@@ -497,6 +498,106 @@ data class AdminAccountActionRequest(
 
 @Serializable
 data class AdminAccountActionResponse(
+    val ok: Boolean,
+    val code: String? = null,
+)
+
+@Serializable
+data class AdminAccountPlanDto(
+    val code: String = "free",
+    val status: String = "active",
+    @SerialName("billing_cycle") val billingCycle: String? = null,
+    @SerialName("current_period_end") val currentPeriodEnd: String? = null,
+    @SerialName("document_limit") val documentLimit: Int = 0,
+    @SerialName("customer_limit") val customerLimit: Int = 0,
+    @SerialName("product_limit") val productLimit: Int = 0,
+    @SerialName("ai_limit") val aiLimit: Int = 0,
+)
+
+@Serializable
+data class AdminAccountUsageDto(
+    @SerialName("documents_used") val documentsUsed: Int = 0,
+    @SerialName("customers_used") val customersUsed: Int = 0,
+    @SerialName("products_used") val productsUsed: Int = 0,
+    @SerialName("ai_used") val aiUsed: Int = 0,
+)
+
+@Serializable
+data class AdminAccountAllowancesDto(
+    val documents: Int = 0,
+    val customers: Int = 0,
+    val products: Int = 0,
+    @SerialName("ai_generations") val aiGenerations: Int = 0,
+)
+
+@Serializable
+data class AdminAccountActionLogDto(
+    val action: String,
+    @SerialName("created_at") val createdAt: String,
+)
+
+@Serializable
+data class AdminAccountDetailDto(
+    @SerialName("user_id") val userId: String,
+    val email: String? = null,
+    @SerialName("full_name") val fullName: String? = null,
+    @SerialName("business_name") val businessName: String? = null,
+    @SerialName("created_at") val createdAt: String? = null,
+    @SerialName("is_blocked") val isBlocked: Boolean = false,
+    val plan: AdminAccountPlanDto = AdminAccountPlanDto(),
+    val usage: AdminAccountUsageDto = AdminAccountUsageDto(),
+    val allowances: AdminAccountAllowancesDto = AdminAccountAllowancesDto(),
+    @SerialName("recent_actions") val recentActions: List<AdminAccountActionLogDto> = emptyList(),
+)
+
+@Serializable
+data class AdminAccountDetailData(
+    val account: AdminAccountDetailDto,
+)
+
+@Serializable
+data class AdminAccountDetailResponse(
+    val ok: Boolean,
+    val data: AdminAccountDetailData? = null,
+    val code: String? = null,
+)
+
+@Serializable
+data class AdminAnalyticsOverviewDto(
+    @SerialName("accounts_total") val accountsTotal: Int = 0,
+    @SerialName("accounts_new_7d") val accountsNew7d: Int = 0,
+    @SerialName("accounts_new_30d") val accountsNew30d: Int = 0,
+    @SerialName("documents_created_7d") val documentsCreated7d: Int = 0,
+    @SerialName("documents_created_30d") val documentsCreated30d: Int = 0,
+    @SerialName("ai_generations_7d") val aiGenerations7d: Int = 0,
+    @SerialName("ai_generations_30d") val aiGenerations30d: Int = 0,
+    val plans: Map<String, Int> = emptyMap(),
+)
+
+@Serializable
+data class AdminAnalyticsData(
+    val analytics: AdminAnalyticsOverviewDto,
+)
+
+@Serializable
+data class AdminAnalyticsResponse(
+    val ok: Boolean,
+    val data: AdminAnalyticsData? = null,
+    val code: String? = null,
+)
+
+@Serializable
+data class AdminNotificationCampaignRequest(
+    @SerialName("title_ar") val titleAr: String,
+    @SerialName("body_ar") val bodyAr: String,
+    @SerialName("title_en") val titleEn: String,
+    @SerialName("body_en") val bodyEn: String,
+    val audience: String,
+    @SerialName("target_user_ids") val targetUserIds: List<String> = emptyList(),
+)
+
+@Serializable
+data class AdminNotificationCampaignResponse(
     val ok: Boolean,
     val code: String? = null,
 )

@@ -249,3 +249,11 @@ The counters migration is required to manage sequential document numbers without
 - The matching schema migration is applied. Wait for compatible Web/API deployment before testing the dashboard.
 - Verify `aaamged1212@gmail.com` sees the entry and can complete each permitted action; a normal account must not see it or call the endpoints successfully.
 - Add `tijario.site@gmail.com` only after it has a real Auth account. No client-side email allowlist is acceptable.
+
+## 2026-08-24 Administrator control center QA gate
+- After the Web migration and API deployment, validate that a `super_admin` can view detail, change a plan, and grant allowances.
+- Verify a non-admin cannot see the dashboard or call its endpoints; verify a support-only role cannot mutate an account.
+- Per-user system push and notification images are not part of this local Android change. They require an approved FCM credential and secure campaign-media delivery path.
+
+## 2026-08-24 Administrator control center post-migration QA
+- The schema migration is applied. Deploy the compatible Web/API source, then test plan changes, allowance grants, per-user campaign delivery, and permission denial with actual administrator and non-administrator accounts.

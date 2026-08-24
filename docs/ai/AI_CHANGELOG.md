@@ -723,3 +723,10 @@
 - Published Android commit `9f3fe99` on `codex/yemen-payment-methods`.
 - The matching administrator schema is now applied in Production; app visibility and mutations remain protected by server-side `app_admins` checks and require the compatible API deployment.
 - No Android artifact, Google Play upload, Web deployment, or external configuration change occurred.
+
+# 2026-08-24 - Administrator control center correction, local
+- Added account-detail, analytics, and in-app notification campaign contracts to the Android client, including signup date, copyable UID, usage, allowance display, and all-user or selected-user campaigns.
+- Replaced generic administrator action errors with bounded localized plan, allowance, permission, and schema-update messages.
+
+# 2026-08-24 - Administrator control center backend gate completed
+- The required backend migration is applied and verified. Android runtime QA still requires the compatible Web/API deployment.

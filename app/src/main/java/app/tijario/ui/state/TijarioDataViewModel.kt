@@ -467,6 +467,16 @@ class TijarioDataViewModel(
     suspend fun getAdminAccounts(query: String): Result<List<app.tijario.data.remote.AdminAccountDto>> =
         repository.getAdminAccounts(query)
 
+    suspend fun getAdminAccountDetail(userId: String): Result<app.tijario.data.remote.AdminAccountDetailDto> =
+        repository.getAdminAccountDetail(userId)
+
+    suspend fun getAdminAnalytics(): Result<app.tijario.data.remote.AdminAnalyticsOverviewDto> =
+        repository.getAdminAnalytics()
+
+    suspend fun publishAdminNotificationCampaign(
+        request: app.tijario.data.remote.AdminNotificationCampaignRequest,
+    ): Result<Unit> = repository.publishAdminNotificationCampaign(request)
+
     suspend fun applyAdminAccountAction(
         userId: String,
         request: app.tijario.data.remote.AdminAccountActionRequest,

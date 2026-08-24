@@ -2705,6 +2705,25 @@ open class TijarioRepository(
         result.data.accounts
     }
 
+    suspend fun getAdminAccountDetail(userId: String): Result<app.tijario.data.remote.AdminAccountDetailDto> = runCatching {
+        val result = backendApiClient.getAdminAccountDetail(userId)
+        if (!result.ok || result.data == null) error(result.code ?: "admin_action_failed")
+        result.data.account
+    }
+
+    suspend fun getAdminAnalytics(): Result<app.tijario.data.remote.AdminAnalyticsOverviewDto> = runCatching {
+        val result = backendApiClient.getAdminAnalytics()
+        if (!result.ok || result.data == null) error(result.code ?: "admin_action_failed")
+        result.data.analytics
+    }
+
+    suspend fun publishAdminNotificationCampaign(
+        request: app.tijario.data.remote.AdminNotificationCampaignRequest,
+    ): Result<Unit> = runCatching {
+        val result = backendApiClient.publishAdminNotificationCampaign(request)
+        if (!result.ok) error(result.code ?: "admin_action_failed")
+    }
+
     suspend fun applyAdminAccountAction(
         userId: String,
         request: app.tijario.data.remote.AdminAccountActionRequest,

@@ -104,6 +104,17 @@ class BackendApiClient(
     suspend fun getAdminAccounts(query: String, offset: Int = 0): AdminAccountsResponse =
         authorizedGet("api/mobile/admin/users?query=${java.net.URLEncoder.encode(query, Charsets.UTF_8.name())}&offset=$offset").decodeJsonResponse()
 
+    suspend fun getAdminAccountDetail(userId: String): AdminAccountDetailResponse =
+        authorizedGet("api/mobile/admin/users/$userId").decodeJsonResponse()
+
+    suspend fun getAdminAnalytics(): AdminAnalyticsResponse =
+        authorizedGet("api/mobile/admin/analytics").decodeJsonResponse()
+
+    suspend fun publishAdminNotificationCampaign(
+        request: AdminNotificationCampaignRequest,
+    ): AdminNotificationCampaignResponse =
+        authorizedPost("api/mobile/admin/notifications", request).decodeJsonResponse()
+
     suspend fun applyAdminAccountAction(
         userId: String,
         request: AdminAccountActionRequest,

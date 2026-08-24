@@ -968,6 +968,17 @@
 - **Validation**: 17 focused JVM tests, both Debug/DebugAndroidTest assemblies, and `lintDebug` passed. Run physical RTL/LTR, compact-screen, and cold-launch visual QA before release.
 - **Safety Status**: No commit, push, deployment, migration, Production write, external configuration change, or Google Play upload occurred. `.agents` remains local and excluded.
 
+## 2026-08-24 (Administrator control center correction, local)
+- **UI and contract**: The administrator dashboard now shows account signup date, copyable UID, plan/usage/allowance detail, an aggregate activity summary when the operator has analytics permission, and a campaign composer for all users or one selected user.
+- **Error handling**: Plan, allowance, permission, and server-schema failures map to safe localized messages instead of the single generic action failure.
+- **Release dependency**: The compatible Web migration `20260824150000_admin_control_center_and_plan_cycle_fix.sql` and API deployment are required before the corrected actions can succeed at runtime.
+- **Validation**: `assemblePlayQa` passed. Focused JVM execution remains blocked by three pre-existing `BackupPlanPolicyTest.kt` Long-to-String compilation errors outside this work.
+- **Safety**: No Android version, signing, commit, push, deployment, migration, Production write, or Google Play upload occurred. `.agents` remains untracked and excluded.
+
+## 2026-08-24 (Administrator control center migration applied)
+- **Backend prerequisite**: `20260824150000_admin_control_center_and_plan_cycle_fix.sql` is now applied and verified in Production.
+- **Next gate**: Deploy the compatible Web/API source before validating Android plan changes, allowances, account details, analytics, and campaigns against a real administrator account.
+
 ## 2026-08-24 (Yemen payment and administrator publication)
 - **Android**: Commit `9f3fe99` was pushed to `codex/yemen-payment-methods`; no APK/AAB or Google Play upload occurred.
 - **Backend dependency**: `20260824123000_admin_account_management.sql` is applied on Production, but the compatible API deployment remains pending.

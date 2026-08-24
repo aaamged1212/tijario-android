@@ -282,6 +282,11 @@
 - **Evidence**: Focused JVM suites and Debug assembly passed. `lintDebug` is pending after exceeding the local command timeout. No connected device was used.
 - **Safety**: No commit, push, deployment, migration, Production write, external configuration change, or Google Play upload occurred. `.agents` remains untracked and excluded.
 
+## 2026-08-24 - Active local task
+- **Task**: Administrator control-center correction and typed mutation errors.
+- **State**: Android and Web source are local and uncommitted. The required Web migration is applied.
+- **Next authorized action**: Publish and deploy the compatible API, then perform physical Android admin QA.
+
 ## 2026-08-24 - Yemen payments and administrator dashboard published
 - **Published**: Commit `9f3fe99` is pushed to `codex/yemen-payment-methods`.
 - **Backend dependency**: The matching Production schema migration `20260824123000_admin_account_management.sql` is applied, but the compatible Web API is not deployed yet.

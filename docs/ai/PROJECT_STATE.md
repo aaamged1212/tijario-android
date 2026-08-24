@@ -308,3 +308,11 @@
 - Commit `9f3fe99` is published to `origin/codex/yemen-payment-methods`.
 - The matching Production migration is applied, and the intended existing Auth account is configured as an administrator. The Web/API source remains undeployed, so the dashboard must not be treated as live yet.
 - Physical QA and an Android release remain separate actions; no Google Play upload occurred.
+
+## 2026-08-24 Administrator control center correction pending release
+- **Local Android source**: Supports role-aware admin status, detail usage, safe mutation errors, and aggregate operational metrics.
+- **Backend gate**: Existing Production RPC uses the wrong `billing_interval` contract. The forward-only correction must be applied and the compatible API deployed before runtime plan and allowance actions are retested.
+- **No release action**: No Android artifact was published and no external configuration changed in this task.
+
+## 2026-08-24 Administrator control center migration applied
+- The required Production schema correction is applied. Android source remains dependent on the matching Web/API deployment before administrator mutations can be tested from the app.
