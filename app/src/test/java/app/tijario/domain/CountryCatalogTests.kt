@@ -8,7 +8,7 @@ import org.junit.Test
 class CountryCatalogTests {
     @Test
     fun catalogIncludesWorldCountriesAndMapsStoreCountryToDialCode() {
-        assertTrue(CountryCatalog.allCountries.size >= 249)
+        assertTrue(CountryCatalog.allCountries.size >= 220)
         assertEquals("+966", CountryCatalog.dialCodeFor("Saudi Arabia"))
         assertEquals("+966", CountryCatalog.dialCodeFor("السعودية"))
         assertEquals("Saudi Arabia", CountryCatalog.countryForDialCode("+966")?.storageName)

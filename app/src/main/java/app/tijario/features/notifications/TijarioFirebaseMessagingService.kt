@@ -82,6 +82,7 @@ class TijarioFirebaseMessagingService : FirebaseMessagingService() {
         }
     }
 
+    @Suppress("DEPRECATION")
     override fun onNewToken(token: String) {
         serviceScope.launch {
             val language = AppPreferences.getLanguage(applicationContext)

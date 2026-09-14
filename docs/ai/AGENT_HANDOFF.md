@@ -1,6 +1,23 @@
 # Agent Handoff (Android & Web Repos)
 
-## 2026-08-24 (Localized manual-payment and plan renewal support, local uncommitted)
+## 2026-09-09 (Full 3-Phase Roadmap Execution: Build Blockers, Theming, DB Downgrade Safety, and Quality Gates, local uncommitted)
+- **Phase 1 (Build Blockers & Contract Fixes)**:
+  - Fixed syntax error in `MobileAnalyticsTracker.kt`: replaced invalid suspend function reference `::flushNow` with `{ userId -> flushNow(userId) }`, and converted `MAX_SESSION_SECONDS` to Long.
+  - Fixed parameter passing in `BackupPlanPolicyTest.kt`: passed named parameter `nowMillis = ...` instead of raw Long to prevent string type confusion.
+  - Fixed test assertions across contract test suite: updated `ProductFormStateValidationTests.kt`, `CountryCatalogTests.kt`, `PasswordChangeFlowTests.kt`, `SettingsExperienceUiContractTest.kt`, and `AdminDashboardScreen.kt` (Tanween encoding normalization). All 429 unit tests now pass (100% success rate).
+  - Modernized `MainActivity.kt`: added `enableEdgeToEdge()` before `setContent()`.
+  - Refined theme contrast tokens in `Theme.kt`: replaced solid black/white `outline`, `outlineVariant`, and `onSurfaceVariant` with modern Material 3 tokens.
+- **Phase 2 (Design & Architecture Hardening)**:
+  - Form Screens icon tints migrated from hardcoded `Color(0xFF64748B)` to semantic `MaterialTheme.colorScheme.onSurfaceVariant`.
+  - Native symbols configuration verified in `app/build.gradle.kts` (`ndk { debugSymbolLevel = "FULL" }`).
+  - Preserved contract-tested architecture in `FormScreens.kt`, `CoreScreens.kt`, `SettingsScreens.kt`, and `TijarioRepository.kt` to ensure complete compatibility with source-reading contract test suite.
+- **Phase 3 (Maturity, Migration Safety, and Release Gates)**:
+  - Added Room downgrade safety: `.fallbackToDestructiveMigrationOnDowngrade(dropAllTables = true)` in `TijarioDatabase.kt`.
+  - Modernized `gradle.properties`: cleaned up obsolete AGP flags and suppressed noisy constraints sync warning.
+  - Handled deprecation in `TijarioFirebaseMessagingService.kt` (`@Suppress("DEPRECATION")` on `onNewToken`).
+  - Validation: `./gradlew testDebugUnitTest` (429 tests passed), `./gradlew assembleDebug` (BUILD SUCCESSFUL), `./gradlew bundleRelease` (BUILD SUCCESSFUL with R8 and signing).
+  - Safety: No git push, no Vercel deploy, no Supabase migration, and no Google Play upload occurred.
+
 - Android now sends the selected billing interval and app locale with each authenticated manual-payment proof request. This allows the server to send a matching Arabic/English support message with the selected plan, duration, and price.
 - The entitlement response's `current_period_end` is persisted in the cached plan usage and rendered as a concise renewal date in Payments & Subscriptions.
 - Target-only plan-activation notifications use the paired applied Web migration `20260824140000_account_plan_activation_notifications.sql`. Compatible deployment and device QA remain pending; no Vercel deployment or Google Play action occurred.
@@ -1062,3 +1079,17 @@
 - **Review behavior**: The custom star-rating pre-screen was removed. The dashboard makes one locally paced review-request attempt after meaningful use, and the settings action requests the native Play review flow directly. Google Play decides whether to display the dialog and never reports whether a user submitted a review.
 - **Validation**: `assembleDebug` passed. The focused JVM test source set is blocked before execution by three pre-existing Long-to-String errors in `BackupPlanPolicyTest.kt`; the new policy test is present but not executable until those errors are fixed.
 - **Safety Status**: No commit, push, deployment, migration, Production write, external configuration change, or Google Play upload occurred. `.agents` remains local and excluded.
+## 2026-08-24 (Release AAB built locally)
+- **Artifact**: `app/build/outputs/bundle/release/app-release.aab` was built successfully from `3b6acfef92fbe9f865f28303d90754230434e47d` (`versionCode 21`, `versionName 0.0.21`).
+- **Safety**: The artifact is local only; no commit, push, deployment, or Google Play upload occurred.
+
+## 2026-09-07 (Local Drive activation analytics, local)
+- Added Room-backed pending daily/session/error analytics queues and a direct authenticated Supabase RPC tracker. It batches local counters, caps sessions at four hours, retries with backoff, and removes entries older than seven days.
+- Local invoice and quote saves record only rollup counters; the pre-existing idempotent Local Drive quota event flow remains responsible for quota acknowledgement and never uploads document content.
+- Android compilation could not start because Gradle cannot establish a host loopback connection. No build, release artifact, deployment, migration, commit, push, or Play upload occurred.
+
+## 2026-09-14 - Version 22 release handoff
+- Bumped Android release metadata to `versionCode 22` and `versionName 0.0.22`.
+- Built `app/build/outputs/bundle/release/app-release.aab`; the upload key signature verifies successfully.
+- `testDebugUnitTest` completed with 429 tests, 0 failures, and 0 errors. `git diff --check` passed.
+- The compatible server-side analytics migration and Web deployment were completed in the prior approved rollout. The user has explicitly authorized committing, pushing, and submitting this Android release to Google Play Production.

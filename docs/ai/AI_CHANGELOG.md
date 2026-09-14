@@ -1,6 +1,15 @@
 # AI Changelog
 
-## 2026-08-24 - Localized manual-payment and renewal-date contracts
+## 2026-09-09 - Comprehensive 3-Phase Roadmap Execution
+- Fixed build-breaking compiler errors in `MobileAnalyticsTracker.kt` and `BackupPlanPolicyTest.kt`.
+- Updated Material 3 contrast tokens in `Theme.kt` and icon tints in `CustomerFormScreen`.
+- Added `enableEdgeToEdge()` in `MainActivity.kt`.
+- Resolved contract test assertions; all 429 unit tests pass with 100% success rate.
+- Added Room downgrade safety `.fallbackToDestructiveMigrationOnDowngrade(dropAllTables = true)` in `TijarioDatabase.kt`.
+- Modernized `gradle.properties` by removing obsolete AGP flags and suppressing noisy library constraint sync warnings.
+- Confirmed full compilation, test, and release bundle builds (`testDebugUnitTest`, `assembleDebug`, `bundleRelease`).
+- No git push, deployment, migration, or Google Play upload occurred.
+
 - Added interval and locale fields to manual-payment requests and cached `current_period_end` for the payment subscription card.
 - Added Android mapping for targeted plan notices supplied by the Web notification bootstrap.
 - Gradle validation is inconclusive because local output cleanup and worker execution blocked the targeted task; the paired database migration is applied, while deployment and device QA remain pending.
@@ -733,3 +742,13 @@
 
 # 2026-08-24 - Administrator control center source publication
 - Published Android commit `78ff73ae549e2dd50dd88df0b55051f07fcb1367` to `codex/yemen-payment-methods`.
+# 2026-08-24 - Local Release AAB build
+- Built the signed Release AAB for `versionCode 21` / `versionName 0.0.21` successfully; distribution remains unapproved and was not performed.
+
+# 2026-09-07 - Local Drive activation analytics
+- Added a local-first, Room-backed analytics tracker for authenticated users only. It transmits bounded counters, session metadata, and deduplicated non-sensitive error codes through one batched Supabase RPC.
+- Added event hooks for onboarding, local invoice/quote creation, PDF preview, sharing, upgrade entry, quota limits, and AI v3 success/failure without transmitting customer, document, or AI content.
+
+# 2026-09-14 - Android release 22 preparation
+- Bumped the release to `versionCode 22` / `versionName 0.0.22` for the local-first analytics and reliability update.
+- Built and verified the signed AAB. Debug JVM validation completed with 429 passing tests.

@@ -277,6 +277,54 @@ interface TijarioDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertCreationEvent(event: DocumentCreationEventEntity): Long
 
+    @Query("SELECT * FROM analytics_pending_daily WHERE user_id = :userId AND installation_id = :installationId AND day = :day LIMIT 1")
+    suspend fun getPendingAnalyticsDaily(userId: String, installationId: String, day: String): AnalyticsPendingDailyEntity?
+
+    @Query("SELECT * FROM analytics_pending_daily WHERE user_id = :userId AND next_retry_at <= :now ORDER BY updated_at ASC LIMIT 1")
+    suspend fun getFlushableAnalyticsDaily(userId: String, now: Long): AnalyticsPendingDailyEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertPendingAnalyticsDaily(row: AnalyticsPendingDailyEntity)
+
+    @Query("DELETE FROM analytics_pending_daily WHERE user_id = :userId AND installation_id = :installationId AND day = :day AND batch_id = :batchId")
+    suspend fun deletePendingAnalyticsDaily(userId: String, installationId: String, day: String, batchId: String): Int
+
+    @Query("SELECT * FROM analytics_pending_sessions WHERE user_id = :userId AND installation_id = :installationId AND ended_at IS NOT NULL AND next_retry_at <= :now ORDER BY started_at ASC LIMIT 1")
+    suspend fun getFlushableAnalyticsSessions(userId: String, installationId: String, now: Long): List<AnalyticsPendingSessionEntity>
+
+    @Query("SELECT * FROM analytics_pending_sessions WHERE user_id = :userId AND ended_at IS NOT NULL AND next_retry_at <= :now ORDER BY started_at ASC LIMIT 1")
+    suspend fun getAnyFlushableAnalyticsSession(userId: String, now: Long): AnalyticsPendingSessionEntity?
+
+    @Query("SELECT * FROM analytics_pending_sessions WHERE user_id = :userId AND ended_at IS NULL ORDER BY started_at ASC")
+    suspend fun getOpenAnalyticsSessions(userId: String): List<AnalyticsPendingSessionEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertPendingAnalyticsSession(row: AnalyticsPendingSessionEntity)
+
+    @Query("DELETE FROM analytics_pending_sessions WHERE session_id IN (:sessionIds)")
+    suspend fun deletePendingAnalyticsSessions(sessionIds: List<String>): Int
+
+    @Query("SELECT * FROM analytics_pending_errors WHERE user_id = :userId AND installation_id = :installationId AND day = :day AND next_retry_at <= :now ORDER BY error_fingerprint ASC LIMIT 20")
+    suspend fun getFlushableAnalyticsErrors(userId: String, installationId: String, day: String, now: Long): List<AnalyticsPendingErrorEntity>
+
+    @Query("SELECT * FROM analytics_pending_errors WHERE user_id = :userId AND installation_id = :installationId AND day = :day AND error_fingerprint = :fingerprint LIMIT 1")
+    suspend fun getPendingAnalyticsError(userId: String, installationId: String, day: String, fingerprint: String): AnalyticsPendingErrorEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertPendingAnalyticsError(row: AnalyticsPendingErrorEntity)
+
+    @Query("DELETE FROM analytics_pending_errors WHERE user_id = :userId AND installation_id = :installationId AND day = :day AND error_fingerprint IN (:fingerprints)")
+    suspend fun deletePendingAnalyticsErrors(userId: String, installationId: String, day: String, fingerprints: List<String>): Int
+
+    @Query("DELETE FROM analytics_pending_daily WHERE updated_at < :olderThan")
+    suspend fun deleteExpiredPendingAnalyticsDaily(olderThan: Long): Int
+
+    @Query("DELETE FROM analytics_pending_sessions WHERE started_at < :olderThan")
+    suspend fun deleteExpiredPendingAnalyticsSessions(olderThan: Long): Int
+
+    @Query("DELETE FROM analytics_pending_errors WHERE day < :olderThanDay")
+    suspend fun deleteExpiredPendingAnalyticsErrors(olderThanDay: String): Int
+
     @Query("UPDATE document_creation_events SET status = 'ACKNOWLEDGED', acknowledged_at_server = :acknowledgedAt WHERE user_id = :userId AND document_id = :documentId AND status = 'PENDING'")
     suspend fun acknowledgeCreationEvent(userId: String, documentId: String, acknowledgedAt: Long): Int
 
@@ -382,6 +430,15 @@ interface TijarioDao {
 
     @Query("DELETE FROM document_creation_events WHERE user_id = :userId")
     suspend fun deleteCreationEventsForUser(userId: String)
+
+    @Query("DELETE FROM analytics_pending_daily WHERE user_id = :userId")
+    suspend fun deletePendingAnalyticsDailyForUser(userId: String)
+
+    @Query("DELETE FROM analytics_pending_sessions WHERE user_id = :userId")
+    suspend fun deletePendingAnalyticsSessionsForUser(userId: String)
+
+    @Query("DELETE FROM analytics_pending_errors WHERE user_id = :userId")
+    suspend fun deletePendingAnalyticsErrorsForUser(userId: String)
 
     @Query("DELETE FROM account_entitlements WHERE user_id = :userId")
     suspend fun deleteAccountEntitlementForUser(userId: String)

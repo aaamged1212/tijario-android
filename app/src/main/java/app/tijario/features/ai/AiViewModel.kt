@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import app.tijario.config.AppRuntimeState
 import app.tijario.config.AppLanguage
 import app.tijario.config.Localization
+import app.tijario.analytics.MobileAnalyticsTracker
 import app.tijario.data.remote.AiV3CaptionRequest
 import app.tijario.data.remote.AiV3ReplyRequest
 import app.tijario.data.remote.AiV3ReportRequest
@@ -114,21 +115,27 @@ class AiViewModel(
                         response.ok && data != null -> {
                             generationStates.update(AiGenerationTarget.Reply, AiV3ScreenState.Success("reply", data))
                             persistHistory(AI_HISTORY_TYPE_REPLY, data)
+                            MobileAnalyticsTracker.track(MobileAnalyticsTracker.Event.AiReplyGeneratedSuccess)
                             onSuccess()
                         }
 
                         response.code.equals("ai_limit_reached", ignoreCase = true) -> {
                             generationStates.update(AiGenerationTarget.Reply, AiV3ScreenState.LimitReached(localizedAiLimitReached()))
+                            MobileAnalyticsTracker.recordClientError("ai_limit_reached", "ai_reply")
                         }
 
-                        else -> generationStates.update(
-                            AiGenerationTarget.Reply,
-                            AiV3ScreenState.Error(responseFailureMessage(response.code, response.message, response.retryable, localizedReplyError())),
-                        )
+                        else -> {
+                            generationStates.update(
+                                AiGenerationTarget.Reply,
+                                AiV3ScreenState.Error(responseFailureMessage(response.code, response.message, response.retryable, localizedReplyError())),
+                            )
+                            MobileAnalyticsTracker.recordClientError(response.code ?: "ai_reply_failed", "ai_reply")
+                        }
                     }
                 }
                 .onFailure { error ->
                     generationStates.update(AiGenerationTarget.Reply, mapFailure(error, localizedReplyError()))
+                    MobileAnalyticsTracker.recordClientError("ai_reply_network_failure", "ai_reply")
                 }
         }
     }
@@ -143,21 +150,27 @@ class AiViewModel(
                         response.ok && data != null -> {
                             generationStates.update(AiGenerationTarget.Caption, AiV3ScreenState.Success("caption", data))
                             persistHistory(AI_HISTORY_TYPE_CAPTION, data)
+                            MobileAnalyticsTracker.track(MobileAnalyticsTracker.Event.AiCaptionGeneratedSuccess)
                             onSuccess()
                         }
 
                         response.code.equals("ai_limit_reached", ignoreCase = true) -> {
                             generationStates.update(AiGenerationTarget.Caption, AiV3ScreenState.LimitReached(localizedAiLimitReached()))
+                            MobileAnalyticsTracker.recordClientError("ai_limit_reached", "ai_caption")
                         }
 
-                        else -> generationStates.update(
-                            AiGenerationTarget.Caption,
-                            AiV3ScreenState.Error(responseFailureMessage(response.code, response.message, response.retryable, localizedCaptionError())),
-                        )
+                        else -> {
+                            generationStates.update(
+                                AiGenerationTarget.Caption,
+                                AiV3ScreenState.Error(responseFailureMessage(response.code, response.message, response.retryable, localizedCaptionError())),
+                            )
+                            MobileAnalyticsTracker.recordClientError(response.code ?: "ai_caption_failed", "ai_caption")
+                        }
                     }
                 }
                 .onFailure { error ->
                     generationStates.update(AiGenerationTarget.Caption, mapFailure(error, localizedCaptionError()))
+                    MobileAnalyticsTracker.recordClientError("ai_caption_network_failure", "ai_caption")
                 }
         }
     }

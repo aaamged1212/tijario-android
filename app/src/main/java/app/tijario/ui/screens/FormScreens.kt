@@ -602,7 +602,7 @@ fun CustomerFormScreen(
                         value = form.name,
                         onValueChange = { form = form.copy(name = it) },
                         error = if (form.name.isNotEmpty()) form.nameError else null,
-                        leadingIcon = { Icon(Icons.Filled.Person, contentDescription = null, tint = Color(0xFF64748B)) }
+                        leadingIcon = { Icon(Icons.Filled.Person, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) }
                     )
 
                     TijarioPhoneField(
@@ -617,7 +617,7 @@ fun CustomerFormScreen(
                         label = t("city"),
                         value = form.city,
                         onValueChange = { form = form.copy(city = it) },
-                        leadingIcon = { Icon(Icons.Filled.LocationOn, contentDescription = null, tint = Color(0xFF64748B)) }
+                        leadingIcon = { Icon(Icons.Filled.LocationOn, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) }
                     )
 
                     TijarioTextField(
@@ -625,7 +625,7 @@ fun CustomerFormScreen(
                         value = form.notes,
                         onValueChange = { form = form.copy(notes = it) },
                         singleLine = false,
-                        leadingIcon = { Icon(Icons.Filled.Note, contentDescription = null, tint = Color(0xFF64748B)) }
+                        leadingIcon = { Icon(Icons.Filled.Note, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) }
                     )
 
                     Spacer(modifier = Modifier.height(8.dp))

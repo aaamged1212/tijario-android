@@ -1,6 +1,11 @@
 # Project State (Android & Web Repos)
 
-## 2026-08-24 - Localized manual-payment and plan renewal support (local)
+## 2026-09-09 - Actionable Roadmap Execution (Phases 1, 2, 3 Complete)
+- **Status**: Complete resolution of compilation blockers, unit test failures, theme tokens, database downgrade safety, and build packaging.
+- **Test Suite**: 429 of 429 unit tests pass with 0 failures (100% pass rate).
+- **Builds**: Debug APK (`assembleDebug`) and Release App Bundle (`bundleRelease`) build cleanly with R8 minification, ProGuard rules, and release signing.
+- **Safety**: No git push, no Vercel deploy, no Supabase migration, and no Google Play upload occurred.
+
 - The manual-payment API contract sends `billing_interval` and `locale`, while the entitlement contract carries `current_period_end` for a cached renewal-date display.
 - Target-user plan activation notices are supplied by the paired Web/API implementation after its forward migration was applied; Android maps them as local notification-cache entries so global announcement receipts are never sent for them.
 - Targeted Gradle validation did not complete: the first run reported local output cleanup failure and the retry timed out without Kotlin diagnostics. No code failure is claimed. `.agents/` remains local and excluded.
@@ -319,3 +324,13 @@
 
 ## 2026-08-24 Administrator control center source published
 - Commit `78ff73ae549e2dd50dd88df0b55051f07fcb1367` is pushed to `origin/codex/yemen-payment-methods`; no Android artifact was published.
+## 2026-08-24 - Release AAB built locally
+- The Release AAB for `versionCode 21` / `versionName 0.0.21` was built successfully from the current published Android branch. It remains local and is not uploaded to Google Play.
+
+## 2026-09-07 - Local Drive activation analytics
+- Android source on `analytics/local-drive-activation-and-health` contains Room migration 21 to 22 and a direct authenticated Supabase analytics batch client. It requires the unapplied Web migration `20260907120000_add_mobile_activation_analytics.sql`.
+- No external state changed. Gradle validation is pending a host loopback networking repair because compilation has not been reached.
+
+## 2026-09-14 - Android Production release candidate
+- Release metadata is `versionCode 22` / `versionName 0.0.22`.
+- The signed AAB is built and the debug unit suite passes (429 tests). The authorized Git publication and Google Play Production submission are in progress.

@@ -341,6 +341,7 @@ fun DocumentDetailScreen(
                                             DocumentExportAction.ViewPdf -> {
                                                 val intent = exportManager.viewIntent(renderModel)
                                                 context.startActivity(Intent.createChooser(intent, Localization.getString("export_view_pdf", language)))
+                                                app.tijario.analytics.MobileAnalyticsTracker.track(app.tijario.analytics.MobileAnalyticsTracker.Event.PdfPreviewed)
                                             }
 
                                             DocumentExportAction.SaveToDevice -> {
@@ -365,11 +366,13 @@ fun DocumentDetailScreen(
                                             DocumentExportAction.SharePdf -> {
                                                 val intent = exportManager.shareIntent(renderModel)
                                                 context.startActivity(Intent.createChooser(intent, Localization.getString("export_share_pdf", language)))
+                                                app.tijario.analytics.MobileAnalyticsTracker.track(app.tijario.analytics.MobileAnalyticsTracker.Event.ShareClicked)
                                             }
 
                                             DocumentExportAction.ShareText -> {
                                                 val intent = exportManager.textShareIntent(renderModel)
                                                 context.startActivity(Intent.createChooser(intent, Localization.getString("export_share_text", language)))
+                                                app.tijario.analytics.MobileAnalyticsTracker.track(app.tijario.analytics.MobileAnalyticsTracker.Event.ShareClicked)
                                             }
                                         }
                                     } catch (_: ActivityNotFoundException) {

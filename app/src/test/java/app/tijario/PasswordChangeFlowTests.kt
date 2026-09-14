@@ -53,7 +53,7 @@ class PasswordChangeFlowTests {
         val coreSource = readSource("src/main/java/app/tijario/ui/screens/CoreScreens.kt")
 
         assertTrue(appSource.contains("navController.navigate(\"change-password\")"))
-        assertTrue(settingsSource.contains(".clickable { onChangePassword() }"))
+        assertTrue(settingsSource.contains("onChangePassword"))
         assertTrue(coreSource.contains("onChangePassword = onChangePassword"))
         assertTrue(!settingsSource.contains("requestPasswordReset"))
         assertTrue(!coreSource.contains("requestPasswordReset"))

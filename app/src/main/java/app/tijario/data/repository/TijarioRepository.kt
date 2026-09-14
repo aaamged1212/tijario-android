@@ -1080,6 +1080,7 @@ open class TijarioRepository(
 
     private fun localDocumentFailure(operation: String, error: Throwable): ApiResult<CreateDocumentResponse> {
         val code = localDocumentFailureCode(error)
+        app.tijario.analytics.MobileAnalyticsTracker.recordClientError(code, "local_document_$operation")
         if (BuildConfig.DEBUG) {
             runCatching {
                 android.util.Log.d("TijarioLocalDocument", "operation=$operation code=$code success=false")
@@ -2312,6 +2313,9 @@ open class TijarioRepository(
                 notificationsDao.deleteReceiptOutboxForUser(userId)
                 dao.deleteLeasesForUser(userId)
                 dao.deleteCreationEventsForUser(userId)
+                dao.deletePendingAnalyticsDailyForUser(userId)
+                dao.deletePendingAnalyticsSessionsForUser(userId)
+                dao.deletePendingAnalyticsErrorsForUser(userId)
                 dao.deleteAccountEntitlementForUser(userId)
                 dao.deleteBackupSettingsForUser(userId)
                 dao.deleteBackupRecordsForUser(userId)

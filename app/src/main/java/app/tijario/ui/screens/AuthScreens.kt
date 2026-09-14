@@ -1386,6 +1386,9 @@ fun OnboardingScreen(
                                             }
                                         }
 
+                                        app.tijario.analytics.MobileAnalyticsTracker.track(
+                                            app.tijario.analytics.MobileAnalyticsTracker.Event.OnboardingCompleted,
+                                        )
                                         onDone()
                                     } else {
                                         errorMessage = Localization.getString("save_settings_error", language)

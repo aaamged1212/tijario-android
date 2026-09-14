@@ -260,3 +260,14 @@ The counters migration is required to manage sequential document numbers without
 
 ## 2026-08-24 Administrator control center application gate
 - Install a build containing commit `78ff73ae549e2dd50dd88df0b55051f07fcb1367` only after the compatible Web/API deployment is verified. No Google Play upload is authorized by this task.
+## 2026-08-24 Local AAB artifact
+- A local Release AAB exists for code `21` / name `0.0.21`. Do not upload it until the existing backend deployment and physical QA gates are complete and a separate upload approval is given.
+
+## 2026-09-07 Local Drive analytics release gate
+- Ship Android Room migration 21 to 22 only with the compatible Web migration `20260907120000_add_mobile_activation_analytics.sql`; validate a prior-install database upgrade before any production rollout.
+- Complete the physical device checklist for offline creation, online retry flush, account deletion, and Android background/foreground session behavior after the Web migration is applied.
+
+## 2026-09-14 Android Production release 22
+- The matching Web migration and compatible deployment have been completed in the approved backend rollout.
+- Signed AAB `versionCode 22` / `versionName 0.0.22` is ready for the user-authorized Production submission. Post-submission status must be recorded after Google Play processing.
+- Physical device regression coverage remains a follow-up risk: prior-install Room upgrade, offline queue flush, deletion, and lifecycle session behavior.

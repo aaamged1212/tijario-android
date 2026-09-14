@@ -18,7 +18,7 @@ class SettingsExperienceUiContractTest {
             .substringBefore("val DocumentFormStateSaver")
 
         assertTrue(businessSettings.contains("var showCurrencyPicker"))
-        assertTrue(businessSettings.contains("CurrencyPickerDialog("))
+        assertTrue(businessSettings.contains("CurrencyBottomSheet("))
         assertTrue(businessSettings.contains("showCurrencyPicker = true"))
         assertTrue(formsSource.contains("filterCurrencyOptions(query, language)"))
         assertFalse(businessSettings.contains("activeDialog = \"currency\""))

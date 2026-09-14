@@ -9,7 +9,7 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import java.math.BigDecimal
 
-const val TIJARIO_DATABASE_VERSION = 21
+const val TIJARIO_DATABASE_VERSION = 22
 
 @Database(
     entities = [
@@ -27,6 +27,9 @@ const val TIJARIO_DATABASE_VERSION = 21
         SyncOutboxEntity::class,
         OfflineQuotaLeaseEntity::class,
         DocumentCreationEventEntity::class,
+        AnalyticsPendingDailyEntity::class,
+        AnalyticsPendingSessionEntity::class,
+        AnalyticsPendingErrorEntity::class,
         AccountEntitlementEntity::class,
         BackupSettingsEntity::class,
         BackupRecordEntity::class,
@@ -607,6 +610,49 @@ abstract class TijarioDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_21_22 = object : Migration(21, 22) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS analytics_pending_daily (
+                        user_id TEXT NOT NULL, installation_id TEXT NOT NULL, day TEXT NOT NULL,
+                        batch_id TEXT NOT NULL, platform TEXT NOT NULL, app_version TEXT NOT NULL,
+                        app_build TEXT NOT NULL, country_code TEXT, plan_code TEXT,
+                        app_open_count INTEGER NOT NULL, session_count INTEGER NOT NULL,
+                        total_foreground_seconds INTEGER NOT NULL, heartbeat_count INTEGER NOT NULL,
+                        onboarding_completed_count INTEGER NOT NULL, invoice_created_local_count INTEGER NOT NULL,
+                        quote_created_local_count INTEGER NOT NULL, pdf_previewed_count INTEGER NOT NULL,
+                        share_clicked_count INTEGER NOT NULL, whatsapp_share_clicked_count INTEGER NOT NULL,
+                        ai_reply_success_count INTEGER NOT NULL, ai_caption_success_count INTEGER NOT NULL,
+                        upgrade_screen_opened_count INTEGER NOT NULL, plan_limit_reached_count INTEGER NOT NULL,
+                        client_error_count INTEGER NOT NULL, attempts INTEGER NOT NULL,
+                        next_retry_at INTEGER NOT NULL, updated_at INTEGER NOT NULL,
+                        PRIMARY KEY(user_id, installation_id, day)
+                    )
+                """.trimIndent())
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_analytics_pending_daily_next_retry_at ON analytics_pending_daily(next_retry_at)")
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS analytics_pending_sessions (
+                        session_id TEXT NOT NULL, user_id TEXT NOT NULL, installation_id TEXT NOT NULL,
+                        platform TEXT NOT NULL, app_version TEXT NOT NULL, app_build TEXT NOT NULL,
+                        started_at INTEGER NOT NULL, ended_at INTEGER, duration_seconds INTEGER NOT NULL,
+                        ended_reason TEXT, attempts INTEGER NOT NULL, next_retry_at INTEGER NOT NULL,
+                        PRIMARY KEY(session_id)
+                    )
+                """.trimIndent())
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_analytics_pending_sessions_user_id_installation_id ON analytics_pending_sessions(user_id, installation_id)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_analytics_pending_sessions_next_retry_at ON analytics_pending_sessions(next_retry_at)")
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS analytics_pending_errors (
+                        user_id TEXT NOT NULL, installation_id TEXT NOT NULL, day TEXT NOT NULL,
+                        error_fingerprint TEXT NOT NULL, error_code TEXT NOT NULL, error_area TEXT,
+                        count INTEGER NOT NULL, next_retry_at INTEGER NOT NULL,
+                        PRIMARY KEY(user_id, installation_id, day, error_fingerprint)
+                    )
+                """.trimIndent())
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_analytics_pending_errors_next_retry_at ON analytics_pending_errors(next_retry_at)")
+            }
+        }
+
         fun getInstance(context: Context): TijarioDatabase =
             instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
@@ -614,7 +660,8 @@ abstract class TijarioDatabase : RoomDatabase() {
                     TijarioDatabase::class.java,
                     "tijario-local-cache.db",
                 )
-                    .addMigrations(MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21)
+                    .addMigrations(MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22)
+                    .fallbackToDestructiveMigrationOnDowngrade(dropAllTables = true)
                     .build()
                     .also { instance = it }
             }

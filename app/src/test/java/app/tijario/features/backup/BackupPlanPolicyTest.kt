@@ -48,18 +48,18 @@ class BackupPlanPolicyTest {
     fun policyUsesOnlyAStillValidPersistedSignedPayload() {
         val entitlement = entitlement(planCode = "starter", backupFrequency = "daily")
 
-        val validPolicy = BackupPlanPolicy.from(entitlement, 1_700_000_000_000L)
+        val validPolicy = BackupPlanPolicy.from(entitlement = entitlement, nowMillis = 1_700_000_000_000L)
         assertEquals("daily", validPolicy.maximumFrequency)
         assertTrue(validPolicy.automaticBackupAllowed)
         assertTrue(validPolicy.driveBackupAllowed)
-        assertEquals("manual", BackupPlanPolicy.from(entitlement, 1_900_000_000_000L).maximumFrequency)
+        assertEquals("manual", BackupPlanPolicy.from(entitlement = entitlement, nowMillis = 1_900_000_000_000L).maximumFrequency)
     }
 
     @Test
     fun freePlanStaysManualAndDisablesDriveEvenIfLegacyClaimsAllowWeekly() {
         val policy = BackupPlanPolicy.from(
-            entitlement(planCode = "free", backupFrequency = "weekly"),
-            1_700_000_000_000L,
+            entitlement = entitlement(planCode = "free", backupFrequency = "weekly"),
+            nowMillis = 1_700_000_000_000L,
         )
 
         val adjusted = policy.apply(settings.copy(frequency = "weekly", driveEnabled = true))

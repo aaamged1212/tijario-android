@@ -378,7 +378,7 @@ private fun AdminAccountActionsSheet(
                     onRequestAction(PendingAdminAction(
                         AdminAccountActionRequest(action),
                         if (isArabic) if (account.isBlocked) "رفع الحظر" else "حظر الحساب" else if (account.isBlocked) "Unblock account" else "Block account",
-                        if (isArabic) if (account.isBlocked) "سيتمكن المستخدم من تسجيل الدخول مجددًا." else "سيتم منع المستخدم من تسجيل الدخول." else if (account.isBlocked) "The user will be able to sign in again." else "The user will no longer be able to sign in.",
+                        if (isArabic) if (account.isBlocked) "سيتمكن المستخدم من تسجيل الدخول مجدداً." else "سيتم منع المستخدم من تسجيل الدخول." else if (account.isBlocked) "The user will be able to sign in again." else "The user will no longer be able to sign in.",
                     ))
                 },
             ) { Text(if (isArabic) if (account.isBlocked) "رفع الحظر" else "حظر الحساب" else if (account.isBlocked) "Unblock account" else "Block account") }
@@ -388,8 +388,8 @@ private fun AdminAccountActionsSheet(
                 onClick = {
                     onRequestAction(PendingAdminAction(
                         AdminAccountActionRequest("delete"),
-                        if (isArabic) "حذف الحساب نهائيًا" else "Delete account permanently",
-                        if (isArabic) "سيُحذف الحساب وبياناته نهائيًا ولا يمكن التراجع عن ذلك." else "This permanently deletes the account and its data and cannot be undone.",
+                        if (isArabic) "حذف الحساب نهائياً" else "Delete account permanently",
+                        if (isArabic) "سيُحذف الحساب وبياناته نهائياً ولا يمكن التراجع عن ذلك." else "This permanently deletes the account and its data and cannot be undone.",
                     ))
                 },
             ) {
@@ -488,6 +488,18 @@ private fun AdminAnalyticsSummary(analytics: AdminAnalyticsOverviewDto, isArabic
             Text(
                 if (isArabic) "المستندات خلال 7 أيام: ${analytics.documentsCreated7d} · الذكاء: ${analytics.aiGenerations7d}" else
                     "Documents in 7 days: ${analytics.documentsCreated7d} · AI: ${analytics.aiGenerations7d}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                if (isArabic) "نشطون: ${analytics.dailyActiveUsers} مستخدم / ${analytics.dailyActiveDevices} جهاز · جلسة ${analytics.averageSessionDurationSeconds}ث" else
+                    "Active: ${analytics.dailyActiveUsers} users / ${analytics.dailyActiveDevices} devices · Session ${analytics.averageSessionDurationSeconds}s",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                if (isArabic) "محلياً: ${analytics.localInvoicesCreated} فاتورة · ${analytics.localQuotesCreated} عرض · مشاركة ${analytics.shareClicks}" else
+                    "Local: ${analytics.localInvoicesCreated} invoices · ${analytics.localQuotesCreated} quotes · ${analytics.shareClicks} shares",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import app.tijario.analytics.TijarioAnalytics
 import app.tijario.analytics.TijarioAnalyticsEvent
+import app.tijario.analytics.MobileAnalyticsTracker
 import app.tijario.data.AppContainer
 import app.tijario.data.model.BusinessSettings
 import app.tijario.data.model.Customer
@@ -124,6 +125,8 @@ class TijarioDataViewModel(
                 cacheCollectionJob = collectCache(userId)
                 accountInitializationStateMutable.value = AccountInitializationState.Idle
             }
+
+            MobileAnalyticsTracker.onAuthenticated()
 
             repository.getCachedPlanUsage(userId)?.let { cached ->
                 planUsageStateMutable.value = PlanUsageState.Success(cached)
@@ -332,6 +335,15 @@ class TijarioDataViewModel(
                 TijarioAnalyticsEvent.QuoteCreated
             }
             TijarioAnalytics.logEvent(event)
+            MobileAnalyticsTracker.track(
+                if (request.type == app.tijario.data.model.DocumentType.Invoice) {
+                    MobileAnalyticsTracker.Event.InvoiceCreatedLocal
+                } else {
+                    MobileAnalyticsTracker.Event.QuoteCreatedLocal
+                },
+            )
+        } else if (result.code.equals("QUOTA_LIMIT_EXCEEDED", ignoreCase = true)) {
+            MobileAnalyticsTracker.track(MobileAnalyticsTracker.Event.PlanLimitReached)
         }
         return result
     }
@@ -363,6 +375,7 @@ class TijarioDataViewModel(
         if (result.ok) {
             refreshPlanUsage()
             TijarioAnalytics.logEvent(TijarioAnalyticsEvent.AiReplyGenerated)
+            MobileAnalyticsTracker.track(MobileAnalyticsTracker.Event.AiReplyGeneratedSuccess)
         }
         return result
     }
@@ -371,6 +384,7 @@ class TijarioDataViewModel(
         aiRepository.generateReplyV2(request).also { result ->
             if (result.ok) {
                 TijarioAnalytics.logEvent(TijarioAnalyticsEvent.AiReplyGenerated)
+                MobileAnalyticsTracker.track(MobileAnalyticsTracker.Event.AiReplyGeneratedSuccess)
             }
         }
 
@@ -379,6 +393,7 @@ class TijarioDataViewModel(
         if (result.ok) {
             refreshPlanUsage()
             TijarioAnalytics.logEvent(TijarioAnalyticsEvent.AiCaptionGenerated)
+            MobileAnalyticsTracker.track(MobileAnalyticsTracker.Event.AiCaptionGeneratedSuccess)
         }
         return result
     }
@@ -387,6 +402,7 @@ class TijarioDataViewModel(
         aiRepository.generateCaptionV2(request).also { result ->
             if (result.ok) {
                 TijarioAnalytics.logEvent(TijarioAnalyticsEvent.AiCaptionGenerated)
+                MobileAnalyticsTracker.track(MobileAnalyticsTracker.Event.AiCaptionGeneratedSuccess)
             }
         }
 

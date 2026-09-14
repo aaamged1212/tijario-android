@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.webkit.WebView
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -30,11 +31,13 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         AppRuntimeState.restorePreferences(applicationContext)
         ensureAnnouncementNotificationChannel(applicationContext)
         ensureBackupNotificationChannel(applicationContext)
         app.tijario.analytics.TijarioAnalytics.initialize(applicationContext)
+        app.tijario.analytics.MobileAnalyticsTracker.initialize(applicationContext)
         GoMarketMeAffiliate.initialize(applicationContext)
         NotificationDeepLinkState.handleUri(intent?.data)
         handleAuthDeepLink(intent)

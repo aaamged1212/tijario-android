@@ -359,6 +359,76 @@ data class DocumentCreationEventEntity(
     val migratedBaseline: Boolean = false,
 )
 
+@Entity(
+    tableName = "analytics_pending_daily",
+    primaryKeys = ["user_id", "installation_id", "day"],
+    indices = [Index(value = ["next_retry_at"])]
+)
+data class AnalyticsPendingDailyEntity(
+    @ColumnInfo(name = "user_id") val userId: String,
+    @ColumnInfo(name = "installation_id") val installationId: String,
+    val day: String,
+    @ColumnInfo(name = "batch_id") val batchId: String,
+    val platform: String,
+    @ColumnInfo(name = "app_version") val appVersion: String,
+    @ColumnInfo(name = "app_build") val appBuild: String,
+    @ColumnInfo(name = "country_code") val countryCode: String?,
+    @ColumnInfo(name = "plan_code") val planCode: String?,
+    @ColumnInfo(name = "app_open_count") val appOpenCount: Int = 0,
+    @ColumnInfo(name = "session_count") val sessionCount: Int = 0,
+    @ColumnInfo(name = "total_foreground_seconds") val totalForegroundSeconds: Int = 0,
+    @ColumnInfo(name = "heartbeat_count") val heartbeatCount: Int = 0,
+    @ColumnInfo(name = "onboarding_completed_count") val onboardingCompletedCount: Int = 0,
+    @ColumnInfo(name = "invoice_created_local_count") val invoiceCreatedLocalCount: Int = 0,
+    @ColumnInfo(name = "quote_created_local_count") val quoteCreatedLocalCount: Int = 0,
+    @ColumnInfo(name = "pdf_previewed_count") val pdfPreviewedCount: Int = 0,
+    @ColumnInfo(name = "share_clicked_count") val shareClickedCount: Int = 0,
+    @ColumnInfo(name = "whatsapp_share_clicked_count") val whatsappShareClickedCount: Int = 0,
+    @ColumnInfo(name = "ai_reply_success_count") val aiReplySuccessCount: Int = 0,
+    @ColumnInfo(name = "ai_caption_success_count") val aiCaptionSuccessCount: Int = 0,
+    @ColumnInfo(name = "upgrade_screen_opened_count") val upgradeScreenOpenedCount: Int = 0,
+    @ColumnInfo(name = "plan_limit_reached_count") val planLimitReachedCount: Int = 0,
+    @ColumnInfo(name = "client_error_count") val clientErrorCount: Int = 0,
+    val attempts: Int = 0,
+    @ColumnInfo(name = "next_retry_at") val nextRetryAt: Long = 0,
+    @ColumnInfo(name = "updated_at") val updatedAt: Long,
+)
+
+@Entity(
+    tableName = "analytics_pending_sessions",
+    indices = [Index(value = ["user_id", "installation_id"]), Index(value = ["next_retry_at"])]
+)
+data class AnalyticsPendingSessionEntity(
+    @PrimaryKey @ColumnInfo(name = "session_id") val sessionId: String,
+    @ColumnInfo(name = "user_id") val userId: String,
+    @ColumnInfo(name = "installation_id") val installationId: String,
+    val platform: String,
+    @ColumnInfo(name = "app_version") val appVersion: String,
+    @ColumnInfo(name = "app_build") val appBuild: String,
+    @ColumnInfo(name = "started_at") val startedAt: Long,
+    @ColumnInfo(name = "ended_at") val endedAt: Long? = null,
+    @ColumnInfo(name = "duration_seconds") val durationSeconds: Int = 0,
+    @ColumnInfo(name = "ended_reason") val endedReason: String? = null,
+    val attempts: Int = 0,
+    @ColumnInfo(name = "next_retry_at") val nextRetryAt: Long = 0,
+)
+
+@Entity(
+    tableName = "analytics_pending_errors",
+    primaryKeys = ["user_id", "installation_id", "day", "error_fingerprint"],
+    indices = [Index(value = ["next_retry_at"])]
+)
+data class AnalyticsPendingErrorEntity(
+    @ColumnInfo(name = "user_id") val userId: String,
+    @ColumnInfo(name = "installation_id") val installationId: String,
+    val day: String,
+    @ColumnInfo(name = "error_fingerprint") val errorFingerprint: String,
+    @ColumnInfo(name = "error_code") val errorCode: String,
+    @ColumnInfo(name = "error_area") val errorArea: String?,
+    val count: Int = 1,
+    @ColumnInfo(name = "next_retry_at") val nextRetryAt: Long = 0,
+)
+
 @Entity(tableName = "account_entitlements")
 data class AccountEntitlementEntity(
     @PrimaryKey
