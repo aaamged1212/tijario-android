@@ -269,5 +269,5 @@ The counters migration is required to manage sequential document numbers without
 
 ## 2026-09-14 Android Production release 22
 - The matching Web migration and compatible deployment have been completed in the approved backend rollout.
-- Signed AAB `versionCode 22` / `versionName 0.0.22` is ready for the user-authorized Production submission. Post-submission status must be recorded after Google Play processing.
+- Signed AAB `versionCode 22` / `versionName 0.0.22` is submitted to Google Play Production. It is awaiting review and will start the configured full rollout after approval.
 - Physical device regression coverage remains a follow-up risk: prior-install Room upgrade, offline queue flush, deletion, and lifecycle session behavior.

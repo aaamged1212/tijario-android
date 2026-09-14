@@ -333,4 +333,4 @@
 
 ## 2026-09-14 - Android Production release candidate
 - Release metadata is `versionCode 22` / `versionName 0.0.22`.
-- The signed AAB is built and the debug unit suite passes (429 tests). The authorized Git publication and Google Play Production submission are in progress.
+- The signed AAB is built and the debug unit suite passes (429 tests). Source is published and Google Play Production review is pending; rollout will begin after Google approval.

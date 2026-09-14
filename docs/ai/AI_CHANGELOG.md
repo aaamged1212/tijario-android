@@ -752,3 +752,4 @@
 # 2026-09-14 - Android release 22 preparation
 - Bumped the release to `versionCode 22` / `versionName 0.0.22` for the local-first analytics and reliability update.
 - Built and verified the signed AAB. Debug JVM validation completed with 429 passing tests.
+- Submitted the Production release to Google Play with Arabic and English release notes; its review status is pending Google approval.

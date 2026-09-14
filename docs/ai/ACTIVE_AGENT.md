@@ -346,4 +346,4 @@
 
 ## 2026-09-14 - Production Android release preparation
 - **Task**: Prepare the approved Production release for `versionCode 22` / `versionName 0.0.22`.
-- **State**: The signed AAB and all debug JVM tests are complete. Git publication and the authorized Google Play Production submission are the remaining actions in this release run.
+- **State**: The signed AAB was submitted to Google Play Production and is now in review. Google Play will begin the configured full rollout after approval.
