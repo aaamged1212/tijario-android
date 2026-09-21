@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import java.io.File
 import app.tijario.features.sync.SyncScheduler
+import app.tijario.analytics.MobileAnalyticsTracker
 import app.tijario.features.backup.BackupKeyException
 import app.tijario.features.backup.DeviceBackupKeyStore
 import androidx.room.withTransaction
@@ -645,8 +646,10 @@ open class TijarioRepository(
         withContext(Dispatchers.IO) {
             database.withTransaction {
                 dao.upsertCustomer(entity)
+                MobileAnalyticsTracker.recordInTransaction(dao, userId, MobileAnalyticsTracker.Event.CustomerCreatedLocal)
             }
         }
+        MobileAnalyticsTracker.scheduleEventUpload()
         localCustomer
     }
 
@@ -748,8 +751,14 @@ open class TijarioRepository(
         withContext(Dispatchers.IO) {
             database.withTransaction {
                 dao.upsertProduct(entity)
+                MobileAnalyticsTracker.recordInTransaction(
+                    dao,
+                    userId,
+                    if (entity.kind == "service") MobileAnalyticsTracker.Event.ServiceCreatedLocal else MobileAnalyticsTracker.Event.ProductCreatedLocal,
+                )
             }
         }
+        MobileAnalyticsTracker.scheduleEventUpload()
         localProduct
     }
 
@@ -980,10 +989,20 @@ open class TijarioRepository(
                     dao.upsertDocument(docEntity)
                     dao.insertDocumentItems(itemsEntities)
                     reserveDocumentQuotaLedger(userId, docId, localQuotaLease)
+                    if (existingCustomer == null) {
+                        MobileAnalyticsTracker.recordInTransaction(dao, userId, MobileAnalyticsTracker.Event.CustomerCreatedLocal)
+                    }
+                    MobileAnalyticsTracker.recordInTransaction(
+                        dao,
+                        userId,
+                        if (request.type == DocumentType.Invoice) MobileAnalyticsTracker.Event.InvoiceCreatedLocal else MobileAnalyticsTracker.Event.QuoteCreatedLocal,
+                    )
                     logLocalDocumentSave("create", userId, "transaction_completed")
                     }
                 }
             }
+
+            MobileAnalyticsTracker.scheduleEventUpload()
 
             ApiResult(ok = true, data = CreateDocumentResponse(documentId = docId, documentNumber = docNum))
         } catch (e: Exception) {
@@ -2316,6 +2335,7 @@ open class TijarioRepository(
                 dao.deletePendingAnalyticsDailyForUser(userId)
                 dao.deletePendingAnalyticsSessionsForUser(userId)
                 dao.deletePendingAnalyticsErrorsForUser(userId)
+                dao.deletePendingAnalyticsEventsForUser(userId)
                 dao.deleteAccountEntitlementForUser(userId)
                 dao.deleteBackupSettingsForUser(userId)
                 dao.deleteBackupRecordsForUser(userId)

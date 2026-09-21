@@ -15,6 +15,9 @@ app/release/
 .idea/
 *.iml
 
+# Local agent tooling and recovered skill backups are never application source.
+.agents/
+
 # Signing files and secrets
 *.jks
 *.keystore

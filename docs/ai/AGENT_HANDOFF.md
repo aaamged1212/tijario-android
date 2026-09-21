@@ -1,5 +1,12 @@
 # Agent Handoff (Android & Web Repos)
 
+## 2026-09-21 (Privacy-preserving local action analytics, committed locally)
+- **Android contract**: Room 22-to-23 adds an immutable pending-event outbox. Local invoice, quote, customer, product, and service creation write their anonymous event metadata in the same Room transaction as the local business record, retaining the original timestamp and never uploading the record contents.
+- **Delivery**: A constrained WorkManager upload sends up to 50 authenticated Android events after connectivity returns, deduplicates by event UUID, backs off retryable failures, caps retries, and expires event rows after 31 days. Account deletion also clears the local event queue.
+- **Release dependency**: Production migration `20260921020954_mobile_analytics_events.sql` is applied. Android 0.0.23 requires the compatible Web/API source so administrators can view the new aggregated counts.
+- **Validation**: Web TypeScript and 160 Node tests passed. Android compilation could not start because this host cannot establish the Gradle daemon loopback connection; no Kotlin diagnostic was produced.
+- **Safety**: No push, Vercel deployment, Google Play upload, or environment-variable change occurred. `.agents/` is ignored.
+
 ## 2026-09-09 (Full 3-Phase Roadmap Execution: Build Blockers, Theming, DB Downgrade Safety, and Quality Gates, local uncommitted)
 - **Phase 1 (Build Blockers & Contract Fixes)**:
   - Fixed syntax error in `MobileAnalyticsTracker.kt`: replaced invalid suspend function reference `::flushNow` with `{ userId -> flushNow(userId) }`, and converted `MAX_SESSION_SECONDS` to Long.

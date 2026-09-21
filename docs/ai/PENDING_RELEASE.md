@@ -1,5 +1,10 @@
 # Pending Release
 
+## 2026-09-21 - Local action analytics release gate
+- Deploy the compatible Web/API commit after publishing it. Then install Android 0.0.23 over a 0.0.22 build and verify the Room 22-to-23 upgrade.
+- On a physical authenticated device, create a customer, product, service, invoice, and quote while offline; reconnect and verify one event per action appears in the administrator aggregate without any business content stored in Supabase.
+- Verify retry behavior by denying network, then restoring it; account deletion must remove queued events locally. No Android release or Play upload occurred in this task.
+
 ## 2026-08-24 - Localized payment and plan notification release gate
 - The paired Web migration `20260824140000_account_plan_activation_notifications.sql` is applied. Ship the Android contract only with the compatible Web/API deployment.
 - Device QA: submit Arabic and English Yemen payment proofs for monthly and yearly intervals, verify the support email contains the requested plan/interval/prices, and verify the renewal date appears for a paid plan.

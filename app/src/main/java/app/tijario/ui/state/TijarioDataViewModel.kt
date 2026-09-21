@@ -335,13 +335,6 @@ class TijarioDataViewModel(
                 TijarioAnalyticsEvent.QuoteCreated
             }
             TijarioAnalytics.logEvent(event)
-            MobileAnalyticsTracker.track(
-                if (request.type == app.tijario.data.model.DocumentType.Invoice) {
-                    MobileAnalyticsTracker.Event.InvoiceCreatedLocal
-                } else {
-                    MobileAnalyticsTracker.Event.QuoteCreatedLocal
-                },
-            )
         } else if (result.code.equals("QUOTA_LIMIT_EXCEEDED", ignoreCase = true)) {
             MobileAnalyticsTracker.track(MobileAnalyticsTracker.Event.PlanLimitReached)
         }

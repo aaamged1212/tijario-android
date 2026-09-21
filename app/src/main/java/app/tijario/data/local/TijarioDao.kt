@@ -325,6 +325,21 @@ interface TijarioDao {
     @Query("DELETE FROM analytics_pending_errors WHERE day < :olderThanDay")
     suspend fun deleteExpiredPendingAnalyticsErrors(olderThanDay: String): Int
 
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertPendingAnalyticsEvent(event: AnalyticsPendingEventEntity): Long
+
+    @Query("SELECT * FROM analytics_pending_events WHERE user_id = :userId AND next_retry_at <= :now ORDER BY occurred_at ASC LIMIT :limit")
+    suspend fun getFlushableAnalyticsEvents(userId: String, now: Long, limit: Int): List<AnalyticsPendingEventEntity>
+
+    @Query("DELETE FROM analytics_pending_events WHERE user_id = :userId AND event_id IN (:eventIds)")
+    suspend fun deletePendingAnalyticsEvents(userId: String, eventIds: List<String>): Int
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertPendingAnalyticsEvents(events: List<AnalyticsPendingEventEntity>)
+
+    @Query("DELETE FROM analytics_pending_events WHERE created_at < :olderThan")
+    suspend fun deleteExpiredPendingAnalyticsEvents(olderThan: Long): Int
+
     @Query("UPDATE document_creation_events SET status = 'ACKNOWLEDGED', acknowledged_at_server = :acknowledgedAt WHERE user_id = :userId AND document_id = :documentId AND status = 'PENDING'")
     suspend fun acknowledgeCreationEvent(userId: String, documentId: String, acknowledgedAt: Long): Int
 
@@ -439,6 +454,9 @@ interface TijarioDao {
 
     @Query("DELETE FROM analytics_pending_errors WHERE user_id = :userId")
     suspend fun deletePendingAnalyticsErrorsForUser(userId: String)
+
+    @Query("DELETE FROM analytics_pending_events WHERE user_id = :userId")
+    suspend fun deletePendingAnalyticsEventsForUser(userId: String)
 
     @Query("DELETE FROM account_entitlements WHERE user_id = :userId")
     suspend fun deleteAccountEntitlementForUser(userId: String)

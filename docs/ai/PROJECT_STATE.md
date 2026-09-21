@@ -1,5 +1,10 @@
 # Project State (Android & Web Repos)
 
+## 2026-09-21 - Local action event analytics
+- Android source is at `versionCode 23` / `versionName 0.0.23` with Room migration 22-to-23 for a bounded, local-first action-event outbox. Customer, product, service, invoice, and quote events keep original device timestamps and contain no business-record fields.
+- Production migration `20260921020954_mobile_analytics_events.sql` is applied and verified for RLS plus RPC grants. A compatible Web commit remains required before the administrator metrics are visible in production.
+- Web tests and TypeScript passed. Android Gradle compilation is blocked before source compilation by a host loopback connection failure.
+
 ## 2026-09-09 - Actionable Roadmap Execution (Phases 1, 2, 3 Complete)
 - **Status**: Complete resolution of compilation blockers, unit test failures, theme tokens, database downgrade safety, and build packaging.
 - **Test Suite**: 429 of 429 unit tests pass with 0 failures (100% pass rate).

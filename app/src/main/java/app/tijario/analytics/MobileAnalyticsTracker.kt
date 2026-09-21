@@ -9,7 +9,9 @@ import app.tijario.BuildConfig
 import app.tijario.config.Supabase
 import app.tijario.data.local.AnalyticsPendingDailyEntity
 import app.tijario.data.local.AnalyticsPendingErrorEntity
+import app.tijario.data.local.AnalyticsPendingEventEntity
 import app.tijario.data.local.AnalyticsPendingSessionEntity
+import app.tijario.data.local.TijarioDao
 import app.tijario.data.local.TijarioDatabase
 import app.tijario.config.AppPreferences
 import io.github.jan.supabase.auth.auth
@@ -30,6 +32,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
 import java.util.UUID
+import java.util.TimeZone
 import kotlin.math.max
 import kotlin.math.min
 
@@ -42,6 +45,9 @@ object MobileAnalyticsTracker : DefaultLifecycleObserver {
     private const val FOREGROUND_DELAY_MS = 15_000L
     private const val MAX_SESSION_SECONDS = 4 * 60 * 60
     private const val MAX_QUEUE_AGE_MS = 7 * 24 * 60 * 60 * 1000L
+    private const val MAX_EVENT_QUEUE_AGE_MS = 31 * 24 * 60 * 60 * 1000L
+    private const val MAX_EVENT_BATCH_SIZE = 50
+    private const val MAX_EVENT_ATTEMPTS = 12
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val queueMutex = Mutex()
@@ -64,6 +70,9 @@ object MobileAnalyticsTracker : DefaultLifecycleObserver {
         OnboardingCompleted,
         InvoiceCreatedLocal,
         QuoteCreatedLocal,
+        CustomerCreatedLocal,
+        ProductCreatedLocal,
+        ServiceCreatedLocal,
         PdfPreviewed,
         ShareClicked,
         WhatsappShareClicked,
@@ -93,6 +102,7 @@ object MobileAnalyticsTracker : DefaultLifecycleObserver {
                 recoverOpenSessions(userId)
                 if (isForeground) beginSessionIfNeeded(userId)
                 flushNow(userId)
+                MobileAnalyticsEventUploadWorker.enqueue(appContext)
             }
         }
     }
@@ -103,21 +113,57 @@ object MobileAnalyticsTracker : DefaultLifecycleObserver {
             queueMutex.withLock {
                 val userId = Supabase.client.auth.currentUserOrNull()?.id ?: return@withLock
                 if (isForeground) beginSessionIfNeeded(userId)
-                mutateDaily(userId) { daily ->
-                    when (event) {
-                        Event.OnboardingCompleted -> daily.copy(onboardingCompletedCount = daily.onboardingCompletedCount + 1)
-                        Event.InvoiceCreatedLocal -> daily.copy(invoiceCreatedLocalCount = daily.invoiceCreatedLocalCount + 1)
-                        Event.QuoteCreatedLocal -> daily.copy(quoteCreatedLocalCount = daily.quoteCreatedLocalCount + 1)
-                        Event.PdfPreviewed -> daily.copy(pdfPreviewedCount = daily.pdfPreviewedCount + 1)
-                        Event.ShareClicked -> daily.copy(shareClickedCount = daily.shareClickedCount + 1)
-                        Event.WhatsappShareClicked -> daily.copy(whatsappShareClickedCount = daily.whatsappShareClickedCount + 1)
-                        Event.AiReplyGeneratedSuccess -> daily.copy(aiReplySuccessCount = daily.aiReplySuccessCount + 1)
-                        Event.AiCaptionGeneratedSuccess -> daily.copy(aiCaptionSuccessCount = daily.aiCaptionSuccessCount + 1)
-                        Event.UpgradeScreenOpened -> daily.copy(upgradeScreenOpenedCount = daily.upgradeScreenOpenedCount + 1)
-                        Event.PlanLimitReached -> daily.copy(planLimitReachedCount = daily.planLimitReachedCount + 1)
-                    }
+                database.withTransaction {
+                    recordInTransaction(database.tijarioDao(), userId, event)
                 }
+                scheduleEventUpload()
             }
+        }
+    }
+
+    /** Records both the legacy daily aggregate and immutable event in the caller's Room transaction. */
+    suspend fun recordInTransaction(dao: TijarioDao, userId: String, event: Event, occurredAt: Long = System.currentTimeMillis()) {
+        if (!initialized) return
+        mutateDailyInTransaction(userId) { daily ->
+            when (event) {
+                Event.OnboardingCompleted -> daily.copy(onboardingCompletedCount = daily.onboardingCompletedCount + 1)
+                Event.InvoiceCreatedLocal -> daily.copy(invoiceCreatedLocalCount = daily.invoiceCreatedLocalCount + 1)
+                Event.QuoteCreatedLocal -> daily.copy(quoteCreatedLocalCount = daily.quoteCreatedLocalCount + 1)
+                Event.CustomerCreatedLocal, Event.ProductCreatedLocal, Event.ServiceCreatedLocal -> daily
+                Event.PdfPreviewed -> daily.copy(pdfPreviewedCount = daily.pdfPreviewedCount + 1)
+                Event.ShareClicked -> daily.copy(shareClickedCount = daily.shareClickedCount + 1)
+                Event.WhatsappShareClicked -> daily.copy(whatsappShareClickedCount = daily.whatsappShareClickedCount + 1)
+                Event.AiReplyGeneratedSuccess -> daily.copy(aiReplySuccessCount = daily.aiReplySuccessCount + 1)
+                Event.AiCaptionGeneratedSuccess -> daily.copy(aiCaptionSuccessCount = daily.aiCaptionSuccessCount + 1)
+                Event.UpgradeScreenOpened -> daily.copy(upgradeScreenOpenedCount = daily.upgradeScreenOpenedCount + 1)
+                Event.PlanLimitReached -> daily.copy(planLimitReachedCount = daily.planLimitReachedCount + 1)
+            }
+        }
+        dao.insertPendingAnalyticsEvent(
+            AnalyticsPendingEventEntity(
+                eventId = UUID.randomUUID().toString(),
+                userId = userId,
+                installationId = AppPreferences.getInstallationId(appContext),
+                eventName = event.remoteName(),
+                occurredAt = occurredAt,
+                timezoneOffsetMinutes = TimeZone.getDefault().getOffset(occurredAt) / 60_000,
+                platform = "android",
+                appVersion = BuildConfig.VERSION_NAME,
+                appBuild = BuildConfig.VERSION_CODE.toString(),
+                createdAt = System.currentTimeMillis(),
+            ),
+        )
+    }
+
+    fun scheduleEventUpload() {
+        if (initialized) MobileAnalyticsEventUploadWorker.enqueue(appContext)
+    }
+
+    suspend fun flushPendingEventsFromWorker(): Boolean {
+        if (!initialized) return true
+        return queueMutex.withLock {
+            val userId = Supabase.client.auth.currentUserOrNull()?.id ?: return@withLock true
+            flushEventsNow(userId)
         }
     }
 
@@ -286,6 +332,11 @@ object MobileAnalyticsTracker : DefaultLifecycleObserver {
     }
 
     private suspend fun flushNow(userId: String) {
+        flushAggregateNow(userId)
+        flushEventsNow(userId)
+    }
+
+    private suspend fun flushAggregateNow(userId: String) {
         val dao = database.tijarioDao()
         val now = System.currentTimeMillis()
         val daily = dao.getFlushableAnalyticsDaily(userId, now) ?: run {
@@ -372,11 +423,60 @@ object MobileAnalyticsTracker : DefaultLifecycleObserver {
         }
     }
 
+    private suspend fun flushEventsNow(userId: String): Boolean {
+        val dao = database.tijarioDao()
+        val now = System.currentTimeMillis()
+        val events = dao.getFlushableAnalyticsEvents(userId, now, MAX_EVENT_BATCH_SIZE)
+        if (events.isEmpty()) return true
+
+        val payload = buildJsonArray {
+            events.forEach { event ->
+                add(buildJsonObject {
+                    put("event_id", event.eventId)
+                    put("installation_id", event.installationId)
+                    put("event_name", event.eventName)
+                    put("occurred_at", Instant.ofEpochMilli(event.occurredAt).toString())
+                    put("timezone_offset_minutes", event.timezoneOffsetMinutes)
+                    put("platform", event.platform)
+                    put("app_version", event.appVersion)
+                    put("app_build", event.appBuild)
+                })
+            }
+        }
+
+        return try {
+            Supabase.client.postgrest.rpc(
+                "record_mobile_analytics_events",
+                buildJsonObject { put("p_events", payload) },
+            )
+            database.withTransaction {
+                dao.deletePendingAnalyticsEvents(userId, events.map { it.eventId })
+                pruneExpiredQueue(now)
+            }
+            true
+        } catch (_: Throwable) {
+            database.withTransaction {
+                val retryable = events.filter { it.attempts + 1 < MAX_EVENT_ATTEMPTS }
+                    .map { event ->
+                        event.copy(
+                            attempts = event.attempts + 1,
+                            nextRetryAt = now + retryDelayMs(event.attempts + 1),
+                        )
+                    }
+                val exhausted = events.filter { it.attempts + 1 >= MAX_EVENT_ATTEMPTS }
+                if (retryable.isNotEmpty()) dao.upsertPendingAnalyticsEvents(retryable)
+                if (exhausted.isNotEmpty()) dao.deletePendingAnalyticsEvents(userId, exhausted.map { it.eventId })
+            }
+            false
+        }
+    }
+
     private suspend fun pruneExpiredQueue(now: Long) {
         val dao = database.tijarioDao()
         dao.deleteExpiredPendingAnalyticsDaily(now - MAX_QUEUE_AGE_MS)
         dao.deleteExpiredPendingAnalyticsSessions(now - MAX_QUEUE_AGE_MS)
         dao.deleteExpiredPendingAnalyticsErrors(LocalDate.ofInstant(Instant.ofEpochMilli(now - MAX_QUEUE_AGE_MS), ZoneOffset.UTC).toString())
+        dao.deleteExpiredPendingAnalyticsEvents(now - MAX_EVENT_QUEUE_AGE_MS)
     }
 
     private fun durationSeconds(startedAt: Long, endedAt: Long): Int =
@@ -392,4 +492,20 @@ object MobileAnalyticsTracker : DefaultLifecycleObserver {
     private fun sha256(value: String): String = MessageDigest.getInstance("SHA-256")
         .digest(value.toByteArray(Charsets.UTF_8))
         .joinToString("") { "%02x".format(it) }
+
+    private fun Event.remoteName(): String = when (this) {
+        Event.OnboardingCompleted -> "onboarding_completed"
+        Event.InvoiceCreatedLocal -> "invoice_created_local"
+        Event.QuoteCreatedLocal -> "quote_created_local"
+        Event.CustomerCreatedLocal -> "customer_created_local"
+        Event.ProductCreatedLocal -> "product_created_local"
+        Event.ServiceCreatedLocal -> "service_created_local"
+        Event.PdfPreviewed -> "pdf_previewed"
+        Event.ShareClicked -> "document_shared"
+        Event.WhatsappShareClicked -> "whatsapp_share_clicked"
+        Event.AiReplyGeneratedSuccess -> "ai_reply_generated_success"
+        Event.AiCaptionGeneratedSuccess -> "ai_caption_generated_success"
+        Event.UpgradeScreenOpened -> "upgrade_screen_opened"
+        Event.PlanLimitReached -> "plan_limit_reached"
+    }
 }

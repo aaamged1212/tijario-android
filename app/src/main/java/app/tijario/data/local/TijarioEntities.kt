@@ -429,6 +429,25 @@ data class AnalyticsPendingErrorEntity(
     @ColumnInfo(name = "next_retry_at") val nextRetryAt: Long = 0,
 )
 
+@Entity(
+    tableName = "analytics_pending_events",
+    indices = [Index(value = ["user_id", "next_retry_at"]), Index(value = ["created_at"])]
+)
+data class AnalyticsPendingEventEntity(
+    @PrimaryKey @ColumnInfo(name = "event_id") val eventId: String,
+    @ColumnInfo(name = "user_id") val userId: String,
+    @ColumnInfo(name = "installation_id") val installationId: String,
+    @ColumnInfo(name = "event_name") val eventName: String,
+    @ColumnInfo(name = "occurred_at") val occurredAt: Long,
+    @ColumnInfo(name = "timezone_offset_minutes") val timezoneOffsetMinutes: Int,
+    val platform: String,
+    @ColumnInfo(name = "app_version") val appVersion: String,
+    @ColumnInfo(name = "app_build") val appBuild: String,
+    val attempts: Int = 0,
+    @ColumnInfo(name = "next_retry_at") val nextRetryAt: Long = 0,
+    @ColumnInfo(name = "created_at") val createdAt: Long,
+)
+
 @Entity(tableName = "account_entitlements")
 data class AccountEntitlementEntity(
     @PrimaryKey

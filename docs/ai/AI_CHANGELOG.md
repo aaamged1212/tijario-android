@@ -1,5 +1,10 @@
 # AI Changelog
 
+## 2026-09-21 - Local action event analytics
+- Added Room-backed immutable pending events and a network-constrained WorkManager uploader with UUID idempotency, bounded retry, expiry, and authenticated RPC delivery.
+- Added atomic hooks for local customer, product, service, invoice, and quote creation without sending the underlying business data.
+- Bumped Android metadata to 0.0.23 and ignored local `.agents/` tooling. Production schema migration is applied; Android Gradle validation is blocked by a host loopback failure.
+
 ## 2026-09-09 - Comprehensive 3-Phase Roadmap Execution
 - Fixed build-breaking compiler errors in `MobileAnalyticsTracker.kt` and `BackupPlanPolicyTest.kt`.
 - Updated Material 3 contrast tokens in `Theme.kt` and icon tints in `CustomerFormScreen`.

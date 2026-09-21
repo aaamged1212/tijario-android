@@ -9,7 +9,7 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import java.math.BigDecimal
 
-const val TIJARIO_DATABASE_VERSION = 22
+const val TIJARIO_DATABASE_VERSION = 23
 
 @Database(
     entities = [
@@ -30,6 +30,7 @@ const val TIJARIO_DATABASE_VERSION = 22
         AnalyticsPendingDailyEntity::class,
         AnalyticsPendingSessionEntity::class,
         AnalyticsPendingErrorEntity::class,
+        AnalyticsPendingEventEntity::class,
         AccountEntitlementEntity::class,
         BackupSettingsEntity::class,
         BackupRecordEntity::class,
@@ -653,6 +654,32 @@ abstract class TijarioDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_22_23 = object : Migration(22, 23) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS analytics_pending_events (
+                        event_id TEXT NOT NULL,
+                        user_id TEXT NOT NULL,
+                        installation_id TEXT NOT NULL,
+                        event_name TEXT NOT NULL,
+                        occurred_at INTEGER NOT NULL,
+                        timezone_offset_minutes INTEGER NOT NULL,
+                        platform TEXT NOT NULL,
+                        app_version TEXT NOT NULL,
+                        app_build TEXT NOT NULL,
+                        attempts INTEGER NOT NULL,
+                        next_retry_at INTEGER NOT NULL,
+                        created_at INTEGER NOT NULL,
+                        PRIMARY KEY(event_id)
+                    )
+                    """.trimIndent(),
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_analytics_pending_events_user_id_next_retry_at ON analytics_pending_events(user_id, next_retry_at)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_analytics_pending_events_created_at ON analytics_pending_events(created_at)")
+            }
+        }
+
         fun getInstance(context: Context): TijarioDatabase =
             instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
@@ -660,7 +687,7 @@ abstract class TijarioDatabase : RoomDatabase() {
                     TijarioDatabase::class.java,
                     "tijario-local-cache.db",
                 )
-                    .addMigrations(MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22)
+                    .addMigrations(MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23)
                     .fallbackToDestructiveMigrationOnDowngrade(dropAllTables = true)
                     .build()
                     .also { instance = it }
