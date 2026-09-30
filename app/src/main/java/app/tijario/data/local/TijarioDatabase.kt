@@ -226,12 +226,11 @@ abstract class TijarioDatabase : RoomDatabase() {
                 db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_documents_cache_user_id_document_number ON documents_cache (user_id, document_number)")
                 db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_documents_cache_user_id_id ON documents_cache (user_id, id)")
 
-                // 5. Create new V7 tables
-                // V6 did not define this table. Drop any partially-created legacy
-                // copy so validation cannot retain stale indexes or foreign keys.
-                db.execSQL("DROP TABLE IF EXISTS document_items_cache")
+                // 5. Rebuild document items through a shadow table. This keeps any
+                // rows from an intermediate database while guaranteeing Room's V7
+                // foreign-key and index metadata is recreated from scratch.
                 db.execSQL("""
-                    CREATE TABLE document_items_cache (
+                    CREATE TABLE document_items_cache_new (
                         id TEXT NOT NULL,
                         user_id TEXT NOT NULL,
                         document_id TEXT NOT NULL,
@@ -243,9 +242,25 @@ abstract class TijarioDatabase : RoomDatabase() {
                         line_total TEXT NOT NULL,
                         sort_order INTEGER NOT NULL,
                         PRIMARY KEY(id),
-                        FOREIGN KEY(document_id, user_id) REFERENCES documents_cache(id, user_id) ON UPDATE NO ACTION ON DELETE CASCADE
+                        FOREIGN KEY(user_id, document_id) REFERENCES documents_cache(user_id, id) ON UPDATE NO ACTION ON DELETE CASCADE
                     )
                 """.trimIndent())
+                val legacyItems = db.query(
+                    "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'document_items_cache'",
+                )
+                val hasLegacyItems = legacyItems.use { it.moveToFirst() }
+                if (hasLegacyItems) {
+                    db.execSQL("""
+                        INSERT INTO document_items_cache_new (
+                            id, user_id, document_id, product_id, name, description,
+                            quantity, unit_price, line_total, sort_order
+                        ) SELECT id, user_id, document_id, product_id, name, description,
+                            quantity, unit_price, line_total, sort_order
+                            FROM document_items_cache
+                    """.trimIndent())
+                    db.execSQL("DROP TABLE document_items_cache")
+                }
+                db.execSQL("ALTER TABLE document_items_cache_new RENAME TO document_items_cache")
                 db.execSQL("CREATE INDEX index_document_items_cache_user_id ON document_items_cache (user_id)")
                 db.execSQL("CREATE INDEX index_document_items_cache_document_id ON document_items_cache (document_id)")
                 db.execSQL("CREATE INDEX index_document_items_cache_product_id ON document_items_cache (product_id)")
