@@ -1,5 +1,13 @@
 # Project State (Android & Web Repos)
 
+## 2026-09-28 - Serialization compatibility fix
+- Kotlinx Serialization runtime is now `1.9.0`, aligned with Kotlin `2.2.10` and Room `2.8.4`.
+- This is intended to remove the Room migration instrumentation `AbstractMethodError`.
+- Validation is pending in a normal Windows Terminal because the Codex Desktop process cannot establish Java's loopback selector.
+- The first emulator run after the dependency fix reached the migration suite; its fixture was corrected to include all v16 non-null document columns.
+- V6-to-V7 migration now uses exact Room-compatible shadow tables for business and customer caches; emulator validation is pending after rebuild.
+- The latest AndroidTest run reached two remaining V6-to-V7 schema failures; document-items relationship/index metadata has been corrected for the next run.
+
 ## 2026-09-21 - Local action event analytics
 - Android source is at `versionCode 23` / `versionName 0.0.23` with Room migration 22-to-23 for a bounded, local-first action-event outbox. Customer, product, service, invoice, and quote events keep original device timestamps and contain no business-record fields.
 - Production migration `20260921020954_mobile_analytics_events.sql` is applied and verified for RLS plus RPC grants. A compatible Web commit remains required before the administrator metrics are visible in production.
@@ -339,3 +347,9 @@
 ## 2026-09-14 - Android Production release candidate
 - Release metadata is `versionCode 22` / `versionName 0.0.22`.
 - The signed AAB is built and the debug unit suite passes (429 tests). Source is published and Google Play Production review is pending; rollout will begin after Google approval.
+
+## 2026-09-30 - Google Play Billing readiness audit
+- **Android/Web source**: Local billing hardening is present on the current branches. Android consumes only active live backend Play mappings and refreshes stale Play details before checkout. Web verification is bound to package, product, matching line item, expiry, supported state, and authenticated ownership.
+- **Release state**: No release artifact was produced or uploaded in this task. Play Console product/base-plan activation and tester/device purchase validation remain external gates.
+- **Validation**: Web tests (164), typecheck, lint, and production build passed. Android Gradle tasks could not start because the host cannot establish the Gradle loopback connection.
+- **Known follow-up**: RTDN handling needs a durable pending-event/claim design before unknown-token events can be retried safely without risking duplicate processing.

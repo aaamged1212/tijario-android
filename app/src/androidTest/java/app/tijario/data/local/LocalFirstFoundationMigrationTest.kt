@@ -73,10 +73,13 @@ class LocalFirstFoundationMigrationTest {
                 """
                 INSERT INTO documents_cache (
                     id, user_id, customer_id, type, document_number, status,
-                    issue_date, total, currency, synced_at, local_pdf_relative_path
+                    issue_date, total, currency, synced_at, subtotal, discount,
+                    extra_fees, sync_status, local_revision, is_deleted,
+                    local_pdf_relative_path
                 ) VALUES (
                     'document-1', 'user-1', 'customer-1', 'invoice', 'INV-00001', 'draft',
-                    '2026-07-18', '10.00', 'SAR', 100, 'pdf/document-1.pdf'
+                    '2026-07-18', '10.00', 'SAR', 100, '10.00', '0.00',
+                    '0.00', 'SYNCED', 1, 0, 'pdf/document-1.pdf'
                 )
                 """.trimIndent(),
             )

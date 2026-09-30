@@ -276,3 +276,9 @@ The counters migration is required to manage sequential document numbers without
 - The matching Web migration and compatible deployment have been completed in the approved backend rollout.
 - Signed AAB `versionCode 22` / `versionName 0.0.22` is submitted to Google Play Production. It is awaiting review and will start the configured full rollout after approval.
 - Physical device regression coverage remains a follow-up risk: prior-install Room upgrade, offline queue flush, deletion, and lifecycle session behavior.
+
+## 2026-09-30 Google Play Billing readiness gate
+- Activate and verify the intended live Play product/base-plan mappings in the Web billing configuration and Play Console before enabling checkout. Android intentionally hides unmapped or inactive offers.
+- Run a Play-installed tester flow for new purchase, restore on a second device, renewal, grace/on-hold, cancellation, expiry, pending purchase, acknowledgement, and RTDN delivery. No local build or source-only test can prove these Play-controlled states.
+- Resolve the Android host Gradle loopback failure, then run `testDebugUnitTest`, `lintDebug`, and `assembleDebug` before producing a release artifact.
+- No deployment, migration, Play Console change, or Google Play upload was performed by the local audit.

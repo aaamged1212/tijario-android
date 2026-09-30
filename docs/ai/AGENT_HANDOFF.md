@@ -1,5 +1,14 @@
 # Agent Handoff (Android & Web Repos)
 
+## 2026-09-28 (Kotlin Serialization compatibility)
+- Updated the shared `kotlinx-serialization` runtime from `1.7.3` to `1.9.0` to match Kotlin `2.2.10` and Room `2.8.4` schema-test serialization APIs.
+- This addresses the instrumentation `AbstractMethodError` in `GeneratedSerializer.typeParametersSerializers()` while reading Room migration schemas.
+- The change is local and uncommitted. Build/test rerun from Codex remains blocked by the Windows Java loopback issue; rerun from normal Windows Terminal before committing.
+- Follow-up: the first post-fix instrumentation run reached Room migration tests and exposed incomplete fixture data in `LocalFirstFoundationMigrationTest`; the v16 fixture now supplies all required non-null document columns.
+- The same run exposed V6-to-V7 schema validation failures caused by SQLite defaults left by `ALTER TABLE`; that migration now rebuilds the business and customer cache tables to match Room's exact V7 schema while preserving rows.
+- The next run reduced failures to two and isolated the remaining V6-to-V7 mismatch to `document_items_cache`; its composite foreign-key order and non-unique composite index now match Room schema 7.
+- The table is now explicitly dropped and recreated during V6-to-V7 so stale indexes/foreign keys cannot survive validation.
+
 ## 2026-09-21 (Privacy-preserving local action analytics, committed locally)
 - **Android contract**: Room 22-to-23 adds an immutable pending-event outbox. Local invoice, quote, customer, product, and service creation write their anonymous event metadata in the same Room transaction as the local business record, retaining the original timestamp and never uploading the record contents.
 - **Delivery**: A constrained WorkManager upload sends up to 50 authenticated Android events after connectivity returns, deduplicates by event UUID, backs off retryable failures, caps retries, and expires event rows after 31 days. Account deletion also clears the local event queue.
@@ -1101,3 +1110,10 @@
 - `testDebugUnitTest` completed with 429 tests, 0 failures, and 0 errors. `git diff --check` passed.
 - The compatible server-side analytics migration and Web deployment were completed in the prior approved rollout. The user has explicitly authorized committing, pushing, and submitting this Android release to Google Play Production.
 - Google Play Production submission is complete and the release is shown as `Changes in review`. The configured rollout is 100% after Google approval. The only console validation item is a non-blocking native debug-symbol recommendation.
+
+## 2026-09-30 - Google Play Billing audit and hardening
+- **Android**: Play offers are exposed only when the authenticated billing-status response has an active live `google_play` product/base-plan mapping. ProductDetails are refreshed before checkout, BillingClient setup is mutex-protected, silent restore is best-effort on the upgrade screen, and acknowledgement failures become explicit purchase failures.
+- **Web**: Google Play verification now requires the expected package, matching product line item, supported subscription state, and expiry. OAuth and Publisher API calls have a ten-second timeout; temporary verification failures return retryable HTTP 503 responses.
+- **Residual risk**: RTDN still cannot safely claim an unknown token without a durable pending-event identity flow, and no Play Console tester/device evidence was available locally. Product/base-plan activation remains an external configuration gate.
+- **Validation**: `npm test` (164 passed), `npm run typecheck`, `npm run lint`, and `npm run build` passed. Android `testDebugUnitTest`, `lintDebug`, and `assembleDebug` were blocked before source compilation by Gradle loopback failure.
+- **Safety**: No commit, push, deployment, migration, Production write, Play Console change, or Google Play upload occurred.

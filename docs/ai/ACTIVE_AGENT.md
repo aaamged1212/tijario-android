@@ -352,3 +352,13 @@
 ## 2026-09-14 - Production Android release preparation
 - **Task**: Prepare the approved Production release for `versionCode 22` / `versionName 0.0.22`.
 - **State**: The signed AAB was submitted to Google Play Production and is now in review. Google Play will begin the configured full rollout after approval.
+# Active Work
+- Kotlin Serialization compatibility fix is local and awaiting external Windows Terminal validation.
+- Migration fixture correction is also local; rebuild and rerun AndroidTest before commit.
+- V6-to-V7 migration schema correction is local; rerun all migration tests before commit.
+
+## 2026-09-30 - Google Play Billing audit and hardening
+- **Task**: Local audit and targeted fixes for Android Play Billing and the Web verification bridge on `analytics/local-drive-activation-and-health` / `codex/admin-web-dashboard`.
+- **State**: Android now filters Play offers through active backend mappings, refreshes ProductDetails before checkout, serializes BillingClient connection setup, and surfaces acknowledgement failures. Web verification now binds package/product/line-item/expiry, rejects unknown states, times out Google calls, and classifies temporary verification failures as retryable.
+- **Validation**: Web tests, typecheck, lint, and production build passed. Android Gradle tasks remain blocked before compilation by the host `Unable to establish loopback connection` failure.
+- **Safety**: No commit, push, deployment, Supabase migration, Production write, Play Console change, or Google Play upload occurred.

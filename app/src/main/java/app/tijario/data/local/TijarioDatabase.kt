@@ -55,23 +55,58 @@ abstract class TijarioDatabase : RoomDatabase() {
 
         val MIGRATION_6_7 = object : Migration(6, 7) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                // 1. Add sync metadata columns to business_settings_cache
-                db.execSQL("ALTER TABLE business_settings_cache ADD COLUMN sync_status TEXT NOT NULL DEFAULT 'SYNCED'")
-                db.execSQL("ALTER TABLE business_settings_cache ADD COLUMN local_revision INTEGER NOT NULL DEFAULT 1")
-                db.execSQL("ALTER TABLE business_settings_cache ADD COLUMN server_revision TEXT DEFAULT NULL")
-                db.execSQL("ALTER TABLE business_settings_cache ADD COLUMN server_updated_at INTEGER DEFAULT NULL")
-                db.execSQL("ALTER TABLE business_settings_cache ADD COLUMN last_synced_at INTEGER DEFAULT NULL")
-                db.execSQL("ALTER TABLE business_settings_cache ADD COLUMN sync_error_code TEXT DEFAULT NULL")
-                db.execSQL("ALTER TABLE business_settings_cache ADD COLUMN is_deleted INTEGER NOT NULL DEFAULT 0")
+                // Rebuild these tables so Room sees the exact V7 schema. ALTER TABLE
+                // would leave SQLite default metadata that differs from Room's model.
+                db.execSQL("""
+                    CREATE TABLE business_settings_cache_new (
+                        user_id TEXT NOT NULL PRIMARY KEY, remote_id TEXT,
+                        business_name TEXT NOT NULL, whatsapp_number TEXT NOT NULL,
+                        country TEXT NOT NULL, city TEXT, currency TEXT NOT NULL,
+                        logo_url TEXT, instagram_url TEXT, invoice_note TEXT,
+                        terms_text TEXT, synced_at INTEGER NOT NULL,
+                        sync_status TEXT NOT NULL, local_revision INTEGER NOT NULL,
+                        server_revision TEXT, server_updated_at INTEGER,
+                        last_synced_at INTEGER, sync_error_code TEXT, is_deleted INTEGER NOT NULL
+                    )
+                """.trimIndent())
+                db.execSQL("""
+                    INSERT INTO business_settings_cache_new (
+                        user_id, remote_id, business_name, whatsapp_number, country, city,
+                        currency, logo_url, instagram_url, invoice_note, terms_text, synced_at,
+                        sync_status, local_revision, server_revision, server_updated_at,
+                        last_synced_at, sync_error_code, is_deleted
+                    ) SELECT user_id, remote_id, business_name, whatsapp_number, country, city,
+                        currency, logo_url, instagram_url, invoice_note, terms_text, synced_at,
+                        'SYNCED', 1, NULL, NULL, NULL, NULL, 0
+                        FROM business_settings_cache
+                """.trimIndent())
+                db.execSQL("DROP TABLE business_settings_cache")
+                db.execSQL("ALTER TABLE business_settings_cache_new RENAME TO business_settings_cache")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_business_settings_cache_user_id ON business_settings_cache (user_id)")
 
-                // 2. Add sync metadata columns to customers_cache
-                db.execSQL("ALTER TABLE customers_cache ADD COLUMN sync_status TEXT NOT NULL DEFAULT 'SYNCED'")
-                db.execSQL("ALTER TABLE customers_cache ADD COLUMN local_revision INTEGER NOT NULL DEFAULT 1")
-                db.execSQL("ALTER TABLE customers_cache ADD COLUMN server_revision TEXT DEFAULT NULL")
-                db.execSQL("ALTER TABLE customers_cache ADD COLUMN server_updated_at INTEGER DEFAULT NULL")
-                db.execSQL("ALTER TABLE customers_cache ADD COLUMN last_synced_at INTEGER DEFAULT NULL")
-                db.execSQL("ALTER TABLE customers_cache ADD COLUMN sync_error_code TEXT DEFAULT NULL")
-                db.execSQL("ALTER TABLE customers_cache ADD COLUMN is_deleted INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("""
+                    CREATE TABLE customers_cache_new (
+                        id TEXT NOT NULL PRIMARY KEY, user_id TEXT NOT NULL,
+                        name TEXT NOT NULL, whatsapp_number TEXT NOT NULL, city TEXT,
+                        notes TEXT, synced_at INTEGER NOT NULL, sync_status TEXT NOT NULL,
+                        local_revision INTEGER NOT NULL, server_revision TEXT,
+                        server_updated_at INTEGER, last_synced_at INTEGER,
+                        sync_error_code TEXT, is_deleted INTEGER NOT NULL
+                    )
+                """.trimIndent())
+                db.execSQL("""
+                    INSERT INTO customers_cache_new (
+                        id, user_id, name, whatsapp_number, city, notes, synced_at,
+                        sync_status, local_revision, server_revision, server_updated_at,
+                        last_synced_at, sync_error_code, is_deleted
+                    ) SELECT id, user_id, name, whatsapp_number, city, notes, synced_at,
+                        'SYNCED', 1, NULL, NULL, NULL, NULL, 0
+                        FROM customers_cache
+                """.trimIndent())
+                db.execSQL("DROP TABLE customers_cache")
+                db.execSQL("ALTER TABLE customers_cache_new RENAME TO customers_cache")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_customers_cache_user_id ON customers_cache (user_id)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_customers_cache_whatsapp_number ON customers_cache (whatsapp_number)")
 
                 // 3. Migrate products_cache to support BigDecimal (TEXT) & sync metadata using shadow table
                 db.execSQL("""
@@ -192,8 +227,11 @@ abstract class TijarioDatabase : RoomDatabase() {
                 db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_documents_cache_user_id_id ON documents_cache (user_id, id)")
 
                 // 5. Create new V7 tables
+                // V6 did not define this table. Drop any partially-created legacy
+                // copy so validation cannot retain stale indexes or foreign keys.
+                db.execSQL("DROP TABLE IF EXISTS document_items_cache")
                 db.execSQL("""
-                    CREATE TABLE IF NOT EXISTS document_items_cache (
+                    CREATE TABLE document_items_cache (
                         id TEXT NOT NULL,
                         user_id TEXT NOT NULL,
                         document_id TEXT NOT NULL,
@@ -205,12 +243,13 @@ abstract class TijarioDatabase : RoomDatabase() {
                         line_total TEXT NOT NULL,
                         sort_order INTEGER NOT NULL,
                         PRIMARY KEY(id),
-                        FOREIGN KEY(user_id, document_id) REFERENCES documents_cache(user_id, id) ON UPDATE NO ACTION ON DELETE CASCADE
+                        FOREIGN KEY(document_id, user_id) REFERENCES documents_cache(id, user_id) ON UPDATE NO ACTION ON DELETE CASCADE
                     )
                 """.trimIndent())
-                db.execSQL("CREATE INDEX IF NOT EXISTS index_document_items_cache_user_id ON document_items_cache (user_id)")
-                db.execSQL("CREATE INDEX IF NOT EXISTS index_document_items_cache_document_id ON document_items_cache (document_id)")
-                db.execSQL("CREATE INDEX IF NOT EXISTS index_document_items_cache_product_id ON document_items_cache (product_id)")
+                db.execSQL("CREATE INDEX index_document_items_cache_user_id ON document_items_cache (user_id)")
+                db.execSQL("CREATE INDEX index_document_items_cache_document_id ON document_items_cache (document_id)")
+                db.execSQL("CREATE INDEX index_document_items_cache_product_id ON document_items_cache (product_id)")
+                db.execSQL("CREATE INDEX index_document_items_cache_user_id_document_id ON document_items_cache (user_id, document_id)")
 
                 db.execSQL("""
                     CREATE TABLE IF NOT EXISTS sync_state (

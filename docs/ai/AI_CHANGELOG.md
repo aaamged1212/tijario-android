@@ -758,3 +758,15 @@
 - Bumped the release to `versionCode 22` / `versionName 0.0.22` for the local-first analytics and reliability update.
 - Built and verified the signed AAB. Debug JVM validation completed with 429 passing tests.
 - Submitted the Production release to Google Play with Arabic and English release notes; its review status is pending Google approval.
+# 2026-09-28
+- Updated Kotlinx Serialization runtime to 1.9.0 for Kotlin 2.2.10 / Room 2.8.4 compatibility and Room migration instrumentation tests.
+- Completed the v16 Room migration fixture with required non-null document fields so the migration test reaches the actual migration assertions.
+- Reworked V6-to-V7 business/customer cache migration tables to remove SQLite default metadata mismatches and preserve legacy data.
+- Corrected V6-to-V7 document-items foreign-key column order and composite index metadata.
+- Made V6-to-V7 document-items recreation explicit to prevent stale schema metadata.
+
+# 2026-09-30 - Google Play Billing readiness hardening
+- Filtered Android Play offers through active backend provider mappings, refreshed Play ProductDetails before checkout, serialized BillingClient connection setup, added silent restore on the upgrade screen, and surfaced acknowledgement failures.
+- Hardened Web Google Play verification and RTDN parsing with package/product/line-item/expiry checks, explicit unsupported-state handling, bounded Google API calls, and retryable temporary-verification responses.
+- Web validation passed: 164 tests, typecheck, lint, and production build. Android Gradle validation is blocked before compilation by the host loopback connection failure.
+- No commit, push, deployment, migration, Production write, Play Console change, or Google Play upload occurred.
