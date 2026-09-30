@@ -75,4 +75,25 @@ class BillingFoundationTests {
         assertFalse(source.contains("Log."))
         assertFalse(source.contains("purchaseToken="))
     }
+
+    @Test
+    fun catalogRequiresAnActiveServerMappingBeforeExposingPlayOffers() {
+        val source = File(
+            "src/main/java/app/tijario/features/billing/GooglePlayBillingRepository.kt",
+        ).readText()
+
+        assertTrue(source.contains("option.provider == \"google_play\""))
+        assertTrue(source.contains("option.checkoutAvailable"))
+        assertTrue(source.contains("externalBasePlanId == offer.basePlanId"))
+    }
+
+    @Test
+    fun purchaseAcknowledgementFailureIsSurfacedWithoutEscapingTheBillingCoroutine() {
+        val source = File(
+            "src/main/java/app/tijario/features/billing/GooglePlayBillingRepository.kt",
+        ).readText()
+
+        assertTrue(source.contains("runCatching { acknowledgePurchase(purchase.purchaseToken) }"))
+        assertTrue(source.contains("BillingPurchaseEvent.Failed(\"billing_ack_failed\")"))
+    }
 }

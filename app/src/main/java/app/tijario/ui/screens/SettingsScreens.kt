@@ -1383,7 +1383,7 @@ fun UpgradePlanScreen(
 
     LaunchedEffect(Unit) {
         dataViewModel.refreshPlanUsage()
-        billingViewModel.load()
+        billingViewModel.load(syncPurchases = true)
     }
 
     LaunchedEffect(billingViewModel) {

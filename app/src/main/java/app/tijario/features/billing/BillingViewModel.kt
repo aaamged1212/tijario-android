@@ -56,7 +56,9 @@ class BillingViewModel(
                             }
                         }
 
-                        load()
+                        if (event.source == BillingVerificationSource.PURCHASE) {
+                            load()
+                        }
                     }
 
                     BillingPurchaseEvent.Pending -> {
@@ -107,10 +109,11 @@ class BillingViewModel(
         }
     }
 
-    fun load() {
+    fun load(syncPurchases: Boolean = false) {
         viewModelScope.launch {
             stateMutable.update { it.copy(isLoading = true, errorMessage = null) }
-            repository.loadCatalog()
+            val catalogResult = repository.loadCatalog()
+            catalogResult
                 .onSuccess { snapshot ->
                     stateMutable.update {
                         it.copy(
@@ -129,6 +132,12 @@ class BillingViewModel(
                         )
                     }
                 }
+
+            if (syncPurchases && catalogResult.isSuccess) {
+                // A catalog refresh is useful on its own. Purchase reconciliation is best-effort
+                // here so a temporary Play outage does not hide valid prices.
+                repository.restorePurchases(emitNoActive = false)
+            }
         }
     }
 

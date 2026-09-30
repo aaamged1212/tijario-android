@@ -19,10 +19,13 @@ import com.android.billingclient.api.QueryPurchasesParams
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
@@ -32,6 +35,7 @@ class GooglePlayBillingRepository(
 ) {
     private val appContext = context.applicationContext
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val connectionMutex = Mutex()
     private val purchaseEventsMutable = MutableSharedFlow<BillingPurchaseEvent>(extraBufferCapacity = 8)
     private var offerReferences: Map<String, OfferReference> = emptyMap()
 
@@ -54,6 +58,21 @@ class GooglePlayBillingRepository(
     suspend fun loadCatalog(): Result<BillingCatalogSnapshot> = runCatching {
         val billingStatus = backendApiClient.fetchBillingStatus()
         val plans = billingStatus.data?.plans.orEmpty()
+        val activeGooglePlayOffers = plans
+            .flatMap { plan ->
+                plan.billingOptions
+                    .filter { option ->
+                        option.provider == "google_play" &&
+                            option.environment == "live" &&
+                            option.checkoutAvailable &&
+                            !option.externalProductId.isNullOrBlank() &&
+                            !option.externalBasePlanId.isNullOrBlank()
+                    }
+                    .map { option ->
+                        BillingCatalog.offerKey(plan.code, option.billingInterval) to option
+                    }
+            }
+            .toMap()
         ensureConnected()
         val productDetails = queryProductDetails()
         val offers = productDetails.flatMap { details ->
@@ -61,6 +80,9 @@ class GooglePlayBillingRepository(
             details.subscriptionOfferDetails.orEmpty()
                 .filter { offer -> offer.basePlanId in BillingCatalog.supportedIntervals }
                 .mapNotNull { offer ->
+                    activeGooglePlayOffers[BillingCatalog.offerKey(planCode, offer.basePlanId)]
+                        ?.takeIf { it.externalProductId == details.productId && it.externalBasePlanId == offer.basePlanId }
+                        ?: return@mapNotNull null
                     val formattedPrice = offer.pricingPhases.pricingPhaseList.firstOrNull()?.formattedPrice
                         ?.takeIf { it.isNotBlank() }
                         ?: return@mapNotNull null
@@ -90,6 +112,8 @@ class GooglePlayBillingRepository(
         planCode: String,
         billingInterval: String,
     ): Result<Unit> = runCatching {
+        // ProductDetails can become stale; refresh the catalog immediately before launching.
+        loadCatalog().getOrThrow()
         ensureConnected()
         val reference = offerReferences[BillingCatalog.offerKey(planCode, billingInterval)]
             ?: error("billing_product_unavailable")
@@ -108,10 +132,16 @@ class GooglePlayBillingRepository(
     }
 
     suspend fun restorePurchases(): Result<Unit> = runCatching {
+        restorePurchases(emitNoActive = true).getOrThrow()
+    }
+
+    suspend fun restorePurchases(emitNoActive: Boolean): Result<Unit> = runCatching {
         ensureConnected()
         val purchases = queryPurchases()
         if (purchases.isEmpty()) {
-            purchaseEventsMutable.emit(BillingPurchaseEvent.Failed("billing_no_active_purchases"))
+            if (emitNoActive) {
+                purchaseEventsMutable.emit(BillingPurchaseEvent.Failed("billing_no_active_purchases"))
+            }
         } else {
             purchases.forEach { purchase ->
                 verifyPurchase(purchase, BillingVerificationSource.SYNC)
@@ -123,6 +153,7 @@ class GooglePlayBillingRepository(
         if (billingClient.isReady) {
             billingClient.endConnection()
         }
+        scope.cancel()
     }
 
     private suspend fun handlePurchasesUpdated(billingResult: BillingResult, purchases: List<Purchase>) {
@@ -184,7 +215,11 @@ class GooglePlayBillingRepository(
         GoMarketMeAffiliate.syncTransactionsForPurchase(purchase.purchaseToken)
 
         if (response.data?.acknowledge == true && !purchase.isAcknowledged) {
-            acknowledgePurchase(purchase.purchaseToken)
+            runCatching { acknowledgePurchase(purchase.purchaseToken) }
+                .onFailure {
+                    purchaseEventsMutable.emit(BillingPurchaseEvent.Failed("billing_ack_failed"))
+                    return
+                }
         }
         purchaseEventsMutable.emit(
             BillingPurchaseEvent.Verified(
@@ -196,23 +231,25 @@ class GooglePlayBillingRepository(
     }
 
     private suspend fun ensureConnected() {
-        if (billingClient.isReady) return
-        suspendCancellableCoroutine { continuation ->
-            billingClient.startConnection(object : BillingClientStateListener {
-                override fun onBillingSetupFinished(billingResult: BillingResult) {
-                    if (billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
-                        continuation.resume(Unit)
-                    } else {
-                        continuation.resumeWithException(
-                            IllegalStateException(
-                                "billing_unavailable"
+        connectionMutex.withLock {
+            if (billingClient.isReady) return@withLock
+            suspendCancellableCoroutine { continuation ->
+                billingClient.startConnection(object : BillingClientStateListener {
+                    override fun onBillingSetupFinished(billingResult: BillingResult) {
+                        if (billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
+                            continuation.resume(Unit)
+                        } else {
+                            continuation.resumeWithException(
+                                IllegalStateException(
+                                    "billing_unavailable"
+                                )
                             )
-                        )
+                        }
                     }
-                }
 
-                override fun onBillingServiceDisconnected() = Unit
-            })
+                    override fun onBillingServiceDisconnected() = Unit
+                })
+            }
         }
     }
 
