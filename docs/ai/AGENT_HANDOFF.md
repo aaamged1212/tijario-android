@@ -1,5 +1,14 @@
 # Agent Handoff (Android & Web Repos)
 
+## 2026-09-30 - Baseline correction and documentation contract
+- `main` is the authoritative Android branch at `a826ca7`, synchronized with `origin/main`.
+- Room 6 -> 7 migration validation is complete on an emulator: `OK (12 tests)`.
+- Billing refresh/acknowledgement hardening and Room schema 23 are committed.
+- Historical entries below may describe earlier branch states. Do not use them as current status
+  without checking `CURRENT_BASELINE.md`, Git, and fresh validation output.
+- Every future task must update the relevant AI documents automatically before commit; stale or
+  contradictory handoff documentation blocks completion.
+
 ## 2026-09-28 (Kotlin Serialization compatibility)
 - Updated the shared `kotlinx-serialization` runtime from `1.7.3` to `1.9.0` to match Kotlin `2.2.10` and Room `2.8.4` schema-test serialization APIs.
 - This addresses the instrumentation `AbstractMethodError` in `GeneratedSerializer.typeParametersSerializers()` while reading Room migration schemas.

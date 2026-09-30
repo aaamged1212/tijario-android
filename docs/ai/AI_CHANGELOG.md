@@ -770,3 +770,12 @@
 - Hardened Web Google Play verification and RTDN parsing with package/product/line-item/expiry checks, explicit unsupported-state handling, bounded Google API calls, and retryable temporary-verification responses.
 - Web validation passed: 164 tests, typecheck, lint, and production build. Android Gradle validation is blocked before compilation by the host loopback connection failure.
 - No commit, push, deployment, migration, Production write, Play Console change, or Google Play upload occurred.
+# 2026-09-30 - Establish authoritative project baseline
+- Added `docs/ai/CURRENT_BASELINE.md` with the current `main` commit, validation evidence,
+  architecture boundaries, and release gates.
+- Corrected current-state notes in `PROJECT_STATE.md`, `AGENT_HANDOFF.md`, `ACTIVE_AGENT.md`,
+  and `PENDING_RELEASE.md` without deleting historical entries.
+- Reconciled the local-first write decision in `DECISIONS.md` with the current Room/outbox model.
+- Made automatic documentation updates a completion requirement in `WORKFLOW_PROTOCOL.md`.
+- No source code, production configuration, Supabase state, deployment, or Play Console state was
+  changed by this documentation task.

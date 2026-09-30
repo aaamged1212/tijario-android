@@ -22,10 +22,15 @@
 ## 4. Closed Testing
 - No Google Play upload unless approved.
 - No disruptive production changes unless approved.
-## 5. Android MVP Write Model
-- **Online-Only Writes**: Creating, updating, and deleting documents, customers, products, and business settings require internet and must persist remotely before showing final success.
-- **Cached Reads**: Local SQLite Room cache is used strictly for reading/displaying previously synced data.
-- **No Offline CRUD Queue**: No local-only success states. If remote save fails or the device is offline, show an error without caching or pretending the data was saved remotely.
+## 5. Android Local-First Write Model
+- Room is the first-render and operational source for supported local data.
+- Offline creation and editing may succeed locally when the feature contract permits it; the UI must
+  not claim that remote synchronization already succeeded.
+- Remote synchronization uses the existing authenticated repository/outbox path, stable IDs,
+  idempotency keys, bounded retries, and explicit conflict/non-retryable states.
+- Analytics events contain lightweight metadata only and never business-record contents.
+- A new feature must document whether its write contract is local-first, remote-authoritative, or
+  hybrid before implementation.
 
 ## 6. Inventory Ownership
 - Invoice inventory is mutated only by trusted Web/database RPCs.

@@ -1,5 +1,15 @@
 # Project State (Android & Web Repos)
 
+## 2026-09-30 - Authoritative current baseline
+- Android `main` and `origin/main` are synchronized at `a826ca7`.
+- Room 6 -> 7 migration instrumentation validation passed on the emulator: `OK (12 tests)`.
+- The latest debug build passed. Billing hardening and Room schema version 23 are committed.
+- Historical entries below are retained for traceability and are not current blockers unless
+  reconfirmed by fresh evidence.
+- Current open gates are physical-device QA, compatible Web/API and Supabase end-to-end checks,
+  and the separately approved Android release process.
+- `docs/ai/CURRENT_BASELINE.md` is the concise source of truth for current implementation state.
+
 ## 2026-09-28 - Serialization compatibility fix
 - Kotlinx Serialization runtime is now `1.9.0`, aligned with Kotlin `2.2.10` and Room `2.8.4`.
 - This is intended to remove the Room migration instrumentation `AbstractMethodError`.

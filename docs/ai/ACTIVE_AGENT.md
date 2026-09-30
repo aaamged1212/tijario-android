@@ -1,5 +1,16 @@
 # Active Agent Status
 
+## 2026-09-30 - Current baseline
+- **Authoritative branch**: `main` at `a826ca7`; synchronized with `origin/main`.
+- **State**: Android migration and Billing fixes are committed. The latest emulator suite reports
+  `OK (12 tests)` and the debug build completed successfully.
+- **Next work rule**: begin new features only after updating the scope, contract, affected
+  migrations/API surfaces, validation plan, and release gates in the AI documentation.
+- **Documentation rule**: every future change must update the required AI files automatically in
+  the same task; no user reminder is required.
+- **Open evidence**: physical-device QA, compatible Web/API and Supabase end-to-end verification,
+  and any release/Play submission remain separate gates.
+
 ## 2026-09-21
 - **Current task**: Local-first action-event analytics is implemented across Android and the compatible Web/Supabase contract.
 - **State**: Production schema migration `20260921020954_mobile_analytics_events.sql` is applied. Android is version 0.0.23. Web validation passed; Android Gradle is blocked by this host's daemon loopback failure before compilation starts.

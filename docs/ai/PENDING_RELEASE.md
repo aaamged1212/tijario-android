@@ -1,5 +1,14 @@
 # Pending Release
 
+## 2026-09-30 - Current release baseline
+- Android source is on `main` at `a826ca7`; no Android artifact has been uploaded by this task.
+- Local debug build and 12-test instrumentation suite passed.
+- Still required before a production Android release: physical-device QA, release AAB/signing
+  verification, R8 mapping and native-symbol retention, compatible Web/API verification, and the
+  explicitly approved Play Console release procedure.
+- Any new migration, API contract, deployment, or release action must add a dated gate here before
+  the action and close it only with evidence after the action.
+
 ## 2026-09-21 - Local action analytics release gate
 - Deploy the compatible Web/API commit after publishing it. Then install Android 0.0.23 over a 0.0.22 build and verify the Room 22-to-23 upgrade.
 - On a physical authenticated device, create a customer, product, service, invoice, and quote while offline; reconnect and verify one event per action appears in the administrator aggregate without any business content stored in Supabase.
